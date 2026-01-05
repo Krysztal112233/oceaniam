@@ -1,0 +1,11 @@
+[package]
+name = "oceaniam-database"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+sea-orm.workspace = true
+serde.workspace = true
+strum.workspace = true
+ts-rs.workspace = true
+utoipa.workspace = true

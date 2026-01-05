@@ -1,0 +1,13 @@
+[package]
+name = "oceaniam-common"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+axum.workspace = true
+config.workspace = true
+sea-orm.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+ts-rs.workspace = true
+utoipa.workspace = true

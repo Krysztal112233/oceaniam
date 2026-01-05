@@ -1,0 +1,16 @@
+[package]
+name = "oceaniam-keybox"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+chrono.workspace = true
+jsonwebtoken.workspace = true
+rand.workspace = true
+rsa.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+
+oceaniam-database.workspace = true

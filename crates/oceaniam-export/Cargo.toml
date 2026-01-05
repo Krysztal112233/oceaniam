@@ -1,0 +1,11 @@
+[package]
+name = "oceaniam-export"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde.workspace = true
+ts-rs.workspace = true
+
+oceaniam-common.workspace = true
+oceaniam-database.workspace = true

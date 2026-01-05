@@ -1,0 +1,5 @@
+/target
+.env
+
+## Exclude typescript bindgen
+/**/bindings

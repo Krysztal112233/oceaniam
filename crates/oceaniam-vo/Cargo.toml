@@ -1,0 +1,9 @@
+[package]
+name = "oceaniam-vo"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde.workspace = true
+ts-rs.workspace = true
+utoipa.workspace = true
