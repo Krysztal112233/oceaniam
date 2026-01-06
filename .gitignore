@@ -3,3 +3,6 @@
 
 ## Exclude typescript bindgen
 /**/bindings
+
+## Exclude config fie
+config.toml
