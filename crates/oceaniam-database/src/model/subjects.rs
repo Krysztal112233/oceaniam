@@ -10,12 +10,27 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub ref_id: Uuid,
     pub r#type: SubjectTypeEnum,
+    pub application_id: Uuid,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(
+        belongs_to = "super::applications::Entity",
+        from = "Column::ApplicationId",
+        to = "super::applications::Column::Id",
+        on_update = "NoAction",
+        on_delete = "NoAction"
+    )]
+    Applications,
     #[sea_orm(has_one = "super::credentials::Entity")]
     Credentials,
+}
+
+impl Related<super::applications::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Applications.def()
+    }
 }
 
 impl Related<super::credentials::Entity> for Entity {
