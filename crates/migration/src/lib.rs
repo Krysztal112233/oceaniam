@@ -6,6 +6,7 @@ mod m20260104_172552_add_keybox;
 mod m20260105_141454_add_rs384_rs512;
 mod m20260105_144550_add_ps256_ps384_ps512;
 mod m20260105_150848_alter_key_boxes_kid_key_id;
+mod m20260106_090640_create_tenant_application;
 
 pub struct Migrator;
 
@@ -18,6 +19,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260105_141454_add_rs384_rs512::Migration),
             Box::new(m20260105_144550_add_ps256_ps384_ps512::Migration),
             Box::new(m20260105_150848_alter_key_boxes_kid_key_id::Migration),
+            Box::new(m20260106_090640_create_tenant_application::Migration),
         ]
     }
 }

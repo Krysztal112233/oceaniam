@@ -2,8 +2,10 @@
 
 pub mod prelude;
 
+pub mod applications;
 pub mod credentials;
 pub mod key_boxes;
 pub mod sea_orm_active_enums;
 pub mod subjects;
+pub mod tenants;
 pub mod users;
