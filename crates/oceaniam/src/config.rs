@@ -21,7 +21,6 @@ impl BackendConfig {
     pub fn new() -> Result<Self, Error> {
         Ok(Config::builder()
             .add_source(config::File::with_name("config.toml"))
-            .add_source(config::Environment::with_prefix("BACKEND").separator("_"))
             .build()?
             .try_deserialize()?)
     }
