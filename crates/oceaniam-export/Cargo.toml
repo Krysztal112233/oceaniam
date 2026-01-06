@@ -7,5 +7,6 @@ edition.workspace = true
 serde.workspace = true
 ts-rs.workspace = true
 
+oceaniam-vo.workspace = true
 oceaniam-common.workspace = true
 oceaniam-database.workspace = true
