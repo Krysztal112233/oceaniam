@@ -1,6 +1,7 @@
 use config::Config;
-use oceaniam_common::error::Error;
 use serde::{Deserialize, Serialize};
+
+use crate::error::Error;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackendConfig {
