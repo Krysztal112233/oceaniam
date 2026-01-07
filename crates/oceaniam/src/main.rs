@@ -68,14 +68,14 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
-async fn setup_database(config: &DatabaseConfig) -> Result<DatabaseConnection, Error> {
-    let DatabaseConfig {
+async fn setup_database(
+    DatabaseConfig {
         dsn,
         slow_statements_logging_threshold,
         max_connections,
         min_connections,
-    } = config;
-
+    }: &DatabaseConfig,
+) -> Result<DatabaseConnection, Error> {
     let options = ConnectOptions::new(dsn)
         .pipe_borrow_mut(|it| match slow_statements_logging_threshold {
             Some(milis) => it.sqlx_slow_statements_logging_settings(
