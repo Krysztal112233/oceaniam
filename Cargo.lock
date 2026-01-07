@@ -1626,6 +1626,7 @@ dependencies = [
  "sea-orm",
  "sea-orm-migration",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -1770,6 +1771,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "oceaniam-cli"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "config",
+ "log",
+ "migration",
+ "oceaniam-common",
+ "oceaniam-credential",
+ "oceaniam-database",
+ "oceaniam-export",
+ "oceaniam-vo",
+ "sea-orm",
+ "serde",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "oceaniam-common"
 version = "0.1.0"
 dependencies = [
@@ -1777,6 +1798,7 @@ dependencies = [
  "config",
  "sea-orm",
  "serde",
+ "serde_json",
  "thiserror 2.0.17",
  "ts-rs",
  "utoipa",
@@ -1795,11 +1817,16 @@ dependencies = [
 name = "oceaniam-database"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "oceaniam-common",
+ "oceaniam-credential",
  "sea-orm",
  "serde",
+ "serde_json",
  "strum 0.27.2",
  "ts-rs",
  "utoipa",
+ "uuid",
 ]
 
 [[package]]

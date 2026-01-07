@@ -1,0 +1,21 @@
+[package]
+name = "oceaniam-cli"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+clap.workspace = true
+config.workspace = true
+log.workspace = true
+sea-orm.workspace = true
+serde.workspace = true
+tokio.workspace = true
+tracing-subscriber.workspace = true
+tracing.workspace = true
+
+migration.workspace = true
+oceaniam-common.workspace = true
+oceaniam-credential.workspace = true
+oceaniam-database.workspace = true
+oceaniam-export.workspace = true
+oceaniam-vo.workspace = true
