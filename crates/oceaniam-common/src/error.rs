@@ -15,6 +15,9 @@ pub enum Error {
     Io(#[from] std::io::Error),
 
     #[error("{0}")]
+    Json(#[from] serde_json::Error),
+
+    #[error("{0}")]
     Unknown(String),
 
     #[error("status: {0}, msg: {1}")]

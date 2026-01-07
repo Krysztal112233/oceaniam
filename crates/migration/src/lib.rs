@@ -8,6 +8,7 @@ mod m20260105_144550_add_ps256_ps384_ps512;
 mod m20260105_150848_alter_key_boxes_kid_key_id;
 mod m20260106_090640_create_tenant_application;
 mod m20260106_165217_alter_subject_application_id;
+mod m20260107_060743_alter_application_comment_nullable;
 
 pub struct Migrator;
 
@@ -22,6 +23,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260105_150848_alter_key_boxes_kid_key_id::Migration),
             Box::new(m20260106_090640_create_tenant_application::Migration),
             Box::new(m20260106_165217_alter_subject_application_id::Migration),
+            Box::new(m20260107_060743_alter_application_comment_nullable::Migration),
         ]
     }
 }
