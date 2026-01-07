@@ -22,11 +22,25 @@ pub enum Relation {
         on_delete = "NoAction"
     )]
     Applications,
+    #[sea_orm(
+        belongs_to = "super::subjects::Entity",
+        from = "Column::Id",
+        to = "super::subjects::Column::Id",
+        on_update = "NoAction",
+        on_delete = "NoAction"
+    )]
+    Subjects,
 }
 
 impl Related<super::applications::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Applications.def()
+    }
+}
+
+impl Related<super::subjects::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Subjects.def()
     }
 }
 

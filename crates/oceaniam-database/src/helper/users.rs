@@ -9,13 +9,16 @@ use crate::{
     },
     model::{
         self,
-        prelude::{Credentials, Subjects},
+        prelude::{Credentials, Subjects, Users},
         sea_orm_active_enums::SubjectTypeEnum,
     },
 };
 
 #[async_trait::async_trait]
 pub trait UserHelper {
+    /// Create user will create a [Subjects] record at same time.
+    ///
+    /// While create an user, at leaset put password into their [CredentialVault].
     async fn create_user(
         name: impl Into<String> + Send,
         credential: CredentialVault,
@@ -26,10 +29,10 @@ pub trait UserHelper {
         let result = {
             let subject =
                 Subjects::create_subjects(application_id, SubjectTypeEnum::User, &database).await?;
-            let _ = Credentials::create_cradentials(subject.ref_id, credential, &database).await?;
+            let _ = Credentials::create_cradentials(subject.id, credential, &database).await?;
 
             model::users::Model {
-                id: Uuid::now_v7(),
+                id: subject.id,
                 name: name.into(),
                 application_id,
             }
@@ -42,3 +45,5 @@ pub trait UserHelper {
         Ok(result)
     }
 }
+
+impl UserHelper for Users {}

@@ -16,7 +16,7 @@ pub trait SubjectsHelper {
     ) -> Result<model::subjects::Model, Error> {
         let result = {
             model::subjects::Model {
-                ref_id: Uuid::now_v7(),
+                id: Uuid::now_v7(),
                 r#type: typ,
                 application_id,
             }

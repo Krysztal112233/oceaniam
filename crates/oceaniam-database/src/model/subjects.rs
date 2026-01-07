@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 #[sea_orm(table_name = "subjects")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub ref_id: Uuid,
+    pub id: Uuid,
     pub r#type: SubjectTypeEnum,
     pub application_id: Uuid,
 }
@@ -25,6 +25,8 @@ pub enum Relation {
     Applications,
     #[sea_orm(has_one = "super::credentials::Entity")]
     Credentials,
+    #[sea_orm(has_one = "super::users::Entity")]
+    Users,
 }
 
 impl Related<super::applications::Entity> for Entity {
@@ -36,6 +38,12 @@ impl Related<super::applications::Entity> for Entity {
 impl Related<super::credentials::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Credentials.def()
+    }
+}
+
+impl Related<super::users::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Users.def()
     }
 }
 
