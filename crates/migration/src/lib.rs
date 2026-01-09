@@ -11,6 +11,7 @@ mod m20260106_165217_alter_subject_application_id;
 mod m20260107_060743_alter_application_comment_nullable;
 mod m20260107_082109_alter_subject_id;
 mod m20260107_084436_fk_user_id_subject_id;
+mod m20260109_155812_alter_tenants_comment_nullable;
 
 pub struct Migrator;
 
@@ -28,6 +29,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260107_060743_alter_application_comment_nullable::Migration),
             Box::new(m20260107_082109_alter_subject_id::Migration),
             Box::new(m20260107_084436_fk_user_id_subject_id::Migration),
+            Box::new(m20260109_155812_alter_tenants_comment_nullable::Migration),
         ]
     }
 }
