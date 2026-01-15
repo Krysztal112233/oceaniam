@@ -1,3 +1,7 @@
+//! Authentication-related API endpoints
+//!
+//! Provides interfaces for user signin, signup, signout, and token refresh
+
 use axum::Json;
 use oceaniam_common::{ApiResponse, RestResult};
 use oceaniam_vo::auth::{SigninResponse, SignoutResponse, SignupRequest, SignupResponse};
@@ -13,6 +17,9 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
         .routes(routes!(signup))
 }
 
+/// User signin
+///
+/// Authenticates user with credentials
 #[utoipa::path(
         post,
         path = "/auth/signin",
@@ -26,6 +33,9 @@ pub async fn signin() -> RestResult<()> {
     Ok(ApiResponse::new(()))
 }
 
+/// User signout
+///
+/// Clears current user session information
 #[utoipa::path(
         get,
         path = "/auth/signout",
@@ -39,6 +49,9 @@ pub async fn signout() -> RestResult<()> {
     Ok(ApiResponse::new(()))
 }
 
+/// User signup
+///
+/// Creates a new user account
 #[utoipa::path(
         post,
         path = "/auth/signup",
@@ -51,6 +64,9 @@ pub async fn signup(Json(_request): Json<SignupRequest>) -> RestResult<()> {
     Ok(ApiResponse::new(()))
 }
 
+/// Refresh access token
+///
+/// Obtains new access token using refresh token
 #[utoipa::path(
         post,
         path = "/auth/refresh",
