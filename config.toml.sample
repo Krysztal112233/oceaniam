@@ -2,3 +2,7 @@ addr = "0.0.0.0:8000"
 
 [database]
 dsn = "postgresql://postgres:postgres@postgres:5432/postgres"
+
+[oceaniam]
+application = "39bd9d5b-0947-4134-8b31-a572d840c08a"
+tenant = "93fdca8a-854c-441d-b5d6-282e0a97303c"

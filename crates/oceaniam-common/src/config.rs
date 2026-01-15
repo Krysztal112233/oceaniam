@@ -1,5 +1,6 @@
 use config::Config;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::error::Error;
 
@@ -7,6 +8,7 @@ use crate::error::Error;
 pub struct BackendConfig {
     pub addr: String,
     pub database: DatabaseConfig,
+    pub oceaniam: OceanIamConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,6 +18,12 @@ pub struct DatabaseConfig {
     pub slow_statements_logging_threshold: Option<u64>,
     pub max_connections: Option<u32>,
     pub min_connections: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OceanIamConfig {
+    pub application: Uuid,
+    pub tenant: Uuid,
 }
 
 impl BackendConfig {
