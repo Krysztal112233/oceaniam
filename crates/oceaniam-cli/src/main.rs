@@ -16,7 +16,7 @@ mod manager;
 
 #[derive(Debug, Parser)]
 #[command(name = "OceanIAM CLI")]
-#[command(bin_name = "oceaniam_cli")]
+#[command(bin_name = "oceaniam-cli")]
 #[command(arg_required_else_help = true)]
 #[command(version)]
 #[command(about = "OceanIAM CLI Toolbox")]
