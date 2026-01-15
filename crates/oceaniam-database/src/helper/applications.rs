@@ -9,7 +9,7 @@ use crate::{
 
 #[async_trait::async_trait]
 pub trait ApplicationHelper {
-    async fn create_application(
+    async fn create(
         id: Uuid,
         tenants_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,

@@ -10,7 +10,7 @@ use crate::{
 
 #[async_trait::async_trait]
 pub trait CredentialsHelper {
-    async fn create_cradentials(
+    async fn create(
         subject_id: Uuid,
         credential: CredentialVault,
         database: &impl SafeTransactionConnectionTrait,

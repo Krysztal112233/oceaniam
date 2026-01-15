@@ -19,7 +19,7 @@ pub trait UserHelper {
     /// Create user will create a [Subjects] record at same time.
     ///
     /// While create an user, at leaset put password into their [CredentialVault].
-    async fn create_user(
+    async fn create(
         name: impl Into<String> + Send,
         credential: CredentialVault,
         application_id: Uuid,
@@ -29,7 +29,7 @@ pub trait UserHelper {
         let result = {
             let subject =
                 Subjects::create_subjects(application_id, SubjectTypeEnum::User, &database).await?;
-            let _ = Credentials::create_cradentials(subject.id, credential, &database).await?;
+            let _ = Credentials::create(subject.id, credential, &database).await?;
 
             model::users::Model {
                 id: subject.id,
