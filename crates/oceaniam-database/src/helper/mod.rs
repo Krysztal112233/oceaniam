@@ -3,6 +3,7 @@ use sea_orm::{ConnectionTrait, TransactionTrait};
 pub mod applications;
 pub mod credentials;
 pub mod subjects;
+pub mod tenants;
 pub mod users;
 
 pub trait SafeTransactionConnectionTrait: TransactionTrait + ConnectionTrait + Sync + Send {}
