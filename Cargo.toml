@@ -7,7 +7,6 @@ members = [
 	"crates/oceaniam-database",
 	"crates/oceaniam-export",
 	"crates/oceaniam-keybox",
-	"crates/oceaniam-cli",
 	"crates/oceaniam-vo",
 ]
 resolver = "3"

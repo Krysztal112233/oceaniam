@@ -19,6 +19,3 @@ FROM base AS migration
 COPY --from=backend-builder /builder/target/release/migration /app/
 CMD [ "./migration" ]
 
-FROM base AS init
-COPY --from=backend-builder /builder/target/release/oceaniam-cli /app/
-CMD [ "./oceaniam-cli", "init" ]
