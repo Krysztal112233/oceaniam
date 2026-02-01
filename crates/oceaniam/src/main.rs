@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use axum::Router;
-use log::error;
+use log::{debug, error};
 use mimalloc::MiMalloc;
 use oceaniam_common::config::{BackendConfig, DatabaseConfig};
 use oceaniam_common::error::Error;
@@ -94,7 +94,11 @@ async fn setup_database(
         })
         .to_owned();
 
-    let db = Database::connect(options).await?;
+    let db = Database::connect(options)
+        .await
+        .inspect_err(|err| error!("{err}"))?;
+
+    debug!("connected to database: {dsn}");
 
     Ok(db)
 }

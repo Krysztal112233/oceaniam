@@ -64,7 +64,7 @@ pub async fn signup(Json(_request): Json<SignupRequest>) -> RestResult<()> {
     Ok(ApiResponse::new(()))
 }
 
-/// Refresh access token
+/// Refresh JWT
 ///
 /// Obtains new access token using refresh token
 #[utoipa::path(

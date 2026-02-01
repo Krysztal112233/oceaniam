@@ -11,13 +11,14 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
 
 /// Get user list
 #[utoipa::path(
-         get,
-         path = "/users/",
-         tag = "Users",
-         responses(
-             (status = 200, body = ApiResponse<Empty>),
-         )
-     )]
+        get,
+        path = "/users/",
+        tag = "Users",
+        responses(
+            (status = 200, body = ApiResponse<Empty>),
+        ),
+        params(("authorization" = String, Header, description = "Authorization payload"))
+    )]
 #[axum::debug_handler]
 pub async fn users() -> RestResult<()> {
     Ok(ApiResponse::new(()))

@@ -2,6 +2,7 @@
 
 pub mod prelude;
 
+pub mod administrators;
 pub mod applications;
 pub mod credentials;
 pub mod key_boxes;
