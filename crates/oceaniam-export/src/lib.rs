@@ -1,4 +1,5 @@
 pub mod database;
+pub mod jwt;
 pub mod vo;
 
 #[derive(ts_rs::TS)]

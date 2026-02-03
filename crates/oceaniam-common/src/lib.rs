@@ -7,6 +7,7 @@ use crate::error::Error;
 
 pub mod config;
 pub mod error;
+pub mod jwt;
 
 #[derive(Debug, Deserialize, Serialize, Default, ToSchema)]
 pub struct Empty {}
