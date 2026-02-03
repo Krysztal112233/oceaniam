@@ -26,7 +26,7 @@ async fn main() -> Result<(), Error> {
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
-    let config = dbg!(BackendConfig::new().inspect_err(|e| error!("{e}"))?);
+    let config = BackendConfig::new().inspect_err(|e| error!("{e}"))?;
 
     let states = {
         let database = setup_database(&config.database)

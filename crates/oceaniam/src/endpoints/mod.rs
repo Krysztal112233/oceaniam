@@ -9,6 +9,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::state::AppState;
 
+pub mod admin;
 pub mod auth;
 pub mod users;
 
@@ -27,6 +28,7 @@ async fn root(State(_ext): State<AppState>) -> RestResult<Empty> {
 pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(routes!(root))
+        .pipe(admin::endpoint)
         .pipe(auth::endpoint)
         .pipe(users::endpoint)
 }
