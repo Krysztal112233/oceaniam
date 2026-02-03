@@ -2,6 +2,7 @@ use sea_orm::{ConnectionTrait, TransactionTrait};
 
 pub mod applications;
 pub mod credentials;
+pub mod key_boxes;
 pub mod subjects;
 pub mod tenants;
 pub mod users;
