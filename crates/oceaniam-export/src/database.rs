@@ -17,3 +17,8 @@ pub struct Credentials;
 #[ts(export)]
 #[ts(as = "oceaniam_database::model::key_boxes::Model")]
 pub struct KeyBoxes;
+
+#[derive(ts_rs::TS)]
+#[ts(export)]
+#[ts(as = "oceaniam_database::model::revoked_jwts::Model")]
+pub struct RevokedJwts;

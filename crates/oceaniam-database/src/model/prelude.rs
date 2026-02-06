@@ -4,6 +4,7 @@ pub use super::administrators::Entity as Administrators;
 pub use super::applications::Entity as Applications;
 pub use super::credentials::Entity as Credentials;
 pub use super::key_boxes::Entity as KeyBoxes;
+pub use super::revoked_jwts::Entity as RevokedJwts;
 pub use super::subjects::Entity as Subjects;
 pub use super::tenants::Entity as Tenants;
 pub use super::users::Entity as Users;

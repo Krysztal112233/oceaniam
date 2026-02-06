@@ -6,6 +6,7 @@ pub mod administrators;
 pub mod applications;
 pub mod credentials;
 pub mod key_boxes;
+pub mod revoked_jwts;
 pub mod sea_orm_active_enums;
 pub mod subjects;
 pub mod tenants;
