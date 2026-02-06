@@ -1,6 +1,6 @@
 use log::error;
-use oceaniam_common::error::Error;
-use sea_orm::EntityTrait;
+use oceaniam_common::{consts, error::Error};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 use crate::{
     helper::SafeTransactionConnectionTrait,
@@ -9,16 +9,14 @@ use crate::{
 
 #[async_trait::async_trait]
 pub trait KeyBoxesHelper {
-    async fn get_system_key_boxes(
+    async fn get_system_keys(
         database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<(), Error> {
-        // Well, this equals "00000000-0000-0000-0000-000000000000".
-        let resu = KeyBoxes::find_by_id(uuid::Uuid::default())
-            .one(database)
+    ) -> Result<Vec<model::key_boxes::Model>, Error> {
+        Ok(KeyBoxes::find()
+            .filter(model::key_boxes::Column::ApplicationId.eq(consts::SYSTEM_APPLICATION_UUID))
+            .all(database)
             .await
-            .inspect_err(|e| error!("{e}"))?;
-
-        Ok(())
+            .inspect_err(|e| error!("{e}"))?)
     }
 }
 

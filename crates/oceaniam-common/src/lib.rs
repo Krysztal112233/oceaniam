@@ -6,6 +6,7 @@ use utoipa::ToSchema;
 use crate::error::Error;
 
 pub mod config;
+pub mod consts;
 pub mod error;
 pub mod jwt;
 

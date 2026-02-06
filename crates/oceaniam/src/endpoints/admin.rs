@@ -1,6 +1,8 @@
 //! Adminstration-related API endpoints
 //!
 //! Provides interfaces for admin signin and signout
+//!
+//! NOTE: For security consideration, adminstrator cannot refresh jwt.
 
 use axum::extract::State;
 use oceaniam_common::{ApiResponse, Empty, RestResult};

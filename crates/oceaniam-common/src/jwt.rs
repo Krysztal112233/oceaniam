@@ -44,6 +44,11 @@ pub struct Claim {
     ///
     /// Token audience (optional), represents the intended recipient of the token
     pub aud: Option<String>,
+
+    /// JWT ID
+    ///
+    /// Unique identifier for the token, used to prevent replay attacks
+    pub jti: Uuid,
 }
 
 /// SystemClaim - Used for IAM's internal authentication
@@ -77,6 +82,11 @@ pub struct SystemClaim {
     ///
     /// Token audience (optional), represents the intended recipient of the token
     pub aud: Option<String>,
+
+    /// JWT ID
+    ///
+    /// Unique identifier for the token, used to prevent replay attacks
+    pub jti: Uuid,
 }
 
 pub trait ClaimHelper: DeserializeOwned + Serialize + Clone {
@@ -103,6 +113,7 @@ impl ClaimHelper for Claim {
             iat: now,
             iss,
             aud,
+            jti: Uuid::now_v7(),
         }
     }
 }
@@ -116,6 +127,7 @@ impl ClaimHelper for SystemClaim {
             iat: now,
             iss,
             aud,
+            jti: Uuid::now_v7(),
         }
     }
 }
