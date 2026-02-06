@@ -1,6 +1,6 @@
-use jsonwebtoken::{jwk::Jwk, Algorithm, EncodingKey};
+use jsonwebtoken::{Algorithm, EncodingKey, jwk::Jwk};
 use oceaniam_database::model::sea_orm_active_enums::KeyAlg;
-use rsa::{pkcs1::EncodeRsaPrivateKey, pkcs8::der::zeroize::Zeroize, RsaPrivateKey};
+use rsa::{RsaPrivateKey, pkcs1::EncodeRsaPrivateKey, pkcs8::der::zeroize::Zeroize};
 use serde::{Deserialize, Serialize};
 
 use crate::error::Error;
@@ -65,16 +65,18 @@ mod tests {
 
     #[test]
     fn test_rsa_key_pair_into_jwk() {
-        assert!([
-            Algorithm::PS256,
-            Algorithm::PS384,
-            Algorithm::PS512,
-            Algorithm::RS256,
-            Algorithm::RS384,
-            Algorithm::RS512,
-        ]
-        .into_iter()
-        .map(|alg| RSAKey::new(Uuid::now_v7()).into_jwk(alg))
-        .all(|it| it.is_ok()))
+        assert!(
+            [
+                Algorithm::PS256,
+                Algorithm::PS384,
+                Algorithm::PS512,
+                Algorithm::RS256,
+                Algorithm::RS384,
+                Algorithm::RS512,
+            ]
+            .into_iter()
+            .map(|alg| RSAKey::new(Uuid::now_v7()).into_jwk(alg))
+            .all(|it| it.is_ok())
+        )
     }
 }
