@@ -14,6 +14,8 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::key_boxes::Entity")]
+    KeyBoxes,
     #[sea_orm(has_many = "super::subjects::Entity")]
     Subjects,
     #[sea_orm(
@@ -26,6 +28,12 @@ pub enum Relation {
     Tenants,
     #[sea_orm(has_many = "super::users::Entity")]
     Users,
+}
+
+impl Related<super::key_boxes::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::KeyBoxes.def()
+    }
 }
 
 impl Related<super::subjects::Entity> for Entity {

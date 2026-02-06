@@ -14,6 +14,7 @@ mod m20260107_084436_fk_user_id_subject_id;
 mod m20260109_155812_alter_tenants_comment_nullable;
 mod m20260201_105619_create_basic_management;
 mod m20260206_092132_create_revoked_jwts;
+mod m20260206_095214_alter_key_boxes_belong_to;
 
 pub struct Migrator;
 
@@ -34,6 +35,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260109_155812_alter_tenants_comment_nullable::Migration),
             Box::new(m20260201_105619_create_basic_management::Migration),
             Box::new(m20260206_092132_create_revoked_jwts::Migration),
+            Box::new(m20260206_095214_alter_key_boxes_belong_to::Migration),
         ]
     }
 }
