@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    pub key_id: Uuid,
     pub key_alg: KeyAlg,
     pub status: KeyStatus,
     pub created_at: DateTimeWithTimeZone,
