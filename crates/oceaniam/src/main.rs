@@ -18,6 +18,7 @@ use crate::state::AppState;
 static GLOBAL: MiMalloc = MiMalloc;
 
 mod endpoints;
+mod key_box;
 mod state;
 
 #[tokio::main]

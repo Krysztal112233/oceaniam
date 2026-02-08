@@ -4,8 +4,11 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+backon.workspace = true
 chrono.workspace = true
+im.workspace = true
 jsonwebtoken.workspace = true
+parking_lot.workspace = true
 rand.workspace = true
 rsa.workspace = true
 serde.workspace = true

@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-
 use chrono::{DateTime, FixedOffset, Utc};
+use im::HashMap;
 use oceaniam_database::model::{key_boxes::Model as Key, sea_orm_active_enums::KeyStatus};
+use parking_lot::RwLock;
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -23,20 +23,20 @@ pub struct KeyOption {
 }
 
 /// [KeyBox] is used to manage multiple keys, providing expiration checking and key management functionality
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct KeyBox {
     /// Belong to application
     application_id: Uuid,
 
-    /// Stores all keys with [Key::key_id] as the key
-    keys: HashMap<Uuid, Key>,
+    /// Stores all keys with [Key::id] as the key
+    keys: RwLock<HashMap<Uuid, Key>>,
 }
 
 impl KeyBox {
     pub fn new(application_id: Uuid) -> Self {
         Self {
             application_id,
-            keys: HashMap::new(),
+            keys: RwLock::new(HashMap::new()),
         }
     }
 
@@ -85,7 +85,7 @@ impl KeyBox {
             application_id: self.application_id,
         };
 
-        self.keys.insert(id, key);
+        self.keys.write().insert(id, key);
         Ok(())
     }
 
@@ -98,12 +98,20 @@ impl KeyBox {
     where
         T: From<Key>,
     {
-        self.keys.get(key_id).cloned().map(Into::into)
+        self.keys.read().get(key_id).cloned().map(Into::into)
     }
 
     /// Removes the specified key
     pub fn remove_key(&mut self, key_id: &Uuid) -> Option<Key> {
-        self.keys.remove(key_id)
+        self.keys.write().remove(key_id)
+    }
+
+    pub fn get_keys(&self) -> HashMap<Uuid, Key> {
+        self.keys.read().clone()
+    }
+
+    pub fn sync(&mut self, income: HashMap<Uuid, Key>) {
+        *self.keys.write() = income
     }
 }
 
@@ -168,7 +176,7 @@ mod tests {
             application_id: keybox.application_id,
         };
 
-        keybox.keys.insert(id, key);
+        keybox.keys.write().insert(id, key);
     }
 
     // NOTE: AI-generated test

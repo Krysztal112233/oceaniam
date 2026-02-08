@@ -13,7 +13,7 @@ use crate::{
     error::Error,
     key::{AsSecretField, FromSecretField},
     key_alg::KeyAlg,
-    keybox::StandloneKey,
+    key_box::StandloneKey,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

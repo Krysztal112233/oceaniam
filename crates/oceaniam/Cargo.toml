@@ -5,7 +5,10 @@ edition.workspace = true
 
 [dependencies]
 axum.workspace = true
+backon.workspace = true
+chrono.workspace = true
 config.workspace = true
+im.workspace = true
 log.workspace = true
 mimalloc.workspace = true
 sea-orm.workspace = true
@@ -19,6 +22,7 @@ tracing.workspace = true
 utoipa-axum.workspace = true
 utoipa-scalar.workspace = true
 utoipa.workspace = true
+uuid.workspace = true
 
 migration.workspace = true
 oceaniam-common.workspace = true
@@ -26,3 +30,4 @@ oceaniam-credential.workspace = true
 oceaniam-database.workspace = true
 oceaniam-export.workspace = true
 oceaniam-vo.workspace = true
+oceaniam-keybox.workspace = true
