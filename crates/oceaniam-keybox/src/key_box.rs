@@ -22,6 +22,27 @@ pub struct KeyOption {
     pub expires_at: Option<DateTime<FixedOffset>>,
 }
 
+#[derive(Debug)]
+pub enum StatusMaskedKey {
+    Active(Key),
+    Pending(Key),
+    Retired(Key),
+
+    /// If [Key] has been [KeyStatus::Revoked], **YOU CANNOT GET IT ANYWAY**.
+    Revoked,
+}
+
+impl From<Key> for StatusMaskedKey {
+    fn from(value: Key) -> Self {
+        match value.status {
+            KeyStatus::Active => Self::Active(value),
+            KeyStatus::Pending => Self::Pending(value),
+            KeyStatus::Retired => Self::Retired(value),
+            KeyStatus::Revoked => Self::Revoked,
+        }
+    }
+}
+
 /// [KeyBox] is used to manage multiple keys, providing expiration checking and key management functionality
 #[derive(Debug)]
 pub struct KeyBox {
@@ -94,11 +115,12 @@ impl KeyBox {
     /// # Safety
     ///
     /// This function doesn't check the key is expired.
-    pub unsafe fn get_key<T>(&self, key_id: &Uuid) -> Option<T>
-    where
-        T: From<Key>,
-    {
-        self.keys.read().get(key_id).cloned().map(Into::into)
+    pub unsafe fn get_key_unsafe(&self, key_id: &Uuid) -> Option<Key> {
+        self.keys.read().get(key_id).cloned()
+    }
+
+    pub fn get_key(&self, key_id: &Uuid) -> Option<StatusMaskedKey> {
+        unsafe { self.get_key_unsafe(key_id).map(StatusMaskedKey::from) }
     }
 
     /// Removes the specified key
@@ -112,6 +134,10 @@ impl KeyBox {
 
     pub fn sync(&mut self, income: HashMap<Uuid, Key>) {
         *self.keys.write() = income
+    }
+
+    pub fn application_id(&self) -> Uuid {
+        self.application_id
     }
 }
 
@@ -197,7 +223,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_key::<Key>(&key_id) }.unwrap();
+        let stored_key = unsafe { keybox.get_key_unsafe(&key_id) }.unwrap();
         assert_eq!(stored_key.status, KeyStatus::Active);
     }
 
@@ -220,7 +246,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_key::<Key>(&key_id) }.unwrap();
+        let stored_key = unsafe { keybox.get_key_unsafe(&key_id) }.unwrap();
         assert_eq!(stored_key.status, KeyStatus::Active);
     }
 
@@ -243,7 +269,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_key::<Key>(&key_id) }.unwrap();
+        let stored_key = unsafe { keybox.get_key_unsafe(&key_id) }.unwrap();
         assert_eq!(stored_key.status, KeyStatus::Pending);
     }
 
@@ -266,7 +292,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_key::<Key>(&key_id) }.unwrap();
+        let stored_key = unsafe { keybox.get_key_unsafe(&key_id) }.unwrap();
         assert_eq!(stored_key.status, KeyStatus::Retired);
     }
 
@@ -289,7 +315,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_key::<Key>(&key_id) }.unwrap();
+        let stored_key = unsafe { keybox.get_key_unsafe(&key_id) }.unwrap();
         assert_eq!(stored_key.status, KeyStatus::Retired);
     }
 
@@ -314,7 +340,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_key::<Key>(&key_id) }.unwrap();
+        let stored_key = unsafe { keybox.get_key_unsafe(&key_id) }.unwrap();
         assert_eq!(stored_key.status, KeyStatus::Retired);
     }
 
@@ -338,7 +364,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_key::<Key>(&key_id) }.unwrap();
+        let stored_key = unsafe { keybox.get_key_unsafe(&key_id) }.unwrap();
         assert_eq!(stored_key.status, KeyStatus::Retired);
     }
 

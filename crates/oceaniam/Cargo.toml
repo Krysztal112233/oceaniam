@@ -9,6 +9,7 @@ backon.workspace = true
 chrono.workspace = true
 config.workspace = true
 im.workspace = true
+itertools.workspace = true
 log.workspace = true
 mimalloc.workspace = true
 sea-orm.workspace = true
