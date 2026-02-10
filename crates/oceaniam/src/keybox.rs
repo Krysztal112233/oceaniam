@@ -32,6 +32,10 @@ struct SyncRetryContext {
 
 #[allow(unused)]
 impl KeyBox {
+    pub fn with_keys(application_id: Uuid, keys: HashMap<Uuid, Key>) -> Self {
+        Self(InnerKeyBox::with_keys(application_id, keys))
+    }
+
     /// Synchronizes the local key box with the database.
     ///
     /// This method performs a bidirectional synchronization:
@@ -50,7 +54,11 @@ impl KeyBox {
             |ctx: SyncRetryContext| async move {
                 let r = Self::sync_func(&ctx).await;
 
-                (ctx, r)
+                // Check the result to match if application has been removed
+                match r {
+                    Err(Error::Db(DbErr::RecordNotFound(_))) => (ctx, Ok(HashMap::default())),
+                    _ => (ctx, r),
+                }
             }
         }
         .retry(ExponentialBuilder::default())
@@ -75,6 +83,12 @@ impl KeyBox {
     /// 3. Syncs from database: Retrieves all keys for the application from database
     ///
     /// Returns a HashMap of all keys retrieved from the database.
+    ///
+    /// # Note
+    ///
+    /// This function does not check if application has been removed.
+    ///
+    /// _**SO INVOKER SHOULD CHECK THE ERROR**_.
     async fn sync_func(ctx: &SyncRetryContext) -> Result<HashMap<Uuid, Key>, Error> {
         let SyncRetryContext {
             database,
@@ -189,13 +203,86 @@ impl Clone for KeyBox {
 }
 
 #[allow(unused)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct KeyBoxManager {
     applications: HashMap<Uuid, KeyBox>,
 }
 
 #[allow(unused)]
 impl KeyBoxManager {
+    /// Creates a new KeyBoxManager with all applications that have keys in the database.
+    ///
+    /// This method queries the database for all distinct application IDs that have associated key
+    /// boxes, then creates KeyBox instances for each of them.
+    ///
+    /// # Parameters
+    /// * `database` - The database connection trait
+    ///
+    /// # Returns
+    /// * `Ok(KeyBoxManager)` with all applications loaded
+    /// * `Err` if the database query fails
+    pub async fn new(database: &impl ConnectionTrait) -> Result<Self, Error> {
+        use oceaniam_database::model::key_boxes::Column::ApplicationId;
+        use oceaniam_database::model::prelude::KeyBoxes;
+        use sea_orm::QuerySelect;
+
+        let application_ids: Vec<Uuid> = KeyBoxes::find()
+            .select_only()
+            .column(ApplicationId)
+            .distinct()
+            .all(database)
+            .await?
+            .into_iter()
+            .map(|model| model.application_id)
+            .collect();
+
+        Self::with_applications_id(database, application_ids).await
+    }
+
+    /// Creates a KeyBoxManager for specific application IDs.
+    ///
+    /// This method queries the database for keys belonging to the specified
+    /// application IDs and creates KeyBox instances for each application.
+    ///
+    /// # Parameters
+    /// * `database` - The database connection trait
+    /// * `application_ids` - An iterator of application UUIDs to load
+    ///
+    /// # Returns
+    /// * `Ok(KeyBoxManager)` with the specified applications loaded
+    /// * `Err` if the database query fails
+    pub async fn with_applications_id(
+        database: &impl ConnectionTrait,
+        application_ids: impl IntoIterator<Item = Uuid>,
+    ) -> Result<Self, Error> {
+        use oceaniam_database::model::key_boxes::Column::ApplicationId;
+        use oceaniam_database::model::prelude::KeyBoxes;
+
+        let application_ids: Vec<Uuid> = application_ids.into_iter().collect();
+
+        if application_ids.is_empty() {
+            return Ok(Self::default());
+        }
+
+        let keys = KeyBoxes::find()
+            .filter(ApplicationId.is_in(application_ids))
+            .all(database)
+            .await?;
+
+        let applications: HashMap<Uuid, KeyBox> = keys
+            .into_iter()
+            .into_group_map_by(|key| key.application_id)
+            .into_iter()
+            .map(|(app_id, keys)| {
+                let keys_map: HashMap<Uuid, Key> =
+                    keys.into_iter().map(|key| (key.id, key)).collect();
+                (app_id, KeyBox::with_keys(app_id, keys_map))
+            })
+            .collect();
+
+        Ok(Self { applications })
+    }
+
     /// Synchronizes a specific application's key box with the database.
     ///
     /// This method finds the key box for the given application ID and performs a database
@@ -209,7 +296,11 @@ impl KeyBoxManager {
     /// # Returns
     /// * `Ok(())` on successful sync or if application not found
     /// * `Err` if the synchronization fails
-    async fn sync_keybox<C>(&mut self, application_id: &Uuid, database: &C) -> Result<(), Error>
+    async fn sync_keybox_with_application_id<C>(
+        &mut self,
+        application_id: &Uuid,
+        database: &C,
+    ) -> Result<(), Error>
     where
         C: SafeTransactionConnectionTrait,
     {
@@ -218,6 +309,7 @@ impl KeyBoxManager {
             keybox.sync_database(&database).await?;
             database.commit().await?;
         }
+
         Ok(())
     }
 

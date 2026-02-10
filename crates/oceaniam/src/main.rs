@@ -34,10 +34,7 @@ async fn main() -> Result<(), Error> {
             .await
             .inspect_err(|e| error!("{e}"))?;
 
-        AppState {
-            database,
-            _unit: (),
-        }
+        AppState::new(database).await?
     };
 
     let (router, mut openapi) = OpenApiRouter::new()

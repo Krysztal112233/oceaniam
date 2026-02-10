@@ -55,9 +55,13 @@ pub struct KeyBox {
 
 impl KeyBox {
     pub fn new(application_id: Uuid) -> Self {
+        Self::with_keys(application_id, HashMap::default())
+    }
+
+    pub fn with_keys(application_id: Uuid, keys: HashMap<Uuid, Key>) -> Self {
         Self {
             application_id,
-            keys: RwLock::new(HashMap::new()),
+            keys: RwLock::new(keys),
         }
     }
 

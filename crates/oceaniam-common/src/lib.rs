@@ -9,6 +9,7 @@ pub mod config;
 pub mod consts;
 pub mod error;
 pub mod jwt;
+pub mod test;
 
 #[derive(Debug, Deserialize, Serialize, Default, ToSchema)]
 pub struct Empty {}
