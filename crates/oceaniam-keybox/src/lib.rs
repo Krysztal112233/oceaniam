@@ -1,6 +1,6 @@
 pub mod error;
 pub mod key;
 pub mod key_alg;
-pub mod key_box;
+pub mod keybox;
 
-pub use key_box::KeyBox;
+pub use keybox::KeyBox;

@@ -139,6 +139,13 @@ impl KeyBox {
     pub fn application_id(&self) -> Uuid {
         self.application_id
     }
+
+    pub fn deep_clone(&self) -> Self {
+        Self {
+            application_id: self.application_id,
+            keys: RwLock::new(self.get_keys()),
+        }
+    }
 }
 
 #[cfg(test)]
