@@ -4,6 +4,7 @@ use chrono::Utc;
 use log::error;
 use oceaniam_common::{consts, error::Error};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use uuid::Uuid;
 
 use crate::{
     helper::SafeTransactionConnectionTrait,
@@ -29,19 +30,22 @@ pub trait KeyBoxesHelper {
     async fn get_system_keys(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<model::key_boxes::Model>, Error> {
+        Self::get_application_keys(consts::SYSTEM_APPLICATION_UUID, database).await
+    }
+
+    async fn get_application_keys(
+        application_id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<Vec<model::key_boxes::Model>, Error> {
         Ok(KeyBoxes::find()
-            .filter(model::key_boxes::Column::ApplicationId.eq(consts::SYSTEM_APPLICATION_UUID))
+            .filter(model::key_boxes::Column::ApplicationId.eq(application_id))
             .all(database)
             .await
             .inspect_err(|e| error!("{e}"))?)
     }
-
-    /// Updates the status of this key based on its temporal properties.
-    ///
-    /// This is a marker method for the trait. The actual implementation
-    /// is provided by `KeyBoxesModelHelper`.
-    fn update_status(self) -> Self;
 }
+
+impl KeyBoxesHelper for KeyBoxes {}
 
 /// Helper trait for status management of key box models.
 ///

@@ -40,31 +40,6 @@ impl TestDatabaseTransaction {
         Ok(Self(txn))
     }
 
-    /// Executes an async closure to preset database content before testing.
-    ///
-    /// This method accepts an async closure that receives a reference to the internal
-    /// `DatabaseTransaction`, allowing you to insert, update, or delete data as needed
-    /// for your test setup.
-    ///
-    /// # Type Parameters
-    /// * `F` - The async closure type
-    /// * `Fut` - The future type returned by the closure
-    ///
-    /// # Parameters
-    /// * `f` - An async closure that takes `&DatabaseTransaction` and returns `Result<(), Error>`
-    ///
-    /// # Returns
-    /// * `Ok(())` if the preset operation succeeds
-    /// * `Err` if the preset operation fails
-    ///
-    pub async fn preset<F, Fut>(&self, f: F) -> Result<(), Error>
-    where
-        F: FnOnce(&DatabaseTransaction) -> Fut,
-        Fut: Future<Output = Result<(), Error>>,
-    {
-        f(&self.0).await
-    }
-
     pub async fn start(&self) -> Result<TestDatabaseTransaction, DbErr> {
         Ok(Self(self.0.begin().await?))
     }

@@ -25,17 +25,21 @@ pub struct RsaKey {
 }
 
 impl RsaKey {
-    pub fn new(key_id: Uuid, key_alg: KeyAlg) -> Self {
+    pub fn new(key_id: Uuid, key_alg: impl Into<KeyAlg>) -> Self {
         Self::with_bit_size(key_id, key_alg, 4096).unwrap()
     }
 
-    pub fn with_bit_size(key_id: Uuid, key_alg: KeyAlg, bit_size: usize) -> Result<Self, Error> {
+    pub fn with_bit_size(
+        key_id: Uuid,
+        key_alg: impl Into<KeyAlg>,
+        bit_size: usize,
+    ) -> Result<Self, Error> {
         let mut rng = rand::thread_rng();
         let private = RsaPrivateKey::new(&mut rng, bit_size)?;
 
         Ok(Self {
             private,
-            key_alg,
+            key_alg: key_alg.into(),
             key_id,
         })
     }

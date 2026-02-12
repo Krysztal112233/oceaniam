@@ -2,8 +2,13 @@ use jsonwebtoken::Algorithm;
 use oceaniam_database::model::sea_orm_active_enums::KeyAlg;
 use thiserror::Error;
 
+use oceaniam_common::error::Error as CommonError;
+
 #[derive(Debug, Error)]
 pub enum Error {
+    #[error("{0}")]
+    Db(#[from] sea_orm::error::DbErr),
+
     #[error("mismatced key algorithm: {0}")]
     MismatchedKeyAlg(KeyAlg),
 
@@ -11,10 +16,10 @@ pub enum Error {
     Rsa(#[from] rsa::Error),
 
     #[error("{0}")]
-    Jwk(#[from] jsonwebtoken::errors::Error),
+    Jwt(#[from] jsonwebtoken::errors::Error),
 
     #[error("{0}")]
-    Serde(#[from] serde_json::Error),
+    Json(#[from] serde_json::Error),
 
     #[error("unimplemented jwt alogrithm: {0}")]
     UnimplementedJwtAlogrithm(String),
@@ -42,5 +47,15 @@ impl Error {
             }
             .to_string(),
         )
+    }
+}
+
+impl From<Error> for CommonError {
+    fn from(value: Error) -> Self {
+        match value {
+            Error::Jwt(error) => CommonError::Jwt(error),
+            Error::Json(error) => CommonError::Json(error),
+            _ => CommonError::UnknownWithCode(500, value.to_string()),
+        }
     }
 }

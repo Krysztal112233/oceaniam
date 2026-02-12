@@ -1,7 +1,9 @@
 use chrono::{DateTime, FixedOffset, Utc};
 use im::HashMap;
-use oceaniam_database::model::{key_boxes::Model as Key, sea_orm_active_enums::KeyStatus};
-use parking_lot::RwLock;
+use oceaniam_database::{
+    helper::SafeTransactionConnectionTrait,
+    model::{key_boxes::Model as Key, sea_orm_active_enums::KeyStatus},
+};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -44,13 +46,13 @@ impl From<Key> for StatusMaskedKey {
 }
 
 /// [KeyBox] is used to manage multiple keys, providing expiration checking and key management functionality
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct KeyBox {
     /// Belong to application
     application_id: Uuid,
 
     /// Stores all keys with [Key::id] as the key
-    keys: RwLock<HashMap<Uuid, Key>>,
+    keys: HashMap<Uuid, Key>,
 }
 
 impl KeyBox {
@@ -61,12 +63,42 @@ impl KeyBox {
     pub fn with_keys(application_id: Uuid, keys: HashMap<Uuid, Key>) -> Self {
         Self {
             application_id,
-            keys: RwLock::new(keys),
+            keys,
         }
     }
 
+    pub async fn with_database(
+        application_id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<Self, Error> {
+        use oceaniam_database::model::key_boxes::Column::*;
+        use oceaniam_database::model::prelude::KeyBoxes;
+        use sea_orm::prelude::*;
+
+        let keys = sea_orm::QueryFilter::filter(KeyBoxes::find(), ApplicationId.eq(application_id))
+            .all(database)
+            .await?
+            .into_iter()
+            .map(|it| (it.id, it))
+            .collect();
+
+        Ok(Self::with_keys(application_id, keys))
+    }
+
+    pub fn put_key<T>(&mut self, key: T) -> Result<(), Error>
+    where
+        T: TryInto<StandloneKey, Error = Error>,
+    {
+        self.put_key_with_option(
+            key,
+            KeyOption {
+                ..Default::default()
+            },
+        )
+    }
+
     /// Adds a new key
-    pub fn put_key<T>(
+    pub fn put_key_with_option<T>(
         &mut self,
         key: T,
         KeyOption {
@@ -110,7 +142,7 @@ impl KeyBox {
             application_id: self.application_id,
         };
 
-        self.keys.write().insert(id, key);
+        self.keys.insert(id, key);
         Ok(())
     }
 
@@ -120,7 +152,7 @@ impl KeyBox {
     ///
     /// This function doesn't check the key is expired.
     pub unsafe fn get_key_unsafe(&self, key_id: &Uuid) -> Option<Key> {
-        self.keys.read().get(key_id).cloned()
+        self.keys.get(key_id).cloned()
     }
 
     pub fn get_key(&self, key_id: &Uuid) -> Option<StatusMaskedKey> {
@@ -129,26 +161,15 @@ impl KeyBox {
 
     /// Removes the specified key
     pub fn remove_key(&mut self, key_id: &Uuid) -> Option<Key> {
-        self.keys.write().remove(key_id)
+        self.keys.remove(key_id)
     }
 
     pub fn get_keys(&self) -> HashMap<Uuid, Key> {
-        self.keys.read().clone()
-    }
-
-    pub fn sync(&mut self, income: HashMap<Uuid, Key>) {
-        *self.keys.write() = income
+        self.keys.clone()
     }
 
     pub fn application_id(&self) -> Uuid {
         self.application_id
-    }
-
-    pub fn deep_clone(&self) -> Self {
-        Self {
-            application_id: self.application_id,
-            keys: RwLock::new(self.get_keys()),
-        }
     }
 }
 
@@ -161,11 +182,11 @@ mod tests {
     use oceaniam_database::model::sea_orm_active_enums::KeyAlg as InnerKeyAlg;
 
     fn create_rsa_key() -> RsaKey {
-        RsaKey::new(Uuid::now_v7(), InnerKeyAlg::Rs512.into())
+        RsaKey::new(Uuid::now_v7(), InnerKeyAlg::Rs512)
     }
 
     fn create_rsa_standlong_key() -> StandloneKey {
-        RsaKey::new(Uuid::now_v7(), InnerKeyAlg::Rs512.into())
+        RsaKey::new(Uuid::now_v7(), InnerKeyAlg::Rs512)
             .try_into()
             .unwrap()
     }
@@ -213,7 +234,7 @@ mod tests {
             application_id: keybox.application_id,
         };
 
-        keybox.keys.write().insert(id, key);
+        keybox.keys.insert(id, key);
     }
 
     // NOTE: AI-generated test
@@ -385,7 +406,7 @@ mod tests {
 
         // Put key
         keybox
-            .put_key(
+            .put_key_with_option(
                 create_rsa_key(),
                 KeyOption {
                     ..Default::default()
