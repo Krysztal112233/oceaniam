@@ -42,6 +42,7 @@ impl IntoResponse for Error {
     }
 }
 
+#[allow(unused)]
 impl From<rsa::pkcs1::Error> for Error {
     fn from(value: rsa::pkcs1::Error) -> Self {
         Self::Jwt(jsonwebtoken::errors::new_error(
@@ -51,7 +52,7 @@ impl From<rsa::pkcs1::Error> for Error {
 }
 
 impl From<rsa::pkcs8::Error> for Error {
-    fn from(value: rsa::pkcs8::Error) -> Self {
+    fn from(_: rsa::pkcs8::Error) -> Self {
         Self::Jwt(jsonwebtoken::errors::new_error(
             jsonwebtoken::errors::ErrorKind::InvalidKeyFormat,
         ))

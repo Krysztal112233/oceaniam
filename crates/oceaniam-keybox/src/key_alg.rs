@@ -38,6 +38,19 @@ impl From<KeyAlg> for InnerKeyAlg {
     }
 }
 
+impl From<KeyAlg> for Algorithm {
+    fn from(value: KeyAlg) -> Self {
+        match value.0 {
+            InnerKeyAlg::Rs256 => Algorithm::RS256,
+            InnerKeyAlg::Rs384 => Algorithm::PS384,
+            InnerKeyAlg::Rs512 => Algorithm::PS512,
+            InnerKeyAlg::Ps256 => Algorithm::PS256,
+            InnerKeyAlg::Ps384 => Algorithm::PS384,
+            InnerKeyAlg::Ps512 => Algorithm::PS512,
+        }
+    }
+}
+
 impl std::ops::Deref for KeyAlg {
     type Target = InnerKeyAlg;
 

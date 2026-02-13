@@ -1,8 +1,7 @@
-use jsonwebtoken::{
-    Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode, jwk::Jwk,
-};
+use chrono::Utc;
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode, jwk::Jwk};
 use oceaniam_common::jwt::JwtCodec;
-use oceaniam_database::model::key_boxes::Model as Key;
+use oceaniam_database::model::{key_boxes::Model as Key, sea_orm_active_enums::KeyStatus};
 use rsa::{
     RsaPrivateKey,
     pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey},
@@ -14,9 +13,9 @@ use uuid::Uuid;
 
 use crate::{
     error::Error,
-    key::{AsSecretField, FromSecretField},
+    key::{AsSecretField, FromSecretField, TryIntoJwt, TryIntoKeyModel},
     key_alg::KeyAlg,
-    keybox::StandaloneKey,
+    keybox::{KeyOption, StandaloneKey},
 };
 
 #[derive(Debug, Clone)]
@@ -47,13 +46,19 @@ impl RsaKey {
         })
     }
 
-    pub fn into_jwk(self, alg: Algorithm) -> Result<Jwk, Error> {
+    pub fn key_id(&self) -> Uuid {
+        self.key_id
+    }
+}
+
+impl TryIntoJwt for RsaKey {
+    fn try_into_jwt(self) -> Result<Jwk, Error> {
         // NOTE: ONLY SUPPORT PKCS1 DER. WHAT THE FUCK.
         let mut der = self.private.to_pkcs1_der().unwrap().to_bytes();
         let key = EncodingKey::from_rsa_der(&der);
         der.zeroize();
 
-        Ok(Jwk::from_encoding_key(&key, alg)?)
+        Ok(Jwk::from_encoding_key(&key, self.key_alg.into())?)
     }
 }
 
@@ -93,6 +98,50 @@ impl FromSecretField for RsaKey {
         let SecretField { pem } = serde_json::from_value::<SecretField>(value)?;
 
         Ok(RsaPrivateKey::from_pkcs8_pem(&pem)?)
+    }
+}
+
+impl TryIntoKeyModel for RsaKey {
+    fn try_into_key_model(
+        self,
+        application_id: Uuid,
+        KeyOption {
+            created_at,
+            activated_at,
+            retired_at,
+            expires_at,
+        }: crate::keybox::KeyOption,
+    ) -> Result<oceaniam_database::model::key_boxes::Model, Error> {
+        let StandaloneKey {
+            key_id: id,
+            key_alg,
+            secret,
+        } = self.try_into()?;
+
+        let status = {
+            let now = Utc::now();
+
+            if expires_at.is_some_and(|t| now >= t) || retired_at.is_some_and(|t| now >= t) {
+                KeyStatus::Retired
+            } else if activated_at.is_none_or(|t| now >= t) {
+                KeyStatus::Active
+            } else {
+                KeyStatus::Pending
+            }
+        };
+
+        Ok(Key {
+            id,
+            key_alg: key_alg.into(),
+            status,
+            created_at,
+            activated_at,
+            retired_at,
+            revoked_at: None,
+            expires_at,
+            secret,
+            application_id,
+        })
     }
 }
 
@@ -178,7 +227,7 @@ where
 #[cfg(test)]
 mod tests {
     use itertools::Itertools;
-    use jsonwebtoken::TokenData;
+    use jsonwebtoken::{Algorithm, TokenData};
     use oceaniam_common::jwt::{ClaimHelper, SystemClaim};
     use tap::Tap;
     use uuid::Uuid;
@@ -201,7 +250,7 @@ mod tests {
                 .iter()
                 .map(
                     |alg| RsaKey::new(Uuid::now_v7(), KeyAlg::try_from(*alg).unwrap())
-                        .into_jwk(*alg)
+                        .try_into_jwt()
                 )
                 .all(|it| it.is_ok())
         )
@@ -218,7 +267,7 @@ mod tests {
     }
 
     #[test]
-    fn test_rsa_as_standlone_key() {
+    fn test_rsa_as_standalone_key() {
         for alg in SUPPORTED_ALGORITHM.iter() {
             let key = RsaKey::new(Uuid::now_v7(), KeyAlg::try_from(*alg).unwrap());
             assert!(StandaloneKey::try_from(key).is_ok())

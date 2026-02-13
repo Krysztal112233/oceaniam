@@ -1,10 +1,10 @@
-use chrono::{DateTime, FixedOffset, Utc};
+use chrono::{DateTime, FixedOffset};
 use im::HashMap;
 use oceaniam_database::model::{key_boxes::Model as Key, sea_orm_active_enums::KeyStatus};
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::{error::Error, key_alg::KeyAlg};
+use crate::{error::Error, key::TryIntoKeyModel, key_alg::KeyAlg};
 
 #[derive(Debug)]
 pub struct StandaloneKey {
@@ -98,62 +98,19 @@ impl KeyBox {
 
     pub fn put_key<T>(&mut self, key: T) -> Result<(), Error>
     where
-        T: TryInto<StandaloneKey, Error = Error>,
+        T: TryIntoKeyModel,
     {
-        self.put_key_with_option(
-            key,
-            KeyOption {
-                ..Default::default()
-            },
-        )
+        self.put_key_with_option(key, KeyOption::default())
     }
 
     /// Adds a new key
-    pub fn put_key_with_option<T>(
-        &mut self,
-        key: T,
-        KeyOption {
-            created_at,
-            activated_at,
-            retired_at,
-            expires_at,
-        }: KeyOption,
-    ) -> Result<(), Error>
+    pub fn put_key_with_option<T>(&mut self, key: T, options: KeyOption) -> Result<(), Error>
     where
-        T: TryInto<StandaloneKey, Error = Error>,
+        T: TryIntoKeyModel,
     {
-        let StandaloneKey {
-            key_id: id,
-            key_alg,
-            secret,
-        } = key.try_into()?;
+        let key = key.try_into_key_model(self.application_id, options)?;
 
-        let status = {
-            let now = Utc::now();
-
-            if expires_at.is_some_and(|t| now >= t) || retired_at.is_some_and(|t| now >= t) {
-                KeyStatus::Retired
-            } else if activated_at.is_none_or(|t| now >= t) {
-                KeyStatus::Active
-            } else {
-                KeyStatus::Pending
-            }
-        };
-
-        let key = Key {
-            id,
-            key_alg: key_alg.into(),
-            status,
-            created_at,
-            activated_at,
-            retired_at,
-            revoked_at: None,
-            expires_at,
-            secret,
-            application_id: self.application_id,
-        };
-
-        self.keys.insert(id, key);
+        self.keys.insert(key.id, key);
         Ok(())
     }
 
@@ -182,11 +139,15 @@ impl KeyBox {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     use crate::key::rsa_key::RsaKey;
 
-    use super::*;
-    use chrono::Duration;
+    use chrono::{Duration, Utc};
+    use jsonwebtoken::{Algorithm, Header, TokenData, Validation};
+    use oceaniam_common::jwt::{ClaimHelper, JwtCodec, SystemClaim};
     use oceaniam_database::model::sea_orm_active_enums::KeyAlg as InnerKeyAlg;
+    use tap::Tap;
 
     fn create_rsa_key() -> RsaKey {
         RsaKey::new(Uuid::now_v7(), InnerKeyAlg::Rs512)
@@ -411,13 +372,30 @@ mod tests {
     fn test_keybox_usage() {
         let mut keybox = KeyBox::new(Uuid::nil());
 
+        let key = create_rsa_key();
+
         // Put key
-        keybox
-            .put_key_with_option(
-                create_rsa_key(),
-                KeyOption {
-                    ..Default::default()
-                },
+        keybox.put_key(key.clone()).unwrap();
+
+        let Some(StatusMaskedKey::Active(key)) = keybox.get_key(&key.key_id()) else {
+            panic!("EXPECT ACTIVE KEY BUT CANNOT GET IT")
+        };
+
+        let rsa_key = RsaKey::try_from(key).unwrap();
+
+        let jwt = rsa_key
+            .encode(
+                Header::new(Algorithm::RS512),
+                SystemClaim::new(Uuid::now_v7(), 60, None, None),
+            )
+            .unwrap();
+
+        let _claim: TokenData<SystemClaim> = rsa_key
+            .decode(
+                jwt.as_bytes(),
+                &Validation::default().tap_mut(|it| {
+                    it.algorithms = vec![Algorithm::RS512, Algorithm::RS256, Algorithm::RS384]
+                }),
             )
             .unwrap();
     }

@@ -53,7 +53,7 @@ mod tests {
     #[tokio::test]
     async fn test_database_initialize() -> Result<(), Error> {
         let _ = TestDatabaseTransaction::with_opt(
-            "postdresql://postgres:postgres@localhost:5432/postgres",
+            "postgres://postgres:postgres@localhost:5432/postgres",
         )
         .await?;
 
