@@ -9,9 +9,11 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::state::AppState;
 
-pub mod admin;
-pub mod auth;
-pub mod users;
+mod admin;
+mod applications;
+mod auth;
+mod tenants;
+mod users;
 
 #[utoipa::path(
         get,
@@ -31,4 +33,6 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
         .pipe(admin::endpoint)
         .pipe(auth::endpoint)
         .pipe(users::endpoint)
+        .pipe(applications::endpoint)
+        .pipe(tenants::endpoint)
 }

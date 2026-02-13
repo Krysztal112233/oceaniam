@@ -26,7 +26,7 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
         ),
         params(("authorization" = String, Header, description = "Authorization payload")),
     )]
-#[axum::debug_handler]
+
 async fn signin(State(_ext): State<AppState>) -> RestResult<Empty> {
     Ok(ApiResponse::default())
 }
@@ -43,7 +43,6 @@ async fn signin(State(_ext): State<AppState>) -> RestResult<Empty> {
         ),
         params(("authorization" = String, Header, description = "Authorization payload")),
     )]
-#[axum::debug_handler]
 async fn signout(State(_ext): State<AppState>) -> RestResult<Empty> {
     Ok(ApiResponse::default())
 }

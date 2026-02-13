@@ -2,8 +2,8 @@ pub mod auth;
 
 #[derive(ts_rs::TS)]
 #[ts(export)]
-#[ts(as = "oceaniam_vo::auth::SignupRequest")]
-pub struct SignupRequest;
+#[ts(as = "oceaniam_vo::auth::AuthVO")]
+pub struct AuthVO;
 
 #[derive(ts_rs::TS)]
 #[ts(export)]

@@ -2056,6 +2056,7 @@ dependencies = [
  "serde",
  "ts-rs",
  "utoipa",
+ "uuid",
 ]
 
 [[package]]

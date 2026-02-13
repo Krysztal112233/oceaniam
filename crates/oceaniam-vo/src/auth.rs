@@ -1,16 +1,18 @@
 use garde::Validate;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use uuid::Uuid;
 
 #[derive(Debug, Deserialize, Validate, ToSchema, ts_rs::TS)]
 #[serde(untagged)]
-pub enum SignupRequest {
+pub enum AuthVO {
     /// Login via email
     Email {
         #[garde(email)]
         email: String,
+
         #[garde(skip)]
-        pwd: String,
+        password: String,
     },
 
     /// Login via phonenumber
@@ -19,7 +21,7 @@ pub enum SignupRequest {
         phone: String,
 
         #[garde(skip)]
-        pwd: String,
+        password: String,
     },
 }
 
@@ -28,7 +30,12 @@ pub struct SignupResponse {
     pub jwt: String,
 }
 
-pub type SigninRequest = SignupRequest;
+#[derive(Debug, Deserialize, ToSchema, ts_rs::TS)]
+pub struct SigninRequest {
+    pub application_id: Uuid,
+
+    pub auth: AuthVO,
+}
 
 pub type SigninResponse = SignupResponse;
 

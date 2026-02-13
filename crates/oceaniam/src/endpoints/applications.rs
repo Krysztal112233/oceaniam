@@ -1,4 +1,6 @@
-//! User management-related API endpoints
+//! Application management-related API endpoints
+//!
+//! Provides interfaces for application queries
 
 use oceaniam_common::{ApiResponse, Empty, RestResult};
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -6,19 +8,19 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 use crate::state::AppState;
 
 pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
-    router.routes(routes!(users))
+    router.routes(routes!(get_applications))
 }
 
-/// Get user list
+/// Get application list
 #[utoipa::path(
         get,
-        path = "/users/",
-        tag = "Users",
+        path = "/applications",
+        tag = "Applications",
         responses(
             (status = 200, body = ApiResponse<Empty>),
         ),
-        params(("authorization" = String, Header, description = "Authorization payload"))
     )]
-pub async fn users() -> RestResult<()> {
+
+pub async fn get_applications() -> RestResult<()> {
     Ok(ApiResponse::new(()))
 }
