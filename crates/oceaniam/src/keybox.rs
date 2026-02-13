@@ -37,7 +37,13 @@ impl KeyBoxManager {
                     .map(|it| (it.id, it))
                     .collect();
 
-                Ok(KeyBox::with_keys(application_id, keys))
+                let keybox = KeyBox::with_keys(application_id, keys);
+
+                if keybox.get_keys().is_empty() {
+                    Err(Error::Internal("".into()))
+                } else {
+                    Ok(keybox)
+                }
             })
             .await
             .ok()

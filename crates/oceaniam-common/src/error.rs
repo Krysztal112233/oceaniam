@@ -21,16 +21,23 @@ pub enum Error {
     Jwt(#[from] jsonwebtoken::errors::Error),
 
     #[error("{0}")]
-    Unknown(String),
+    Internal(String),
 
     #[error("status: {0}, msg: {1}")]
-    UnknownWithCode(u16, String),
+    CustomMessage(u16, String),
+}
+
+impl Error {
+    pub fn with_code(code: impl Into<u16>, msg: impl Into<String>) -> Self {
+        Self::CustomMessage(code.into(), msg.into())
+    }
 }
 
 #[allow(clippy::match_single_binding)]
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
         let status = match self {
+            Self::CustomMessage(code, _) => StatusCode::from_u16(code).unwrap(),
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         };
 

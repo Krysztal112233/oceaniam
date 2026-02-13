@@ -58,7 +58,7 @@ impl From<Error> for CommonError {
         match value {
             Error::Jwt(error) => CommonError::Jwt(error),
             Error::Json(error) => CommonError::Json(error),
-            _ => CommonError::UnknownWithCode(500, value.to_string()),
+            _ => CommonError::CustomMessage(500, value.to_string()),
         }
     }
 }
