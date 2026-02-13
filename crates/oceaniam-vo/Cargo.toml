@@ -6,7 +6,9 @@ edition.workspace = true
 [dependencies]
 axum-valid.workspace = true
 garde.workspace = true
+jsonwebtoken.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 ts-rs.workspace = true
 utoipa.workspace = true
 uuid.workspace = true

@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use log::error;
 use moka::future::{Cache, CacheBuilder};
 use oceaniam_common::error::Error;
 use oceaniam_database::{helper::key_boxes::KeyBoxesHelper, model::prelude::KeyBoxes};
@@ -30,7 +31,8 @@ impl KeyBoxManager {
         self.boxes
             .try_get_with::<_, Error>(application_id, async {
                 let keys = KeyBoxes::get_application_keys(application_id, &database)
-                    .await?
+                    .await
+                    .inspect_err(|e| error!("{e}"))?
                     .into_iter()
                     .map(|it| (it.id, it))
                     .collect();

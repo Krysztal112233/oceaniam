@@ -2053,7 +2053,9 @@ version = "0.1.0"
 dependencies = [
  "axum-valid",
  "garde",
+ "jsonwebtoken",
  "serde",
+ "serde_json",
  "ts-rs",
  "utoipa",
  "uuid",

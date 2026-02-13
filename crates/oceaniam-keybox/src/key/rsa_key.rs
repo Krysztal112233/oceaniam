@@ -1,6 +1,6 @@
 use chrono::Utc;
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode, jwk::Jwk};
-use oceaniam_common::jwt::JwtCodec;
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
+use oceaniam_common::jwt::{Jwk, JwtCodec};
 use oceaniam_database::model::{key_boxes::Model as Key, sea_orm_active_enums::KeyStatus};
 use rsa::{
     RsaPrivateKey,
@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::{
     error::Error,
-    key::{AsSecretField, FromSecretField, TryIntoJwt, TryIntoKeyModel},
+    key::{AsSecretField, FromSecretField, TryIntoJwk, TryIntoKeyModel},
     key_alg::KeyAlg,
     keybox::{KeyOption, StandaloneKey},
 };
@@ -51,14 +51,18 @@ impl RsaKey {
     }
 }
 
-impl TryIntoJwt for RsaKey {
-    fn try_into_jwt(self) -> Result<Jwk, Error> {
+impl TryIntoJwk for RsaKey {
+    fn try_into_jwk(self) -> Result<oceaniam_common::jwt::Jwk, Error> {
         // NOTE: ONLY SUPPORT PKCS1 DER. WHAT THE FUCK.
         let mut der = self.private.to_pkcs1_der().unwrap().to_bytes();
         let key = EncodingKey::from_rsa_der(&der);
         der.zeroize();
 
-        Ok(Jwk::from_encoding_key(&key, self.key_alg.into())?)
+        let mut jwk = jsonwebtoken::jwk::Jwk::from_encoding_key(&key, self.key_alg.into())?;
+
+        jwk.common.key_id = Some(self.key_id.to_string());
+
+        Ok(Jwk::from(jwk))
     }
 }
 
@@ -250,7 +254,7 @@ mod tests {
                 .iter()
                 .map(
                     |alg| RsaKey::new(Uuid::now_v7(), KeyAlg::try_from(*alg).unwrap())
-                        .try_into_jwt()
+                        .try_into_jwk()
                 )
                 .all(|it| it.is_ok())
         )
@@ -295,5 +299,12 @@ mod tests {
             .unwrap();
 
         Ok(())
+    }
+
+    #[test]
+    fn test_rsa_as_jwk() {
+        let key = RsaKey::new(Uuid::now_v7(), KeyAlg::try_from(Algorithm::RS512).unwrap());
+
+        assert!(dbg!(key.try_into_jwk()).is_ok())
     }
 }

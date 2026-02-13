@@ -1,4 +1,4 @@
-use jsonwebtoken::jwk::Jwk;
+use oceaniam_common::jwt::Jwk;
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -22,8 +22,8 @@ pub trait TryIntoKeyModel {
     ) -> Result<oceaniam_database::model::key_boxes::Model, Error>;
 }
 
-pub trait TryIntoJwt {
-    fn try_into_jwt(self) -> Result<Jwk, Error>;
+pub trait TryIntoJwk {
+    fn try_into_jwk(self) -> Result<Jwk, Error>;
 }
 
 pub mod rsa_key;

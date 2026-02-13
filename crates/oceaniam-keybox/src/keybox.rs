@@ -1,10 +1,19 @@
 use chrono::{DateTime, FixedOffset};
 use im::HashMap;
-use oceaniam_database::model::{key_boxes::Model as Key, sea_orm_active_enums::KeyStatus};
+use itertools::Itertools;
+use log::error;
+use oceaniam_database::model::{
+    key_boxes::Model as Key,
+    sea_orm_active_enums::{self, KeyStatus},
+};
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::{error::Error, key::TryIntoKeyModel, key_alg::KeyAlg};
+use crate::{
+    error::Error,
+    key::{TryIntoJwk, TryIntoKeyModel, rsa_key::RsaKey},
+    key_alg::KeyAlg,
+};
 
 #[derive(Debug)]
 pub struct StandaloneKey {
@@ -137,6 +146,30 @@ impl KeyBox {
     }
 }
 
+impl From<KeyBox> for oceaniam_common::jwt::JwkSet {
+    fn from(value: KeyBox) -> Self {
+        let keys = value
+            .keys
+            .values()
+            .filter(|it| it.status != KeyStatus::Revoked)
+            .cloned()
+            .flat_map(|it| match it.key_alg {
+                sea_orm_active_enums::KeyAlg::Rs256
+                | sea_orm_active_enums::KeyAlg::Rs384
+                | sea_orm_active_enums::KeyAlg::Rs512
+                | sea_orm_active_enums::KeyAlg::Ps256
+                | sea_orm_active_enums::KeyAlg::Ps384
+                | sea_orm_active_enums::KeyAlg::Ps512 => RsaKey::try_from(it)
+                    .inspect_err(|e| error!("{e}"))
+                    .map(|it| it.try_into_jwk()),
+            })
+            .flatten()
+            .collect_vec();
+
+        Self { keys }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -145,7 +178,7 @@ mod tests {
 
     use chrono::{Duration, Utc};
     use jsonwebtoken::{Algorithm, Header, TokenData, Validation};
-    use oceaniam_common::jwt::{ClaimHelper, JwtCodec, SystemClaim};
+    use oceaniam_common::jwt::{ClaimHelper, JwkSet, JwtCodec, SystemClaim};
     use oceaniam_database::model::sea_orm_active_enums::KeyAlg as InnerKeyAlg;
     use tap::Tap;
 
@@ -398,5 +431,17 @@ mod tests {
                 }),
             )
             .unwrap();
+    }
+
+    #[test]
+    fn test_keybox_into_jwks() {
+        let mut keybox = KeyBox::new(Uuid::nil());
+
+        // Put key
+        keybox.put_key(create_rsa_key()).unwrap();
+        keybox.put_key(create_rsa_key()).unwrap();
+        keybox.put_key(create_rsa_key()).unwrap();
+
+        let _ = JwkSet::from(keybox);
     }
 }
