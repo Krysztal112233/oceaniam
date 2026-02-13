@@ -1,11 +1,14 @@
-use jsonwebtoken::{Algorithm, EncodingKey, jwk::Jwk};
+use jsonwebtoken::{
+    Algorithm, DecodingKey, EncodingKey, Header, Validation, decode, encode, jwk::Jwk,
+};
+use oceaniam_common::jwt::JwtCodec;
 use oceaniam_database::model::key_boxes::Model as Key;
 use rsa::{
     RsaPrivateKey,
-    pkcs1::EncodeRsaPrivateKey,
+    pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey},
     pkcs8::{DecodePrivateKey, EncodePrivateKey, der::zeroize::Zeroize},
 };
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -13,10 +16,10 @@ use crate::{
     error::Error,
     key::{AsSecretField, FromSecretField},
     key_alg::KeyAlg,
-    keybox::StandloneKey,
+    keybox::StandaloneKey,
 };
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone)]
 pub struct RsaKey {
     key_id: Uuid,
     key_alg: KeyAlg,
@@ -68,7 +71,7 @@ impl SecretField {
             pem: pem.to_string(),
         };
 
-        // Wipe out from memory
+        // NOTE: Wipe out from memory
         pem.zeroize();
 
         Ok(secret)
@@ -114,7 +117,7 @@ impl TryFrom<Key> for RsaKey {
     }
 }
 
-impl TryFrom<RsaKey> for StandloneKey {
+impl TryFrom<RsaKey> for StandaloneKey {
     type Error = Error;
 
     fn try_from(
@@ -124,16 +127,60 @@ impl TryFrom<RsaKey> for StandloneKey {
             private: secret,
         }: RsaKey,
     ) -> Result<Self, Self::Error> {
-        Ok(StandloneKey {
-            id,
+        Ok(StandaloneKey {
+            key_id: id,
             key_alg,
             secret: serde_json::to_value(SecretField::from_rsa_private(secret)?)?,
         })
     }
 }
 
+impl TryFrom<StandaloneKey> for RsaKey {
+    type Error = Error;
+
+    fn try_from(
+        StandaloneKey {
+            key_id: id,
+            key_alg,
+            secret,
+        }: StandaloneKey,
+    ) -> Result<Self, Self::Error> {
+        Ok(Self {
+            key_id: id,
+            key_alg,
+            private: Self::from_secret_field(secret)?,
+        })
+    }
+}
+
+impl<T> JwtCodec<T> for RsaKey
+where
+    T: DeserializeOwned + Serialize,
+{
+    fn encode(&self, header: Header, claim: T) -> Result<String, oceaniam_common::error::Error> {
+        let key = EncodingKey::from_rsa_der(self.private.to_pkcs1_der()?.as_bytes());
+
+        Ok(encode(&header, &claim, &key)?)
+    }
+
+    fn decode(
+        &self,
+        jwt: &[u8],
+        validation: &Validation,
+    ) -> Result<jsonwebtoken::TokenData<T>, oceaniam_common::error::Error> {
+        let key =
+            DecodingKey::from_rsa_der(self.private.to_public_key().to_pkcs1_der()?.as_bytes());
+
+        Ok(decode(jwt, &key, validation)?)
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
+    use jsonwebtoken::TokenData;
+    use oceaniam_common::jwt::{ClaimHelper, SystemClaim};
+    use tap::Tap;
     use uuid::Uuid;
 
     use super::*;
@@ -174,7 +221,30 @@ mod tests {
     fn test_rsa_as_standlone_key() {
         for alg in SUPPORTED_ALGORITHM.iter() {
             let key = RsaKey::new(Uuid::now_v7(), KeyAlg::try_from(*alg).unwrap());
-            assert!(StandloneKey::try_from(key).is_ok())
+            assert!(StandaloneKey::try_from(key).is_ok())
         }
+    }
+
+    #[test]
+    fn test_jwt_codec() -> Result<(), Error> {
+        let key = RsaKey::new(Uuid::now_v7(), KeyAlg::try_from(Algorithm::RS512).unwrap());
+
+        let jwt = key
+            .encode(
+                Header::new(Algorithm::RS512),
+                SystemClaim::new(Uuid::now_v7(), 60, None, None),
+            )
+            .unwrap();
+
+        let _: TokenData<SystemClaim> = key
+            .decode(
+                jwt.as_bytes(),
+                &Validation::default().tap_mut(|it| {
+                    it.algorithms = SUPPORTED_ALGORITHM.iter().cloned().collect_vec()
+                }),
+            )
+            .unwrap();
+
+        Ok(())
     }
 }

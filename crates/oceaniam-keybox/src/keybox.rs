@@ -1,19 +1,33 @@
 use chrono::{DateTime, FixedOffset, Utc};
 use im::HashMap;
-use oceaniam_database::{
-    helper::SafeTransactionConnectionTrait,
-    model::{key_boxes::Model as Key, sea_orm_active_enums::KeyStatus},
-};
+use oceaniam_database::model::{key_boxes::Model as Key, sea_orm_active_enums::KeyStatus};
 use serde_json::Value;
 use uuid::Uuid;
 
 use crate::{error::Error, key_alg::KeyAlg};
 
 #[derive(Debug)]
-pub struct StandloneKey {
-    pub id: Uuid,
+pub struct StandaloneKey {
+    pub key_id: Uuid,
     pub key_alg: KeyAlg,
     pub secret: Value,
+}
+
+impl From<Key> for StandaloneKey {
+    fn from(
+        Key {
+            id,
+            key_alg,
+            secret,
+            ..
+        }: Key,
+    ) -> Self {
+        StandaloneKey {
+            key_id: id,
+            key_alg: key_alg.into(),
+            secret,
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -45,6 +59,21 @@ impl From<Key> for StatusMaskedKey {
     }
 }
 
+impl StatusMaskedKey {
+    pub fn into_key<T>(self) -> Option<T>
+    where
+        T: From<StandaloneKey>,
+    {
+        match self {
+            StatusMaskedKey::Active(key)
+            | StatusMaskedKey::Pending(key)
+            | StatusMaskedKey::Retired(key) => Some(StandaloneKey::from(key).into()),
+
+            StatusMaskedKey::Revoked => None,
+        }
+    }
+}
+
 /// [KeyBox] is used to manage multiple keys, providing expiration checking and key management functionality
 #[derive(Debug, Clone)]
 pub struct KeyBox {
@@ -67,27 +96,9 @@ impl KeyBox {
         }
     }
 
-    pub async fn with_database(
-        application_id: Uuid,
-        database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<Self, Error> {
-        use oceaniam_database::model::key_boxes::Column::*;
-        use oceaniam_database::model::prelude::KeyBoxes;
-        use sea_orm::prelude::*;
-
-        let keys = sea_orm::QueryFilter::filter(KeyBoxes::find(), ApplicationId.eq(application_id))
-            .all(database)
-            .await?
-            .into_iter()
-            .map(|it| (it.id, it))
-            .collect();
-
-        Ok(Self::with_keys(application_id, keys))
-    }
-
     pub fn put_key<T>(&mut self, key: T) -> Result<(), Error>
     where
-        T: TryInto<StandloneKey, Error = Error>,
+        T: TryInto<StandaloneKey, Error = Error>,
     {
         self.put_key_with_option(
             key,
@@ -109,10 +120,10 @@ impl KeyBox {
         }: KeyOption,
     ) -> Result<(), Error>
     where
-        T: TryInto<StandloneKey, Error = Error>,
+        T: TryInto<StandaloneKey, Error = Error>,
     {
-        let StandloneKey {
-            id,
+        let StandaloneKey {
+            key_id: id,
             key_alg,
             secret,
         } = key.try_into()?;
@@ -164,12 +175,8 @@ impl KeyBox {
         self.keys.remove(key_id)
     }
 
-    pub fn get_keys(&self) -> HashMap<Uuid, Key> {
-        self.keys.clone()
-    }
-
-    pub fn application_id(&self) -> Uuid {
-        self.application_id
+    pub fn get_keys(&self) -> &HashMap<Uuid, Key> {
+        &self.keys
     }
 }
 
@@ -185,7 +192,7 @@ mod tests {
         RsaKey::new(Uuid::now_v7(), InnerKeyAlg::Rs512)
     }
 
-    fn create_rsa_standlong_key() -> StandloneKey {
+    fn create_rsa_standalone_key() -> StandaloneKey {
         RsaKey::new(Uuid::now_v7(), InnerKeyAlg::Rs512)
             .try_into()
             .unwrap()
@@ -197,9 +204,9 @@ mod tests {
     }
 
     // NOTE: AI-generated test
-    fn put_key_direct(keybox: &mut KeyBox, key: StandloneKey, option: KeyOption) {
-        let StandloneKey {
-            id,
+    fn put_key_direct(keybox: &mut KeyBox, key: StandaloneKey, option: KeyOption) {
+        let StandaloneKey {
+            key_id: id,
             key_alg,
             secret,
         } = key;
@@ -241,8 +248,8 @@ mod tests {
     #[test]
     fn test_put_key_without_activated_at_is_active() {
         let mut keybox = KeyBox::new(Uuid::now_v7());
-        let key = create_rsa_standlong_key();
-        let key_id = key.id;
+        let key = create_rsa_standalone_key();
+        let key_id = key.key_id;
 
         put_key_direct(
             &mut keybox,
@@ -263,8 +270,8 @@ mod tests {
     #[test]
     fn test_put_key_with_past_activated_at_is_active() {
         let mut keybox = KeyBox::new(Uuid::now_v7());
-        let key = create_rsa_standlong_key();
-        let key_id = key.id;
+        let key = create_rsa_standalone_key();
+        let key_id = key.key_id;
         let past = now_fixed() - Duration::hours(1);
 
         put_key_direct(
@@ -286,8 +293,8 @@ mod tests {
     #[test]
     fn test_put_key_with_future_activated_at_is_pending() {
         let mut keybox = KeyBox::new(Uuid::now_v7());
-        let key = create_rsa_standlong_key();
-        let key_id = key.id;
+        let key = create_rsa_standalone_key();
+        let key_id = key.key_id;
         let future = now_fixed() + Duration::hours(1);
 
         put_key_direct(
@@ -309,8 +316,8 @@ mod tests {
     #[test]
     fn test_put_key_with_past_expires_at_is_retired() {
         let mut keybox = KeyBox::new(Uuid::now_v7());
-        let key = create_rsa_standlong_key();
-        let key_id = key.id;
+        let key = create_rsa_standalone_key();
+        let key_id = key.key_id;
         let past = now_fixed() - Duration::hours(1);
 
         put_key_direct(
@@ -332,8 +339,8 @@ mod tests {
     #[test]
     fn test_put_key_with_past_retired_at_is_retired() {
         let mut keybox = KeyBox::new(Uuid::now_v7());
-        let key = create_rsa_standlong_key();
-        let key_id = key.id;
+        let key = create_rsa_standalone_key();
+        let key_id = key.key_id;
         let past = now_fixed() - Duration::hours(1);
 
         put_key_direct(
@@ -355,8 +362,8 @@ mod tests {
     #[test]
     fn test_expires_at_takes_precedence_over_activated_at() {
         let mut keybox = KeyBox::new(Uuid::now_v7());
-        let key = create_rsa_standlong_key();
-        let key_id = key.id;
+        let key = create_rsa_standalone_key();
+        let key_id = key.key_id;
         let past = now_fixed() - Duration::hours(1);
         let future = now_fixed() + Duration::hours(1);
 
@@ -380,8 +387,8 @@ mod tests {
     #[test]
     fn test_retired_at_takes_precedence_over_activated_at() {
         let mut keybox = KeyBox::new(Uuid::now_v7());
-        let key = create_rsa_standlong_key();
-        let key_id = key.id;
+        let key = create_rsa_standalone_key();
+        let key_id = key.key_id;
         let past = now_fixed() - Duration::hours(1);
 
         // `activated_at` is in the past (should be Active), but retired_at has already passed

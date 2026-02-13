@@ -1,4 +1,4 @@
-use jsonwebtoken::TokenData;
+use jsonwebtoken::{Header, TokenData, Validation};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -9,8 +9,8 @@ pub trait JwtCodec<T>
 where
     T: DeserializeOwned + Serialize,
 {
-    fn encode(&self, claim: T) -> Result<String, Error>;
-    fn decode(&self, jwt: &[u8]) -> Result<TokenData<T>, Error>;
+    fn encode(&self, header: Header, claim: T) -> Result<String, Error>;
+    fn decode(&self, jwt: &[u8], validation: &Validation) -> Result<TokenData<T>, Error>;
 }
 
 /// Claim - Used for issuing JWT tokens to external applications/clients
@@ -95,12 +95,13 @@ pub trait ClaimHelper: DeserializeOwned + Serialize + Clone {
     fn decode(
         codec: Box<dyn JwtCodec<Self>>,
         jwt: impl Into<String>,
+        validation: &Validation,
     ) -> Result<TokenData<Self>, Error> {
-        codec.decode(jwt.into().as_bytes())
+        codec.decode(jwt.into().as_bytes(), validation)
     }
 
-    fn encode(self, codec: Box<dyn JwtCodec<Self>>) -> Result<String, Error> {
-        codec.encode(self)
+    fn encode(self, header: Header, codec: Box<dyn JwtCodec<Self>>) -> Result<String, Error> {
+        codec.encode(header, self)
     }
 }
 

@@ -41,3 +41,19 @@ impl IntoResponse for Error {
             .into_response()
     }
 }
+
+impl From<rsa::pkcs1::Error> for Error {
+    fn from(value: rsa::pkcs1::Error) -> Self {
+        Self::Jwt(jsonwebtoken::errors::new_error(
+            jsonwebtoken::errors::ErrorKind::InvalidKeyFormat,
+        ))
+    }
+}
+
+impl From<rsa::pkcs8::Error> for Error {
+    fn from(value: rsa::pkcs8::Error) -> Self {
+        Self::Jwt(jsonwebtoken::errors::new_error(
+            jsonwebtoken::errors::ErrorKind::InvalidKeyFormat,
+        ))
+    }
+}

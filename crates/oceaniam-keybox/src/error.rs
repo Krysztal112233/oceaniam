@@ -26,6 +26,9 @@ pub enum Error {
 
     #[error("{0}")]
     Pkcs8(#[from] rsa::pkcs8::Error),
+
+    #[error("{0}")]
+    Pkcs1(#[from] rsa::pkcs1::Error),
 }
 
 impl Error {
