@@ -53,10 +53,7 @@ impl RequireAuth {
 impl FromRequestParts<AppState> for RequireAuth {
     type Rejection = StatusCode;
 
-    async fn from_request_parts(
-        parts: &mut Parts,
-        AppState { .. }: &AppState,
-    ) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, _: &AppState) -> Result<Self, Self::Rejection> {
         let auth_header = parts
             .headers
             .get(header::AUTHORIZATION)
