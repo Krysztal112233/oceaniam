@@ -7,7 +7,7 @@ use oceaniam_common::{ApiResponse, RestResult};
 use oceaniam_vo::auth::{SigninRequest, SigninResponse, SignoutResponse, SignupResponse};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
-use crate::state::AppState;
+use crate::{middlewares, state::AppState};
 
 pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
@@ -39,10 +39,10 @@ pub async fn signin() -> RestResult<()> {
         get,
         path = "/auth/signout",
         tag = "Authentication",
+        params(("Authorization" = String, Header, description = "Authorization payload")),
         responses(
             (status = 200, body = ApiResponse<SignoutResponse>),
         ),
-        params(("authorization" = String, Header, description = "Authorization payload")),
     )]
 pub async fn signout() -> RestResult<()> {
     Ok(ApiResponse::new(()))
@@ -70,12 +70,12 @@ pub async fn signup(Json(_request): Json<SigninRequest>) -> RestResult<()> {
         post,
         path = "/auth/refresh",
         tag = "Authentication",
+        params(("Authorization" = String, Header, description = "Authorization payload")),
         responses(
             (status = 200, body = ApiResponse<SigninResponse>),
         ),
         request_body(content_type = "application/json"),
-        params(("authorization" = String, Header, description = "Authorization payload")),
     )]
-pub async fn refresh() -> RestResult<()> {
+pub async fn refresh(auth: middlewares::auth::RequireAuth) -> RestResult<()> {
     Ok(ApiResponse::new(()))
 }

@@ -1969,6 +1969,7 @@ dependencies = [
  "axum",
  "chrono",
  "config",
+ "garde",
  "jsonwebtoken",
  "log",
  "migration",

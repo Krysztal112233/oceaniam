@@ -7,7 +7,7 @@ use oceaniam_common::{ApiResponse, Empty, RestResult};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
-use crate::state::AppState;
+use crate::{middlewares, state::AppState};
 
 pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
@@ -26,8 +26,7 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
             (status = 200, body = ApiResponse<Empty>),
         ),
     )]
-
-pub async fn get_tenants() -> RestResult<()> {
+pub async fn get_tenants(auth: middlewares::auth::RequireAuth) -> RestResult<()> {
     Ok(ApiResponse::new(()))
 }
 
@@ -46,7 +45,10 @@ pub async fn get_tenants() -> RestResult<()> {
         ),
     )]
 
-pub async fn get_tenant(Path(tenant_id): Path<Uuid>) -> RestResult<()> {
+pub async fn get_tenant(
+    auth: middlewares::auth::RequireAuth,
+    Path(tenant_id): Path<Uuid>,
+) -> RestResult<()> {
     Ok(ApiResponse::new(()))
 }
 
@@ -64,7 +66,10 @@ pub async fn get_tenant(Path(tenant_id): Path<Uuid>) -> RestResult<()> {
             (status = 201, body = ApiResponse<Empty>),
         ),
     )]
-pub async fn create_tenant(Path(tenant_id): Path<Uuid>) -> RestResult<()> {
+pub async fn create_tenant(
+    auth: middlewares::auth::RequireAuth,
+    Path(tenant_id): Path<Uuid>,
+) -> RestResult<()> {
     Ok(ApiResponse::new(()))
 }
 
@@ -82,6 +87,9 @@ pub async fn create_tenant(Path(tenant_id): Path<Uuid>) -> RestResult<()> {
             (status = 200, body = ApiResponse<Empty>),
         ),
     )]
-pub async fn delete_tenant(Path(tenant_id): Path<Uuid>) -> RestResult<()> {
+pub async fn delete_tenant(
+    auth: middlewares::auth::RequireAuth,
+    Path(tenant_id): Path<Uuid>,
+) -> RestResult<()> {
     Ok(ApiResponse::new(()))
 }

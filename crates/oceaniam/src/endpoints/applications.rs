@@ -4,15 +4,21 @@
 
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
 };
-use oceaniam_common::{ApiResponse, Empty, ErrorResponse, RestResult, error::Error, jwt::JwkSet};
+use oceaniam_common::{
+    ApiResponse, Empty, ErrorResponse, PageParam, RestResult, error::Error, jwt::JwkSet,
+};
+use oceaniam_database::model::prelude::*;
 use oceaniam_vo::applications::CreateApplicationRequest;
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
-use crate::state::AppState;
+use crate::{
+    middlewares::{self},
+    state::AppState,
+};
 
 pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
@@ -26,11 +32,20 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
         get,
         path = "/applications",
         tag = "Applications",
+        params(("Authorization" = String, Header, description = "Authorization payload")),
         responses(
             (status = 200, body = ApiResponse<Empty>),
         ),
     )]
-pub async fn get_applications() -> RestResult<()> {
+pub async fn get_applications(
+    auth: middlewares::auth::RequireAuth,
+
+    State(AppState {
+        mut keybox,
+        database,
+        ..
+    }): State<AppState>,
+) -> RestResult<()> {
     Ok(ApiResponse::new(()))
 }
 
@@ -38,14 +53,14 @@ pub async fn get_applications() -> RestResult<()> {
         post,
         path = "/applications",
         tag = "Applications",
-        params(
-            ("application_id", description = "Application ID"),
-        ),
+        params(("Authorization" = String, Header, description = "Authorization payload")),
         responses(
             (status = 200, body = ApiResponse<Empty>),
         ),
     )]
 pub async fn create_application(
+    auth: middlewares::auth::RequireAuth,
+
     State(AppState {
         mut keybox,
         database,
@@ -64,9 +79,6 @@ pub async fn create_application(
         get,
         path = "/applications/{application_id}/.well-known/jwks.json",
         tag = "Applications",
-        params(
-            ("application_id", description = "Application ID"),
-        ),
         responses(
             (status = 200, body = JwkSet),
             (status = 404, body = ApiResponse<ErrorResponse>),
@@ -74,6 +86,8 @@ pub async fn create_application(
     )]
 pub async fn get_application_jwks(
     Path(application_id): Path<Uuid>,
+    Query(page): Query<Option<PageParam>>,
+
     State(AppState { mut keybox, .. }): State<AppState>,
 ) -> RestResult<JwkSet> {
     let keybox = keybox

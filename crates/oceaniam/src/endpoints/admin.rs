@@ -8,7 +8,7 @@ use axum::extract::State;
 use oceaniam_common::{ApiResponse, Empty, RestResult};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
-use crate::state::AppState;
+use crate::{middlewares, state::AppState};
 
 pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router.routes(routes!(signin)).routes(routes!(signout))
@@ -24,10 +24,13 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
         responses(
             (status = 200, body = ApiResponse<Empty>)
         ),
-        params(("authorization" = String, Header, description = "Authorization payload")),
+        params(("Authorization" = String, Header, description = "Authorization payload")),
     )]
 
-async fn signin(State(_ext): State<AppState>) -> RestResult<Empty> {
+async fn signin(
+    auth: middlewares::auth::RequireAuth,
+    State(_ext): State<AppState>,
+) -> RestResult<Empty> {
     Ok(ApiResponse::default())
 }
 
@@ -41,8 +44,11 @@ async fn signin(State(_ext): State<AppState>) -> RestResult<Empty> {
         responses(
             (status = 200, body = ApiResponse<Empty>)
         ),
-        params(("authorization" = String, Header, description = "Authorization payload")),
+        params(("Authorization" = String, Header, description = "Authorization payload")),
     )]
-async fn signout(State(_ext): State<AppState>) -> RestResult<Empty> {
+async fn signout(
+    auth: middlewares::auth::RequireAuth,
+    State(_ext): State<AppState>,
+) -> RestResult<Empty> {
     Ok(ApiResponse::default())
 }
