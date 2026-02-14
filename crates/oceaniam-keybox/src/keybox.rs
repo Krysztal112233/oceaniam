@@ -146,7 +146,7 @@ impl KeyBox {
     }
 }
 
-impl From<KeyBox> for oceaniam_common::jwt::JwkSet {
+impl From<KeyBox> for oceaniam_common::jwks::JwkSet {
     fn from(value: KeyBox) -> Self {
         let keys = value
             .keys
@@ -164,7 +164,7 @@ impl From<KeyBox> for oceaniam_common::jwt::JwkSet {
                     .map(|it| it.try_into_jwk()),
             })
             .flatten()
-            .collect_vec();
+            .collect();
 
         Self { keys }
     }
@@ -178,7 +178,10 @@ mod tests {
 
     use chrono::{Duration, Utc};
     use jsonwebtoken::{Algorithm, Header, TokenData, Validation};
-    use oceaniam_common::jwt::{ClaimHelper, JwkSet, JwtCodec, SystemClaim};
+    use oceaniam_common::{
+        jwks::JwkSet,
+        jwt::{ClaimHelper, JwtCodec, SystemClaim},
+    };
     use oceaniam_database::model::sea_orm_active_enums::KeyAlg as InnerKeyAlg;
     use tap::Tap;
 

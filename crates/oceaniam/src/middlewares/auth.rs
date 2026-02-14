@@ -3,11 +3,11 @@ use axum::{
     http::{StatusCode, header, request::Parts},
 };
 use jsonwebtoken::{DecodingKey, Header, TokenData, Validation, decode, decode_header};
-use oceaniam_common::{error::Error, jwt::JwkSet};
+use oceaniam_common::{error::Error, jwks::JwkSet};
 use serde::{Serialize, de::DeserializeOwned};
 use uuid::Uuid;
 
-use crate::{keybox::KeyBoxManager, state::AppState};
+use crate::{keybox::ApplicationKeyBoxManager, state::AppState};
 
 pub struct RequireAuth {
     token: String,
@@ -19,7 +19,7 @@ impl RequireAuth {
         self,
         application_id: Uuid,
 
-        keybox: &mut KeyBoxManager,
+        keybox: &mut ApplicationKeyBoxManager,
         validation: &Validation,
     ) -> Result<TokenData<S>, Error>
     where

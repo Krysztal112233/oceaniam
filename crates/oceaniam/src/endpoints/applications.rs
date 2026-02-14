@@ -8,9 +8,10 @@ use axum::{
     http::StatusCode,
 };
 use oceaniam_common::{
-    ApiResponse, Empty, ErrorResponse, PageParam, RestResult, error::Error, jwt::JwkSet,
+    ApiResponse, Empty, ErrorResponse, PageParam, RestResult,
+    error::Error,
+    jwks::{JwkSet, JwkSetSchema},
 };
-use oceaniam_database::model::prelude::*;
 use oceaniam_vo::applications::CreateApplicationRequest;
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
@@ -62,11 +63,10 @@ pub async fn create_application(
     auth: middlewares::auth::RequireAuth,
 
     State(AppState {
-        mut keybox,
-        database,
-        ..
+        keybox, database, ..
     }): State<AppState>,
 
+    Query(page): Query<Option<PageParam>>,
     Json(CreateApplicationRequest { tenant_id }): Json<CreateApplicationRequest>,
 ) -> RestResult<()> {
     Ok(ApiResponse::new(()))
@@ -80,13 +80,12 @@ pub async fn create_application(
         path = "/applications/{application_id}/.well-known/jwks.json",
         tag = "Applications",
         responses(
-            (status = 200, body = JwkSet),
+            (status = 200, body = JwkSetSchema),
             (status = 404, body = ApiResponse<ErrorResponse>),
         ),
     )]
 pub async fn get_application_jwks(
     Path(application_id): Path<Uuid>,
-    Query(page): Query<Option<PageParam>>,
 
     State(AppState { mut keybox, .. }): State<AppState>,
 ) -> RestResult<JwkSet> {

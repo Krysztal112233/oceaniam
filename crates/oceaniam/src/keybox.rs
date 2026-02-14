@@ -10,14 +10,14 @@ use sea_orm::DatabaseConnection;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
-pub struct KeyBoxManager {
+pub struct ApplicationKeyBoxManager {
     database: DatabaseConnection,
     boxes: Cache<Uuid, KeyBox>,
     banned: Cache<Uuid, ()>,
 }
 
 #[allow(unused)]
-impl KeyBoxManager {
+impl ApplicationKeyBoxManager {
     pub fn new(database: DatabaseConnection) -> Self {
         Self {
             database,
