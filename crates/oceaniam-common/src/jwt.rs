@@ -158,6 +158,7 @@ pub struct JwkSet {
     pub keys: Vec<Jwk>,
 }
 
+// TODO: OPTIMIZE here
 impl From<JwkSet> for jsonwebtoken::jwk::JwkSet {
     fn from(value: JwkSet) -> Self {
         let value = serde_json::to_value(value).unwrap();
@@ -166,6 +167,7 @@ impl From<JwkSet> for jsonwebtoken::jwk::JwkSet {
     }
 }
 
+// TODO: OPTIMIZE here
 impl From<Jwk> for jsonwebtoken::jwk::Jwk {
     fn from(value: Jwk) -> Self {
         let value = serde_json::to_value(value).unwrap();
@@ -174,6 +176,7 @@ impl From<Jwk> for jsonwebtoken::jwk::Jwk {
     }
 }
 
+// TODO: OPTIMIZE here
 impl From<jsonwebtoken::jwk::Jwk> for Jwk {
     fn from(value: jsonwebtoken::jwk::Jwk) -> Self {
         let value = serde_json::to_value(value).unwrap();

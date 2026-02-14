@@ -17,6 +17,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 
 mod endpoints;
 mod keybox;
+mod middlewares;
 mod state;
 
 #[tokio::main]

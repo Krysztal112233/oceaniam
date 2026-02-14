@@ -10,6 +10,7 @@ chrono.workspace = true
 config.workspace = true
 im.workspace = true
 itertools.workspace = true
+jsonwebtoken.workspace = true
 log.workspace = true
 mimalloc.workspace = true
 moka.workspace = true
