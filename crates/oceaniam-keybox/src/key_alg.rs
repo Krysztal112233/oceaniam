@@ -14,8 +14,8 @@ impl TryFrom<Algorithm> for KeyAlg {
     fn try_from(value: Algorithm) -> Result<Self, Self::Error> {
         let inner = match value {
             Algorithm::RS256 => InnerKeyAlg::Rs256,
-            Algorithm::RS384 => InnerKeyAlg::Ps384,
-            Algorithm::RS512 => InnerKeyAlg::Ps512,
+            Algorithm::RS384 => InnerKeyAlg::Rs384,
+            Algorithm::RS512 => InnerKeyAlg::Rs512,
             Algorithm::PS256 => InnerKeyAlg::Ps256,
             Algorithm::PS384 => InnerKeyAlg::Ps384,
             Algorithm::PS512 => InnerKeyAlg::Ps512,
@@ -42,8 +42,8 @@ impl From<KeyAlg> for Algorithm {
     fn from(value: KeyAlg) -> Self {
         match value.0 {
             InnerKeyAlg::Rs256 => Algorithm::RS256,
-            InnerKeyAlg::Rs384 => Algorithm::PS384,
-            InnerKeyAlg::Rs512 => Algorithm::PS512,
+            InnerKeyAlg::Rs384 => Algorithm::RS384,
+            InnerKeyAlg::Rs512 => Algorithm::RS512,
             InnerKeyAlg::Ps256 => Algorithm::PS256,
             InnerKeyAlg::Ps384 => Algorithm::PS384,
             InnerKeyAlg::Ps512 => Algorithm::PS512,

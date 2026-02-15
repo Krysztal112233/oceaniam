@@ -4,10 +4,7 @@ use axum::extract::FromRef;
 use im::HashMap;
 use log::{error, info, warn};
 use oceaniam_common::{consts, error::Error, jwks::ManagedJwkSet};
-use oceaniam_database::{
-    helper::key_boxes::KeyBoxesHelper,
-    model::{prelude::KeyBoxes, sea_orm_active_enums::KeyAlg},
-};
+use oceaniam_database::{helper::key_boxes::KeyBoxesHelper, model::prelude::KeyBoxes};
 use oceaniam_keybox::{KeyBox, key::rsa_key::RsaKey};
 use parking_lot::RwLock;
 use sea_orm::DatabaseConnection;
@@ -61,7 +58,10 @@ async fn initial_system_keybox(database: DatabaseConnection) -> Result<Arc<RwLoc
     if keys.is_empty() {
         info!("could not find any system keys. a new system key will be generated.");
 
-        let key = RsaKey::new(Uuid::now_v7(), KeyAlg::Rs512);
+        let key = RsaKey::new(
+            Uuid::now_v7(),
+            oceaniam_keybox::key_alg::KeyAlg::try_from(consts::SYSTEM_KEY_ALO).unwrap(),
+        );
         keybox.put_key(key).inspect_err(|e| error!("{e}"))?;
 
         info!("the system key has been generated and is about to be written to the database.");
