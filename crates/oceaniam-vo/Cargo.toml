@@ -12,3 +12,5 @@ serde_json.workspace = true
 ts-rs.workspace = true
 utoipa.workspace = true
 uuid.workspace = true
+
+oceaniam-common.workspace = true

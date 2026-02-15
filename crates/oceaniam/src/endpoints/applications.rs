@@ -11,6 +11,7 @@ use oceaniam_common::{
     ApiResponse, Empty, ErrorResponse, PageParam, RestResult,
     error::Error,
     jwks::{JwkSet, JwkSetSchema},
+    types::sqid::Sqid,
 };
 use oceaniam_vo::applications::CreateApplicationRequest;
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -87,13 +88,15 @@ pub async fn create_application(
         ),
     )]
 pub async fn get_application_jwks(
-    Path(application_id): Path<Uuid>,
+    Path(application_id): Path<Sqid>,
 
     State(AppState {
         mut application_keybox_manager,
         ..
     }): State<AppState>,
 ) -> RestResult<JwkSet> {
+    let application_id = Uuid::try_from(application_id)?;
+
     Ok(ApiResponse::new(
         application_keybox_manager
             .get_jwks(application_id)

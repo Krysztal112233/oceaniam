@@ -12,6 +12,7 @@ pub mod error;
 pub mod jwks;
 pub mod jwt;
 pub mod test;
+pub mod types;
 
 #[derive(Debug, Deserialize, Serialize, Default, ToSchema)]
 pub struct Empty {}
