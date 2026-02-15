@@ -21,7 +21,7 @@ use crate::{
     key_alg::KeyAlg,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StandaloneKey {
     pub key_id: Uuid,
     pub key_alg: KeyAlg,
@@ -89,6 +89,35 @@ impl StatusMaskedKey {
     }
 }
 
+#[derive(Debug)]
+pub enum ConcreteStatusMaskedKey<T> {
+    Active(T),
+    Pending(T),
+    Retired(T),
+
+    /// If [Key] has been [KeyStatus::Revoked], **YOU CANNOT GET IT ANYWAY**.
+    Revoked,
+}
+
+impl<T> TryFrom<StatusMaskedKey> for ConcreteStatusMaskedKey<T>
+where
+    T: TryFrom<StandaloneKey, Error = Error>,
+{
+    type Error = Error;
+
+    fn try_from(value: StatusMaskedKey) -> Result<Self, Self::Error> {
+        use ConcreteStatusMaskedKey::*;
+        use StatusMaskedKey as S;
+
+        Ok(match value {
+            S::Active(m) => Active(T::try_from(StandaloneKey::from(m))?),
+            S::Pending(m) => Pending(T::try_from(StandaloneKey::from(m))?),
+            S::Retired(m) => Retired(T::try_from(StandaloneKey::from(m))?),
+            S::Revoked => Revoked,
+        })
+    }
+}
+
 /// [KeyBox] is used to manage multiple keys, providing expiration checking and key management functionality
 #[derive(Debug, Clone)]
 pub struct KeyBox {
@@ -149,6 +178,26 @@ impl KeyBox {
 
     pub fn get_keys(&self) -> &HashMap<Uuid, Key> {
         &self.keys
+    }
+
+    pub fn get_latest_key<T>(&self) -> Option<ConcreteStatusMaskedKey<T>>
+    where
+        T: TryFrom<StandaloneKey, Error = Error>,
+    {
+        let kid = self
+            .keys
+            .clone()
+            .into_iter()
+            .map(|(_, it)| it)
+            .filter(|it| it.status == KeyStatus::Active)
+            .sorted_by(|a, b| Ord::cmp(&b.activated_at, &a.activated_at))
+            .map(StandaloneKey::from)
+            .find(|m| T::try_from(m.clone()).is_ok())?
+            .key_id;
+
+        ConcreteStatusMaskedKey::try_from(self.get_key(&kid)?)
+            .inspect_err(|e| error!("{e}"))
+            .ok()
     }
 
     pub async fn write_to(
@@ -470,5 +519,52 @@ mod tests {
         keybox.put_key(create_rsa_key()).unwrap();
 
         let _ = JwkSet::from(keybox);
+    }
+
+    #[test]
+    fn test_keybox_find_newest() {
+        let mut keybox = KeyBox::new(Uuid::nil());
+
+        let oldest = create_rsa_key();
+        // Put key
+        keybox
+            .put_key_with_option(
+                oldest.clone(),
+                KeyOption {
+                    activated_at: Some(Utc::now().into()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+
+        keybox
+            .put_key_with_option(
+                create_rsa_key(),
+                KeyOption {
+                    activated_at: Some(Utc::now().into()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+
+        let newest = create_rsa_key();
+        keybox
+            .put_key_with_option(
+                newest.clone(),
+                KeyOption {
+                    activated_at: Some(Utc::now().into()),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+
+        let key = keybox.get_latest_key::<RsaKey>();
+
+        let Some(ConcreteStatusMaskedKey::Active(key)) = key else {
+            return assert!(key.is_some());
+        };
+
+        assert_ne!(key, oldest);
+        assert_eq!(key, newest);
     }
 }

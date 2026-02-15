@@ -18,7 +18,7 @@ use crate::{
     keybox::{KeyOption, StandaloneKey},
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RsaKey {
     key_id: Uuid,
     key_alg: KeyAlg,

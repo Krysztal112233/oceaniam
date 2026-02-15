@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::Error;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(transparent)]
 pub struct KeyAlg(InnerKeyAlg);
 
