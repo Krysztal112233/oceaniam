@@ -27,7 +27,7 @@ pub struct Jwk {
     pub e: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct JwkSet {
     pub keys: Vector<Jwk>,
 }
@@ -65,24 +65,24 @@ impl From<jsonwebtoken::jwk::Jwk> for Jwk {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ManagedJwkSet {
     jwks: Arc<RwLock<JwkSet>>,
 }
 
 impl ManagedJwkSet {
-    pub async fn new(roller: impl roller::ManagedJwkSetRoller) -> Result<Self, Error> {
-        Ok(Self::with_jwks(roller.roll().await?))
-    }
-
-    pub fn with_jwks(jwks: JwkSet) -> Self {
-        Self {
-            jwks: Arc::new(RwLock::new(jwks)),
-        }
+    pub async fn with_roller(roller: impl roller::ManagedJwkSetRoller) -> Result<Self, Error> {
+        let jwks = Self::default();
+        roller.roll(jwks.clone()).await?;
+        Ok(jwks)
     }
 
     pub fn jwks(&self) -> JwkSet {
         self.jwks.read().clone()
+    }
+
+    pub fn set_jwks(&mut self, jwks: JwkSet) {
+        *self.jwks.write() = jwks;
     }
 }
 
@@ -99,7 +99,7 @@ pub mod roller {
 
     #[async_trait::async_trait]
     pub trait ManagedJwkSetRoller {
-        async fn roll(&self) -> Result<JwkSet, Error>;
+        async fn roll(&self, copy: ManagedJwkSet) -> Result<(), Error>;
     }
 
     pub struct OneShotRoller {
@@ -110,11 +110,8 @@ pub mod roller {
         pub fn new(url: impl Into<String>) -> Self {
             Self { url: url.into() }
         }
-    }
 
-    #[async_trait::async_trait]
-    impl ManagedJwkSetRoller for OneShotRoller {
-        async fn roll(&self) -> Result<JwkSet, Error> {
+        pub async fn pull(&self) -> Result<JwkSet, Error> {
             Client::new()
                 .get(self.url.clone())
                 .send()
@@ -128,24 +125,31 @@ pub mod roller {
         }
     }
 
+    #[async_trait::async_trait]
+    impl ManagedJwkSetRoller for OneShotRoller {
+        async fn roll(&self, copy: ManagedJwkSet) -> Result<(), Error> {
+            let jwks = self.pull().await?;
+            *copy.jwks.write() = jwks;
+
+            Ok(())
+        }
+    }
+
     pub struct ScheduledRoller {
         url: String,
-        copy: ManagedJwkSet,
     }
 
     impl ScheduledRoller {
-        pub fn new(url: impl Into<String>, copy: ManagedJwkSet) -> Self {
-            Self {
-                url: url.into(),
-                copy,
-            }
+        pub fn new(url: impl Into<String>) -> Self {
+            Self { url: url.into() }
         }
     }
 
     #[async_trait::async_trait]
     impl ManagedJwkSetRoller for ScheduledRoller {
-        async fn roll(&self) -> Result<JwkSet, Error> {
-            let copy = self.copy.clone();
+        async fn roll(&self, copy: ManagedJwkSet) -> Result<(), Error> {
+            let copy = copy.clone();
+            let clond = copy.clone();
             let url = self.url.clone();
 
             tokio::spawn(async move {
@@ -153,15 +157,11 @@ pub mod roller {
                     // TODO: make this behavior configurable
                     tokio::time::sleep(Duration::from_mins(60)).await;
 
-                    let jwks = OneShotRoller::new(url.clone()).roll().await;
-
-                    if let Ok(jwks) = jwks {
-                        *copy.jwks.write() = jwks
-                    };
+                    let _ = OneShotRoller::new(url.clone()).roll(clond.clone()).await;
                 }
             });
 
-            OneShotRoller::new(&self.url).roll().await
+            OneShotRoller::new(&self.url).roll(copy.clone()).await
         }
     }
 }

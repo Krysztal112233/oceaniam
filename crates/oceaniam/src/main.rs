@@ -18,6 +18,7 @@ static GLOBAL: MiMalloc = MiMalloc;
 mod endpoints;
 mod keybox;
 mod middlewares;
+#[allow(unused)]
 mod roller;
 mod state;
 

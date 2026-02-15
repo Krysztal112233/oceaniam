@@ -2,7 +2,7 @@ use axum::extract::FromRef;
 use oceaniam_common::{error::Error, jwks::ManagedJwkSet};
 use sea_orm::DatabaseConnection;
 
-use crate::{keybox::ApplicationKeyBoxManager, roller::BuiltinJwkSetRoller};
+use crate::{keybox::ApplicationKeyBoxManager, roller::BuiltinScheduledJwkSetRoller};
 
 #[derive(Debug, Clone)]
 pub struct AppState {
@@ -16,10 +16,12 @@ impl AppState {
     pub async fn new(database: DatabaseConnection) -> Result<Self, Error> {
         let keybox = ApplicationKeyBoxManager::new(database.clone());
 
+        let roller = BuiltinScheduledJwkSetRoller::new(database.clone());
+
         Ok(Self {
             database: database.clone(),
             keybox,
-            system_jwks: ManagedJwkSet::new(BuiltinJwkSetRoller::new(database)).await?,
+            system_jwks: ManagedJwkSet::with_roller(roller).await?,
             _unit: (),
         })
     }
