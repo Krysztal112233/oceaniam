@@ -42,7 +42,7 @@ pub async fn get_applications(
     auth: middlewares::auth::RequireAuth,
 
     State(AppState {
-        mut keybox,
+        mut application_keybox_manager,
         database,
         ..
     }): State<AppState>,
@@ -63,7 +63,9 @@ pub async fn create_application(
     auth: middlewares::auth::RequireAuth,
 
     State(AppState {
-        keybox, database, ..
+        application_keybox_manager,
+        database,
+        ..
     }): State<AppState>,
 
     Query(page): Query<Option<PageParam>>,
@@ -87,12 +89,15 @@ pub async fn create_application(
 pub async fn get_application_jwks(
     Path(application_id): Path<Uuid>,
 
-    State(AppState { mut keybox, .. }): State<AppState>,
+    State(AppState {
+        mut application_keybox_manager,
+        ..
+    }): State<AppState>,
 ) -> RestResult<JwkSet> {
-    let keybox = keybox
-        .get_keybox(application_id)
-        .await
-        .ok_or(Error::with_code(StatusCode::NOT_FOUND, "jwks not found"))?;
-
-    Ok(ApiResponse::new(JwkSet::from(keybox)))
+    Ok(ApiResponse::new(
+        application_keybox_manager
+            .get_jwks(application_id)
+            .await
+            .ok_or(Error::with_code(StatusCode::NOT_FOUND, "jwks not found"))?,
+    ))
 }

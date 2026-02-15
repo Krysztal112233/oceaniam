@@ -26,6 +26,3 @@ utoipa.workspace = true
 uuid.workspace = true
 
 migration.workspace = true
-
-[dev-dependencies]
-tokio.workspace = true

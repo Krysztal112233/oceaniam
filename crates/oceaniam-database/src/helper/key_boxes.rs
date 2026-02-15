@@ -1,7 +1,7 @@
 //! Helper functions and traits for key_boxes operations.
 
 use chrono::Utc;
-use log::error;
+use log::{debug, error};
 use oceaniam_common::{consts, error::Error};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use uuid::Uuid;
@@ -42,6 +42,21 @@ pub trait KeyBoxesHelper {
             .all(database)
             .await
             .inspect_err(|e| error!("{e}"))?)
+    }
+
+    async fn update_application_keys(
+        application_id: Uuid,
+        keys: impl IntoIterator<Item = model::key_boxes::ActiveModel> + Send,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<(), Error> {
+        let updated = KeyBoxes::insert_many(keys)
+            .exec_with_returning_keys(database)
+            .await
+            .inspect_err(|e| error!("{e}"))?;
+
+        debug!("updated application({application_id}) keys {updated:?}");
+
+        Ok(())
     }
 }
 

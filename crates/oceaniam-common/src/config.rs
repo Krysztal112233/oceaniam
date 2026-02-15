@@ -41,6 +41,7 @@ impl From<DatabaseConfig> for ConnectOptions {
                 Some(c) => it.min_connections(c),
                 _ => it,
             })
+            .pipe_borrow_mut(|it| it.sqlx_logging(false))
             .to_owned()
     }
 }

@@ -5,37 +5,30 @@ use axum::{
 use jsonwebtoken::{DecodingKey, Header, TokenData, Validation, decode, decode_header};
 use oceaniam_common::{error::Error, jwks::JwkSet};
 use serde::{Serialize, de::DeserializeOwned};
-use uuid::Uuid;
 
-use crate::{keybox::ApplicationKeyBoxManager, state::AppState};
+use crate::state::AppState;
 
 pub struct RequireAuth {
     token: String,
     header: Header,
+
+    jwks: JwkSet,
 }
 
 impl RequireAuth {
     pub async fn validate<S>(
         self,
-        application_id: Uuid,
 
-        keybox: &mut ApplicationKeyBoxManager,
+        jwks: JwkSet,
         validation: &Validation,
     ) -> Result<TokenData<S>, Error>
     where
         S: Serialize + DeserializeOwned,
     {
-        let Some(key) = keybox.get_keybox(application_id).await else {
-            return Err(Error::with_code(
-                StatusCode::BAD_REQUEST,
-                format!("cannot find keybox of `{application_id}`"),
-            ));
-        };
-
         let key = {
             // NOTE: We have already proved that `kid` must exist.
             let kid = &self.header.kid.unwrap();
-            let tmp = jsonwebtoken::jwk::JwkSet::from(JwkSet::from(key));
+            let tmp = jsonwebtoken::jwk::JwkSet::from(jwks);
             let Some(jwk) = tmp.find(kid) else {
                 return Err(Error::with_code(
                     StatusCode::BAD_REQUEST,
@@ -53,7 +46,10 @@ impl RequireAuth {
 impl FromRequestParts<AppState> for RequireAuth {
     type Rejection = StatusCode;
 
-    async fn from_request_parts(parts: &mut Parts, _: &AppState) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        AppState { system_jwks, .. }: &AppState,
+    ) -> Result<Self, Self::Rejection> {
         let auth_header = parts
             .headers
             .get(header::AUTHORIZATION)
@@ -78,6 +74,10 @@ impl FromRequestParts<AppState> for RequireAuth {
             return Err(StatusCode::BAD_REQUEST);
         }
 
-        Ok(RequireAuth { token, header })
+        Ok(RequireAuth {
+            token,
+            header,
+            jwks: system_jwks.jwks(),
+        })
     }
 }

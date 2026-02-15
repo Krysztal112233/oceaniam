@@ -3,10 +3,11 @@ use std::time::Duration;
 use axum::http::StatusCode;
 use log::error;
 use moka::future::{Cache, CacheBuilder};
-use oceaniam_common::error::Error;
+use oceaniam_common::{error::Error, jwks::JwkSet};
 use oceaniam_database::{helper::key_boxes::KeyBoxesHelper, model::prelude::KeyBoxes};
 use oceaniam_keybox::KeyBox;
 use sea_orm::DatabaseConnection;
+use tower_http::LatencyUnit;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -14,6 +15,7 @@ pub struct ApplicationKeyBoxManager {
     database: DatabaseConnection,
     boxes: Cache<Uuid, KeyBox>,
     banned: Cache<Uuid, ()>,
+    jwks: Cache<Uuid, JwkSet>,
 }
 
 #[allow(unused)]
@@ -25,6 +27,9 @@ impl ApplicationKeyBoxManager {
                 .time_to_live(Duration::from_secs(4))
                 .build(),
             banned: CacheBuilder::default()
+                .time_to_live(Duration::from_secs(4))
+                .build(),
+            jwks: CacheBuilder::default()
                 .time_to_live(Duration::from_secs(4))
                 .build(),
         }
@@ -64,5 +69,13 @@ impl ApplicationKeyBoxManager {
             })
             .await
             .ok()
+    }
+
+    pub async fn get_jwks(&mut self, application_id: Uuid) -> Option<JwkSet> {
+        self.jwks
+            .optionally_get_with(application_id, async {
+                Some(JwkSet::from(self.clone().get_keybox(application_id).await?))
+            })
+            .await
     }
 }

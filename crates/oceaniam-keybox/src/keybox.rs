@@ -2,10 +2,16 @@ use chrono::{DateTime, FixedOffset};
 use im::HashMap;
 use itertools::Itertools;
 use log::error;
-use oceaniam_database::model::{
-    key_boxes::Model as Key,
-    sea_orm_active_enums::{self, KeyStatus},
+use oceaniam_common::consts;
+use oceaniam_database::{
+    helper::{SafeTransactionConnectionTrait, key_boxes::KeyBoxesHelper},
+    model::{
+        key_boxes::Model as Key,
+        prelude::KeyBoxes,
+        sea_orm_active_enums::{self, KeyStatus},
+    },
 };
+use sea_orm::IntoActiveModel;
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -143,6 +149,24 @@ impl KeyBox {
 
     pub fn get_keys(&self) -> &HashMap<Uuid, Key> {
         &self.keys
+    }
+
+    pub async fn write_to(
+        self,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<(), Error> {
+        let vec = self
+            .keys
+            .iter()
+            .map(|(_, model)| model)
+            .cloned()
+            .map(|it| it.into_active_model())
+            .collect_vec();
+
+        let _ =
+            KeyBoxes::update_application_keys(consts::SYSTEM_APPLICATION_UUID, vec, database).await;
+
+        Ok(())
     }
 }
 

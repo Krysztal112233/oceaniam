@@ -305,6 +305,6 @@ mod tests {
     fn test_rsa_as_jwk() {
         let key = RsaKey::new(Uuid::now_v7(), KeyAlg::try_from(Algorithm::RS512).unwrap());
 
-        assert!(dbg!(key.try_into_jwk()).is_ok())
+        assert!(key.try_into_jwk().is_ok())
     }
 }

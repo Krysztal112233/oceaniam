@@ -1,8 +1,15 @@
 use axum::Router;
-use log::{debug, error};
+use log::{debug, error, warn};
 use mimalloc::MiMalloc;
-use oceaniam_common::config::{BackendConfig, DatabaseConfig};
-use oceaniam_common::error::Error;
+use oceaniam_common::{
+    config::{BackendConfig, DatabaseConfig},
+    consts,
+    error::Error,
+};
+use oceaniam_database::{
+    helper::{applications::ApplicationHelper, tenants::TenantsHelper},
+    model::prelude::*,
+};
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use tap::Pipe;
 use tower_http::trace::TraceLayer;
@@ -75,6 +82,22 @@ async fn setup_database(config: &DatabaseConfig) -> Result<DatabaseConnection, E
         .inspect_err(|err| error!("{err}"))?;
 
     debug!("connected to database: {}", config.dsn);
+
+    if !Tenants::is_exist(consts::SYSTEM_TENANT_UUID, &db).await? {
+        warn!("the system tenant does not exist; a system tenant is about to be created.");
+
+        Tenants::create(consts::SYSTEM_TENANT_UUID, &db).await?;
+    }
+
+    if !Applications::is_exist(consts::SYSTEM_APPLICATION_UUID, &db).await? {
+        warn!("system application does not exist; creating system application now.");
+        Applications::create(
+            consts::SYSTEM_APPLICATION_UUID,
+            consts::SYSTEM_TENANT_UUID,
+            &db,
+        )
+        .await?;
+    }
 
     Ok(db)
 }
