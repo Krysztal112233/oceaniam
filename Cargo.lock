@@ -2282,6 +2282,7 @@ dependencies = [
  "garde",
  "jsonwebtoken",
  "oceaniam-common",
+ "oceaniam-database",
  "serde",
  "serde_json",
  "ts-rs",

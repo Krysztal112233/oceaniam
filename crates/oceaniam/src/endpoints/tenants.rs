@@ -3,7 +3,7 @@
 //! Provides interfaces for tenant CRUD operations
 
 use axum::extract::Path;
-use oceaniam_common::{ApiResponse, Empty, RestResult};
+use oceaniam_common::{ApiResponse, Empty, RestResult, jwt::SystemClaim};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
@@ -26,7 +26,7 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
             (status = 200, body = ApiResponse<Empty>),
         ),
     )]
-pub async fn get_tenants(auth: middlewares::auth::RequireAuth) -> RestResult<()> {
+pub async fn get_tenants(auth: middlewares::auth::RequireAuth<SystemClaim>) -> RestResult<()> {
     Ok(ApiResponse::new(()))
 }
 
@@ -46,7 +46,7 @@ pub async fn get_tenants(auth: middlewares::auth::RequireAuth) -> RestResult<()>
     )]
 
 pub async fn get_tenant(
-    auth: middlewares::auth::RequireAuth,
+    auth: middlewares::auth::RequireAuth<SystemClaim>,
     Path(tenant_id): Path<Uuid>,
 ) -> RestResult<()> {
     Ok(ApiResponse::new(()))
@@ -67,7 +67,7 @@ pub async fn get_tenant(
         ),
     )]
 pub async fn create_tenant(
-    auth: middlewares::auth::RequireAuth,
+    auth: middlewares::auth::RequireAuth<SystemClaim>,
     Path(tenant_id): Path<Uuid>,
 ) -> RestResult<()> {
     Ok(ApiResponse::new(()))
@@ -88,7 +88,7 @@ pub async fn create_tenant(
         ),
     )]
 pub async fn delete_tenant(
-    auth: middlewares::auth::RequireAuth,
+    auth: middlewares::auth::RequireAuth<SystemClaim>,
     Path(tenant_id): Path<Uuid>,
 ) -> RestResult<()> {
     Ok(ApiResponse::new(()))

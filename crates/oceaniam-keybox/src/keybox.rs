@@ -1,4 +1,4 @@
-use chrono::{DateTime, FixedOffset};
+use chrono::{DateTime, FixedOffset, Utc};
 use im::HashMap;
 use itertools::Itertools;
 use log::error;
@@ -45,12 +45,23 @@ impl From<Key> for StandaloneKey {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct KeyOption {
     pub created_at: DateTime<FixedOffset>,
     pub activated_at: Option<DateTime<FixedOffset>>,
     pub retired_at: Option<DateTime<FixedOffset>>,
     pub expires_at: Option<DateTime<FixedOffset>>,
+}
+
+impl Default for KeyOption {
+    fn default() -> Self {
+        Self {
+            created_at: Utc::now().into(),
+            activated_at: Default::default(),
+            retired_at: Default::default(),
+            expires_at: Default::default(),
+        }
+    }
 }
 
 #[derive(Debug)]

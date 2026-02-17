@@ -3,7 +3,7 @@
 //! Provides interfaces for user signin, signup, signout, and token refresh
 
 use axum::Json;
-use oceaniam_common::{ApiResponse, RestResult};
+use oceaniam_common::{ApiResponse, ErrorResponse, RestResult, jwt::SystemClaim};
 use oceaniam_vo::auth::{SigninRequest, SigninResponse, SignoutResponse, SignupResponse};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
@@ -23,7 +23,7 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
 #[utoipa::path(
         post,
         path = "/auth/signin",
-        tag = "Authentication",
+        tag = "SystemAuthentication",
         responses(
             (status = 200, body = ApiResponse<SigninResponse>),
         ),
@@ -38,10 +38,11 @@ pub async fn signin() -> RestResult<()> {
 #[utoipa::path(
         get,
         path = "/auth/signout",
-        tag = "Authentication",
+        tag = "SystemAuthentication",
         params(("Authorization" = String, Header, description = "Authorization payload")),
         responses(
             (status = 200, body = ApiResponse<SignoutResponse>),
+            (status = 500, body = ApiResponse<ErrorResponse>),
         ),
     )]
 pub async fn signout() -> RestResult<()> {
@@ -54,9 +55,10 @@ pub async fn signout() -> RestResult<()> {
 #[utoipa::path(
         post,
         path = "/auth/signup",
-        tag = "Authentication",
+        tag = "SystemAuthentication",
         responses(
             (status = 201, body = ApiResponse<SignupResponse>),
+            (status = 500, body = ApiResponse<ErrorResponse>),
         ),
     )]
 pub async fn signup(Json(_request): Json<SigninRequest>) -> RestResult<()> {
@@ -69,13 +71,14 @@ pub async fn signup(Json(_request): Json<SigninRequest>) -> RestResult<()> {
 #[utoipa::path(
         post,
         path = "/auth/refresh",
-        tag = "Authentication",
+        tag = "SystemAuthentication",
         params(("Authorization" = String, Header, description = "Authorization payload")),
         responses(
             (status = 200, body = ApiResponse<SigninResponse>),
+            (status = 500, body = ApiResponse<ErrorResponse>),
         ),
         request_body(content_type = "application/json"),
     )]
-pub async fn refresh(auth: middlewares::auth::RequireAuth) -> RestResult<()> {
+pub async fn refresh(auth: middlewares::auth::RequireAuth<SystemClaim>) -> RestResult<()> {
     Ok(ApiResponse::new(()))
 }

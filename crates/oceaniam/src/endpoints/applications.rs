@@ -7,13 +7,24 @@ use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
 };
+use chrono::Utc;
+use log::{error, info};
 use oceaniam_common::{
-    ApiResponse, Empty, ErrorResponse, PageParam, RestResult,
+    ApiResponse, Empty, ErrorResponse, PagedResponse, RestResult, consts,
     error::Error,
     jwks::{JwkSet, JwkSetSchema},
+    jwt::SystemClaim,
     types::sqid::Sqid,
 };
-use oceaniam_vo::applications::CreateApplicationRequest;
+use oceaniam_database::{
+    helper::applications::{ApplicationHelper, CreateApplicationOptions},
+    model::{self, prelude::*, sea_orm_active_enums::KeyAlg},
+};
+use oceaniam_keybox::{KeyBox, key::rsa_key::RsaKey, keybox::KeyOption};
+use oceaniam_vo::applications::{
+    ApplicationVO, CreateApplicationRequest, CreateApplicationResponse, GetApplicationParam,
+};
+use sea_orm::TransactionTrait;
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
@@ -27,6 +38,7 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
         .routes(routes!(get_applications))
         .routes(routes!(get_application_jwks))
         .routes(routes!(create_application))
+        .routes(routes!(delete_application))
 }
 
 /// Get application list
@@ -36,42 +48,115 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
         tag = "Applications",
         params(("Authorization" = String, Header, description = "Authorization payload")),
         responses(
-            (status = 200, body = ApiResponse<Empty>),
+            (status = 200, body = ApiResponse<PagedResponse<ApplicationVO>>),
+            (status = 401, body = ApiResponse<ErrorResponse>),
+            (status = 500, body = ApiResponse<ErrorResponse>),
         ),
     )]
 pub async fn get_applications(
-    auth: middlewares::auth::RequireAuth,
+    _: middlewares::auth::RequireAuth<SystemClaim>,
+    Query(GetApplicationParam { tenant_id, page }): Query<GetApplicationParam>,
+    State(AppState { database, .. }): State<AppState>,
+) -> RestResult<PagedResponse<ApplicationVO>> {
+    let PagedResponse { items, page_info } =
+        Applications::get_applications(tenant_id.try_into()?, &page, &database).await?;
 
-    State(AppState {
-        mut application_keybox_manager,
-        database,
-        ..
-    }): State<AppState>,
-) -> RestResult<()> {
-    Ok(ApiResponse::new(()))
+    Ok(ApiResponse::new(PagedResponse {
+        items: items.into_iter().map(ApplicationVO::from).collect(),
+        page_info,
+    }))
 }
 
+/// Create new application
+///
+/// Creates a new application with an automatically generated RSA key pair
 #[utoipa::path(
         post,
         path = "/applications",
         tag = "Applications",
         params(("Authorization" = String, Header, description = "Authorization payload")),
         responses(
-            (status = 200, body = ApiResponse<Empty>),
+            (status = 200, body = ApiResponse<CreateApplicationResponse>),
+            (status = 401, body = ApiResponse<ErrorResponse>),
+            (status = 500, body = ApiResponse<ErrorResponse>),
         ),
     )]
 pub async fn create_application(
-    auth: middlewares::auth::RequireAuth,
+    _: middlewares::auth::RequireAuth<SystemClaim>,
 
-    State(AppState {
-        application_keybox_manager,
-        database,
-        ..
-    }): State<AppState>,
+    State(AppState { database, .. }): State<AppState>,
 
-    Query(page): Query<Option<PageParam>>,
-    Json(CreateApplicationRequest { tenant_id }): Json<CreateApplicationRequest>,
+    Json(CreateApplicationRequest { tenant_id, comment }): Json<CreateApplicationRequest>,
+) -> RestResult<CreateApplicationResponse> {
+    let database = database.begin().await?;
+
+    let model::applications::Model {
+        id,
+        comment,
+        tenant_id,
+    } = Applications::create_with_opts(
+        Uuid::now_v7(),
+        tenant_id.clone().try_into()?,
+        CreateApplicationOptions { comment },
+        &database,
+    )
+    .await
+    .inspect_err(|e| error!("{e}"))?;
+
+    let mut keybox = KeyBox::new(id);
+    keybox
+        .put_key_with_option(
+            RsaKey::new(Uuid::now_v7(), KeyAlg::Ps512),
+            KeyOption {
+                retired_at: Some((Utc::now() + consts::DEFAULT_KEY_RETIED_AFTER).into()),
+                expires_at: Some((Utc::now() + consts::DEFAULT_KEY_EXPIRES_AFTER).into()),
+                ..Default::default()
+            },
+        )
+        .inspect_err(|e| error!("{e}"))?;
+    keybox
+        .write_to(&database)
+        .await
+        .inspect_err(|e| error!("{e}"))?;
+    database
+        .commit()
+        .await
+        .inspect_err(|e| error!("{e}"))
+        .inspect(|_| info!("application created successfully: id={}", id))?;
+
+    Ok(ApiResponse::new(CreateApplicationResponse {
+        tenant_id: tenant_id.into(),
+        application_id: Sqid::from(id),
+        comment,
+    }))
+}
+
+/// Delete application
+///
+/// Permanently removes an application and all associated data
+#[utoipa::path(
+        delete,
+        path = "/applications",
+        tag = "Applications",
+        responses(
+            (status = 200, body = ApiResponse<Empty>),
+            (status = 401, body = ApiResponse<ErrorResponse>),
+            (status = 404, body = ApiResponse<ErrorResponse>),
+            (status = 500, body = ApiResponse<ErrorResponse>),
+        ),
+    )]
+pub async fn delete_application(
+    Path(application_id): Path<Sqid>,
+
+    State(AppState { database, .. }): State<AppState>,
 ) -> RestResult<()> {
+    let application_id = Uuid::try_from(application_id)?;
+
+    Applications::delete_application(application_id, &database)
+        .await
+        .inspect_err(|e| error!("{e}"))
+        .inspect(|_| info!("application deleted successfully: id={}", application_id))?;
+
     Ok(ApiResponse::new(()))
 }
 
@@ -84,7 +169,9 @@ pub async fn create_application(
         tag = "Applications",
         responses(
             (status = 200, body = JwkSetSchema),
+            (status = 401, body = ApiResponse<ErrorResponse>),
             (status = 404, body = ApiResponse<ErrorResponse>),
+            (status = 500, body = ApiResponse<ErrorResponse>),
         ),
     )]
 pub async fn get_application_jwks(

@@ -7,7 +7,6 @@ use oceaniam_common::{error::Error, jwks::JwkSet};
 use oceaniam_database::{helper::key_boxes::KeyBoxesHelper, model::prelude::KeyBoxes};
 use oceaniam_keybox::KeyBox;
 use sea_orm::DatabaseConnection;
-use tower_http::LatencyUnit;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]

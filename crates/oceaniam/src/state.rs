@@ -2,12 +2,14 @@ use std::sync::Arc;
 
 use axum::extract::FromRef;
 use im::HashMap;
+use jsonwebtoken::{Algorithm, Validation};
 use log::{error, info, warn};
-use oceaniam_common::{consts, error::Error, jwks::ManagedJwkSet};
+use oceaniam_common::{consts, error::Error, jwks::ManagedJwkSet, jwt::JwtValidator};
 use oceaniam_database::{helper::key_boxes::KeyBoxesHelper, model::prelude::KeyBoxes};
 use oceaniam_keybox::{KeyBox, key::rsa_key::RsaKey};
 use parking_lot::RwLock;
 use sea_orm::DatabaseConnection;
+use tap::{Pipe, Tap};
 use uuid::Uuid;
 
 use crate::{keybox::ApplicationKeyBoxManager, roller::BuiltinScheduledJwkSetRoller};
@@ -18,6 +20,9 @@ pub struct AppState {
     pub application_keybox_manager: ApplicationKeyBoxManager,
     pub system_jwks: ManagedJwkSet,
     pub system_keybox: Arc<RwLock<KeyBox>>,
+
+    pub jwt_validation: JwtValidator,
+
     pub _unit: (),
 }
 
@@ -30,6 +35,18 @@ impl AppState {
             application_keybox_manager: keybox,
             system_keybox: initial_system_keybox(database.clone()).await?,
             system_jwks: initial_system_jwks(database.clone()).await?,
+
+            jwt_validation: JwtValidator::new(Validation::default().tap_mut(|it| {
+                it.algorithms = vec![
+                    Algorithm::PS256,
+                    Algorithm::PS384,
+                    Algorithm::PS512,
+                    Algorithm::RS256,
+                    Algorithm::RS384,
+                    Algorithm::RS512,
+                ]
+            })),
+
             _unit: (),
         })
     }

@@ -88,7 +88,7 @@ impl<T> PagedResponse<T> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Validate, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Validate, Clone, Copy, ToSchema)]
 pub struct PageParam {
     #[garde(skip)]
     pub page: u64,

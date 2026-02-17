@@ -9,7 +9,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     pub comment: Option<String>,
-    pub tenants_id: Uuid,
+    pub tenant_id: Uuid,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -20,7 +20,7 @@ pub enum Relation {
     Subjects,
     #[sea_orm(
         belongs_to = "super::tenants::Entity",
-        from = "Column::TenantsId",
+        from = "Column::TenantId",
         to = "super::tenants::Column::Id",
         on_update = "NoAction",
         on_delete = "NoAction"

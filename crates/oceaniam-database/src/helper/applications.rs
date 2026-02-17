@@ -9,17 +9,35 @@ use crate::{
     model::{self, prelude::Applications},
 };
 
+#[derive(Debug, Default)]
+pub struct CreateApplicationOptions {
+    pub comment: Option<String>,
+}
+
 #[async_trait::async_trait]
 pub trait ApplicationHelper {
     async fn create(
         id: Uuid,
-        tenants_id: Uuid,
+        tenant_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::applications::Model, Error> {
+        Self::create_with_opts(id, tenant_id, CreateApplicationOptions::default(), database).await
+    }
+
+    async fn create_with_opts(
+        id: Uuid,
+        tenant_id: Uuid,
+
+        opts: CreateApplicationOptions,
+
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::applications::Model, Error> {
+        let CreateApplicationOptions { comment } = opts;
+
         Ok(model::applications::Model {
             id,
-            tenants_id,
-            comment: None,
+            tenant_id,
+            comment,
         }
         .into_active_model()
         .insert(database)
@@ -34,14 +52,14 @@ pub trait ApplicationHelper {
     }
 
     async fn get_applications(
-        database: &impl SafeTransactionConnectionTrait,
-        tenants_id: Uuid,
+        tenant_id: Uuid,
         page: &PageParam,
+        database: &impl SafeTransactionConnectionTrait,
     ) -> Result<PagedResponse<model::applications::Model>, Error> {
         use crate::model::applications::Column::*;
 
         let paginator = Applications::find()
-            .filter(TenantsId.eq(tenants_id))
+            .filter(TenantId.eq(tenant_id))
             .paged(*page)
             .paginate(database, page.per_page);
 
@@ -53,6 +71,17 @@ pub trait ApplicationHelper {
             items,
             page_info: oceaniam_common::PageInfo { has_next, total },
         })
+    }
+
+    async fn delete_application(
+        application_id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<(), Error> {
+        Applications::delete_by_id(application_id)
+            .exec(database)
+            .await?;
+
+        Ok(())
     }
 }
 

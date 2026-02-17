@@ -8,47 +8,51 @@ use serde::{Serialize, de::DeserializeOwned};
 
 use crate::state::AppState;
 
-pub struct RequireAuth {
-    token: String,
-    header: Header,
-
-    jwks: JwkSet,
+#[derive(Debug, Clone)]
+pub struct RequireAuth<S> {
+    pub token: TokenData<S>,
+    pub header: Header,
 }
 
-impl RequireAuth {
-    pub async fn validate<S>(
-        self,
-
-        jwks: JwkSet,
-        validation: &Validation,
-    ) -> Result<TokenData<S>, Error>
-    where
-        S: Serialize + DeserializeOwned,
-    {
-        let key = {
-            // NOTE: We have already proved that `kid` must exist.
-            let kid = &self.header.kid.unwrap();
-            let tmp = jsonwebtoken::jwk::JwkSet::from(jwks);
-            let Some(jwk) = tmp.find(kid) else {
-                return Err(Error::with_code(
-                    StatusCode::BAD_REQUEST,
-                    format!("cannot find jwk for kid `{kid}`."),
-                ));
-            };
-
-            DecodingKey::from_jwk(jwk)?
+pub async fn validate<S>(
+    header: &Header,
+    jwks: JwkSet,
+    token: String,
+    validation: &Validation,
+) -> Result<TokenData<S>, Error>
+where
+    S: Serialize + DeserializeOwned,
+{
+    let key = {
+        // NOTE: We have already proved that `kid` must exist.
+        let kid = header.kid.as_ref().unwrap();
+        let tmp = jsonwebtoken::jwk::JwkSet::from(jwks);
+        let Some(jwk) = tmp.find(kid) else {
+            return Err(Error::with_code(
+                StatusCode::BAD_REQUEST,
+                format!("cannot find jwk for kid `{kid}`."),
+            ));
         };
 
-        Ok(decode(self.token, &key, validation)?)
-    }
+        DecodingKey::from_jwk(jwk)?
+    };
+
+    Ok(decode(token, &key, validation)?)
 }
 
-impl FromRequestParts<AppState> for RequireAuth {
+impl<S> FromRequestParts<AppState> for RequireAuth<S>
+where
+    S: Serialize + DeserializeOwned,
+{
     type Rejection = StatusCode;
 
     async fn from_request_parts(
         parts: &mut Parts,
-        AppState { system_jwks, .. }: &AppState,
+        AppState {
+            system_jwks,
+            jwt_validation,
+            ..
+        }: &AppState,
     ) -> Result<Self, Self::Rejection> {
         let auth_header = parts
             .headers
@@ -74,10 +78,10 @@ impl FromRequestParts<AppState> for RequireAuth {
             return Err(StatusCode::BAD_REQUEST);
         }
 
-        Ok(RequireAuth {
-            token,
-            header,
-            jwks: system_jwks.jwks(),
-        })
+        let Ok(token) = validate(&header, system_jwks.jwks(), token, jwt_validation).await else {
+            return Err(StatusCode::BAD_REQUEST);
+        };
+
+        Ok(Self { token, header })
     }
 }

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Deserialize, Validate, ToSchema, ts_rs::TS)]
+#[derive(Debug, Deserialize, Serialize, Validate, ToSchema, ts_rs::TS)]
 #[serde(untagged)]
 pub enum AuthVO {
     /// Login via email
@@ -25,12 +25,12 @@ pub enum AuthVO {
     },
 }
 
-#[derive(Debug, Deserialize, ToSchema, ts_rs::TS)]
+#[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
 pub struct SignupResponse {
     pub jwt: String,
 }
 
-#[derive(Debug, Deserialize, ToSchema, ts_rs::TS)]
+#[derive(Debug, Deserialize, Serialize, ToSchema, ts_rs::TS)]
 pub struct SigninRequest {
     pub application_id: Uuid,
 
@@ -51,3 +51,6 @@ impl Default for SignoutResponse {
         }
     }
 }
+
+pub type SystemSigninRequest = AuthVO;
+pub type SystemSigninResponse = SigninResponse;

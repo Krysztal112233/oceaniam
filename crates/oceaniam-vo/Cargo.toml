@@ -14,3 +14,4 @@ utoipa.workspace = true
 uuid.workspace = true
 
 oceaniam-common.workspace = true
+oceaniam-database.workspace = true

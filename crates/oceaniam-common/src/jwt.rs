@@ -132,3 +132,20 @@ impl ClaimHelper for SystemClaim {
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct JwtValidator(Validation);
+
+impl JwtValidator {
+    pub fn new(validation: Validation) -> Self {
+        Self(validation)
+    }
+}
+
+impl std::ops::Deref for JwtValidator {
+    type Target = Validation;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
