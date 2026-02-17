@@ -26,6 +26,7 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
         tag = "SystemAuthentication",
         responses(
             (status = 200, body = ApiResponse<SigninResponse>),
+            (status = 500, body = ApiResponse<ErrorResponse>),
         ),
     )]
 pub async fn signin() -> RestResult<()> {
@@ -42,6 +43,7 @@ pub async fn signin() -> RestResult<()> {
         params(("Authorization" = String, Header, description = "Authorization payload")),
         responses(
             (status = 200, body = ApiResponse<SignoutResponse>),
+            (status = 401, body = ApiResponse<ErrorResponse>),
             (status = 500, body = ApiResponse<ErrorResponse>),
         ),
     )]
@@ -61,7 +63,12 @@ pub async fn signout() -> RestResult<()> {
             (status = 500, body = ApiResponse<ErrorResponse>),
         ),
     )]
-pub async fn signup(Json(_request): Json<SigninRequest>) -> RestResult<()> {
+pub async fn signup(
+    Json(SigninRequest {
+        application_id,
+        auth,
+    }): Json<SigninRequest>,
+) -> RestResult<()> {
     Ok(ApiResponse::new(()))
 }
 
@@ -75,6 +82,7 @@ pub async fn signup(Json(_request): Json<SigninRequest>) -> RestResult<()> {
         params(("Authorization" = String, Header, description = "Authorization payload")),
         responses(
             (status = 200, body = ApiResponse<SigninResponse>),
+            (status = 401, body = ApiResponse<ErrorResponse>),
             (status = 500, body = ApiResponse<ErrorResponse>),
         ),
         request_body(content_type = "application/json"),

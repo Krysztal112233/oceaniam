@@ -11,17 +11,16 @@ use crate::{
 #[async_trait::async_trait]
 pub trait CredentialsHelper {
     async fn create(
-        subject_id: Uuid,
+        id: Uuid,
         credential: CredentialVault,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::credentials::Model, Error> {
-        let credential = model::credentials::Model {
-            subject_id,
-            value: serde_json::to_value(credential)?,
-        }
-        .into_active_model()
-        .insert(database)
-        .await?;
+        let CredentialVault { phc } = credential;
+
+        let credential = model::credentials::Model { id, phc }
+            .into_active_model()
+            .insert(database)
+            .await?;
 
         Ok(credential)
     }

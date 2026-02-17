@@ -18,6 +18,9 @@ mod m20260206_095214_alter_key_boxes_belong_to;
 mod m20260207_124924_alter_key_boxes_key_id_type;
 mod m20260207_160434_alter_drop_key_boxes_key_id;
 mod m20260217_161452_alter_rename_applications_tenants_id;
+mod m20260217_174210_alter_users_email;
+mod m20260217_175203_alter_credentials_rename_subject_id_id;
+mod m20260217_181210_alter_credentials_value;
 
 pub struct Migrator;
 
@@ -42,6 +45,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20260207_124924_alter_key_boxes_key_id_type::Migration),
             Box::new(m20260207_160434_alter_drop_key_boxes_key_id::Migration),
             Box::new(m20260217_161452_alter_rename_applications_tenants_id::Migration),
+            Box::new(m20260217_174210_alter_users_email::Migration),
+            Box::new(m20260217_175203_alter_credentials_rename_subject_id_id::Migration),
+            Box::new(m20260217_181210_alter_credentials_value::Migration),
         ]
     }
 }

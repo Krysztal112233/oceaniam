@@ -23,8 +23,6 @@ pub enum Relation {
         on_delete = "NoAction"
     )]
     Applications,
-    #[sea_orm(has_one = "super::credentials::Entity")]
-    Credentials,
     #[sea_orm(has_one = "super::users::Entity")]
     Users,
 }
@@ -32,12 +30,6 @@ pub enum Relation {
 impl Related<super::applications::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Applications.def()
-    }
-}
-
-impl Related<super::credentials::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Credentials.def()
     }
 }
 

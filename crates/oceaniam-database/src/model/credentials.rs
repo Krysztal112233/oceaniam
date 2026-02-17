@@ -7,27 +7,11 @@ use serde::{Deserialize, Serialize};
 #[sea_orm(table_name = "credentials")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub subject_id: Uuid,
-    #[sea_orm(column_type = "JsonBinary")]
-    pub value: Json,
+    pub id: Uuid,
+    pub phc: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {
-    #[sea_orm(
-        belongs_to = "super::subjects::Entity",
-        from = "Column::SubjectId",
-        to = "super::subjects::Column::Id",
-        on_update = "NoAction",
-        on_delete = "NoAction"
-    )]
-    Subjects,
-}
-
-impl Related<super::subjects::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Subjects.def()
-    }
-}
+pub enum Relation {}
 
 impl ActiveModelBehavior for ActiveModel {}
