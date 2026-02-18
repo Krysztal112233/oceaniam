@@ -12,6 +12,23 @@ pub struct Model {
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
+pub enum Relation {
+    #[sea_orm(has_one = "super::administrators::Entity")]
+    Administrators,
+    #[sea_orm(has_one = "super::subjects::Entity")]
+    Subjects,
+}
+
+impl Related<super::administrators::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Administrators.def()
+    }
+}
+
+impl Related<super::subjects::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Subjects.def()
+    }
+}
 
 impl ActiveModelBehavior for ActiveModel {}

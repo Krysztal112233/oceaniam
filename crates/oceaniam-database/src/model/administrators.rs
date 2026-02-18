@@ -10,10 +10,24 @@ pub struct Model {
     pub id: Uuid,
     #[sea_orm(unique)]
     pub name: String,
-    pub phc: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
+pub enum Relation {
+    #[sea_orm(
+        belongs_to = "super::credentials::Entity",
+        from = "Column::Id",
+        to = "super::credentials::Column::Id",
+        on_update = "Cascade",
+        on_delete = "Cascade"
+    )]
+    Credentials,
+}
+
+impl Related<super::credentials::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Credentials.def()
+    }
+}
 
 impl ActiveModelBehavior for ActiveModel {}

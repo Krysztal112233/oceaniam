@@ -9,7 +9,7 @@ use oceaniam_database::{helper::key_boxes::KeyBoxesHelper, model::prelude::KeyBo
 use oceaniam_keybox::{KeyBox, key::rsa_key::RsaKey};
 use parking_lot::RwLock;
 use sea_orm::DatabaseConnection;
-use tap::{Pipe, Tap};
+use tap::Tap;
 use uuid::Uuid;
 
 use crate::{keybox::ApplicationKeyBoxManager, roller::BuiltinScheduledJwkSetRoller};
@@ -18,6 +18,7 @@ use crate::{keybox::ApplicationKeyBoxManager, roller::BuiltinScheduledJwkSetRoll
 pub struct AppState {
     pub database: DatabaseConnection,
     pub application_keybox_manager: ApplicationKeyBoxManager,
+
     pub system_jwks: ManagedJwkSet,
     pub system_keybox: Arc<RwLock<KeyBox>>,
 

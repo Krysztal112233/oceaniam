@@ -21,6 +21,8 @@ mod m20260217_161452_alter_rename_applications_tenants_id;
 mod m20260217_174210_alter_users_email;
 mod m20260217_175203_alter_credentials_rename_subject_id_id;
 mod m20260217_181210_alter_credentials_value;
+mod m20260218_164739_move_adminstrators_phc_credentials_phc;
+mod m20260218_180745_alter_fk_credential_subjects_adminstrators;
 
 pub struct Migrator;
 
@@ -48,6 +50,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260217_174210_alter_users_email::Migration),
             Box::new(m20260217_175203_alter_credentials_rename_subject_id_id::Migration),
             Box::new(m20260217_181210_alter_credentials_value::Migration),
+            Box::new(m20260218_164739_move_adminstrators_phc_credentials_phc::Migration),
+            Box::new(m20260218_180745_alter_fk_credential_subjects_adminstrators::Migration),
         ]
     }
 }

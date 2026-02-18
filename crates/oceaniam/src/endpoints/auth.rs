@@ -4,7 +4,9 @@
 
 use axum::Json;
 use oceaniam_common::{ApiResponse, ErrorResponse, RestResult, jwt::SystemClaim};
-use oceaniam_vo::auth::{SigninRequest, SigninResponse, SignoutResponse, SignupResponse};
+use oceaniam_vo::auth::{
+    SigninRequest, SigninResponse, SignoutResponse, SignupResponse, SystemSigninRequest,
+};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::{middlewares, state::AppState};
@@ -63,12 +65,7 @@ pub async fn signout() -> RestResult<()> {
             (status = 500, body = ApiResponse<ErrorResponse>),
         ),
     )]
-pub async fn signup(
-    Json(SigninRequest {
-        application_id,
-        auth,
-    }): Json<SigninRequest>,
-) -> RestResult<()> {
+pub async fn signup(Json(auth): Json<SystemSigninRequest>) -> RestResult<()> {
     Ok(ApiResponse::new(()))
 }
 
