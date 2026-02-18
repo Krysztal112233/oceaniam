@@ -4,9 +4,7 @@
 
 use axum::Json;
 use oceaniam_common::{ApiResponse, ErrorResponse, RestResult, jwt::SystemClaim};
-use oceaniam_vo::auth::{
-    SigninRequest, SigninResponse, SignoutResponse, SignupResponse, SystemSigninRequest,
-};
+use oceaniam_vo::auth::{SigninResponse, SignoutResponse, SignupResponse, SystemSigninRequest};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::{middlewares, state::AppState};

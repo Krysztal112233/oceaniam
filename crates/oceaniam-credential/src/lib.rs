@@ -4,7 +4,14 @@ use argon2::{
     Argon2, PasswordHasher,
     password_hash::{SaltString, rand_core::OsRng},
 };
+use log::error;
+use oceaniam_database::{
+    helper::SafeTransactionConnectionTrait,
+    model::{self, prelude::Credentials},
+};
+use sea_orm::{EntityTrait, IntoActiveModel};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::error::Error;
 
@@ -27,5 +34,28 @@ impl CredentialVault {
             .to_string();
 
         Ok(Self { phc: password })
+    }
+
+    pub async fn write_to(
+        self,
+        id: impl Into<Uuid>,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<(), Error> {
+        let Self { phc } = self;
+
+        Credentials::update(model::credentials::Model { id: id.into(), phc }.into_active_model())
+            .exec(database)
+            .await
+            .inspect_err(|e| error!("{e}"))?;
+
+        Ok(())
+    }
+}
+
+impl From<model::credentials::Model> for CredentialVault {
+    fn from(value: model::credentials::Model) -> Self {
+        let model::credentials::Model { phc, .. } = value;
+
+        Self { phc }
     }
 }

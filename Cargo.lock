@@ -2215,8 +2215,14 @@ name = "oceaniam-credential"
 version = "0.1.0"
 dependencies = [
  "argon2",
+ "axum",
+ "log",
+ "oceaniam-common",
+ "oceaniam-database",
+ "sea-orm",
  "serde",
  "thiserror 2.0.18",
+ "uuid",
 ]
 
 [[package]]
@@ -2224,10 +2230,10 @@ name = "oceaniam-database"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "axum",
  "chrono",
  "log",
  "oceaniam-common",
- "oceaniam-credential",
  "rand 0.8.5",
  "rsa",
  "sea-orm",

@@ -1,5 +1,5 @@
 use oceaniam_common::{PageParam, types::sqid::Sqid};
-use oceaniam_database::model::{self, tenants};
+use oceaniam_database::model::{self};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 

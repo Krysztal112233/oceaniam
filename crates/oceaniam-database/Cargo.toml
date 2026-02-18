@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 async-trait.workspace = true
+axum.workspace = true
 chrono.workspace = true
 log.workspace = true
 rand.workspace = true
@@ -17,5 +18,4 @@ ts-rs.workspace = true
 utoipa.workspace = true
 uuid.workspace = true
 
-oceaniam-credential.workspace = true
 oceaniam-common.workspace = true
