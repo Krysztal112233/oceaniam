@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use axum::{http::StatusCode, response::IntoResponse};
 use sea_orm::DbErr;
 use thiserror::Error;
@@ -76,5 +78,11 @@ impl From<DbErr> for Error {
             ),
             _ => Error::Db(value),
         }
+    }
+}
+
+impl From<Arc<Error>> for Error {
+    fn from(value: Arc<Error>) -> Self {
+        Arc::try_unwrap(value).unwrap_or_else(|arc| Error::Internal(format!("{}", arc)))
     }
 }
