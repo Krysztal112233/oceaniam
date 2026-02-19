@@ -12,7 +12,10 @@ use sea_orm::DatabaseConnection;
 use tap::Tap;
 use uuid::Uuid;
 
-use crate::{keybox::ApplicationKeyBoxManager, roller::BuiltinScheduledJwkSetRoller};
+use crate::{
+    credentials::ManagedCredentialVaults, keybox::ApplicationKeyBoxManager, revoked::RevokedJwt,
+    roller::BuiltinScheduledJwkSetRoller,
+};
 
 #[derive(Debug, Clone)]
 pub struct AppState {
@@ -20,9 +23,11 @@ pub struct AppState {
     pub application_keybox_manager: ApplicationKeyBoxManager,
 
     pub system_jwks: ManagedJwkSet,
-    pub system_keybox: Arc<RwLock<KeyBox>>,
+    pub jwt_validator: JwtValidator,
+    pub revoked_jwt: RevokedJwt,
 
-    pub jwt_validation: JwtValidator,
+    pub system_keybox: Arc<RwLock<KeyBox>>,
+    pub credentials: ManagedCredentialVaults,
 
     pub _unit: (),
 }
@@ -37,7 +42,7 @@ impl AppState {
             system_keybox: initial_system_keybox(database.clone()).await?,
             system_jwks: initial_system_jwks(database.clone()).await?,
 
-            jwt_validation: JwtValidator::new(Validation::default().tap_mut(|it| {
+            jwt_validator: JwtValidator::new(Validation::default().tap_mut(|it| {
                 it.algorithms = vec![
                     Algorithm::PS256,
                     Algorithm::PS384,
@@ -47,6 +52,9 @@ impl AppState {
                     Algorithm::RS512,
                 ]
             })),
+
+            revoked_jwt: RevokedJwt::new(database.clone()),
+            credentials: ManagedCredentialVaults::new(database),
 
             _unit: (),
         })

@@ -1,4 +1,5 @@
 use axum::{http::StatusCode, response::IntoResponse};
+use sea_orm::DbErr;
 use thiserror::Error;
 
 use crate::{ApiResponse, ErrorResponse};
@@ -6,7 +7,7 @@ use crate::{ApiResponse, ErrorResponse};
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("{0}")]
-    Db(#[from] sea_orm::error::DbErr),
+    Db(sea_orm::error::DbErr),
 
     #[error("{0}")]
     Conf(#[from] config::ConfigError),
@@ -63,5 +64,17 @@ impl From<rsa::pkcs8::Error> for Error {
         Self::Jwt(jsonwebtoken::errors::new_error(
             jsonwebtoken::errors::ErrorKind::InvalidKeyFormat,
         ))
+    }
+}
+
+impl From<DbErr> for Error {
+    fn from(value: DbErr) -> Self {
+        match value {
+            DbErr::RecordNotFound(e) => Error::with_code(
+                StatusCode::NOT_FOUND,
+                format!("cannot find {e} in database"),
+            ),
+            _ => Error::Db(value),
+        }
     }
 }

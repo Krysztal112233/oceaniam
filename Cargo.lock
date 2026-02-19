@@ -1171,6 +1171,7 @@ checksum = "65bc07b1a8bc7c85c5f2e110c476c7389b4554ba72af57d8445ea63a576b0876"
 dependencies = [
  "futures-channel",
  "futures-core",
+ "futures-executor",
  "futures-io",
  "futures-sink",
  "futures-task",
@@ -1250,6 +1251,7 @@ version = "0.3.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9fa08315bb612088cc391249efdc3bc77536f16c91f6cf495e6fbe85b20a4a81"
 dependencies = [
+ "futures-channel",
  "futures-core",
  "futures-io",
  "futures-macro",
@@ -2155,6 +2157,7 @@ dependencies = [
  "backon",
  "chrono",
  "config",
+ "futures",
  "im",
  "itertools",
  "jsonwebtoken",
@@ -2180,6 +2183,7 @@ dependencies = [
  "utoipa-axum",
  "utoipa-scalar",
  "uuid",
+ "xorf",
 ]
 
 [[package]]
@@ -2232,6 +2236,7 @@ dependencies = [
  "async-trait",
  "axum",
  "chrono",
+ "futures",
  "log",
  "oceaniam-common",
  "rand 0.8.5",
@@ -5062,6 +5067,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05f360fc0b24296329c78fda852a1e9ae82de9cf7b27dae4b7f62f118f77b9ed"
 dependencies = [
  "tap",
+]
+
+[[package]]
+name = "xorf"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "45e820b97864028eb5069aabf2d90ad7bc279a0ed0292f1306451ce4b91adc13"
+dependencies = [
+ "libm",
+ "rand 0.8.5",
 ]
 
 [[package]]

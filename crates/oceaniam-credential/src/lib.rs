@@ -18,7 +18,7 @@ use crate::error::Error;
 pub mod credential;
 pub mod error;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct CredentialVault {
     /// This field used to store [PHC](argon2::PasswordHash) string.
     pub phc: String,

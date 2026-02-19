@@ -4,6 +4,7 @@ use sea_orm::{ConnectionTrait, EntityTrait, QuerySelect as _, Select, Transactio
 pub mod applications;
 pub mod credentials;
 pub mod key_boxes;
+pub mod revoked_jwts;
 pub mod subjects;
 pub mod tenants;
 pub mod users;

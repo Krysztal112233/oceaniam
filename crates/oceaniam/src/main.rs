@@ -22,9 +22,11 @@ use crate::state::AppState;
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
+mod credentials;
 mod endpoints;
 mod keybox;
 mod middlewares;
+mod revoked;
 #[allow(unused)]
 mod roller;
 mod state;

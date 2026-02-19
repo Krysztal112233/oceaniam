@@ -9,6 +9,7 @@ axum.workspace = true
 backon.workspace = true
 chrono.workspace = true
 config.workspace = true
+futures.workspace = true
 im.workspace = true
 itertools.workspace = true
 jsonwebtoken.workspace = true
@@ -28,6 +29,7 @@ utoipa-axum.workspace = true
 utoipa-scalar.workspace = true
 utoipa.workspace = true
 uuid.workspace = true
+xorf.workspace = true
 
 migration.workspace = true
 oceaniam-common.workspace = true

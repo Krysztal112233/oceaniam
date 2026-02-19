@@ -3,7 +3,8 @@ use axum::{
     http::{StatusCode, header, request::Parts},
 };
 use jsonwebtoken::{DecodingKey, Header, TokenData, Validation, decode, decode_header};
-use oceaniam_common::{error::Error, jwks::JwkSet};
+use log::error;
+use oceaniam_common::{error::Error, jwks::JwkSet, jwt::ClaimHelper};
 use serde::{Serialize, de::DeserializeOwned};
 
 use crate::state::AppState;
@@ -11,7 +12,6 @@ use crate::state::AppState;
 #[derive(Debug, Clone)]
 pub struct RequireAuth<S> {
     pub token: TokenData<S>,
-    pub header: Header,
 }
 
 pub async fn validate<S>(
@@ -42,7 +42,7 @@ where
 
 impl<S> FromRequestParts<AppState> for RequireAuth<S>
 where
-    S: Serialize + DeserializeOwned,
+    S: Serialize + DeserializeOwned + ClaimHelper + Send,
 {
     type Rejection = StatusCode;
 
@@ -50,7 +50,8 @@ where
         parts: &mut Parts,
         AppState {
             system_jwks,
-            jwt_validation,
+            jwt_validator,
+            revoked_jwt,
             ..
         }: &AppState,
     ) -> Result<Self, Self::Rejection> {
@@ -78,10 +79,20 @@ where
             return Err(StatusCode::BAD_REQUEST);
         }
 
-        let Ok(token) = validate(&header, system_jwks.jwks(), token, jwt_validation).await else {
+        let Ok(token) = validate::<S>(&header, system_jwks.jwks(), token, jwt_validator).await
+        else {
             return Err(StatusCode::BAD_REQUEST);
         };
 
-        Ok(Self { token, header })
+        let jti = token.claims.jti();
+        if let Ok(true) = revoked_jwt
+            .is_revoked(jti)
+            .await
+            .inspect_err(|e| error!("jwt with jti({jti}) has been revoked or database failed: {e}"))
+        {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+
+        Ok(Self { token })
     }
 }

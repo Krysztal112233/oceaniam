@@ -92,6 +92,8 @@ pub struct SystemClaim {
 pub trait ClaimHelper: DeserializeOwned + Serialize + Clone {
     fn new(sub: Uuid, ttl_seconds: i64, iss: Option<String>, aud: Option<String>) -> Self;
 
+    fn jti(&self) -> Uuid;
+
     fn decode(
         codec: Box<dyn JwtCodec<Self>>,
         jwt: impl Into<String>,
@@ -117,6 +119,10 @@ impl ClaimHelper for Claim {
             jti: Uuid::now_v7(),
         }
     }
+
+    fn jti(&self) -> Uuid {
+        self.jti
+    }
 }
 
 impl ClaimHelper for SystemClaim {
@@ -130,6 +136,10 @@ impl ClaimHelper for SystemClaim {
             aud,
             jti: Uuid::now_v7(),
         }
+    }
+
+    fn jti(&self) -> Uuid {
+        self.jti
     }
 }
 
