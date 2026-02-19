@@ -16,4 +16,6 @@ pub const DEFAULT_KEY_EXPIRES_AFTER: Duration = Duration::from_hours(24 * 30);
 
 pub const DEFAULT_KEY_RETIED_AFTER: Duration = Duration::from_hours(24 * 30);
 
+pub const DEFAULT_JWT_ISSUER: &str = "OceanIAM";
+
 pub const USER_LOGIN_FAILED_MSG: &str = "user not found or password invalid";

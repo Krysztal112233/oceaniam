@@ -1,32 +1,31 @@
-use std::sync::Arc;
-
 use axum::extract::FromRef;
 use im::HashMap;
 use jsonwebtoken::{Algorithm, Validation};
 use log::{error, info, warn};
 use oceaniam_common::{consts, error::Error, jwks::ManagedJwkSet, jwt::JwtValidator};
-use oceaniam_database::{helper::key_boxes::KeyBoxesHelper, model::prelude::KeyBoxes};
+use oceaniam_database::{
+    helper::{SafeTransactionConnectionTrait, key_boxes::KeyBoxesHelper},
+    model::prelude::KeyBoxes,
+};
 use oceaniam_keybox::{KeyBox, key::rsa_key::RsaKey};
-use parking_lot::RwLock;
 use sea_orm::DatabaseConnection;
 use tap::Tap;
 use uuid::Uuid;
 
 use crate::{
-    credentials::ManagedCredentialVaults, keybox::ApplicationKeyBoxManager, revoked::RevokedJwt,
+    credentials::ManagedCredentialVaults, keybox::ManagedKeyBox, revoked::RevokedJwt,
     roller::BuiltinScheduledJwkSetRoller,
 };
 
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub database: DatabaseConnection,
-    pub application_keybox_manager: ApplicationKeyBoxManager,
+    pub keybox: ManagedKeyBox,
 
     pub system_jwks: ManagedJwkSet,
     pub jwt_validator: JwtValidator,
     pub revoked_jwt: RevokedJwt,
 
-    pub system_keybox: Arc<RwLock<KeyBox>>,
     pub credentials: ManagedCredentialVaults,
 
     pub _unit: (),
@@ -34,12 +33,13 @@ pub struct AppState {
 
 impl AppState {
     pub async fn new(database: DatabaseConnection) -> Result<Self, Error> {
-        let keybox = ApplicationKeyBoxManager::new(database.clone());
+        let keybox = ManagedKeyBox::new(database.clone());
+
+        initial_system_keybox(keybox.clone(), &database).await?;
 
         Ok(Self {
             database: database.clone(),
-            application_keybox_manager: keybox,
-            system_keybox: initial_system_keybox(database.clone()).await?,
+            keybox,
             system_jwks: initial_system_jwks(database.clone()).await?,
 
             jwt_validator: JwtValidator::new(Validation::default().tap_mut(|it| {
@@ -72,17 +72,22 @@ async fn initial_system_jwks(database: DatabaseConnection) -> Result<ManagedJwkS
     Ok(system_jwks)
 }
 
-async fn initial_system_keybox(database: DatabaseConnection) -> Result<Arc<RwLock<KeyBox>>, Error> {
-    let keys: HashMap<_, _> = KeyBoxes::get_system_keys(&database)
+async fn initial_system_keybox(
+    mut keybox: ManagedKeyBox,
+    database: &impl SafeTransactionConnectionTrait,
+) -> Result<(), Error> {
+    let keys: HashMap<_, _> = KeyBoxes::get_system_keys(database)
         .await?
         .into_iter()
         .map(|it| (it.id, it))
         .collect();
 
-    let mut keybox = KeyBox::with_keys(consts::SYSTEM_APPLICATION_UUID, keys.clone());
+    let keybox = keybox.get_keybox(consts::SYSTEM_APPLICATION_UUID).await;
 
-    if keys.is_empty() {
+    if keys.is_empty() || keybox.is_none() {
         info!("could not find any system keys. a new system key will be generated.");
+
+        let mut keybox = KeyBox::new(consts::SYSTEM_APPLICATION_UUID);
 
         let key = RsaKey::new(
             Uuid::now_v7(),
@@ -92,12 +97,12 @@ async fn initial_system_keybox(database: DatabaseConnection) -> Result<Arc<RwLoc
 
         info!("the system key has been generated and is about to be written to the database.");
 
-        keybox.clone().write_to(&database).await?;
+        keybox.clone().write_to(database).await?;
 
         info!("system key has been written to database!");
     }
 
-    Ok(Arc::new(RwLock::new(keybox)))
+    Ok(())
 }
 
 impl FromRef<AppState> for () {

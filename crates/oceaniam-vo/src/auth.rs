@@ -52,5 +52,16 @@ impl Default for SignoutResponse {
     }
 }
 
-pub type SystemSigninRequest = AuthVO;
+#[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS, Validate)]
+#[serde(untagged)]
+pub enum SystemSigninRequest {
+    /// Login via username
+    Name {
+        #[garde(skip)]
+        name: String,
+
+        #[garde(skip)]
+        password: String,
+    },
+}
 pub type SystemSigninResponse = SigninResponse;

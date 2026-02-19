@@ -177,15 +177,12 @@ pub async fn delete_application(
 pub async fn get_application_jwks(
     Path(application_id): Path<Sqid>,
 
-    State(AppState {
-        mut application_keybox_manager,
-        ..
-    }): State<AppState>,
+    State(AppState { mut keybox, .. }): State<AppState>,
 ) -> RestResult<JwkSet> {
     let application_id = Uuid::try_from(application_id)?;
 
     Ok(ApiResponse::new(
-        application_keybox_manager
+        keybox
             .get_jwks(application_id)
             .await
             .ok_or(Error::with_code(StatusCode::NOT_FOUND, "jwks not found"))?,

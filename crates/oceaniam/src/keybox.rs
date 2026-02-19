@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use axum::http::StatusCode;
 use log::error;
@@ -10,18 +10,18 @@ use sea_orm::DatabaseConnection;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
-pub struct ApplicationKeyBoxManager {
-    database: DatabaseConnection,
+pub struct ManagedKeyBox {
+    database: Arc<DatabaseConnection>,
     boxes: Cache<Uuid, KeyBox>,
     banned: Cache<Uuid, ()>,
     jwks: Cache<Uuid, JwkSet>,
 }
 
 #[allow(unused)]
-impl ApplicationKeyBoxManager {
+impl ManagedKeyBox {
     pub fn new(database: DatabaseConnection) -> Self {
         Self {
-            database,
+            database: Arc::new(database),
             boxes: CacheBuilder::default()
                 .time_to_live(Duration::from_secs(4))
                 .build(),
@@ -46,7 +46,7 @@ impl ApplicationKeyBoxManager {
                     ));
                 };
 
-                let keys = KeyBoxes::get_application_keys(application_id, &database)
+                let keys = KeyBoxes::get_application_keys(application_id, &*database)
                     .await
                     .inspect_err(|e| error!("{e}"))?
                     .into_iter()
@@ -76,5 +76,10 @@ impl ApplicationKeyBoxManager {
                 Some(JwkSet::from(self.clone().get_keybox(application_id).await?))
             })
             .await
+    }
+
+    pub async fn put_keybox(&mut self, keybox: KeyBox) {
+        self.banned.remove(&keybox.application_id()).await;
+        self.boxes.insert(keybox.application_id(), keybox).await;
     }
 }

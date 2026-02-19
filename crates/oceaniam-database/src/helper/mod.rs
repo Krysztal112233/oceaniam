@@ -1,6 +1,7 @@
 use oceaniam_common::PageParam;
 use sea_orm::{ConnectionTrait, EntityTrait, QuerySelect as _, Select, TransactionTrait};
 
+pub mod administrators;
 pub mod applications;
 pub mod credentials;
 pub mod key_boxes;

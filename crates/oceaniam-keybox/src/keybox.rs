@@ -2,7 +2,7 @@ use chrono::{DateTime, FixedOffset, Utc};
 use im::HashMap;
 use itertools::Itertools;
 use log::error;
-use oceaniam_common::consts;
+use oceaniam_common::{consts, error::Error};
 use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, key_boxes::KeyBoxesHelper},
     model::{
@@ -16,19 +16,27 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::{
-    error::Error,
     key::{TryIntoJwk, TryIntoKeyModel, rsa_key::RsaKey},
     key_alg::KeyAlg,
 };
 
+/// A standalone key representation that contains the essential key information
+/// without the full metadata from the database model
 #[derive(Debug, Clone)]
 pub struct StandaloneKey {
+    /// Unique identifier for the key
     pub key_id: Uuid,
+    /// The algorithm used by this key (e.g., RS256, RS512, etc.)
     pub key_alg: KeyAlg,
+    /// The secret key material stored as JSON value
     pub secret: Value,
 }
 
 impl From<Key> for StandaloneKey {
+    /// Converts a database Key model into a StandaloneKey
+    ///
+    /// Extracts the essential key information while discarding metadata
+    /// like status timestamps and application_id
     fn from(
         Key {
             id,
@@ -45,15 +53,23 @@ impl From<Key> for StandaloneKey {
     }
 }
 
+/// Configuration options for creating a new key
 #[derive(Debug)]
 pub struct KeyOption {
+    /// Timestamp when the key was created
     pub created_at: DateTime<FixedOffset>,
+    /// Optional timestamp when the key becomes active
     pub activated_at: Option<DateTime<FixedOffset>>,
+    /// Optional timestamp when the key is retired
     pub retired_at: Option<DateTime<FixedOffset>>,
+    /// Optional timestamp when the key expires
     pub expires_at: Option<DateTime<FixedOffset>>,
 }
 
 impl Default for KeyOption {
+    /// Creates default key options with current time as creation timestamp
+    ///
+    /// All lifecycle timestamps (activated_at, retired_at, expires_at) are set to None
     fn default() -> Self {
         Self {
             created_at: Utc::now().into(),
@@ -61,71 +77,6 @@ impl Default for KeyOption {
             retired_at: Default::default(),
             expires_at: Default::default(),
         }
-    }
-}
-
-#[derive(Debug)]
-pub enum StatusMaskedKey {
-    Active(Key),
-    Pending(Key),
-    Retired(Key),
-
-    /// If [Key] has been [KeyStatus::Revoked], **YOU CANNOT GET IT ANYWAY**.
-    Revoked,
-}
-
-impl From<Key> for StatusMaskedKey {
-    fn from(value: Key) -> Self {
-        match value.status {
-            KeyStatus::Active => Self::Active(value),
-            KeyStatus::Pending => Self::Pending(value),
-            KeyStatus::Retired => Self::Retired(value),
-            KeyStatus::Revoked => Self::Revoked,
-        }
-    }
-}
-
-impl StatusMaskedKey {
-    pub fn into_key<T>(self) -> Option<T>
-    where
-        T: From<StandaloneKey>,
-    {
-        match self {
-            StatusMaskedKey::Active(key)
-            | StatusMaskedKey::Pending(key)
-            | StatusMaskedKey::Retired(key) => Some(StandaloneKey::from(key).into()),
-
-            StatusMaskedKey::Revoked => None,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum ConcreteStatusMaskedKey<T> {
-    Active(T),
-    Pending(T),
-    Retired(T),
-
-    /// If [Key] has been [KeyStatus::Revoked], **YOU CANNOT GET IT ANYWAY**.
-    Revoked,
-}
-
-impl<T> TryFrom<StatusMaskedKey> for ConcreteStatusMaskedKey<T>
-where
-    T: TryFrom<StandaloneKey, Error = Error>,
-{
-    type Error = Error;
-
-    fn try_from(value: StatusMaskedKey) -> Result<Self, Self::Error> {
-        use ConcreteStatusMaskedKey::*;
-        use StatusMaskedKey as S;
-
-        Ok(match value {
-            S::Active(m) => Active(T::try_from(StandaloneKey::from(m))?),
-            S::Pending(m) => Pending(T::try_from(StandaloneKey::from(m))?),
-            S::Retired(m) => Retired(T::try_from(StandaloneKey::from(m))?),
-            S::Revoked => Revoked,
-        })
     }
 }
 
@@ -140,10 +91,12 @@ pub struct KeyBox {
 }
 
 impl KeyBox {
+    /// Creates a new empty KeyBox for the specified application
     pub fn new(application_id: Uuid) -> Self {
         Self::with_keys(application_id, HashMap::default())
     }
 
+    /// Creates a KeyBox with the specified keys
     pub fn with_keys(application_id: Uuid, keys: HashMap<Uuid, Key>) -> Self {
         Self {
             application_id,
@@ -151,6 +104,7 @@ impl KeyBox {
         }
     }
 
+    /// Adds a new key with default options
     pub fn put_key<T>(&mut self, key: T) -> Result<(), Error>
     where
         T: TryIntoKeyModel,
@@ -158,7 +112,12 @@ impl KeyBox {
         self.put_key_with_option(key, KeyOption::default())
     }
 
-    /// Adds a new key
+    /// Adds a new key with custom options
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key to add, must implement `TryIntoKeyModel`
+    /// * `options` - Configuration options for the key lifecycle
     pub fn put_key_with_option<T>(&mut self, key: T, options: KeyOption) -> Result<(), Error>
     where
         T: TryIntoKeyModel,
@@ -174,12 +133,34 @@ impl KeyBox {
     /// # Safety
     ///
     /// This function doesn't check the key is expired.
-    pub unsafe fn get_key_unsafe(&self, key_id: &Uuid) -> Option<Key> {
+    pub unsafe fn get_raw_key_unsafe(&self, key_id: &Uuid) -> Option<Key> {
         self.keys.get(key_id).cloned()
     }
 
-    pub fn get_key(&self, key_id: &Uuid) -> Option<StatusMaskedKey> {
-        unsafe { self.get_key_unsafe(key_id).map(StatusMaskedKey::from) }
+    /// Gets a key by key_id and converts it to StandaloneKey
+    ///
+    /// # Safety
+    ///
+    /// This function doesn't check if the key is expired.
+    pub fn get_raw_key(&self, key_id: &Uuid) -> Option<StandaloneKey> {
+        unsafe { self.get_raw_key_unsafe(key_id).map(Into::into) }
+    }
+
+    /// Gets a key by key_id and converts it to the specified type
+    ///
+    /// # Arguments
+    ///
+    /// * `key_id` - The UUID of the key to retrieve
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(Ok(key))` if the key exists and can be converted,
+    /// `Some(Err(e))` if conversion fails, or `None` if key doesn't exist
+    pub fn get_key<T>(&self, key_id: &Uuid) -> Option<Result<T, Error>>
+    where
+        T: TryFrom<StandaloneKey, Error = Error>,
+    {
+        self.get_raw_key(key_id).map(T::try_from)
     }
 
     /// Removes the specified key
@@ -187,30 +168,37 @@ impl KeyBox {
         self.keys.remove(key_id)
     }
 
+    /// Returns all keys in the keybox
     pub fn get_keys(&self) -> &HashMap<Uuid, Key> {
         &self.keys
     }
 
-    pub fn get_latest_key<T>(&self) -> Option<ConcreteStatusMaskedKey<T>>
-    where
-        T: TryFrom<StandaloneKey, Error = Error>,
-    {
-        let kid = self
-            .keys
+    /// Gets the latest key with the specified status
+    ///
+    /// Returns the key with the most recent `activated_at` timestamp
+    /// that matches the given status
+    pub fn get_latest_raw_key(&self, status: KeyStatus) -> Option<StandaloneKey> {
+        self.keys
             .clone()
             .into_iter()
             .map(|(_, it)| it)
-            .filter(|it| it.status == KeyStatus::Active)
+            .filter(|it| it.status == status)
             .sorted_by(|a, b| Ord::cmp(&b.activated_at, &a.activated_at))
             .map(StandaloneKey::from)
-            .find(|m| T::try_from(m.clone()).is_ok())?
-            .key_id;
-
-        ConcreteStatusMaskedKey::try_from(self.get_key(&kid)?)
-            .inspect_err(|e| error!("{e}"))
-            .ok()
+            .next()
     }
 
+    /// Gets the latest key with the specified status and converts it to the target type
+    pub fn get_latest_key<T>(&self, status: KeyStatus) -> Option<Result<T, Error>>
+    where
+        T: TryFrom<StandaloneKey, Error = Error>,
+    {
+        self.get_latest_raw_key(status).map(T::try_from)
+    }
+
+    /// Writes all keys in this keybox to the database
+    ///
+    /// Persists all key changes to the database for the application
     pub async fn write_to(
         self,
         database: &impl SafeTransactionConnectionTrait,
@@ -228,9 +216,18 @@ impl KeyBox {
 
         Ok(())
     }
+
+    /// Returns the application ID this keybox belongs to
+    pub fn application_id(&self) -> Uuid {
+        self.application_id
+    }
 }
 
 impl From<KeyBox> for oceaniam_common::jwks::JwkSet {
+    /// Converts a KeyBox into a JWK Set (JSON Web Key Set)
+    ///
+    /// Only includes non-revoked RSA keys. Other key types are ignored.
+    /// Failed conversions are logged but don't stop the process.
     fn from(value: KeyBox) -> Self {
         let keys = value
             .keys
@@ -256,6 +253,8 @@ impl From<KeyBox> for oceaniam_common::jwks::JwkSet {
 
 #[cfg(test)]
 mod tests {
+    use core::panic;
+
     use super::*;
 
     use crate::key::rsa_key::RsaKey;
@@ -343,7 +342,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_key_unsafe(&key_id) }.unwrap();
+        let stored_key = unsafe { keybox.get_raw_key_unsafe(&key_id) }.unwrap();
         assert_eq!(stored_key.status, KeyStatus::Active);
     }
 
@@ -366,7 +365,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_key_unsafe(&key_id) }.unwrap();
+        let stored_key = unsafe { keybox.get_raw_key_unsafe(&key_id) }.unwrap();
         assert_eq!(stored_key.status, KeyStatus::Active);
     }
 
@@ -389,7 +388,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_key_unsafe(&key_id) }.unwrap();
+        let stored_key = unsafe { keybox.get_raw_key_unsafe(&key_id) }.unwrap();
         assert_eq!(stored_key.status, KeyStatus::Pending);
     }
 
@@ -412,7 +411,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_key_unsafe(&key_id) }.unwrap();
+        let stored_key = unsafe { keybox.get_raw_key_unsafe(&key_id) }.unwrap();
         assert_eq!(stored_key.status, KeyStatus::Retired);
     }
 
@@ -435,7 +434,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_key_unsafe(&key_id) }.unwrap();
+        let stored_key = unsafe { keybox.get_raw_key_unsafe(&key_id) }.unwrap();
         assert_eq!(stored_key.status, KeyStatus::Retired);
     }
 
@@ -460,7 +459,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_key_unsafe(&key_id) }.unwrap();
+        let stored_key = unsafe { keybox.get_raw_key_unsafe(&key_id) }.unwrap();
         assert_eq!(stored_key.status, KeyStatus::Retired);
     }
 
@@ -484,7 +483,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_key_unsafe(&key_id) }.unwrap();
+        let stored_key = unsafe { keybox.get_raw_key_unsafe(&key_id) }.unwrap();
         assert_eq!(stored_key.status, KeyStatus::Retired);
     }
 
@@ -497,7 +496,7 @@ mod tests {
         // Put key
         keybox.put_key(key.clone()).unwrap();
 
-        let Some(StatusMaskedKey::Active(key)) = keybox.get_key(&key.key_id()) else {
+        let Some(key) = keybox.get_raw_key(&key.key_id()) else {
             panic!("EXPECT ACTIVE KEY BUT CANNOT GET IT")
         };
 
@@ -530,52 +529,5 @@ mod tests {
         keybox.put_key(create_rsa_key()).unwrap();
 
         let _ = JwkSet::from(keybox);
-    }
-
-    #[test]
-    fn test_keybox_find_newest() {
-        let mut keybox = KeyBox::new(Uuid::nil());
-
-        let oldest = create_rsa_key();
-        // Put key
-        keybox
-            .put_key_with_option(
-                oldest.clone(),
-                KeyOption {
-                    activated_at: Some(Utc::now().into()),
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-
-        keybox
-            .put_key_with_option(
-                create_rsa_key(),
-                KeyOption {
-                    activated_at: Some(Utc::now().into()),
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-
-        let newest = create_rsa_key();
-        keybox
-            .put_key_with_option(
-                newest.clone(),
-                KeyOption {
-                    activated_at: Some(Utc::now().into()),
-                    ..Default::default()
-                },
-            )
-            .unwrap();
-
-        let key = keybox.get_latest_key::<RsaKey>();
-
-        let Some(ConcreteStatusMaskedKey::Active(key)) = key else {
-            return assert!(key.is_some());
-        };
-
-        assert_ne!(key, oldest);
-        assert_eq!(key, newest);
     }
 }

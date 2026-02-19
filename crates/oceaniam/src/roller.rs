@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use log::error;
 use oceaniam_common::{
@@ -12,12 +12,14 @@ use sea_orm::DatabaseConnection;
 
 #[derive(Debug)]
 pub struct BuiltinScheduledJwkSetRoller {
-    database: DatabaseConnection,
+    database: Arc<DatabaseConnection>,
 }
 
 impl BuiltinScheduledJwkSetRoller {
     pub fn new(database: DatabaseConnection) -> Self {
-        Self { database }
+        Self {
+            database: Arc::new(database),
+        }
     }
 }
 
@@ -47,16 +49,16 @@ impl ManagedJwkSetRoller for BuiltinScheduledJwkSetRoller {
 
 #[derive(Debug)]
 pub struct BuiltinOneShotJwkSetRoller {
-    database: DatabaseConnection,
+    database: Arc<DatabaseConnection>,
 }
 
 impl BuiltinOneShotJwkSetRoller {
-    pub fn new(database: DatabaseConnection) -> Self {
+    pub fn new(database: Arc<DatabaseConnection>) -> Self {
         Self { database }
     }
 
     pub async fn pull(&self) -> Result<JwkSet, Error> {
-        let keys = KeyBoxes::get_system_keys(&self.database)
+        let keys = KeyBoxes::get_system_keys(&*self.database)
             .await
             .inspect_err(|e| error!("{e}"))?
             .into_iter()
