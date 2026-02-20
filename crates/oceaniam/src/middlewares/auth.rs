@@ -34,10 +34,11 @@ where
             ));
         };
 
-        DecodingKey::from_jwk(jwk)?
+        DecodingKey::from_jwk(jwk)
+            .inspect_err(|e| error!("failed to create decoding key from jwk: {}", e))?
     };
 
-    Ok(decode(token, &key, validation)?)
+    Ok(decode(token, &key, validation).inspect_err(|e| error!("failed to decode token: {}", e))?)
 }
 
 impl<S> FromRequestParts<AppState> for RequireAuth<S>

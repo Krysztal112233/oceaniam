@@ -2225,6 +2225,7 @@ dependencies = [
  "oceaniam-database",
  "sea-orm",
  "serde",
+ "tap",
  "thiserror 2.0.18",
  "uuid",
 ]

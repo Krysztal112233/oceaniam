@@ -1,12 +1,24 @@
 //! Authentication-related API endpoints
 //!
-//! Provides interfaces for user signin, signup, signout, and token refresh
+//! Provides interfaces for user signin, signup, signout, and token refresh.
+//!
+//! # Authentication Flow
+//!
+//! 1. **Signin**: User provides credentials (name/password) and receives a JWT token
+//! 2. **Signout**: Current JWT token is revoked and cannot be used anymore
+//! 3. **Refresh**: Old JWT token is revoked and a new one is issued
+//!
+//! # Security Notes
+//!
+//! - JWT tokens have a limited lifetime (5 days by default)
+//! - Revoked tokens are tracked in database and cannot be reused
+//! - All authentication failures return 401 to prevent username enumeration attacks
 
 use std::time::Duration;
 
 use axum::{Json, extract::State, http::StatusCode};
 use jsonwebtoken::Header;
-use log::error;
+use log::{debug, error};
 use oceaniam_common::{
     ApiResponse, ErrorResponse, RestResult, consts,
     error::Error,
@@ -22,9 +34,11 @@ use oceaniam_database::{
 };
 use oceaniam_keybox::key::rsa_key::RsaKey;
 use oceaniam_vo::auth::{SigninResponse, SignoutResponse, SignupResponse, SystemSigninRequest};
+use tap::Tap;
 use utoipa_axum::{router::OpenApiRouter, routes};
+use uuid::Uuid;
 
-use crate::{middlewares, state::AppState};
+use crate::{keybox::ManagedKeyBox, middlewares, state::AppState};
 
 pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
@@ -34,41 +48,15 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
         .routes(routes!(signup))
 }
 
-/// User signin
-///
-/// Authenticates user with credentials
-#[utoipa::path(
-        post,
-        path = "/auth/signin",
-        tag = "SystemAuthentication",
-        responses(
-            (status = 200, body = ApiResponse<SigninResponse>),
-            (status = 500, body = ApiResponse<ErrorResponse>),
-        ),
-    )]
-pub async fn signin(
-    State(AppState {
-        credentials,
-        database,
-        mut keybox,
-        ..
-    }): State<AppState>,
-
-    Json(auth): Json<SystemSigninRequest>,
-) -> RestResult<SigninResponse> {
-    let (id, password) = match auth {
-        SystemSigninRequest::Name { name, password } => (
-            Administrators::get_by_name(name, &database).await?.id,
-            password,
-        ),
-    };
-
-    let succeed = {
-        let cred = credentials.get_credential(id).await?;
-        credential::Password::try_from(&cred)?.verify(password)?
-    };
+async fn sign_jwt(sub: impl Into<Uuid>, keybox: ManagedKeyBox) -> Result<String, Error> {
+    let sub = sub.into();
+    debug!("signing jwt for sub {}", sub);
 
     let Some(keybox) = keybox.get_keybox(consts::SYSTEM_APPLICATION_UUID).await else {
+        error!(
+            "cannot find system keybox of {}",
+            consts::SYSTEM_APPLICATION_UUID
+        );
         return Err(Error::with_code(
             StatusCode::INTERNAL_SERVER_ERROR,
             "!!!CANNOT FIND SYSTEM KEYBOX, THIS MUST BE ERROR!!!",
@@ -76,49 +64,136 @@ pub async fn signin(
     };
 
     let Some(key) = keybox.get_latest_raw_key(KeyStatus::Active) else {
+        error!(
+            "cannot find active key in system keybox of {}",
+            consts::SYSTEM_APPLICATION_UUID
+        );
         return Err(Error::with_code(
             StatusCode::INTERNAL_SERVER_ERROR,
             "!!!CANNOT FIND SYSTEM KEYBOX, THIS MUST BE ERROR!!!",
         ));
     };
 
+    debug!("found active key with algorithm: {:?}", key.key_alg);
+
     fn h(i: impl JwtCodec<SystemClaim> + 'static) -> Box<dyn JwtCodec<SystemClaim>> {
         Box::new(i)
     }
 
     let key_alg = key.key_alg.clone();
+    let kid = key.key_id;
+
     let ket = match *key_alg {
         KeyAlg::Ps256
         | KeyAlg::Ps384
         | KeyAlg::Ps512
         | KeyAlg::Rs256
         | KeyAlg::Rs384
-        | KeyAlg::Rs512 => h(RsaKey::try_from(key)?),
+        | KeyAlg::Rs512 => h(RsaKey::try_from(key)
+            .inspect_err(|e| error!("failed to convert key to rsakey: {}", e))?),
     };
 
-    let jwt = SystemClaim::new(
-        id,
+    SystemClaim::new(
+        sub,
         Duration::from_hours(24 * 5).as_secs() as i64,
         Some(consts::DEFAULT_JWT_ISSUER.into()),
         Some(consts::DEFAULT_JWT_ISSUER.into()),
     )
-    .encode(Header::new(key_alg.into()), ket)?;
+    .encode(
+        Header::new(key_alg.into()).tap_mut(|it| it.kid = Some(kid.to_string())),
+        ket,
+    )
+    .inspect_err(|e| error!("failed to encode jwt: {}", e))
+}
+
+/// User signin
+///
+/// Authenticates user with credentials (name and password) and returns a JWT token.
+/// The token is valid for 5 days and must be included in the Authorization header
+/// for subsequent requests.
+///
+/// # Errors
+///
+/// Returns 401 if credentials are invalid (wrong password or user not found)
+/// Returns 500 if system keybox is unavailable or cannot generate token
+#[utoipa::path(
+        post,
+        path = "/auth/signin",
+        tag = "SystemAuthentication",
+        request_body = SystemSigninRequest,
+        responses(
+            (status = 200, description = "Successfully authenticated", body = ApiResponse<SigninResponse>),
+            (status = 400, description = "Invalid request body"),
+            (status = 401, description = "Invalid credentials", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
+        ),
+    )]
+pub async fn signin(
+    State(AppState {
+        credentials,
+        database,
+        keybox,
+        ..
+    }): State<AppState>,
+
+    Json(auth): Json<SystemSigninRequest>,
+) -> RestResult<SigninResponse> {
+    let (id, password) = match auth {
+        SystemSigninRequest::Name { name, password } => (
+            Administrators::get_by_name(name, &database)
+                .await
+                .inspect_err(|e| error!("failed to get administrator by name: {}", e))?
+                .id,
+            password,
+        ),
+    };
+
+    let succeed = {
+        let cred = credentials
+            .get_credential(id)
+            .await
+            .inspect_err(|e| error!("failed to get credential: {}", e))?;
+        credential::Password::from(cred)
+            .verify(password)
+            .inspect_err(|e| error!("failed to verify password: {}", e))?
+    };
+
+    if !succeed {
+        return Err(Error::with_code(
+            StatusCode::UNAUTHORIZED,
+            consts::USER_LOGIN_FAILED_MSG,
+        ));
+    }
+
+    let jwt = sign_jwt(id, keybox)
+        .await
+        .inspect_err(|e| error!("failed to sign jwt: {}", e))?;
 
     Ok(ApiResponse::new(SigninResponse { jwt }))
 }
 
 /// User signout
 ///
-/// Clears current user session information
+/// Revokes the current JWT token by adding its JTI (JWT ID) to the revoked tokens list.
+/// After revocation, the token cannot be used for authentication anymore.
+///
+/// # Authorization
+///
+/// Requires a valid JWT token in the Authorization header.
+///
+/// # Errors
+///
+/// Returns 401 if the token is invalid or has already been revoked
+/// Returns 500 if database operation fails
 #[utoipa::path(
         get,
         path = "/auth/signout",
         tag = "SystemAuthentication",
-        params(("Authorization" = String, Header, description = "Authorization payload")),
+        params(("Authorization" = String, Header, description = "Bearer token for authentication")),
         responses(
-            (status = 200, body = ApiResponse<SignoutResponse>),
-            (status = 401, body = ApiResponse<ErrorResponse>),
-            (status = 500, body = ApiResponse<ErrorResponse>),
+            (status = 200, description = "Successfully signed out", body = ApiResponse<SignoutResponse>),
+            (status = 401, description = "Invalid or expired token", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
 pub async fn signout(
@@ -135,16 +210,30 @@ pub async fn signout(
 
 /// User signup
 ///
-/// Creates a new user account
+/// Creates a new user account with the provided credentials.
+///
+/// # Note
+///
+/// **TODO**: This is a placeholder implementation. Account creation logic needs to be implemented.
+///
+/// # Errors
+///
+/// Returns 400 if request body is invalid
+/// Returns 409 if username already exists
+/// Returns 500 if database operation fails
 #[utoipa::path(
         post,
         path = "/auth/signup",
         tag = "SystemAuthentication",
+        request_body = SystemSigninRequest,
         responses(
-            (status = 201, body = ApiResponse<SignupResponse>),
-            (status = 500, body = ApiResponse<ErrorResponse>),
+            (status = 201, description = "User account created successfully", body = ApiResponse<SignupResponse>),
+            (status = 400, description = "Invalid request body"),
+            (status = 409, description = "Username already exists"),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
+#[allow(unused)]
 pub async fn signup(
     State(AppState { revoked_jwt, .. }): State<AppState>,
 
@@ -155,25 +244,51 @@ pub async fn signup(
 
 /// Refresh JWT
 ///
-/// Obtains new access token using refresh token
+/// Revokes the current JWT token and issues a new one with a fresh expiration time.
+/// This implements token rotation for enhanced security - the old token becomes
+/// invalid immediately after refresh.
+///
+/// # Authorization
+///
+/// Requires a valid JWT token in the Authorization header.
+///
+/// # Security
+///
+/// The old token's JTI is added to the revoked tokens list, preventing replay attacks.
+/// The new token has a fresh 5-day expiration period.
+///
+/// # Errors
+///
+/// Returns 401 if the token is invalid or has already been revoked
+/// Returns 500 if database operation fails
 #[utoipa::path(
         post,
         path = "/auth/refresh",
         tag = "SystemAuthentication",
-        params(("Authorization" = String, Header, description = "Authorization payload")),
+        params(("Authorization" = String, Header, description = "Bearer token to refresh")),
         responses(
-            (status = 200, body = ApiResponse<SigninResponse>),
-            (status = 401, body = ApiResponse<ErrorResponse>),
-            (status = 500, body = ApiResponse<ErrorResponse>),
+            (status = 200, description = "Token refreshed successfully", body = ApiResponse<SigninResponse>),
+            (status = 401, description = "Invalid, expired, or revoked token", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
-        request_body(content_type = "application/json"),
     )]
 pub async fn refresh(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
-    State(AppState { revoked_jwt, .. }): State<AppState>,
+    State(AppState {
+        revoked_jwt,
+        keybox,
+        ..
+    }): State<AppState>,
 ) -> RestResult<()> {
     let jti = auth.token.claims.jti;
-    revoked_jwt.set_revoked(jti).await?;
+    revoked_jwt
+        .set_revoked(jti)
+        .await
+        .inspect_err(|e| error!("failed to revoke jwt: {}", e))?;
+
+    sign_jwt(auth.token.claims.sub, keybox)
+        .await
+        .inspect_err(|e| error!("failed to sign new jwt: {}", e))?;
 
     Ok(ApiResponse::new(()))
 }

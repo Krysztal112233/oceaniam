@@ -42,16 +42,20 @@ impl AppState {
             keybox,
             system_jwks: initial_system_jwks(database.clone()).await?,
 
-            jwt_validator: JwtValidator::new(Validation::default().tap_mut(|it| {
-                it.algorithms = vec![
-                    Algorithm::PS256,
-                    Algorithm::PS384,
-                    Algorithm::PS512,
-                    Algorithm::RS256,
-                    Algorithm::RS384,
-                    Algorithm::RS512,
-                ]
-            })),
+            jwt_validator: JwtValidator::new(
+                Validation::default()
+                    .tap_mut(|it| it.set_audience(&["OceanIAM"]))
+                    .tap_mut(|it| {
+                        it.algorithms = vec![
+                            Algorithm::PS256,
+                            Algorithm::PS384,
+                            Algorithm::PS512,
+                            Algorithm::RS256,
+                            Algorithm::RS384,
+                            Algorithm::RS512,
+                        ]
+                    }),
+            ),
 
             revoked_jwt: RevokedJwt::new(database.clone()),
             credentials: ManagedCredentialVaults::new(database),
@@ -73,7 +77,7 @@ async fn initial_system_jwks(database: DatabaseConnection) -> Result<ManagedJwkS
 }
 
 async fn initial_system_keybox(
-    mut keybox: ManagedKeyBox,
+    keybox: ManagedKeyBox,
     database: &impl SafeTransactionConnectionTrait,
 ) -> Result<(), Error> {
     let keys: HashMap<_, _> = KeyBoxes::get_system_keys(database)

@@ -46,7 +46,10 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
         get,
         path = "/applications",
         tag = "Applications",
-        params(("Authorization" = String, Header, description = "Authorization payload")),
+        params(
+            ("Authorization" = String, Header, description = "Authorization payload"),
+            GetApplicationParam
+        ),
         responses(
             (status = 200, body = ApiResponse<PagedResponse<ApplicationVO>>),
             (status = 401, body = ApiResponse<ErrorResponse>),
@@ -177,7 +180,7 @@ pub async fn delete_application(
 pub async fn get_application_jwks(
     Path(application_id): Path<Sqid>,
 
-    State(AppState { mut keybox, .. }): State<AppState>,
+    State(AppState { keybox, .. }): State<AppState>,
 ) -> RestResult<JwkSet> {
     let application_id = Uuid::try_from(application_id)?;
 

@@ -1,9 +1,5 @@
 #![doc = include_str!("../README.md")]
 
-use argon2::{
-    Argon2, PasswordHasher,
-    password_hash::{SaltString, rand_core::OsRng},
-};
 use log::error;
 use oceaniam_database::{
     helper::SafeTransactionConnectionTrait,
@@ -13,7 +9,7 @@ use sea_orm::{EntityTrait, IntoActiveModel};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::error::Error;
+use crate::{credential::Password, error::Error};
 
 pub mod credential;
 pub mod error;
@@ -27,13 +23,9 @@ pub struct CredentialVault {
 impl CredentialVault {
     /// User must have at least password login method enabled.
     pub fn new(password: impl AsRef<str>) -> Result<Self, Error> {
-        let salt = SaltString::generate(&mut OsRng);
+        let phc = Password::with_password(password)?.into_phc();
 
-        let password = Argon2::default()
-            .hash_password(password.as_ref().as_bytes(), &salt)?
-            .to_string();
-
-        Ok(Self { phc: password })
+        Ok(Self { phc })
     }
 
     pub async fn write_to(

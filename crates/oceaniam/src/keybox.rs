@@ -34,7 +34,7 @@ impl ManagedKeyBox {
         }
     }
 
-    pub async fn get_keybox(&mut self, application_id: Uuid) -> Option<KeyBox> {
+    pub async fn get_keybox(&self, application_id: Uuid) -> Option<KeyBox> {
         let database = self.database.clone();
 
         self.boxes
@@ -70,7 +70,7 @@ impl ManagedKeyBox {
             .ok()
     }
 
-    pub async fn get_jwks(&mut self, application_id: Uuid) -> Option<JwkSet> {
+    pub async fn get_jwks(&self, application_id: Uuid) -> Option<JwkSet> {
         self.jwks
             .optionally_get_with(application_id, async {
                 Some(JwkSet::from(self.clone().get_keybox(application_id).await?))
@@ -78,7 +78,7 @@ impl ManagedKeyBox {
             .await
     }
 
-    pub async fn put_keybox(&mut self, keybox: KeyBox) {
+    pub async fn put_keybox(&self, keybox: KeyBox) {
         self.banned.remove(&keybox.application_id()).await;
         self.boxes.insert(keybox.application_id(), keybox).await;
     }

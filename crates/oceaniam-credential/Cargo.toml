@@ -9,6 +9,7 @@ axum.workspace = true
 log.workspace = true
 sea-orm.workspace = true
 serde.workspace = true
+tap.workspace = true
 thiserror.workspace = true
 uuid.workspace = true
 

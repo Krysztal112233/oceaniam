@@ -1,9 +1,9 @@
 use oceaniam_common::{PageParam, types::sqid::Sqid};
 use oceaniam_database::model::{self};
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize, ToSchema, IntoParams)]
 pub struct GetApplicationParam {
     pub tenant_id: Sqid,
 
