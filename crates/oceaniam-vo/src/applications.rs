@@ -7,8 +7,14 @@ use utoipa::{IntoParams, ToSchema};
 pub struct GetApplicationParam {
     pub tenant_id: Sqid,
 
-    #[serde(flatten)]
-    pub page: PageParam,
+    pub page: u64,
+    pub per_page: u64,
+}
+
+impl From<GetApplicationParam> for PageParam {
+    fn from(GetApplicationParam { page, per_page, .. }: GetApplicationParam) -> Self {
+        Self { page, per_page }
+    }
 }
 
 #[derive(Debug, Deserialize, ToSchema, ts_rs::TS)]

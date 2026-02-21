@@ -10,7 +10,7 @@ use axum::{
 use chrono::Utc;
 use log::{error, info};
 use oceaniam_common::{
-    ApiResponse, Empty, ErrorResponse, PagedResponse, RestResult, consts,
+    ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse, RestResult, consts,
     error::Error,
     jwks::{JwkSet, JwkSetSchema},
     jwt::SystemClaim,
@@ -58,11 +58,19 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     )]
 pub async fn get_applications(
     _: middlewares::auth::RequireAuth<SystemClaim>,
-    Query(GetApplicationParam { tenant_id, page }): Query<GetApplicationParam>,
+    Query(GetApplicationParam {
+        tenant_id,
+        page,
+        per_page,
+    }): Query<GetApplicationParam>,
     State(AppState { database, .. }): State<AppState>,
 ) -> RestResult<PagedResponse<ApplicationVO>> {
-    let PagedResponse { items, page_info } =
-        Applications::get_applications(tenant_id.try_into()?, &page, &database).await?;
+    let PagedResponse { items, page_info } = Applications::get_applications(
+        tenant_id.try_into()?,
+        PageParam { page, per_page },
+        &database,
+    )
+    .await?;
 
     Ok(ApiResponse::new(PagedResponse {
         items: items.into_iter().map(ApplicationVO::from).collect(),

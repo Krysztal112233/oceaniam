@@ -16,7 +16,7 @@ pub struct CreateApplicationOptions {
 
 #[async_trait::async_trait]
 pub trait ApplicationHelper {
-    async fn create(
+    async fn create_application(
         id: Uuid,
         tenant_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -53,14 +53,16 @@ pub trait ApplicationHelper {
 
     async fn get_applications(
         tenant_id: Uuid,
-        page: &PageParam,
+        page: impl Into<PageParam> + Send,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<PagedResponse<model::applications::Model>, Error> {
         use crate::model::applications::Column::*;
 
+        let page = page.into();
+
         let paginator = Applications::find()
             .filter(TenantId.eq(tenant_id))
-            .paged(*page)
+            .paged(page)
             .paginate(database, page.per_page);
 
         let items = paginator.fetch_page(0).await?;

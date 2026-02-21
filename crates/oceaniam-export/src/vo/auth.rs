@@ -22,3 +22,13 @@ pub struct SigninResponse;
 #[ts(export)]
 #[ts(as = "oceaniam_vo::auth::SignoutResponse")]
 pub struct SignoutResponse;
+
+#[derive(ts_rs::TS)]
+#[ts(export)]
+#[ts(as = "oceaniam_vo::auth::SystemSigninRequest")]
+pub struct SystemSigninRequest;
+
+#[derive(ts_rs::TS)]
+#[ts(export)]
+#[ts(as = "oceaniam_vo::auth::SystemSigninResponse")]
+pub struct SystemSigninResponse;

@@ -88,12 +88,17 @@ async fn setup_database(config: &DatabaseConfig) -> Result<DatabaseConnection, E
     if !Tenants::is_exist(consts::SYSTEM_TENANT_UUID, &db).await? {
         warn!("the system tenant does not exist; a system tenant is about to be created.");
 
-        Tenants::create(consts::SYSTEM_TENANT_UUID, &db).await?;
+        Tenants::create_tenant(
+            consts::SYSTEM_TENANT_UUID,
+            Some("System builtin tenant"),
+            &db,
+        )
+        .await?;
     }
 
     if !Applications::is_exist(consts::SYSTEM_APPLICATION_UUID, &db).await? {
         warn!("system application does not exist; creating system application now.");
-        Applications::create(
+        Applications::create_application(
             consts::SYSTEM_APPLICATION_UUID,
             consts::SYSTEM_TENANT_UUID,
             &db,
