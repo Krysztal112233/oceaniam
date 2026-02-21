@@ -7,3 +7,6 @@ gen-entities:
 watch-backend:
     watchexec -e rs -r cargo run -p oceaniam
 
+build-images:
+    ./scripts/build.sh
+    ./scripts/push.sh
