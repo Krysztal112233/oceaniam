@@ -4,6 +4,7 @@ use argon2::{
     Argon2, Params, PasswordHash, PasswordHasher, PasswordVerifier,
     password_hash::{SaltString, rand_core::OsRng},
 };
+use oceaniam_common::consts;
 
 use crate::{CredentialVault, error::Error};
 
@@ -44,19 +45,26 @@ impl Password {
         Self(phc.into())
     }
 
-    pub fn verify(&self, password: impl Into<String>) -> Result<bool, Error> {
-        let password_hash = PasswordHash::new(&self.0)?;
+    pub async fn verify(&self, password: impl Into<String>) -> Result<bool, Error> {
+        let password = password.into();
+        let phc = self.0.clone();
 
-        match DEFAULT_ARGON_CFG
-            .clone()
-            .verify_password(password.into().as_bytes(), &password_hash)
-        {
-            Ok(()) => Ok(true),
-            Err(e) => match e {
-                argon2::password_hash::Error::Password => Err(e.into()),
-                _ => Ok(false),
-            },
-        }
+        tokio::task::spawn_blocking(move || async move {
+            // NOTE: The consts::MAX_CPU_BOUND_SEMAPHORE will not be closed forever
+            let _ = consts::MAX_CPU_BOUND_SEMAPHORE.acquire().await;
+
+            let password_hash = PasswordHash::new(&phc)?;
+
+            match DEFAULT_ARGON_CFG.verify_password(password.as_bytes(), &password_hash) {
+                Ok(()) => Ok(true),
+                Err(argon2::password_hash::Error::Password) => {
+                    Err(Error::Password(argon2::password_hash::Error::Password))
+                }
+                Err(_) => Ok(false),
+            }
+        })
+        .await?
+        .await
     }
 
     pub fn into_phc(self) -> String {

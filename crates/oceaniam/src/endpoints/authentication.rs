@@ -155,6 +155,7 @@ pub async fn signin(
             .inspect_err(|e| error!("failed to get credential: {}", e))?;
         credential::Password::from(cred)
             .verify(password)
+            .await
             .inspect_err(|e| error!("failed to verify password: {}", e))?
     };
 

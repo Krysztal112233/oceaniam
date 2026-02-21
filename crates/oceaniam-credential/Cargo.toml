@@ -11,6 +11,7 @@ sea-orm.workspace = true
 serde.workspace = true
 tap.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
 uuid.workspace = true
 
 oceaniam-common.workspace = true

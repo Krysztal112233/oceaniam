@@ -9,6 +9,9 @@ pub enum Error {
 
     #[error("{0}")]
     Password(#[from] password_hash::Error),
+
+    #[error("Task join error: {0}")]
+    Join(#[from] tokio::task::JoinError),
 }
 
 impl From<Error> for oceaniam_common::error::Error {
@@ -19,6 +22,9 @@ impl From<Error> for oceaniam_common::error::Error {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 oceaniam_common::consts::USER_LOGIN_FAILED_MSG,
             ),
+            Error::Join(_) => {
+                Self::with_code(StatusCode::INTERNAL_SERVER_ERROR, "task execution failed")
+            }
         }
     }
 }
