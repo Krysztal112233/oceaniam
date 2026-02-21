@@ -12,7 +12,6 @@ use crate::state::AppState;
 mod applications;
 mod authentication;
 mod tenants;
-mod users;
 
 #[utoipa::path(
         get,
@@ -30,7 +29,6 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(routes!(root))
         .pipe(authentication::endpoint)
-        .pipe(users::endpoint)
         .pipe(applications::endpoint)
         .pipe(tenants::endpoint)
 }

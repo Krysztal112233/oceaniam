@@ -17,12 +17,18 @@ use oceaniam_common::{
     types::sqid::Sqid,
 };
 use oceaniam_database::{
-    helper::applications::{ApplicationHelper, CreateApplicationOptions},
+    helper::{
+        applications::{ApplicationHelper, CreateApplicationOptions},
+        users::UserHelper,
+    },
     model::{self, prelude::*, sea_orm_active_enums::KeyAlg},
 };
 use oceaniam_keybox::{KeyBox, key::rsa_key::RsaKey, keybox::KeyOption};
-use oceaniam_vo::applications::{
-    ApplicationVO, CreateApplicationRequest, CreateApplicationResponse, GetApplicationParam,
+use oceaniam_vo::{
+    applications::{
+        ApplicationVO, CreateApplicationRequest, CreateApplicationResponse, GetApplicationParam,
+    },
+    users::UserVO,
 };
 use sea_orm::TransactionTrait;
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -35,10 +41,11 @@ use crate::{
 
 pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
-        .routes(routes!(get_applications))
-        .routes(routes!(get_application_jwks))
         .routes(routes!(create_application))
         .routes(routes!(delete_application))
+        .routes(routes!(get_application_jwks))
+        .routes(routes!(get_applications))
+        .routes(routes!(get_application_users))
 }
 
 /// Get application list
@@ -198,4 +205,40 @@ pub async fn get_application_jwks(
             .await
             .ok_or(Error::with_code(StatusCode::NOT_FOUND, "jwks not found"))?,
     ))
+}
+
+/// Get user list
+#[utoipa::path(
+        get,
+        path = "/applications/{application_id}/users/",
+        tag = "Application",
+        params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+        ),
+        responses(
+            (status = 200, body = ApiResponse<PagedResponse<UserVO>>),
+            (status = 401, description = "Unauthorized"),
+            (status = 500, description = "Internal server error"),
+        ),
+    )]
+pub async fn get_application_users(
+    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    State(AppState { database, .. }): State<AppState>,
+
+    Path(application_id): Path<Sqid>,
+    Query(page): Query<PageParam>,
+) -> RestResult<PagedResponse<UserVO>> {
+    let operator_id = auth.token.claims.sub;
+
+    let PagedResponse { items, page_info } =
+        Users::get_users(application_id.try_into()?, page, &database)
+            .await
+            .inspect_err(|e| {
+                error!("user list query failed: operator_id={operator_id}, error={e}",)
+            })?;
+
+    Ok(ApiResponse::new(PagedResponse {
+        items: items.into_iter().map(Into::into).collect(),
+        page_info,
+    }))
 }
