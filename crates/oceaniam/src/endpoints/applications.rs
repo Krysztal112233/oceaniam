@@ -28,6 +28,7 @@ use oceaniam_vo::{
     applications::{
         ApplicationVO, CreateApplicationRequest, CreateApplicationResponse, GetApplicationParam,
     },
+    auth::{SigninResponse, SignoutResponse},
     users::UserVO,
 };
 use sea_orm::TransactionTrait;
@@ -46,6 +47,10 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
         .routes(routes!(get_application_jwks))
         .routes(routes!(get_applications))
         .routes(routes!(get_application_users))
+        .routes(routes!(create_application_user))
+        .routes(routes!(create_application_auth_token))
+        .routes(routes!(delete_application_auth_token))
+        .routes(routes!(refresh_application_auth_token))
 }
 
 /// Get application list
@@ -241,4 +246,103 @@ pub async fn get_application_users(
         items: items.into_iter().map(Into::into).collect(),
         page_info,
     }))
+}
+
+/// Create application user (signup)
+#[utoipa::path(
+        post,
+        path = "/applications/{application_id}/users",
+        tag = "Application",
+        params(
+            ("application_id" = String, Path, description = "Application ID"),
+        ),
+        responses(
+            (status = 201, body = ApiResponse<UserVO>),
+            (status = 400, description = "Bad request"),
+            (status = 404, description = "Application not found"),
+            (status = 500, description = "Internal server error"),
+        ),
+    )]
+pub async fn create_application_user(
+    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    State(AppState { database, .. }): State<AppState>,
+
+    Path(application_id): Path<Sqid>,
+) -> RestResult<UserVO> {
+    todo!()
+}
+
+/// Create auth token (signin)
+#[utoipa::path(
+        post,
+        path = "/applications/{application_id}/auth/tokens",
+        tag = "Application",
+        params(
+            ("application_id" = String, Path, description = "Application ID"),
+        ),
+        responses(
+            (status = 200, body = ApiResponse<SigninResponse>),
+            (status = 400, description = "Invalid credentials"),
+            (status = 401, description = "Unauthorized"),
+            (status = 404, description = "Application not found"),
+            (status = 500, description = "Internal server error"),
+        ),
+    )]
+pub async fn create_application_auth_token(
+    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    State(AppState { database, .. }): State<AppState>,
+
+    Path(application_id): Path<Sqid>,
+) -> RestResult<SigninResponse> {
+    todo!()
+}
+
+/// Delete auth token (signout)
+#[utoipa::path(
+        delete,
+        path = "/applications/{application_id}/auth/tokens",
+        tag = "Application",
+        params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+            ("application_id" = String, Path, description = "Application ID"),
+        ),
+        responses(
+            (status = 200, body = ApiResponse<SignoutResponse>),
+            (status = 401, description = "Unauthorized"),
+            (status = 404, description = "Application not found"),
+            (status = 500, description = "Internal server error"),
+        ),
+    )]
+pub async fn delete_application_auth_token(
+    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    State(AppState { database, .. }): State<AppState>,
+
+    Path(application_id): Path<Sqid>,
+) -> RestResult<SignoutResponse> {
+    todo!()
+}
+
+/// Refresh auth token
+#[utoipa::path(
+        post,
+        path = "/applications/{application_id}/auth/tokens/refresh",
+        tag = "Application",
+        params(
+            ("Authorization" = String, Header, description = "Bearer refresh token"),
+            ("application_id" = String, Path, description = "Application ID"),
+        ),
+        responses(
+            (status = 200, body = ApiResponse<SigninResponse>),
+            (status = 401, description = "Invalid or expired refresh token"),
+            (status = 404, description = "Application not found"),
+            (status = 500, description = "Internal server error"),
+        ),
+    )]
+pub async fn refresh_application_auth_token(
+    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    State(AppState { database, .. }): State<AppState>,
+
+    Path(application_id): Path<Sqid>,
+) -> RestResult<SigninResponse> {
+    todo!()
 }

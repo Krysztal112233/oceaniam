@@ -42,10 +42,10 @@ use crate::{keybox::ManagedKeyBox, middlewares, state::AppState};
 
 pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
-        .routes(routes!(refresh))
-        .routes(routes!(signin))
-        .routes(routes!(signout))
-        .routes(routes!(signup))
+        .routes(routes!(create_auth_user))
+        .routes(routes!(create_auth_token))
+        .routes(routes!(delete_auth_token))
+        .routes(routes!(refresh_auth_token))
 }
 
 async fn sign_jwt(sub: impl Into<Uuid>, keybox: ManagedKeyBox) -> Result<String, Error> {
@@ -106,7 +106,7 @@ async fn sign_jwt(sub: impl Into<Uuid>, keybox: ManagedKeyBox) -> Result<String,
     .inspect_err(|e| error!("failed to encode jwt: {}", e))
 }
 
-/// User signin
+/// Create auth token (signin)
 ///
 /// Authenticates user with credentials (name and password) and returns a JWT token.
 /// The token is valid for 5 days and must be included in the Authorization header
@@ -118,7 +118,7 @@ async fn sign_jwt(sub: impl Into<Uuid>, keybox: ManagedKeyBox) -> Result<String,
 /// Returns 500 if system keybox is unavailable or cannot generate token
 #[utoipa::path(
         post,
-        path = "/auth/signin",
+        path = "/auth/tokens",
         tag = "SystemAuthentication",
         request_body = SystemSigninRequest,
         responses(
@@ -128,7 +128,7 @@ async fn sign_jwt(sub: impl Into<Uuid>, keybox: ManagedKeyBox) -> Result<String,
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
-pub async fn signin(
+pub async fn create_auth_token(
     State(AppState {
         credentials,
         database,
@@ -153,10 +153,13 @@ pub async fn signin(
             .get_credential(id)
             .await
             .inspect_err(|e| error!("failed to get credential: {}", e))?;
-        credential::Password::from(cred)
-            .verify(password)
-            .await
-            .inspect_err(|e| error!("failed to verify password: {}", e))?
+        match credential::Password::from(cred).verify(password).await {
+            Ok(result) => result,
+            Err(e) => {
+                error!("failed to verify password: {}", e);
+                return Err(e.into());
+            }
+        }
     };
 
     if !succeed {
@@ -173,7 +176,7 @@ pub async fn signin(
     Ok(ApiResponse::new(SigninResponse { jwt }))
 }
 
-/// User signout
+/// Delete auth token (signout)
 ///
 /// Revokes the current JWT token by adding its JTI (JWT ID) to the revoked tokens list.
 /// After revocation, the token cannot be used for authentication anymore.
@@ -187,8 +190,8 @@ pub async fn signin(
 /// Returns 401 if the token is invalid or has already been revoked
 /// Returns 500 if database operation fails
 #[utoipa::path(
-        get,
-        path = "/auth/signout",
+        delete,
+        path = "/auth/tokens",
         tag = "SystemAuthentication",
         params(("Authorization" = String, Header, description = "Bearer token for authentication")),
         responses(
@@ -197,7 +200,7 @@ pub async fn signin(
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
-pub async fn signout(
+pub async fn delete_auth_token(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
     State(AppState { revoked_jwt, .. }): State<AppState>,
 ) -> RestResult<SignoutResponse> {
@@ -209,7 +212,7 @@ pub async fn signout(
     Ok(ApiResponse::new(SignoutResponse::default()))
 }
 
-/// User signup
+/// Create auth user (signup)
 ///
 /// Creates a new user account with the provided credentials.
 ///
@@ -224,7 +227,7 @@ pub async fn signout(
 /// Returns 500 if database operation fails
 #[utoipa::path(
         post,
-        path = "/auth/signup",
+        path = "/auth/users",
         tag = "SystemAuthentication",
         request_body = SystemSigninRequest,
         responses(
@@ -235,7 +238,7 @@ pub async fn signout(
         ),
     )]
 #[allow(unused)]
-pub async fn signup(
+pub async fn create_auth_user(
     State(AppState { revoked_jwt, .. }): State<AppState>,
 
     Json(auth): Json<SystemSigninRequest>,
@@ -243,7 +246,7 @@ pub async fn signup(
     Ok(ApiResponse::new(()))
 }
 
-/// Refresh JWT
+/// Refresh auth token
 ///
 /// Revokes the current JWT token and issues a new one with a fresh expiration time.
 /// This implements token rotation for enhanced security - the old token becomes
@@ -264,7 +267,7 @@ pub async fn signup(
 /// Returns 500 if database operation fails
 #[utoipa::path(
         post,
-        path = "/auth/refresh",
+        path = "/auth/tokens/refresh",
         tag = "SystemAuthentication",
         params(("Authorization" = String, Header, description = "Bearer token to refresh")),
         responses(
@@ -273,7 +276,7 @@ pub async fn signup(
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
-pub async fn refresh(
+pub async fn refresh_auth_token(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
     State(AppState {
         revoked_jwt,
