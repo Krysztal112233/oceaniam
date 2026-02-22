@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use axum::http::StatusCode;
 use log::error;
@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct ManagedKeyBox {
-    database: Arc<DatabaseConnection>,
+    database: DatabaseConnection,
     boxes: Cache<Uuid, KeyBox>,
     banned: Cache<Uuid, ()>,
     jwks: Cache<Uuid, JwkSet>,
@@ -21,7 +21,7 @@ pub struct ManagedKeyBox {
 impl ManagedKeyBox {
     pub fn new(database: DatabaseConnection) -> Self {
         Self {
-            database: Arc::new(database),
+            database,
             boxes: CacheBuilder::default()
                 .time_to_live(Duration::from_secs(4))
                 .build(),
@@ -46,7 +46,7 @@ impl ManagedKeyBox {
                     ));
                 };
 
-                let keys = KeyBoxes::get_application_keys(application_id, &*database)
+                let keys = KeyBoxes::get_application_keys(application_id, &database)
                     .await
                     .inspect_err(|e| error!("{e}"))?
                     .into_iter()
