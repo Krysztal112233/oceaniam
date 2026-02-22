@@ -5,3 +5,7 @@
 > PRODUCTION-GRADE CAPABILITIES.
 
 ORBAC based IAM implemented in Rust.
+
+## Design
+
+You can find all related designs in [./docs/design](./docs/design)

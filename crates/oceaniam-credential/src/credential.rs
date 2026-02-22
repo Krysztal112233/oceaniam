@@ -15,13 +15,7 @@ static DEFAULT_ARGON_CFG: LazyLock<Argon2> = LazyLock::new(|| {
     Argon2::new(
         argon2::Algorithm::Argon2id,
         argon2::Version::V0x13,
-        Params::new(
-            Params::DEFAULT_M_COST,
-            Params::DEFAULT_T_COST,
-            16,
-            Some(Params::DEFAULT_OUTPUT_LEN),
-        )
-        .unwrap(),
+        Params::new(12288, 3, 1, Some(Params::DEFAULT_OUTPUT_LEN)).unwrap(),
     )
 });
 
