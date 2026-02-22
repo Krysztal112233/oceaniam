@@ -5,7 +5,7 @@ use sea_orm::{
 use uuid::Uuid;
 
 use crate::{
-    helper::{PagedSelect, SafeTransactionConnectionTrait},
+    helper::{PagedExecutor, PagedSelect, SafeTransactionConnectionTrait},
     model::{self, prelude::Applications},
 };
 
@@ -60,19 +60,12 @@ pub trait ApplicationHelper {
 
         let page = page.into();
 
-        let paginator = Applications::find()
+        Applications::find()
             .filter(TenantId.eq(tenant_id))
             .paged(page)
-            .paginate(database, page.per_page);
-
-        let items = paginator.fetch_page(0).await?;
-        let total = paginator.num_items().await? as usize;
-        let has_next = (page.as_offset() + items.len() as u64) < total as u64;
-
-        Ok(PagedResponse {
-            items,
-            page_info: oceaniam_common::PageInfo { has_next, total },
-        })
+            .paginate(database, page.per_page)
+            .fetch_paged(page)
+            .await
     }
 
     async fn delete_application(

@@ -29,6 +29,7 @@ mod middlewares;
 mod revoked;
 #[allow(unused)]
 mod roller;
+mod secrets;
 mod state;
 
 #[tokio::main]

@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::{
     credentials::ManagedCredentialVaults, keybox::ManagedKeyBox, revoked::RevokedJwt,
-    roller::BuiltinScheduledJwkSetRoller,
+    roller::BuiltinScheduledJwkSetRoller, secrets::ManagedApplicationSecrets,
 };
 
 #[derive(Debug, Clone)]
@@ -27,6 +27,8 @@ pub struct AppState {
     pub revoked_jwt: RevokedJwt,
 
     pub credentials: ManagedCredentialVaults,
+
+    pub application_secrets: ManagedApplicationSecrets,
 
     pub _unit: (),
 }
@@ -58,7 +60,9 @@ impl AppState {
             ),
 
             revoked_jwt: RevokedJwt::new(database.clone()),
-            credentials: ManagedCredentialVaults::new(database),
+            credentials: ManagedCredentialVaults::new(database.clone()),
+
+            application_secrets: ManagedApplicationSecrets::new(database),
 
             _unit: (),
         })
