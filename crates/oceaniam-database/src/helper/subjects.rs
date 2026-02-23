@@ -10,13 +10,14 @@ use crate::{
 #[async_trait::async_trait]
 pub trait SubjectsHelper {
     async fn create_subjects(
+        id: Uuid,
         application_id: Uuid,
         typ: SubjectTypeEnum,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::subjects::Model, Error> {
         let result = {
             model::subjects::Model {
-                id: Uuid::now_v7(),
+                id,
                 r#type: typ,
                 application_id,
             }

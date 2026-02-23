@@ -1,20 +1,62 @@
 use axum::http::StatusCode;
 use oceaniam_common::{PageParam, PagedResponse, error::Error};
-use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter,
+};
 use uuid::Uuid;
 
 use crate::{
-    helper::{PagedExecutor, PagedSelect, SafeTransactionConnectionTrait},
-    model::{self, prelude::Users},
+    helper::{
+        PagedExecutor, PagedSelect, SafeTransactionConnectionTrait, subjects::SubjectsHelper,
+    },
+    model::{
+        self,
+        prelude::{Subjects, Users},
+        sea_orm_active_enums::SubjectTypeEnum,
+    },
 };
+
+#[derive(Debug)]
+pub struct CreateUserOpts {
+    pub nickname: String,
+    pub email: Option<String>,
+    pub phone: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct CreateUserResult {
+    pub user: model::users::Model,
+    pub subject: model::subjects::Model,
+}
 
 #[async_trait::async_trait]
 pub trait UserHelper {
     async fn create_user(
-        id: impl Into<Uuid> + Send,
+        id: Uuid,
+        application_id: Uuid,
+        CreateUserOpts {
+            nickname,
+            email,
+            phone,
+        }: CreateUserOpts,
         database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<model::users::Model, Error> {
-        todo!()
+    ) -> Result<CreateUserResult, Error> {
+        let user = model::users::Model {
+            id,
+            application_id,
+            email,
+            phone,
+            nickname,
+        }
+        .into_active_model()
+        .insert(database)
+        .await?;
+
+        let subject =
+            Subjects::create_subjects(user.id, application_id, SubjectTypeEnum::User, database)
+                .await?;
+
+        Ok(CreateUserResult { user, subject })
     }
 
     async fn get_users(

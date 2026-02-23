@@ -107,6 +107,26 @@ impl From<oceaniam_database::model::users::Model> for ApplicationUserVO {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
 pub struct SecretVO {
     pub id: Sqid,
+    pub masked_secret: String,
     pub created_at: String,
     pub revoked_at: Option<String>,
+}
+
+impl From<model::application_secrets::Model> for SecretVO {
+    fn from(
+        model::application_secrets::Model {
+            id,
+            mut secret,
+            created_at,
+            revoked_at,
+            ..
+        }: model::application_secrets::Model,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            masked_secret: format!("{}...", secret.split_off(6)),
+            created_at: created_at.to_rfc2822(),
+            revoked_at: revoked_at.map(|it| it.to_rfc2822()),
+        }
+    }
 }

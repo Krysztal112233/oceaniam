@@ -13,21 +13,31 @@ use tap::Tap;
 use uuid::Uuid;
 
 use crate::{
-    credentials::ManagedCredentialVaults, keybox::ManagedKeyBox, revoked::RevokedJwt,
+    credentials::ManagedCredentialVaults, keybox::ManagedKeyBoxes, revoked::RevokedJwt,
     roller::BuiltinScheduledJwkSetRoller, secrets::ManagedApplicationSecrets,
 };
 
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub database: DatabaseConnection,
-    pub keybox: ManagedKeyBox,
 
+    /// WARN: Only for system authentications.
     pub system_jwks: ManagedJwkSet,
-    pub jwt_validator: JwtValidator,
+
+    /// WARN: Only used for system authentication validations.
+    pub system_jwt_validator: JwtValidator,
+
+    /// Revoked JWTs. If the system itself also uses the built-in authentication system,
+    /// the related logic will also check here whether the JWT has been revoked.
     pub revoked_jwt: RevokedJwt,
 
+    /// Keybox relative actions.
+    pub keyboxes: ManagedKeyBoxes,
+
+    /// Used for system builtin authentication and application authentication
     pub credentials: ManagedCredentialVaults,
 
+    /// Application's secrets relative actions
     pub application_secrets: ManagedApplicationSecrets,
 
     pub _unit: (),
@@ -35,16 +45,16 @@ pub struct AppState {
 
 impl AppState {
     pub async fn new(database: DatabaseConnection) -> Result<Self, Error> {
-        let keybox = ManagedKeyBox::new(database.clone());
+        let keybox = ManagedKeyBoxes::new(database.clone());
 
         initial_system_keybox(keybox.clone(), &database).await?;
 
         Ok(Self {
             database: database.clone(),
-            keybox,
+            keyboxes: keybox,
             system_jwks: initial_system_jwks(database.clone()).await?,
 
-            jwt_validator: JwtValidator::new(
+            system_jwt_validator: JwtValidator::new(
                 Validation::default()
                     .tap_mut(|it| it.set_audience(&["OceanIAM"]))
                     .tap_mut(|it| {
@@ -81,7 +91,7 @@ async fn initial_system_jwks(database: DatabaseConnection) -> Result<ManagedJwkS
 }
 
 async fn initial_system_keybox(
-    keybox: ManagedKeyBox,
+    keybox: ManagedKeyBoxes,
     database: &impl SafeTransactionConnectionTrait,
 ) -> Result<(), Error> {
     let keys: HashMap<_, _> = KeyBoxes::get_system_keys(database)

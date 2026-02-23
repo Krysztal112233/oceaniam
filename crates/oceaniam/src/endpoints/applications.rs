@@ -6,7 +6,6 @@ use axum::{
     Json,
     extract::{Path, Query, State},
     http::StatusCode,
-    middleware::{from_extractor, from_extractor_with_state},
 };
 use axum_valid::Garde;
 use chrono::Utc;
@@ -21,7 +20,7 @@ use oceaniam_common::{
 use oceaniam_database::{
     helper::{
         applications::{ApplicationHelper, CreateApplicationOptions},
-        users::UserHelper,
+        users::{CreateUserOpts, CreateUserResult, UserHelper},
     },
     model::{self, prelude::*, sea_orm_active_enums::KeyAlg},
 };
@@ -29,7 +28,7 @@ use oceaniam_keybox::{KeyBox, key::rsa_key::RsaKey, keybox::KeyOption};
 use oceaniam_vo::{
     applications::{
         ApplicationUserVO, ApplicationVO, CreateApplicationRequest, CreateApplicationResponse,
-        CreateApplicationUserRequest, GetApplicationParam,
+        CreateApplicationUserRequest, GetApplicationParam, SecretVO,
     },
     auth::{SigninResponse, SignoutResponse},
 };
@@ -39,7 +38,7 @@ use uuid::Uuid;
 
 use crate::{
     endpoints::applications::spec_middlewares::RequireMatchedApplicationSecret,
-    middlewares::{self},
+    middlewares::{self, auth::RequireAuth},
     state::AppState,
 };
 
@@ -207,16 +206,11 @@ pub async fn delete_application(
 pub async fn get_application_jwks(
     Path(application_id): Path<Sqid>,
 
-    State(AppState { keybox, .. }): State<AppState>,
+    State(AppState { keyboxes, .. }): State<AppState>,
 ) -> RestResult<JwkSet> {
     let application_id = Uuid::try_from(application_id)?;
 
-    Ok(ApiResponse::new(
-        keybox
-            .get_jwks(application_id)
-            .await
-            .ok_or(Error::with_code(StatusCode::NOT_FOUND, "jwks not found"))?,
-    ))
+    todo!()
 }
 
 /// Get user list
@@ -278,7 +272,11 @@ pub async fn get_application_users(
 pub async fn create_application_user(
     _: RequireMatchedApplicationSecret,
 
-    State(AppState { database, .. }): State<AppState>,
+    State(AppState {
+        credentials,
+        database,
+        ..
+    }): State<AppState>,
 
     Path(application_id): Path<Sqid>,
     Garde(Json(CreateApplicationUserRequest {
@@ -288,9 +286,55 @@ pub async fn create_application_user(
         password,
     })): Garde<Json<CreateApplicationUserRequest>>,
 ) -> RestResult<ApplicationUserVO> {
-    let application_id: Uuid = application_id.try_into()?;
+    let application_id: Uuid = application_id
+        .try_into()
+        .inspect_err(|e| error!("failed to convert application_id: error={}", e))?;
+    let user_id = Uuid::now_v7();
 
-    todo!()
+    info!(
+        "creating new user: user_id={}, application_id={}",
+        user_id, application_id
+    );
+
+    let CreateUserResult { user, subject } = Users::create_user(
+        user_id,
+        application_id,
+        CreateUserOpts {
+            nickname,
+            email,
+            phone,
+        },
+        &database,
+    )
+    .await
+    .inspect_err(|e| {
+        error!(
+            "failed to create user: user_id={}, application_id={}, error={}",
+            user_id, application_id, e
+        );
+    })?;
+
+    credentials
+        .create_with_password(subject.id, password)
+        .await
+        .inspect_err(|e| {
+            error!(
+                "failed to create credential for user: user_id={}, subject_id={}, error={}",
+                user.id, subject.id, e
+            );
+        })?;
+
+    info!(
+        "credential created successfully for user: user_id={}, subject_id={}",
+        user.id, subject.id
+    );
+
+    info!(
+        "user created successfully: user_id={}, subject_id={}, application_id={}",
+        user.id, subject.id, application_id
+    );
+
+    Ok(ApiResponse::new(ApplicationUserVO::from(user)))
 }
 
 /// Create auth token (signin)
@@ -429,12 +473,41 @@ pub async fn create_application_secret(
         ),
     )]
 pub async fn get_application_secrets(
+    _: RequireAuth<SystemClaim>,
     _: RequireMatchedApplicationSecret,
-    State(AppState { database, .. }): State<AppState>,
+
     Path(application_id): Path<Sqid>,
-) -> RestResult<()> {
-    let _application_id = Uuid::try_from(application_id)?;
-    todo!()
+
+    State(AppState {
+        application_secrets,
+        ..
+    }): State<AppState>,
+) -> RestResult<Vec<SecretVO>> {
+    let app_id: uuid::Uuid = application_id
+        .try_into()
+        .inspect_err(|e| error!("failed to convert application_id: error={}", e))?;
+
+    info!("fetching application secrets: application_id={}", app_id);
+
+    let secrets = application_secrets
+        .get_secrets(app_id)
+        .await
+        .inspect_err(|e| {
+            error!(
+                "failed to fetch application secrets: application_id={}, error={}",
+                app_id, e
+            );
+        })?;
+
+    info!(
+        "application secrets fetched successfully: application_id={}, count={}",
+        app_id,
+        secrets.len()
+    );
+
+    Ok(ApiResponse::new(
+        secrets.into_iter().map(Into::into).collect(),
+    ))
 }
 
 /// Get application secret
@@ -459,13 +532,29 @@ pub async fn get_application_secrets(
         ),
     )]
 pub async fn get_application_secret(
-    _: RequireMatchedApplicationSecret,
-    State(AppState { database, .. }): State<AppState>,
+    _: RequireAuth<SystemClaim>,
+
     Path((application_id, secret_id)): Path<(Sqid, Sqid)>,
-) -> RestResult<()> {
-    let _application_id = Uuid::try_from(application_id)?;
-    let _secret_id = Uuid::try_from(secret_id)?;
-    todo!()
+
+    State(AppState {
+        application_secrets,
+        ..
+    }): State<AppState>,
+) -> RestResult<SecretVO> {
+    let secret_id: Uuid = secret_id.try_into()?;
+
+    Ok(ApiResponse::new(
+        application_secrets
+            .get_secrets(application_id.try_into()?)
+            .await?
+            .into_iter()
+            .find(|it| it.id == secret_id)
+            .map(Into::into)
+            .ok_or(Error::with_code(
+                StatusCode::NOT_FOUND,
+                format!("cannot found secret with id={secret_id}"),
+            ))?,
+    ))
 }
 
 /// Delete application secret
@@ -488,7 +577,8 @@ pub async fn get_application_secret(
         ),
     )]
 pub async fn delete_application_secret(
-    _auth: middlewares::auth::RequireAuth<SystemClaim>,
+    _: middlewares::auth::RequireAuth<SystemClaim>,
+
     State(AppState { database, .. }): State<AppState>,
     Path((application_id, secret_id)): Path<(Sqid, Sqid)>,
 ) -> RestResult<()> {
@@ -508,6 +598,10 @@ mod spec_middlewares {
 
     use crate::{middlewares::application::RequireApplicationSecret, state::AppState};
 
+    /// This middleware ensures that the provided secret matches the application_id in the path.
+    ///
+    /// If they don't match, the request will be rejected immediately.
+    ///
     /// WARNING: This struct is intended for internal use within this crate only. It performs
     /// path-based application ID extraction which assumes specific URL patterns. Using it outside
     /// this crate may lead to unexpected behavior.

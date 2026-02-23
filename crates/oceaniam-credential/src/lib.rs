@@ -22,25 +22,29 @@ pub struct CredentialVault {
 
 impl CredentialVault {
     /// User must have at least password login method enabled.
-    pub fn new(password: impl AsRef<str>) -> Result<Self, Error> {
+    pub fn with_password(password: impl AsRef<str>) -> Result<Self, Error> {
         let phc = Password::with_password(password)?.into_phc();
 
         Ok(Self { phc })
     }
 
     pub async fn write_to(
-        self,
+        &self,
         id: impl Into<Uuid>,
         database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<(), Error> {
+    ) -> Result<model::credentials::Model, Error> {
         let Self { phc } = self;
 
-        Credentials::update(model::credentials::Model { id: id.into(), phc }.into_active_model())
-            .exec(database)
-            .await
-            .inspect_err(|e| error!("{e}"))?;
-
-        Ok(())
+        Ok(Credentials::update(
+            model::credentials::Model {
+                id: id.into(),
+                phc: phc.clone(),
+            }
+            .into_active_model(),
+        )
+        .exec(database)
+        .await
+        .inspect_err(|e| error!("{e}"))?)
     }
 }
 

@@ -51,7 +51,7 @@ where
         parts: &mut Parts,
         AppState {
             system_jwks,
-            jwt_validator,
+            system_jwt_validator: jwt_validator,
             revoked_jwt,
             ..
         }: &AppState,

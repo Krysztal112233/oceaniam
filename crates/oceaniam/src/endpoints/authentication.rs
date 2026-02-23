@@ -38,7 +38,7 @@ use tap::Tap;
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
-use crate::{keybox::ManagedKeyBox, middlewares, state::AppState};
+use crate::{keybox::ManagedKeyBoxes, middlewares, state::AppState};
 
 pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
@@ -48,7 +48,7 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
         .routes(routes!(refresh_auth_token))
 }
 
-async fn sign_jwt(sub: impl Into<Uuid>, keybox: ManagedKeyBox) -> Result<String, Error> {
+async fn sign_jwt(sub: impl Into<Uuid>, keybox: ManagedKeyBoxes) -> Result<String, Error> {
     let sub = sub.into();
     debug!("signing jwt for sub {}", sub);
 
@@ -132,7 +132,7 @@ pub async fn create_auth_token(
     State(AppState {
         credentials,
         database,
-        keybox,
+        keyboxes,
         ..
     }): State<AppState>,
 
@@ -153,13 +153,10 @@ pub async fn create_auth_token(
             .get_credential(id)
             .await
             .inspect_err(|e| error!("failed to get credential: {}", e))?;
-        match credential::Password::from(cred).verify(password).await {
-            Ok(result) => result,
-            Err(e) => {
-                error!("failed to verify password: {}", e);
-                return Err(e.into());
-            }
-        }
+        credential::Password::from(cred)
+            .verify(password)
+            .await
+            .inspect_err(|e| error!("failed to verify password: {}", e))?
     };
 
     if !succeed {
@@ -169,7 +166,7 @@ pub async fn create_auth_token(
         ));
     }
 
-    let jwt = sign_jwt(id, keybox)
+    let jwt = sign_jwt(id, keyboxes)
         .await
         .inspect_err(|e| error!("failed to sign jwt: {}", e))?;
 
@@ -196,8 +193,8 @@ pub async fn create_auth_token(
         params(("Authorization" = String, Header, description = "Bearer token for authentication")),
         responses(
             (status = 200, description = "Successfully signed out", body = ApiResponse<SignoutResponse>),
-            (status = 401, description = "Invalid or expired token", body = ApiResponse<ErrorResponse>),
-            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
+            (status = 401, description = "Invalid or expired token"),
+            (status = 500, description = "Internal server error"),
         ),
     )]
 pub async fn delete_auth_token(
@@ -280,7 +277,7 @@ pub async fn refresh_auth_token(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
     State(AppState {
         revoked_jwt,
-        keybox,
+        keyboxes,
         ..
     }): State<AppState>,
 ) -> RestResult<()> {
@@ -290,7 +287,7 @@ pub async fn refresh_auth_token(
         .await
         .inspect_err(|e| error!("failed to revoke jwt: {}", e))?;
 
-    sign_jwt(auth.token.claims.sub, keybox)
+    sign_jwt(auth.token.claims.sub, keyboxes)
         .await
         .inspect_err(|e| error!("failed to sign new jwt: {}", e))?;
 

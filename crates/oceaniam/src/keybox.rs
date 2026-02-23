@@ -10,7 +10,7 @@ use sea_orm::DatabaseConnection;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
-pub struct ManagedKeyBox {
+pub struct ManagedKeyBoxes {
     database: DatabaseConnection,
     boxes: Cache<Uuid, KeyBox>,
     banned: Cache<Uuid, ()>,
@@ -18,7 +18,7 @@ pub struct ManagedKeyBox {
 }
 
 #[allow(unused)]
-impl ManagedKeyBox {
+impl ManagedKeyBoxes {
     pub fn new(database: DatabaseConnection) -> Self {
         Self {
             database,
