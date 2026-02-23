@@ -24,6 +24,7 @@ mod m20260217_181210_alter_credentials_value;
 mod m20260218_164739_move_adminstrators_phc_credentials_phc;
 mod m20260218_180745_alter_fk_credential_subjects_adminstrators;
 mod m20260222_103403_create_application_secret;
+mod m20260223_084124_create_nickname_for_users;
 
 pub struct Migrator;
 
@@ -54,6 +55,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260218_164739_move_adminstrators_phc_credentials_phc::Migration),
             Box::new(m20260218_180745_alter_fk_credential_subjects_adminstrators::Migration),
             Box::new(m20260222_103403_create_application_secret::Migration),
+            Box::new(m20260223_084124_create_nickname_for_users::Migration),
         ]
     }
 }

@@ -11,6 +11,7 @@ pub struct Model {
     pub application_id: Uuid,
     pub email: Option<String>,
     pub phone: Option<String>,
+    pub nickname: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
