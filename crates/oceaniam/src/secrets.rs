@@ -12,22 +12,24 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct ManagedApplicationSecrets {
     database: DatabaseConnection,
-    cache: Cache<Uuid, Vec<String>>,
+    application_secrets: Cache<Uuid, Vec<String>>,
+    secret_of_application: Cache<String, Uuid>,
 }
 
 impl ManagedApplicationSecrets {
     pub fn new(database: DatabaseConnection) -> Self {
         Self {
             database,
-            cache: Cache::builder()
+            application_secrets: Cache::builder()
                 .time_to_live(Duration::from_secs(5))
                 .build(),
+            secret_of_application: Cache::builder().max_capacity(102400).build(),
         }
     }
 
     pub async fn get_secrets(&self, application_id: Uuid) -> Result<Vec<String>, Error> {
         Ok(self
-            .cache
+            .application_secrets
             .try_get_with(application_id, async {
                 Ok(
                     ApplicationSecrets::get_secrets(application_id, None, &self.database)
@@ -50,14 +52,32 @@ impl ManagedApplicationSecrets {
         let model = ApplicationSecrets::create_secret(
             application_id,
             Uuid::now_v7(),
-            secret,
+            secret.clone(),
             &self.database,
         )
         .await?;
 
-        self.cache.remove(&application_id).await;
+        self.application_secrets.remove(&application_id).await;
+        self.secret_of_application
+            .insert(secret, application_id)
+            .await;
 
         Ok(model)
+    }
+
+    pub async fn find_secret_belong(
+        &self,
+        secret: impl Into<String> + Send + Sync,
+    ) -> Result<Uuid, Error> {
+        let secret = secret.into();
+        Ok(self
+            .secret_of_application
+            .try_get_with(secret.clone(), async {
+                ApplicationSecrets::find_secret_belong(secret, &self.database)
+                    .await
+                    .map(|it| it.application_id)
+            })
+            .await?)
     }
 }
 

@@ -6,7 +6,9 @@ use axum::{
     Json,
     extract::{Path, Query, State},
     http::StatusCode,
+    middleware::{from_extractor, from_extractor_with_state},
 };
+use axum_valid::Garde;
 use chrono::Utc;
 use log::{error, info};
 use oceaniam_common::{
@@ -27,7 +29,7 @@ use oceaniam_keybox::{KeyBox, key::rsa_key::RsaKey, keybox::KeyOption};
 use oceaniam_vo::{
     applications::{
         ApplicationUserVO, ApplicationVO, CreateApplicationRequest, CreateApplicationResponse,
-        GetApplicationParam,
+        CreateApplicationUserRequest, GetApplicationParam,
     },
     auth::{SigninResponse, SignoutResponse},
 };
@@ -36,6 +38,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
 use crate::{
+    endpoints::applications::spec_middlewares::RequireMatchedApplicationSecret,
     middlewares::{self},
     state::AppState,
 };
@@ -163,7 +166,7 @@ pub async fn create_application(
 /// Permanently removes an application and all associated data
 #[utoipa::path(
         delete,
-        path = "/applications",
+        path = "/applications/{application_id}",
         tag = "Applications",
         responses(
             (status = 200, body = ApiResponse<Empty>),
@@ -258,21 +261,35 @@ pub async fn get_application_users(
         path = "/applications/{application_id}/users",
         tag = "ApplicationUsers",
         params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("application_id" = String, Path, description = "Application ID"),
         ),
         responses(
             (status = 201, body = ApiResponse<ApplicationUserVO>),
             (status = 400, description = "Bad request"),
+            (status = 401, description = "Unauthorized"),
+            (status = 403, description = "Forbidden - secret does not belong to this application"),
             (status = 404, description = "Application not found"),
             (status = 500, description = "Internal server error"),
         ),
     )]
+#[axum::debug_handler]
 pub async fn create_application_user(
-    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    _: RequireMatchedApplicationSecret,
+
     State(AppState { database, .. }): State<AppState>,
 
     Path(application_id): Path<Sqid>,
+    Garde(Json(CreateApplicationUserRequest {
+        email,
+        phone,
+        nickname,
+        password,
+    })): Garde<Json<CreateApplicationUserRequest>>,
 ) -> RestResult<ApplicationUserVO> {
+    let application_id: Uuid = application_id.try_into()?;
+
     todo!()
 }
 
@@ -282,18 +299,22 @@ pub async fn create_application_user(
         path = "/applications/{application_id}/auth/tokens",
         tag = "ApplicationUserAuthentication",
         params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("application_id" = String, Path, description = "Application ID"),
         ),
         responses(
             (status = 200, body = ApiResponse<SigninResponse>),
             (status = 400, description = "Invalid credentials"),
             (status = 401, description = "Unauthorized"),
+            (status = 403, description = "Forbidden - secret does not belong to this application"),
             (status = 404, description = "Application not found"),
             (status = 500, description = "Internal server error"),
         ),
     )]
 pub async fn create_application_auth_token(
-    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    _: RequireMatchedApplicationSecret,
+
     State(AppState { database, .. }): State<AppState>,
 
     Path(application_id): Path<Sqid>,
@@ -308,17 +329,20 @@ pub async fn create_application_auth_token(
         tag = "ApplicationUserAuthentication",
         params(
             ("Authorization" = String, Header, description = "Bearer token"),
+            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("application_id" = String, Path, description = "Application ID"),
         ),
         responses(
             (status = 200, body = ApiResponse<SignoutResponse>),
             (status = 401, description = "Unauthorized"),
+            (status = 403, description = "Forbidden - secret does not belong to this application"),
             (status = 404, description = "Application not found"),
             (status = 500, description = "Internal server error"),
         ),
     )]
 pub async fn delete_application_auth_token(
-    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    _: RequireMatchedApplicationSecret,
+
     State(AppState { database, .. }): State<AppState>,
 
     Path(application_id): Path<Sqid>,
@@ -333,17 +357,20 @@ pub async fn delete_application_auth_token(
         tag = "ApplicationUserAuthentication",
         params(
             ("Authorization" = String, Header, description = "Bearer refresh token"),
+            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("application_id" = String, Path, description = "Application ID"),
         ),
         responses(
             (status = 200, body = ApiResponse<SigninResponse>),
             (status = 401, description = "Invalid or expired refresh token"),
+            (status = 403, description = "Forbidden - secret does not belong to this application"),
             (status = 404, description = "Application not found"),
             (status = 500, description = "Internal server error"),
         ),
     )]
 pub async fn refresh_application_auth_token(
-    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    _: RequireMatchedApplicationSecret,
+
     State(AppState { database, .. }): State<AppState>,
 
     Path(application_id): Path<Sqid>,
@@ -360,17 +387,20 @@ pub async fn refresh_application_auth_token(
         tag = "ApplicationSecrets",
         params(
             ("Authorization" = String, Header, description = "Bearer token"),
+            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("application_id" = String, Path, description = "Application ID"),
         ),
         responses(
             (status = 200, body = ApiResponse<Empty>),
             (status = 401, description = "Unauthorized"),
+            (status = 403, description = "Forbidden - secret does not belong to this application"),
             (status = 404, description = "Application not found"),
             (status = 500, description = "Internal server error"),
         ),
     )]
 pub async fn create_application_secret(
-    _auth: middlewares::auth::RequireAuth<SystemClaim>,
+    _: RequireMatchedApplicationSecret,
+
     State(AppState { database, .. }): State<AppState>,
     Path(application_id): Path<Sqid>,
 ) -> RestResult<()> {
@@ -387,17 +417,19 @@ pub async fn create_application_secret(
         tag = "ApplicationSecrets",
         params(
             ("Authorization" = String, Header, description = "Bearer token"),
+            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("application_id" = String, Path, description = "Application ID"),
         ),
         responses(
             (status = 200, body = ApiResponse<Empty>),
             (status = 401, description = "Unauthorized"),
+            (status = 403, description = "Forbidden - secret does not belong to this application"),
             (status = 404, description = "Application not found"),
             (status = 500, description = "Internal server error"),
         ),
     )]
 pub async fn get_application_secrets(
-    _auth: middlewares::auth::RequireAuth<SystemClaim>,
+    _: RequireMatchedApplicationSecret,
     State(AppState { database, .. }): State<AppState>,
     Path(application_id): Path<Sqid>,
 ) -> RestResult<()> {
@@ -414,18 +446,20 @@ pub async fn get_application_secrets(
         tag = "ApplicationSecrets",
         params(
             ("Authorization" = String, Header, description = "Bearer token"),
+            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("application_id" = String, Path, description = "Application ID"),
             ("secret_id" = String, Path, description = "Secret ID"),
         ),
         responses(
             (status = 200, body = ApiResponse<Empty>),
             (status = 401, description = "Unauthorized"),
+            (status = 403, description = "Forbidden - secret does not belong to this application"),
             (status = 404, description = "Secret not found"),
             (status = 500, description = "Internal server error"),
         ),
     )]
 pub async fn get_application_secret(
-    _auth: middlewares::auth::RequireAuth<SystemClaim>,
+    _: RequireMatchedApplicationSecret,
     State(AppState { database, .. }): State<AppState>,
     Path((application_id, secret_id)): Path<(Sqid, Sqid)>,
 ) -> RestResult<()> {
@@ -461,4 +495,69 @@ pub async fn delete_application_secret(
     let _application_id = Uuid::try_from(application_id)?;
     let _secret_id = Uuid::try_from(secret_id)?;
     todo!()
+}
+
+mod spec_middlewares {
+
+    use axum::{
+        extract::FromRequestParts,
+        http::{StatusCode, request::Parts},
+    };
+    use log::warn;
+    use uuid::Uuid;
+
+    use crate::{middlewares::application::RequireApplicationSecret, state::AppState};
+
+    /// WARNING: This struct is intended for internal use within this crate only. It performs
+    /// path-based application ID extraction which assumes specific URL patterns. Using it outside
+    /// this crate may lead to unexpected behavior.
+    #[derive(Debug, Clone)]
+    pub struct RequireMatchedApplicationSecret {
+        pub secret: String,
+        pub application_id: Uuid,
+    }
+
+    impl FromRequestParts<AppState> for RequireMatchedApplicationSecret {
+        type Rejection = StatusCode;
+
+        async fn from_request_parts(
+            parts: &mut Parts,
+            state: &AppState,
+        ) -> Result<Self, Self::Rejection> {
+            // First, validate the application secret
+            let secret = RequireApplicationSecret::from_request_parts(parts, state).await?;
+
+            // Extract application_id from path
+            let path = parts.uri.path();
+
+            let path_segments: Vec<&str> = path.split('/').collect();
+
+            // Find the application_id in path (format: /applications/{id}/...)
+            let application_id = path_segments
+                .iter()
+                .position(|&s| s == "applications")
+                .and_then(|idx| path_segments.get(idx + 1))
+                .and_then(|id| Uuid::parse_str(id).ok())
+                .ok_or_else(|| {
+                    warn!(
+                        "application authorization failed: cannot extract application_id from path"
+                    );
+                    StatusCode::BAD_REQUEST
+                })?;
+
+            // Verify the secret belongs to the requested application
+            if !secret.is_matched(application_id) {
+                warn!(
+                    "application authorization failed: secret belongs to application {} but tried to access {}",
+                    secret.of_application, application_id
+                );
+                return Err(StatusCode::FORBIDDEN);
+            }
+
+            Ok(Self {
+                secret: secret.secret,
+                application_id,
+            })
+        }
+    }
 }

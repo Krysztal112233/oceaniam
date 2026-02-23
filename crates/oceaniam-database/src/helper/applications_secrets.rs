@@ -1,3 +1,4 @@
+use axum::http::StatusCode;
 use chrono::Utc;
 use oceaniam_common::error::Error;
 use oceaniam_common::{PageParam, PagedResponse};
@@ -55,6 +56,27 @@ pub trait ApplicationSecretsHelper {
                 .await
                 .map(PagedResponse::with_entire)?),
         }
+    }
+
+    async fn find_secret_belong(
+        secret: impl Into<String> + Send,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::application_secrets::Model, Error> {
+        use model::application_secrets::Column::*;
+
+        let secret = secret.into();
+
+        ApplicationSecrets::find()
+            .filter(Secret.eq(&secret))
+            .one(database)
+            .await
+            .map(|it| match it {
+                Some(it) => Ok(it),
+                None => Err(Error::with_code(
+                    StatusCode::NOT_FOUND,
+                    format!("cannot found application_secret={secret}"),
+                )),
+            })?
     }
 }
 
