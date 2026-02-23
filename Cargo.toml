@@ -32,6 +32,7 @@ jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 log = "0.4"
 mimalloc = { version = "0.1", features = ["v3"] }
 moka = { version = "0.12", features = ["future"] }
+names = { version = "0.14", default-features = false }
 num_cpus = "1.17"
 parking_lot = "0.12"
 rand = "0.8"

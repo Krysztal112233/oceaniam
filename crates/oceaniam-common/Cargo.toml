@@ -12,6 +12,7 @@ garde.workspace = true
 im.workspace = true
 jsonwebtoken.workspace = true
 log.workspace = true
+names.workspace = true
 num_cpus.workspace = true
 parking_lot.workspace = true
 rand.workspace = true

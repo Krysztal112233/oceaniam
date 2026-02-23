@@ -26,10 +26,10 @@ use oceaniam_database::{
 use oceaniam_keybox::{KeyBox, key::rsa_key::RsaKey, keybox::KeyOption};
 use oceaniam_vo::{
     applications::{
-        ApplicationVO, CreateApplicationRequest, CreateApplicationResponse, GetApplicationParam,
+        ApplicationUserVO, ApplicationVO, CreateApplicationRequest, CreateApplicationResponse,
+        GetApplicationParam,
     },
     auth::{SigninResponse, SignoutResponse},
-    users::UserVO,
 };
 use sea_orm::TransactionTrait;
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -225,7 +225,7 @@ pub async fn get_application_jwks(
             ("Authorization" = String, Header, description = "Bearer token"),
         ),
         responses(
-            (status = 200, body = ApiResponse<PagedResponse<UserVO>>),
+            (status = 200, body = ApiResponse<PagedResponse<ApplicationUserVO>>),
             (status = 401, description = "Unauthorized"),
             (status = 500, description = "Internal server error"),
         ),
@@ -236,7 +236,7 @@ pub async fn get_application_users(
 
     Path(application_id): Path<Sqid>,
     Query(page): Query<PageParam>,
-) -> RestResult<PagedResponse<UserVO>> {
+) -> RestResult<PagedResponse<ApplicationUserVO>> {
     let operator_id = auth.token.claims.sub;
 
     let PagedResponse { items, page_info } =
@@ -261,7 +261,7 @@ pub async fn get_application_users(
             ("application_id" = String, Path, description = "Application ID"),
         ),
         responses(
-            (status = 201, body = ApiResponse<UserVO>),
+            (status = 201, body = ApiResponse<ApplicationUserVO>),
             (status = 400, description = "Bad request"),
             (status = 404, description = "Application not found"),
             (status = 500, description = "Internal server error"),
@@ -272,7 +272,7 @@ pub async fn create_application_user(
     State(AppState { database, .. }): State<AppState>,
 
     Path(application_id): Path<Sqid>,
-) -> RestResult<UserVO> {
+) -> RestResult<ApplicationUserVO> {
     todo!()
 }
 

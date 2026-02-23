@@ -7,6 +7,7 @@ edition.workspace = true
 axum-valid.workspace = true
 garde.workspace = true
 jsonwebtoken.workspace = true
+names.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 ts-rs.workspace = true

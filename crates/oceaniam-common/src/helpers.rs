@@ -18,3 +18,9 @@ pub fn gen_random_with_charset(len: usize, charset: &[u8]) -> String {
         })
         .collect()
 }
+
+pub fn gen_random_name() -> String {
+    names::Generator::with_naming(names::Name::Plain)
+        .next()
+        .unwrap()
+}

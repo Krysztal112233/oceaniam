@@ -1,3 +1,6 @@
+use core::str;
+
+use garde::Validate;
 use oceaniam_common::{PageParam, types::sqid::Sqid};
 use oceaniam_database::model::{self};
 use serde::{Deserialize, Serialize};
@@ -49,6 +52,54 @@ impl From<model::applications::Model> for ApplicationVO {
             id: id.into(),
             comment,
             tenant_id: tenant_id.into(),
+        }
+    }
+}
+
+/// VO for creating a new application user
+///
+/// Either `phone` or `email` must be provided (mutually exclusive)
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema)]
+pub struct CreateApplicationUserRequest {
+    /// User email address (optional, but either phone or email must be provided)
+    #[garde(email)]
+    pub email: Option<String>,
+    /// User phone number (optional, but either phone or email must be provided)
+    #[garde(phone_number)]
+    pub phone: Option<String>,
+
+    /// User nickname (optional, if not provided, two random words will be generated)
+    #[serde(default = "oceaniam_common::helpers::gen_random_name")]
+    #[garde(skip)]
+    pub nickname: String,
+
+    #[garde(skip)]
+    pub password: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+pub struct ApplicationUserVO {
+    pub id: Sqid,
+    pub email: Option<String>,
+    pub phone: Option<String>,
+    pub nickname: String,
+}
+
+impl From<oceaniam_database::model::users::Model> for ApplicationUserVO {
+    fn from(
+        oceaniam_database::model::users::Model {
+            id,
+            email,
+            phone,
+            nickname,
+            ..
+        }: oceaniam_database::model::users::Model,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            email,
+            phone,
+            nickname,
         }
     }
 }
