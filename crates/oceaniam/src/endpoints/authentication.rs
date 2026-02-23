@@ -38,7 +38,10 @@ use tap::Tap;
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
-use crate::{keybox::ManagedKeyBoxes, middlewares, state::AppState};
+use crate::{
+    middlewares,
+    state::{AppState, keybox::ManagedKeyBoxes},
+};
 
 pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router

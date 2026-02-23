@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::time::Duration;
 
 use log::error;
 use oceaniam_common::{
@@ -23,7 +23,7 @@ impl BuiltinScheduledJwkSetRoller {
 
 #[async_trait::async_trait]
 impl ManagedJwkSetRoller for BuiltinScheduledJwkSetRoller {
-    async fn roll(&self, mut copy: ManagedJwkSet) -> Result<(), Error> {
+    async fn roll(&self, copy: ManagedJwkSet) -> Result<(), Error> {
         let copy = copy.clone();
         let cloned = copy.clone();
         let database = self.database.clone();

@@ -184,7 +184,7 @@ pub async fn delete_application(
     Applications::delete_application(application_id, &database)
         .await
         .inspect_err(|e| error!("{e}"))
-        .inspect(|_| info!("application deleted successfully: id={}", application_id))?;
+        .inspect(|_| info!("application deleted successfully: id={application_id}"))?;
 
     Ok(ApiResponse::new(()))
 }
@@ -210,7 +210,15 @@ pub async fn get_application_jwks(
 ) -> RestResult<JwkSet> {
     let application_id = Uuid::try_from(application_id)?;
 
-    todo!()
+    Ok(ApiResponse::new(
+        keyboxes
+            .get_jwks(application_id)
+            .await
+            .ok_or(Error::with_code(
+                StatusCode::NOT_FOUND,
+                format!("jwk set of application_id={application_id} not found"),
+            ))?,
+    ))
 }
 
 /// Get user list

@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use axum::http::StatusCode;
-use itertools::Itertools;
 use moka::future::Cache;
 use oceaniam_common::{error::Error, helpers::gen_random_with_charset};
 use oceaniam_database::{
