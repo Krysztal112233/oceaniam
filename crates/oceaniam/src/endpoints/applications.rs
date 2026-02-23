@@ -51,6 +51,10 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
         .routes(routes!(create_application_auth_token))
         .routes(routes!(delete_application_auth_token))
         .routes(routes!(refresh_application_auth_token))
+        .routes(routes!(create_application_secret))
+        .routes(routes!(get_application_secrets))
+        .routes(routes!(get_application_secret))
+        .routes(routes!(delete_application_secret))
 }
 
 /// Get application list
@@ -216,7 +220,7 @@ pub async fn get_application_jwks(
 #[utoipa::path(
         get,
         path = "/applications/{application_id}/users/",
-        tag = "Application",
+        tag = "ApplicationUsers",
         params(
             ("Authorization" = String, Header, description = "Bearer token"),
         ),
@@ -252,7 +256,7 @@ pub async fn get_application_users(
 #[utoipa::path(
         post,
         path = "/applications/{application_id}/users",
-        tag = "Application",
+        tag = "ApplicationUsers",
         params(
             ("application_id" = String, Path, description = "Application ID"),
         ),
@@ -276,7 +280,7 @@ pub async fn create_application_user(
 #[utoipa::path(
         post,
         path = "/applications/{application_id}/auth/tokens",
-        tag = "Application",
+        tag = "ApplicationUserAuthentication",
         params(
             ("application_id" = String, Path, description = "Application ID"),
         ),
@@ -301,7 +305,7 @@ pub async fn create_application_auth_token(
 #[utoipa::path(
         delete,
         path = "/applications/{application_id}/auth/tokens",
-        tag = "Application",
+        tag = "ApplicationUserAuthentication",
         params(
             ("Authorization" = String, Header, description = "Bearer token"),
             ("application_id" = String, Path, description = "Application ID"),
@@ -326,7 +330,7 @@ pub async fn delete_application_auth_token(
 #[utoipa::path(
         post,
         path = "/applications/{application_id}/auth/tokens/refresh",
-        tag = "Application",
+        tag = "ApplicationUserAuthentication",
         params(
             ("Authorization" = String, Header, description = "Bearer refresh token"),
             ("application_id" = String, Path, description = "Application ID"),
@@ -344,5 +348,117 @@ pub async fn refresh_application_auth_token(
 
     Path(application_id): Path<Sqid>,
 ) -> RestResult<SigninResponse> {
+    todo!()
+}
+
+/// Create application secret
+///
+/// Creates a new API secret for the specified application
+#[utoipa::path(
+        post,
+        path = "/applications/{application_id}/secrets",
+        tag = "ApplicationSecrets",
+        params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+            ("application_id" = String, Path, description = "Application ID"),
+        ),
+        responses(
+            (status = 200, body = ApiResponse<Empty>),
+            (status = 401, description = "Unauthorized"),
+            (status = 404, description = "Application not found"),
+            (status = 500, description = "Internal server error"),
+        ),
+    )]
+pub async fn create_application_secret(
+    _auth: middlewares::auth::RequireAuth<SystemClaim>,
+    State(AppState { database, .. }): State<AppState>,
+    Path(application_id): Path<Sqid>,
+) -> RestResult<()> {
+    let _application_id = Uuid::try_from(application_id)?;
+    todo!()
+}
+
+/// Get application secrets
+///
+/// Returns a paginated list of API secrets for the specified application
+#[utoipa::path(
+        get,
+        path = "/applications/{application_id}/secrets",
+        tag = "ApplicationSecrets",
+        params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+            ("application_id" = String, Path, description = "Application ID"),
+        ),
+        responses(
+            (status = 200, body = ApiResponse<Empty>),
+            (status = 401, description = "Unauthorized"),
+            (status = 404, description = "Application not found"),
+            (status = 500, description = "Internal server error"),
+        ),
+    )]
+pub async fn get_application_secrets(
+    _auth: middlewares::auth::RequireAuth<SystemClaim>,
+    State(AppState { database, .. }): State<AppState>,
+    Path(application_id): Path<Sqid>,
+) -> RestResult<()> {
+    let _application_id = Uuid::try_from(application_id)?;
+    todo!()
+}
+
+/// Get application secret
+///
+/// Returns detailed information about a specific API secret
+#[utoipa::path(
+        get,
+        path = "/applications/{application_id}/secrets/{secret_id}",
+        tag = "ApplicationSecrets",
+        params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+            ("application_id" = String, Path, description = "Application ID"),
+            ("secret_id" = String, Path, description = "Secret ID"),
+        ),
+        responses(
+            (status = 200, body = ApiResponse<Empty>),
+            (status = 401, description = "Unauthorized"),
+            (status = 404, description = "Secret not found"),
+            (status = 500, description = "Internal server error"),
+        ),
+    )]
+pub async fn get_application_secret(
+    _auth: middlewares::auth::RequireAuth<SystemClaim>,
+    State(AppState { database, .. }): State<AppState>,
+    Path((application_id, secret_id)): Path<(Sqid, Sqid)>,
+) -> RestResult<()> {
+    let _application_id = Uuid::try_from(application_id)?;
+    let _secret_id = Uuid::try_from(secret_id)?;
+    todo!()
+}
+
+/// Delete application secret
+///
+/// Revokes (soft deletes) the specified API secret for an application
+#[utoipa::path(
+        delete,
+        path = "/applications/{application_id}/secrets/{secret_id}",
+        tag = "ApplicationSecrets",
+        params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+            ("application_id" = String, Path, description = "Application ID"),
+            ("secret_id" = String, Path, description = "Secret ID"),
+        ),
+        responses(
+            (status = 200, body = ApiResponse<Empty>),
+            (status = 401, description = "Unauthorized"),
+            (status = 404, description = "Secret not found"),
+            (status = 500, description = "Internal server error"),
+        ),
+    )]
+pub async fn delete_application_secret(
+    _auth: middlewares::auth::RequireAuth<SystemClaim>,
+    State(AppState { database, .. }): State<AppState>,
+    Path((application_id, secret_id)): Path<(Sqid, Sqid)>,
+) -> RestResult<()> {
+    let _application_id = Uuid::try_from(application_id)?;
+    let _secret_id = Uuid::try_from(secret_id)?;
     todo!()
 }

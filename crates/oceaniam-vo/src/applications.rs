@@ -52,3 +52,10 @@ impl From<model::applications::Model> for ApplicationVO {
         }
     }
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+pub struct SecretVO {
+    pub id: Sqid,
+    pub created_at: String,
+    pub revoked_at: Option<String>,
+}

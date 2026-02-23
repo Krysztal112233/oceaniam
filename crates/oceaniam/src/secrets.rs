@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use moka::future::Cache;
-use oceaniam_common::error::Error;
+use oceaniam_common::{error::Error, helpers::gen_random_with_charset};
 use oceaniam_database::{
     helper::applications_secrets::ApplicationSecretsHelper,
     model::{self, prelude::ApplicationSecrets},
@@ -44,8 +44,9 @@ impl ManagedApplicationSecrets {
     pub async fn put_secret(
         &self,
         application_id: Uuid,
-        secret: impl Into<String> + Send,
     ) -> Result<model::application_secrets::Model, Error> {
+        let secret = gen_secret().await;
+
         let model = ApplicationSecrets::create_secret(
             application_id,
             Uuid::now_v7(),
@@ -58,4 +59,14 @@ impl ManagedApplicationSecrets {
 
         Ok(model)
     }
+}
+
+async fn gen_secret() -> String {
+    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
+                            abcdefghijklmnopqrstuvwxyz\
+                            0123456789";
+
+    let random = gen_random_with_charset(32, CHARSET);
+
+    format!("app_{random}")
 }

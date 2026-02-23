@@ -9,6 +9,7 @@ use crate::error::Error;
 pub mod config;
 pub mod consts;
 pub mod error;
+pub mod helpers;
 pub mod jwks;
 pub mod jwt;
 pub mod test;

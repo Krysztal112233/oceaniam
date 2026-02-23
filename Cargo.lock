@@ -2246,6 +2246,7 @@ dependencies = [
  "migration",
  "num_cpus",
  "parking_lot",
+ "rand 0.8.5",
  "reqwest",
  "rsa",
  "sea-orm",
