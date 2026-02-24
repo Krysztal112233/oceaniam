@@ -1,4 +1,3 @@
-use oceaniam_common::error::Error;
 use sea_orm::{ActiveModelTrait, IntoActiveModel};
 use uuid::Uuid;
 

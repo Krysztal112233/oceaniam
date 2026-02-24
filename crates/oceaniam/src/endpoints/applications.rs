@@ -30,7 +30,7 @@ use oceaniam_vo::{
         ApplicationUserVO, ApplicationVO, CreateApplicationRequest, CreateApplicationResponse,
         CreateApplicationUserRequest, GetApplicationParam, SecretVO,
     },
-    auth::{SigninResponse, SignoutResponse},
+    auth::{AuthVO, SigninResponse, SignoutResponse},
 };
 use sea_orm::TransactionTrait;
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -50,9 +50,9 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
         .routes(routes!(get_applications))
         .routes(routes!(get_application_users))
         .routes(routes!(create_application_user))
-        .routes(routes!(create_application_auth_token))
-        .routes(routes!(delete_application_auth_token))
-        .routes(routes!(refresh_application_auth_token))
+        .routes(routes!(legacy_create_application_auth_token))
+        .routes(routes!(legacy_delete_application_auth_token))
+        .routes(routes!(legacy_refresh_application_auth_token))
         .routes(routes!(create_application_secret))
         .routes(routes!(get_application_secrets))
         .routes(routes!(get_application_secret))
@@ -364,12 +364,13 @@ pub async fn create_application_user(
             (status = 500, description = "Internal server error"),
         ),
     )]
-pub async fn create_application_auth_token(
+pub async fn legacy_create_application_auth_token(
     _: RequireMatchedApplicationSecret,
 
-    State(AppState { database, .. }): State<AppState>,
+    State(AppState { credentials, .. }): State<AppState>,
 
     Path(application_id): Path<Sqid>,
+    Json(auth): Json<AuthVO>,
 ) -> RestResult<SigninResponse> {
     todo!()
 }
@@ -392,7 +393,7 @@ pub async fn create_application_auth_token(
             (status = 500, description = "Internal server error"),
         ),
     )]
-pub async fn delete_application_auth_token(
+pub async fn legacy_delete_application_auth_token(
     _: RequireMatchedApplicationSecret,
 
     State(AppState { database, .. }): State<AppState>,
@@ -420,7 +421,7 @@ pub async fn delete_application_auth_token(
             (status = 500, description = "Internal server error"),
         ),
     )]
-pub async fn refresh_application_auth_token(
+pub async fn legacy_refresh_application_auth_token(
     _: RequireMatchedApplicationSecret,
 
     State(AppState { database, .. }): State<AppState>,
@@ -451,7 +452,7 @@ pub async fn refresh_application_auth_token(
         ),
     )]
 pub async fn create_application_secret(
-    _: RequireMatchedApplicationSecret,
+    _: RequireAuth<SystemClaim>,
 
     State(AppState { database, .. }): State<AppState>,
     Path(application_id): Path<Sqid>,
@@ -482,7 +483,6 @@ pub async fn create_application_secret(
     )]
 pub async fn get_application_secrets(
     _: RequireAuth<SystemClaim>,
-    _: RequireMatchedApplicationSecret,
 
     Path(application_id): Path<Sqid>,
 
@@ -491,25 +491,28 @@ pub async fn get_application_secrets(
         ..
     }): State<AppState>,
 ) -> RestResult<Vec<SecretVO>> {
-    let app_id: uuid::Uuid = application_id
+    let application_id: uuid::Uuid = application_id
         .try_into()
         .inspect_err(|e| error!("failed to convert application_id: error={}", e))?;
 
-    info!("fetching application secrets: application_id={}", app_id);
+    info!(
+        "fetching application secrets: application_id={}",
+        application_id
+    );
 
     let secrets = application_secrets
-        .get_secrets(app_id)
+        .get_secrets(application_id)
         .await
         .inspect_err(|e| {
             error!(
                 "failed to fetch application secrets: application_id={}, error={}",
-                app_id, e
+                application_id, e
             );
         })?;
 
     info!(
         "application secrets fetched successfully: application_id={}, count={}",
-        app_id,
+        application_id,
         secrets.len()
     );
 
