@@ -1,6 +1,7 @@
 use crate::state::{
-    credentials::ManagedCredentialVaults, keybox::ManagedKeyBoxes, revoked::RevokedJwt,
-    roller::BuiltinScheduledJwkSetRoller, secrets::ManagedApplicationSecrets,
+    applications::ManagedApplications, credentials::ManagedCredentialVaults,
+    keybox::ManagedKeyBoxes, revoked::RevokedJwt, roller::BuiltinScheduledJwkSetRoller,
+    secrets::ManagedApplicationSecrets,
 };
 
 use axum::extract::FromRef;
@@ -17,6 +18,7 @@ use sea_orm::DatabaseConnection;
 use tap::Tap;
 use uuid::Uuid;
 
+pub mod applications;
 pub mod credentials;
 pub mod keybox;
 pub mod revoked;
@@ -45,6 +47,9 @@ pub struct AppState {
 
     /// Application's secrets relative actions
     pub application_secrets: ManagedApplicationSecrets,
+
+    /// Application relative actions
+    pub applications: ManagedApplications,
 
     pub _unit: (),
 }
@@ -78,7 +83,8 @@ impl AppState {
             revoked_jwt: RevokedJwt::new(database.clone()),
             credentials: ManagedCredentialVaults::new(database.clone()),
 
-            application_secrets: ManagedApplicationSecrets::new(database),
+            application_secrets: ManagedApplicationSecrets::new(database.clone()),
+            applications: ManagedApplications::new(database),
 
             _unit: (),
         })
@@ -108,7 +114,7 @@ async fn initial_system_keybox(
 
     let keybox = keybox.get_keybox(consts::SYSTEM_APPLICATION_UUID).await;
 
-    if keys.is_empty() || keybox.is_none() {
+    if keys.is_empty() || keybox.is_err() {
         info!("could not find any system keys. a new system key will be generated.");
 
         let mut keybox = KeyBox::new(consts::SYSTEM_APPLICATION_UUID);

@@ -14,33 +14,21 @@
 //! - Revoked tokens are tracked in database and cannot be reused
 //! - All authentication failures return 401 to prevent username enumeration attacks
 
-use std::time::Duration;
-
 use axum::{Json, extract::State, http::StatusCode};
-use jsonwebtoken::Header;
-use log::{debug, error};
+use log::error;
 use oceaniam_common::{
-    ApiResponse, ErrorResponse, RestResult, consts,
-    error::Error,
-    jwt::{ClaimHelper, JwtCodec, SystemClaim},
+    ApiResponse, ErrorResponse, RestResult, consts, error::Error, jwt::SystemClaim,
 };
 use oceaniam_credential::credential;
 use oceaniam_database::{
-    helper::administrators::AdministratorsHelper,
-    model::{
-        prelude::Administrators,
-        sea_orm_active_enums::{KeyAlg, KeyStatus},
-    },
+    helper::administrators::AdministratorsHelper, model::prelude::Administrators,
 };
-use oceaniam_keybox::key::rsa_key::RsaKey;
 use oceaniam_vo::auth::{SigninResponse, SignoutResponse, SignupResponse, SystemSigninRequest};
-use tap::Tap;
 use utoipa_axum::{router::OpenApiRouter, routes};
-use uuid::Uuid;
 
 use crate::{
     middlewares,
-    state::{AppState, keybox::ManagedKeyBoxes},
+    state::{AppState, keybox::SignJwtOptions},
 };
 
 pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
@@ -49,64 +37,6 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
         .routes(routes!(create_auth_token))
         .routes(routes!(delete_auth_token))
         .routes(routes!(refresh_auth_token))
-}
-
-async fn sign_jwt(sub: impl Into<Uuid>, keybox: ManagedKeyBoxes) -> Result<String, Error> {
-    let sub = sub.into();
-    debug!("signing jwt for sub {}", sub);
-
-    let Some(keybox) = keybox.get_keybox(consts::SYSTEM_APPLICATION_UUID).await else {
-        error!(
-            "cannot find system keybox of {}",
-            consts::SYSTEM_APPLICATION_UUID
-        );
-        return Err(Error::with_code(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "!!!CANNOT FIND SYSTEM KEYBOX, THIS MUST BE ERROR!!!",
-        ));
-    };
-
-    let Some(key) = keybox.get_latest_raw_key(KeyStatus::Active) else {
-        error!(
-            "cannot find active key in system keybox of {}",
-            consts::SYSTEM_APPLICATION_UUID
-        );
-        return Err(Error::with_code(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "!!!CANNOT FIND SYSTEM KEYBOX, THIS MUST BE ERROR!!!",
-        ));
-    };
-
-    debug!("found active key with algorithm: {:?}", key.key_alg);
-
-    fn h(i: impl JwtCodec<SystemClaim> + 'static) -> Box<dyn JwtCodec<SystemClaim>> {
-        Box::new(i)
-    }
-
-    let key_alg = key.key_alg.clone();
-    let kid = key.key_id;
-
-    let ket = match *key_alg {
-        KeyAlg::Ps256
-        | KeyAlg::Ps384
-        | KeyAlg::Ps512
-        | KeyAlg::Rs256
-        | KeyAlg::Rs384
-        | KeyAlg::Rs512 => h(RsaKey::try_from(key)
-            .inspect_err(|e| error!("failed to convert key to rsakey: {}", e))?),
-    };
-
-    SystemClaim::new(
-        sub,
-        Duration::from_hours(24 * 5).as_secs() as i64,
-        Some(consts::DEFAULT_JWT_ISSUER.into()),
-        Some(consts::DEFAULT_JWT_ISSUER.into()),
-    )
-    .encode(
-        Header::new(key_alg.into()).tap_mut(|it| it.kid = Some(kid.to_string())),
-        ket,
-    )
-    .inspect_err(|e| error!("failed to encode jwt: {}", e))
 }
 
 /// Create auth token (signin)
@@ -169,7 +99,15 @@ pub async fn create_auth_token(
         ));
     }
 
-    let jwt = sign_jwt(id, keyboxes)
+    let jwt = keyboxes
+        .sign_jwt::<SystemClaim>(
+            id,
+            SignJwtOptions {
+                application_id: consts::SYSTEM_APPLICATION_UUID,
+                iss: consts::DEFAULT_JWT_ISSUER.into(),
+                aud: consts::DEFAULT_JWT_ISSUER.into(),
+            },
+        )
         .await
         .inspect_err(|e| error!("failed to sign jwt: {}", e))?;
 
@@ -283,16 +221,32 @@ pub async fn refresh_auth_token(
         keyboxes,
         ..
     }): State<AppState>,
-) -> RestResult<()> {
+) -> RestResult<SigninResponse> {
     let jti = auth.token.claims.jti;
+
+    if revoked_jwt.is_revoked(jti).await? {
+        return Err(Error::with_code(
+            StatusCode::BAD_REQUEST,
+            format!("jwt of jti={jti} has been revoked"),
+        ));
+    }
+
     revoked_jwt
         .set_revoked(jti)
         .await
         .inspect_err(|e| error!("failed to revoke jwt: {}", e))?;
 
-    sign_jwt(auth.token.claims.sub, keyboxes)
+    let jwt = keyboxes
+        .sign_jwt::<SystemClaim>(
+            auth.token.claims.sub,
+            SignJwtOptions {
+                application_id: consts::SYSTEM_APPLICATION_UUID,
+                iss: consts::DEFAULT_JWT_ISSUER.into(),
+                aud: consts::DEFAULT_JWT_ISSUER.into(),
+            },
+        )
         .await
         .inspect_err(|e| error!("failed to sign new jwt: {}", e))?;
 
-    Ok(ApiResponse::new(()))
+    Ok(ApiResponse::new(SigninResponse { jwt }))
 }
