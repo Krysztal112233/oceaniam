@@ -55,6 +55,7 @@ impl AppState {
 
         initial_system_keybox(keybox.clone(), &database).await?;
 
+        let credentials = ManagedCredentialVaults::new(database.clone());
         Ok(Self {
             database: database.clone(),
             keyboxes: keybox,
@@ -76,9 +77,9 @@ impl AppState {
             ),
 
             revoked_jwt: RevokedJwt::new(database.clone()),
-            credentials: ManagedCredentialVaults::new(database.clone()),
+            credentials: credentials.clone(),
 
-            applications: ManagedApplications::new(database),
+            applications: ManagedApplications::new(credentials, database),
 
             _unit: (),
         })

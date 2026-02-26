@@ -200,7 +200,7 @@ impl KeyBox {
     ///
     /// Persists all key changes to the database for the application
     pub async fn write_to(
-        self,
+        &self,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<(), Error> {
         let vec = self

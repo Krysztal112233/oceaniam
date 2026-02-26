@@ -7,7 +7,7 @@ use moka::future::{Cache, CacheBuilder};
 use oceaniam_common::{
     error::Error,
     jwks::JwkSet,
-    jwt::{ClaimHelper, JwtCodec, SystemClaim},
+    jwt::{ClaimHelper, JwtCodec},
 };
 use oceaniam_database::{
     helper::key_boxes::KeyBoxesHelper,
@@ -16,7 +16,7 @@ use oceaniam_database::{
         sea_orm_active_enums::{KeyAlg, KeyStatus},
     },
 };
-use oceaniam_keybox::{KeyBox, key::rsa_key::RsaKey};
+use oceaniam_keybox::{KeyBox, key::rsa_key::RsaKey, keybox::KeyOption};
 use sea_orm::DatabaseConnection;
 use tap::Tap;
 use uuid::Uuid;
@@ -25,7 +25,6 @@ use uuid::Uuid;
 pub struct ManagedKeyBoxes {
     database: DatabaseConnection,
     boxes: Cache<Uuid, KeyBox>,
-    banned: Cache<Uuid, ()>,
     jwks: Cache<Uuid, JwkSet>,
 }
 
@@ -44,9 +43,6 @@ impl ManagedKeyBoxes {
             boxes: CacheBuilder::default()
                 .time_to_live(Duration::from_secs(4))
                 .build(),
-            banned: CacheBuilder::default()
-                .time_to_live(Duration::from_secs(4))
-                .build(),
             jwks: CacheBuilder::default()
                 .time_to_live(Duration::from_secs(4))
                 .build(),
@@ -59,13 +55,6 @@ impl ManagedKeyBoxes {
         Ok(self
             .boxes
             .try_get_with::<_, Error>(application_id, async {
-                if self.banned.contains_key(&application_id) {
-                    return Err(Error::with_code(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("cannot get keybox of `{application_id}`"),
-                    ));
-                };
-
                 let keys = KeyBoxes::get_application_keys(application_id, &database)
                     .await
                     .inspect_err(|e| error!("{e}"))?
@@ -76,8 +65,6 @@ impl ManagedKeyBoxes {
                 let keybox = KeyBox::with_keys(application_id, keys);
 
                 if keybox.get_keys().is_empty() {
-                    self.banned.insert(application_id, ()).await;
-
                     Err(Error::with_code(
                         StatusCode::INTERNAL_SERVER_ERROR,
                         format!("cannot get keybox of `{application_id}`"),
@@ -98,9 +85,38 @@ impl ManagedKeyBoxes {
             .await?)
     }
 
-    pub async fn put_keybox(&self, keybox: KeyBox) {
-        self.banned.remove(&keybox.application_id()).await;
-        self.boxes.insert(keybox.application_id(), keybox).await;
+    pub async fn create_keybox(
+        &self,
+        application_id: Uuid,
+        key_opts: KeyOption,
+    ) -> Result<KeyBox, Error> {
+        let mut keybox = KeyBox::new(application_id);
+        keybox
+            .put_key_with_option(RsaKey::new(Uuid::now_v7(), KeyAlg::Ps512), key_opts)
+            .inspect_err(|e| error!("{e}"))?;
+        keybox
+            .write_to(&self.database)
+            .await
+            .inspect_err(|e| error!("{e}"))?;
+
+        self.boxes.insert(application_id, keybox.clone()).await;
+
+        Ok(keybox)
+    }
+
+    async fn refresh(&self, application_id: Uuid) -> Result<(), Error> {
+        let keys = KeyBoxes::get_application_keys(application_id, &self.database)
+            .await
+            .inspect_err(|e| error!("{e}"))?
+            .into_iter()
+            .map(|it| (it.id, it))
+            .collect();
+
+        let keybox = KeyBox::with_keys(application_id, keys);
+
+        self.boxes.insert(application_id, keybox).await;
+
+        Ok(())
     }
 
     pub async fn sign_jwt<T>(
@@ -151,7 +167,7 @@ impl ManagedKeyBoxes {
                 .inspect_err(|e| error!("failed to convert key to rsakey: {}", e))?),
         };
 
-        SystemClaim::new(
+        T::new(
             sub,
             Duration::from_hours(24 * 5).as_secs() as i64,
             Some(iss),

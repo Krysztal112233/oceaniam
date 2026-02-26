@@ -20,12 +20,12 @@ use oceaniam_common::{
 use oceaniam_credential::credential::Password;
 use oceaniam_database::{
     helper::{
-        applications::{ApplicationHelper, CreateApplicationOptions},
-        users::{CreateUserOpts, CreateUserResult, UserHelper},
+        applications::ApplicationHelper,
+        users::{CreateUserOpts, UserHelper},
     },
-    model::{self, prelude::*, sea_orm_active_enums::KeyAlg},
+    model::{self, prelude::*},
 };
-use oceaniam_keybox::{KeyBox, key::rsa_key::RsaKey, keybox::KeyOption};
+use oceaniam_keybox::keybox::KeyOption;
 use oceaniam_vo::{
     applications::{
         ApplicationUserVO, ApplicationVO, CreateApplicationRequest, CreateApplicationResponse,
@@ -33,7 +33,6 @@ use oceaniam_vo::{
     },
     auth::{AuthVO, SigninResponse, SignoutResponse},
 };
-use sea_orm::TransactionTrait;
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
@@ -67,7 +66,6 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
         tag = "Applications",
         params(
             ("Authorization" = String, Header, description = "Authorization payload"),
-            GetApplicationParam
         ),
         responses(
             (status = 200, body = ApiResponse<PagedResponse<ApplicationVO>>),
@@ -77,19 +75,19 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     )]
 pub async fn get_applications(
     _: middlewares::auth::RequireAuth<SystemClaim>,
-    Query(GetApplicationParam {
-        tenant_id,
-        page,
-        per_page,
-    }): Query<GetApplicationParam>,
+    Query(GetApplicationParam { tenant_id, page }): Query<GetApplicationParam>,
     State(AppState { database, .. }): State<AppState>,
 ) -> RestResult<PagedResponse<ApplicationVO>> {
-    let PagedResponse { items, page_info } = Applications::get_applications(
-        tenant_id.try_into()?,
-        PageParam { page, per_page },
-        &database,
-    )
-    .await?;
+    info!("getting applications for tenant_id={tenant_id}");
+
+    let PagedResponse { items, page_info } = match page {
+        Some(page) => {
+            Applications::get_applications(tenant_id.try_into()?, page, &database).await?
+        }
+        None => PagedResponse::with_entire(
+            Applications::get_all_applications(tenant_id.try_into()?, &database).await?,
+        ),
+    };
 
     Ok(ApiResponse::new(PagedResponse {
         items: items.into_iter().map(ApplicationVO::from).collect(),
@@ -114,49 +112,40 @@ pub async fn get_applications(
 pub async fn create_application(
     _: middlewares::auth::RequireAuth<SystemClaim>,
 
-    State(AppState { database, .. }): State<AppState>,
+    State(AppState {
+        applications,
+        keyboxes,
+        ..
+    }): State<AppState>,
 
     Json(CreateApplicationRequest { tenant_id, comment }): Json<CreateApplicationRequest>,
 ) -> RestResult<CreateApplicationResponse> {
-    let database = database.begin().await?;
-
     let model::applications::Model {
         id,
         comment,
         tenant_id,
-    } = Applications::create_with_opts(
-        Uuid::now_v7(),
-        tenant_id.clone().try_into()?,
-        CreateApplicationOptions { comment },
-        &database,
-    )
-    .await
-    .inspect_err(|e| error!("{e}"))?;
+    } = applications
+        .create_application(tenant_id.try_into()?, comment)
+        .await?;
 
-    let mut keybox = KeyBox::new(id);
-    keybox
-        .put_key_with_option(
-            RsaKey::new(Uuid::now_v7(), KeyAlg::Ps512),
+    info!("application created successfully: id={id}");
+
+    keyboxes
+        .create_keybox(
+            id,
             KeyOption {
                 retired_at: Some((Utc::now() + consts::DEFAULT_KEY_RETIED_AFTER).into()),
                 expires_at: Some((Utc::now() + consts::DEFAULT_KEY_EXPIRES_AFTER).into()),
                 ..Default::default()
             },
         )
-        .inspect_err(|e| error!("{e}"))?;
-    keybox
-        .write_to(&database)
-        .await
-        .inspect_err(|e| error!("{e}"))?;
-    database
-        .commit()
-        .await
-        .inspect_err(|e| error!("{e}"))
-        .inspect(|_| info!("application created successfully: id={}", id))?;
+        .await?;
+
+    info!("default keybox of application created successfully: id={id}");
 
     Ok(ApiResponse::new(CreateApplicationResponse {
         tenant_id: tenant_id.into(),
-        application_id: Sqid::from(id),
+        application_id: id.into(),
         comment,
     }))
 }
@@ -178,16 +167,13 @@ pub async fn create_application(
 pub async fn delete_application(
     Path(application_id): Path<Sqid>,
 
-    State(AppState { database, .. }): State<AppState>,
+    State(AppState { applications, .. }): State<AppState>,
 ) -> RestResult<()> {
-    let application_id = Uuid::try_from(application_id)?;
-
-    Applications::delete_application(application_id, &database)
-        .await
-        .inspect_err(|e| error!("{e}"))
-        .inspect(|_| info!("application deleted successfully: id={application_id}"))?;
-
-    Ok(ApiResponse::new(()))
+    Ok(ApiResponse::new(
+        applications
+            .delete_application(application_id.try_into()?)
+            .await?,
+    ))
 }
 
 /// Get application JWKS
@@ -233,16 +219,26 @@ pub async fn get_application_users(
     State(AppState { database, .. }): State<AppState>,
 
     Path(application_id): Path<Sqid>,
-    Query(page): Query<PageParam>,
+    Query(page): Query<Option<PageParam>>,
 ) -> RestResult<PagedResponse<ApplicationUserVO>> {
     let operator_id = auth.token.claims.sub;
 
-    let PagedResponse { items, page_info } =
-        Users::get_users(application_id.try_into()?, page, &database)
+    let application_id = application_id.try_into()?;
+
+    let PagedResponse { items, page_info } = match page {
+        Some(page) => Users::get_users(application_id, page, &database)
             .await
             .inspect_err(|e| {
                 error!("user list query failed: operator_id={operator_id}, error={e}",)
-            })?;
+            })?,
+        None => PagedResponse::with_entire(
+            Users::get_all_users(application_id, &database)
+                .await
+                .inspect_err(|e| {
+                    error!("user list query failed: operator_id={operator_id}, error={e}",)
+                })?,
+        ),
+    };
 
     Ok(ApiResponse::new(PagedResponse {
         items: items.into_iter().map(Into::into).collect(),
@@ -273,11 +269,7 @@ pub async fn get_application_users(
 pub async fn create_application_user(
     _: RequireMatchedApplicationSecret,
 
-    State(AppState {
-        credentials,
-        database,
-        ..
-    }): State<AppState>,
+    State(AppState { applications, .. }): State<AppState>,
 
     Path(application_id): Path<Sqid>,
     Garde(Json(CreateApplicationUserRequest {
@@ -287,55 +279,23 @@ pub async fn create_application_user(
         password,
     })): Garde<Json<CreateApplicationUserRequest>>,
 ) -> RestResult<ApplicationUserVO> {
-    let application_id: Uuid = application_id
-        .try_into()
-        .inspect_err(|e| error!("failed to convert application_id: error={}", e))?;
-    let user_id = Uuid::now_v7();
+    let application_id = application_id.try_into()?;
 
-    info!(
-        "creating new user: user_id={}, application_id={}",
-        user_id, application_id
-    );
+    let user = applications
+        .get_application_users(application_id)
+        .await?
+        .create_user(
+            application_id,
+            CreateUserOpts {
+                nickname,
+                email,
+                phone,
+            },
+            password,
+        )
+        .await?;
 
-    let CreateUserResult { user, subject } = Users::create_user(
-        user_id,
-        application_id,
-        CreateUserOpts {
-            nickname,
-            email,
-            phone,
-        },
-        &database,
-    )
-    .await
-    .inspect_err(|e| {
-        error!(
-            "failed to create user: user_id={}, application_id={}, error={}",
-            user_id, application_id, e
-        );
-    })?;
-
-    credentials
-        .create_with_password(subject.id, password)
-        .await
-        .inspect_err(|e| {
-            error!(
-                "failed to create credential for user: user_id={}, subject_id={}, error={}",
-                user.id, subject.id, e
-            );
-        })?;
-
-    info!(
-        "credential created successfully for user: user_id={}, subject_id={}",
-        user.id, subject.id
-    );
-
-    info!(
-        "user created successfully: user_id={}, subject_id={}, application_id={}",
-        user.id, subject.id, application_id
-    );
-
-    Ok(ApiResponse::new(ApplicationUserVO::from(user)))
+    Ok(ApiResponse::new(user.into()))
 }
 
 /// Create auth token (signin)

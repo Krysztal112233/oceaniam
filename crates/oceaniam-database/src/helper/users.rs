@@ -77,6 +77,18 @@ pub trait UserHelper {
             .await
     }
 
+    async fn get_all_users(
+        application_id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<Vec<model::users::Model>, Error> {
+        use crate::model::users::Column::*;
+
+        Ok(Users::find()
+            .filter(ApplicationId.eq(application_id))
+            .all(database)
+            .await?)
+    }
+
     async fn find_by_email(
         application_id: Uuid,
         email: impl Into<String> + Send,

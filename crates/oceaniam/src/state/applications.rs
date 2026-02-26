@@ -1,10 +1,14 @@
 use std::time::Duration;
 
 use axum::http::StatusCode;
+use log::{error, info};
 use moka::future::Cache;
 use oceaniam_common::{error::Error, helpers::gen_random_with_charset};
+use oceaniam_database::helper::applications::CreateApplicationOptions;
+use oceaniam_database::helper::users::{CreateUserOpts, CreateUserResult};
 use oceaniam_database::{
     helper::users::UserHelper, model::application_secrets::Model as SecretModel,
+    model::applications::Model as ApplicationModel,
 };
 use oceaniam_database::{
     helper::{applications::ApplicationHelper, applications_secrets::ApplicationSecretsHelper},
@@ -17,17 +21,21 @@ use oceaniam_vo::auth::AuthVO;
 use sea_orm::prelude::*;
 use uuid::Uuid;
 
+use crate::state::credentials::ManagedCredentialVaults;
+
 /// TODO: In future, using [xorf] to detect does [Applications] existed in database for higher performance.
 #[derive(Debug, Clone)]
 pub struct ManagedApplications {
     database: DatabaseConnection,
     secrets: Secrets,
     users: Cache<Uuid, ApplicationUsers>,
+
+    /// This field are shared with global states.
+    shared_credential_vaults: ManagedCredentialVaults,
 }
 
-#[allow(unused)]
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
-enum UserIdentifier {
+pub enum UserIdentifier {
     Email(String),
     Phone(String),
     Id(Uuid),
@@ -43,22 +51,31 @@ impl From<AuthVO> for UserIdentifier {
 }
 
 impl ManagedApplications {
-    pub fn new(database: DatabaseConnection) -> Self {
+    pub fn new(credential: ManagedCredentialVaults, database: DatabaseConnection) -> Self {
         Self {
             database: database.clone(),
             users: Cache::builder()
                 .time_to_idle(Duration::from_mins(30))
                 .build(),
             secrets: Secrets::new(database),
+
+            shared_credential_vaults: credential,
         }
     }
 
-    async fn get_application_users(&self, application_id: Uuid) -> Result<ApplicationUsers, Error> {
+    pub async fn get_application_users(
+        &self,
+        application_id: Uuid,
+    ) -> Result<ApplicationUsers, Error> {
         Ok(self
             .users
             .try_get_with(
                 application_id,
-                ApplicationUsers::new(application_id, self.database.clone()),
+                ApplicationUsers::new(
+                    application_id,
+                    self.shared_credential_vaults.clone(),
+                    self.database.clone(),
+                ),
             )
             .await?)
     }
@@ -79,18 +96,52 @@ impl ManagedApplications {
     pub fn secrets(&self) -> &Secrets {
         &self.secrets
     }
+
+    pub async fn delete_application(&self, application_id: Uuid) -> Result<(), Error> {
+        info!("deleting application: id={application_id}");
+
+        Applications::delete_application(application_id, &self.database)
+            .await
+            .inspect_err(|e| error!("{e}"))
+            .inspect(|_| info!("application deleted successfully: id={application_id}"))?;
+
+        Ok(())
+    }
+
+    pub async fn create_application(
+        &self,
+        tenant_id: Uuid,
+        comment: Option<String>,
+    ) -> Result<ApplicationModel, Error> {
+        let model = Applications::create_with_opts(
+            Uuid::now_v7(),
+            tenant_id,
+            CreateApplicationOptions { comment },
+            &self.database,
+        )
+        .await
+        .inspect_err(|e| error!("{e}"))?;
+
+        Ok(model)
+    }
 }
 
 /// If [ApplicationUsers::application_id] doesn't existed in database, the entire functions of this structure will be noop
 #[derive(Debug, Clone)]
-struct ApplicationUsers {
+pub struct ApplicationUsers {
     application_id: Uuid,
     database: DatabaseConnection,
     cache: Cache<UserIdentifier, UserModel>,
+
+    shared_credential_vaults: ManagedCredentialVaults,
 }
 
 impl ApplicationUsers {
-    async fn new(application_id: Uuid, database: DatabaseConnection) -> Result<Self, Error> {
+    async fn new(
+        application_id: Uuid,
+        shared_credential_vaults: ManagedCredentialVaults,
+        database: DatabaseConnection,
+    ) -> Result<Self, Error> {
         if Applications::is_exist(application_id, &database).await? {
             Err(Error::with_code(
                 StatusCode::NOT_FOUND,
@@ -101,11 +152,12 @@ impl ApplicationUsers {
                 application_id,
                 database,
                 cache: Cache::builder().build(),
+                shared_credential_vaults,
             })
         }
     }
 
-    async fn find_user_by(&self, user_identifier: UserIdentifier) -> Result<UserModel, Error> {
+    pub async fn find_user_by(&self, user_identifier: UserIdentifier) -> Result<UserModel, Error> {
         Ok(self
             .cache
             .try_get_with(user_identifier.clone(), async move {
@@ -126,6 +178,53 @@ impl ApplicationUsers {
                 }
             })
             .await?)
+    }
+
+    pub async fn create_user(
+        &self,
+        application_id: Uuid,
+        opts: CreateUserOpts,
+        password: impl Into<String>,
+    ) -> Result<UserModel, Error> {
+        let user_id = Uuid::now_v7();
+        let password = password.into();
+
+        info!(
+            "creating new user: user_id={}, application_id={}",
+            user_id, application_id
+        );
+
+        let CreateUserResult { user, subject } =
+            Users::create_user(user_id, application_id, opts, &self.database)
+                .await
+                .inspect_err(|e| {
+                    error!(
+                        "failed to create user: user_id={}, application_id={}, error={}",
+                        user_id, application_id, e
+                    );
+                })?;
+
+        self.shared_credential_vaults
+            .create_with_password(subject.id, password)
+            .await
+            .inspect_err(|e| {
+                error!(
+                    "failed to create credential for user: user_id={}, subject_id={}, error={}",
+                    user.id, subject.id, e
+                );
+            })?;
+
+        info!(
+            "credential created successfully for user: user_id={}, subject_id={}",
+            user.id, subject.id
+        );
+
+        info!(
+            "user created successfully: user_id={}, subject_id={}, application_id={}",
+            user.id, subject.id, application_id
+        );
+
+        Ok(user)
     }
 }
 

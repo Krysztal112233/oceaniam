@@ -4,20 +4,16 @@ use garde::Validate;
 use oceaniam_common::{PageParam, types::sqid::Sqid};
 use oceaniam_database::model::{self};
 use serde::{Deserialize, Serialize};
-use utoipa::{IntoParams, ToSchema};
+use utoipa::ToSchema;
 
-#[derive(Debug, Deserialize, ToSchema, IntoParams)]
+#[derive(Debug, Deserialize, ToSchema, Validate)]
 pub struct GetApplicationParam {
+    #[garde(skip)]
     pub tenant_id: Sqid,
 
-    pub page: u64,
-    pub per_page: u64,
-}
-
-impl From<GetApplicationParam> for PageParam {
-    fn from(GetApplicationParam { page, per_page, .. }: GetApplicationParam) -> Self {
-        Self { page, per_page }
-    }
+    #[serde(flatten)]
+    #[garde(dive)]
+    pub page: Option<PageParam>,
 }
 
 #[derive(Debug, Deserialize, ToSchema, ts_rs::TS)]

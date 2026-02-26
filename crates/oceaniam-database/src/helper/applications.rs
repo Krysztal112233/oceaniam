@@ -68,6 +68,18 @@ pub trait ApplicationHelper {
             .await
     }
 
+    async fn get_all_applications(
+        tenant_id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<Vec<model::applications::Model>, Error> {
+        use crate::model::applications::Column::*;
+
+        Ok(Applications::find()
+            .filter(TenantId.eq(tenant_id))
+            .all(database)
+            .await?)
+    }
+
     async fn delete_application(
         application_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
