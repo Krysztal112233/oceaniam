@@ -1,7 +1,8 @@
 use axum::http::StatusCode;
 use oceaniam_common::{PageParam, PagedResponse, error::Error};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter,
+    ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, PaginatorTrait,
+    QueryFilter,
 };
 use uuid::Uuid;
 
@@ -76,14 +77,19 @@ pub trait UserHelper {
             .await
     }
 
-    async fn get_user_by_email(
+    async fn find_by_email(
+        application_id: Uuid,
         email: impl Into<String> + Send,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::users::Model, Error> {
         use model::users::Column::*;
 
         match Users::find()
-            .filter(Email.eq(email.into()))
+            .filter(
+                Condition::all()
+                    .add(Email.eq(email.into()))
+                    .add(ApplicationId.eq(application_id)),
+            )
             .one(database)
             .await
         {
@@ -96,14 +102,19 @@ pub trait UserHelper {
         }
     }
 
-    async fn get_user_by_phone(
+    async fn find_by_phone(
+        application_id: Uuid,
         phone: impl Into<String> + Send,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::users::Model, Error> {
         use model::users::Column::*;
 
         match Users::find()
-            .filter(Phone.eq(phone.into()))
+            .filter(
+                Condition::all()
+                    .add(Phone.eq(phone.into()))
+                    .add(ApplicationId.eq(application_id)),
+            )
             .one(database)
             .await
         {

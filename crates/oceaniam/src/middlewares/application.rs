@@ -24,10 +24,7 @@ impl FromRequestParts<AppState> for RequireApplicationSecret {
 
     async fn from_request_parts(
         parts: &mut Parts,
-        AppState {
-            application_secrets,
-            ..
-        }: &AppState,
+        AppState { applications, .. }: &AppState,
     ) -> Result<Self, Self::Rejection> {
         let secret = parts
             .headers
@@ -41,8 +38,9 @@ impl FromRequestParts<AppState> for RequireApplicationSecret {
             return Err(StatusCode::UNAUTHORIZED);
         };
 
-        let Ok(application_id) = application_secrets
-            .find_secret_belong(secret)
+        let Ok(application_id) = applications
+            .secrets()
+            .find_secret_belong_to(secret)
             .await
             .inspect_err(|e| {
                 warn!("application authentication failed: invalid secret provided: {e}")

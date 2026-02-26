@@ -3,7 +3,8 @@ use chrono::Utc;
 use oceaniam_common::error::Error;
 use oceaniam_common::{PageParam, PagedResponse};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter,
+    ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, PaginatorTrait,
+    QueryFilter,
 };
 use uuid::Uuid;
 
@@ -58,6 +59,18 @@ pub trait ApplicationSecretsHelper {
         }
     }
 
+    async fn get_all(
+        application_id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<Vec<model::application_secrets::Model>, Error> {
+        use model::application_secrets::Column::*;
+
+        Ok(ApplicationSecrets::find()
+            .filter(ApplicationId.eq(application_id))
+            .all(database)
+            .await?)
+    }
+
     async fn find_secret_belong(
         secret: impl Into<String> + Send,
         database: &impl SafeTransactionConnectionTrait,
@@ -77,6 +90,25 @@ pub trait ApplicationSecretsHelper {
                     format!("cannot found application_secret={secret}"),
                 )),
             })?
+    }
+
+    async fn delete_secret(
+        application_id: Uuid,
+        secret_id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<(), Error> {
+        use model::application_secrets::Column::*;
+
+        ApplicationSecrets::find()
+            .filter(
+                Condition::all()
+                    .add(ApplicationId.eq(application_id))
+                    .add(Id.eq(secret_id)),
+            )
+            .all(database)
+            .await?;
+
+        Ok(())
     }
 }
 

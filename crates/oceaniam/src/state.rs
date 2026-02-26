@@ -1,7 +1,6 @@
 use crate::state::{
     applications::ManagedApplications, credentials::ManagedCredentialVaults,
     keybox::ManagedKeyBoxes, revoked::RevokedJwt, roller::BuiltinScheduledJwkSetRoller,
-    secrets::ManagedApplicationSecrets,
 };
 
 use axum::extract::FromRef;
@@ -23,7 +22,6 @@ pub mod credentials;
 pub mod keybox;
 pub mod revoked;
 pub mod roller;
-pub mod secrets;
 
 #[derive(Debug, Clone)]
 pub struct AppState {
@@ -44,9 +42,6 @@ pub struct AppState {
 
     /// Used for system builtin authentication and application authentication
     pub credentials: ManagedCredentialVaults,
-
-    /// Application's secrets relative actions
-    pub application_secrets: ManagedApplicationSecrets,
 
     /// Application relative actions
     pub applications: ManagedApplications,
@@ -83,7 +78,6 @@ impl AppState {
             revoked_jwt: RevokedJwt::new(database.clone()),
             credentials: ManagedCredentialVaults::new(database.clone()),
 
-            application_secrets: ManagedApplicationSecrets::new(database.clone()),
             applications: ManagedApplications::new(database),
 
             _unit: (),

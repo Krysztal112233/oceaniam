@@ -1,10 +1,4 @@
-use sea_orm::{ActiveModelTrait, IntoActiveModel};
-use uuid::Uuid;
-
-use crate::{
-    helper::SafeTransactionConnectionTrait,
-    model::{self, prelude::Credentials},
-};
+use crate::model::prelude::Credentials;
 
 #[async_trait::async_trait]
 pub trait CredentialsHelper {}

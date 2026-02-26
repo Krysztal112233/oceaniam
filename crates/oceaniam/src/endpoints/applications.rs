@@ -9,14 +9,15 @@ use axum::{
 };
 use axum_valid::Garde;
 use chrono::Utc;
-use log::{error, info};
+use log::{error, info, warn};
 use oceaniam_common::{
     ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse, RestResult, consts,
     error::Error,
     jwks::{JwkSet, JwkSetSchema},
-    jwt::SystemClaim,
+    jwt::{Claim, SystemClaim},
     types::sqid::Sqid,
 };
+use oceaniam_credential::credential::Password;
 use oceaniam_database::{
     helper::{
         applications::{ApplicationHelper, CreateApplicationOptions},
@@ -39,7 +40,7 @@ use uuid::Uuid;
 use crate::{
     endpoints::applications::spec_middlewares::RequireMatchedApplicationSecret,
     middlewares::{self, auth::RequireAuth},
-    state::AppState,
+    state::{AppState, keybox::SignJwtOptions},
 };
 
 pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
@@ -208,16 +209,8 @@ pub async fn get_application_jwks(
 
     State(AppState { keyboxes, .. }): State<AppState>,
 ) -> RestResult<JwkSet> {
-    let application_id = Uuid::try_from(application_id)?;
-
     Ok(ApiResponse::new(
-        keyboxes
-            .get_jwks(application_id)
-            .await
-            .ok_or(Error::with_code(
-                StatusCode::NOT_FOUND,
-                format!("jwk set of application_id={application_id} not found"),
-            ))?,
+        keyboxes.get_jwks(application_id.try_into()?).await?,
     ))
 }
 
@@ -367,12 +360,48 @@ pub async fn create_application_user(
 pub async fn legacy_create_application_auth_token(
     _: RequireMatchedApplicationSecret,
 
-    State(AppState { credentials, .. }): State<AppState>,
+    State(AppState {
+        applications,
+        credentials,
+        keyboxes,
+        ..
+    }): State<AppState>,
 
     Path(application_id): Path<Sqid>,
     Json(auth): Json<AuthVO>,
 ) -> RestResult<SigninResponse> {
-    todo!()
+    let user = applications
+        .find_user_by(application_id.try_into()?, auth.clone())
+        .await?;
+
+    let vault = credentials.get_credential(user.id).await?;
+
+    let result = match auth {
+        AuthVO::Email { password, .. } | AuthVO::Phone { password, .. } => {
+            Password::from(vault).verify(&password).await?
+        }
+    };
+
+    if !result {
+        return Err(Error::with_code(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            consts::USER_LOGIN_FAILED_MSG,
+        ));
+    }
+
+    // TODO: Make application configurable
+    let jwt = keyboxes
+        .sign_jwt::<Claim>(
+            user.id,
+            SignJwtOptions {
+                application_id: user.application_id,
+                iss: consts::DEFAULT_JWT_ISSUER.into(),
+                aud: consts::DEFAULT_JWT_ISSUER.into(),
+            },
+        )
+        .await?;
+
+    Ok(ApiResponse::new(SigninResponse { jwt }))
 }
 
 /// Delete auth token (signout)
@@ -395,12 +424,40 @@ pub async fn legacy_create_application_auth_token(
     )]
 pub async fn legacy_delete_application_auth_token(
     _: RequireMatchedApplicationSecret,
+    auth: RequireAuth<Claim>,
 
-    State(AppState { database, .. }): State<AppState>,
+    State(AppState { revoked_jwt, .. }): State<AppState>,
 
     Path(application_id): Path<Sqid>,
 ) -> RestResult<SignoutResponse> {
-    todo!()
+    // TODO: might need more security...?
+    let jti = auth.token.claims.jti;
+    let user_id = auth.token.claims.sub;
+    let app_id: Uuid = application_id
+        .try_into()
+        .inspect_err(|e| error!("failed to convert application_id: error={}", e))?;
+
+    info!(
+        "legacy signout requested: user_id={}, application_id={}, jti={}",
+        user_id, app_id, jti
+    );
+
+    revoked_jwt
+        .set_revoked(jti)
+        .await
+        .inspect_err(|e| {
+            error!(
+                "failed to revoke jwt during legacy signout: user_id={}, application_id={}, jti={}, error={}",
+                user_id, app_id, jti, e
+            )
+        })?;
+
+    info!(
+        "legacy signout successful: user_id={}, application_id={}, jti={}",
+        user_id, app_id, jti
+    );
+
+    Ok(ApiResponse::new(SignoutResponse::default()))
 }
 
 /// Refresh auth token
@@ -422,13 +479,77 @@ pub async fn legacy_delete_application_auth_token(
         ),
     )]
 pub async fn legacy_refresh_application_auth_token(
+    auth: RequireAuth<Claim>,
     _: RequireMatchedApplicationSecret,
 
-    State(AppState { database, .. }): State<AppState>,
+    State(AppState {
+        revoked_jwt,
+        keyboxes,
+        ..
+    }): State<AppState>,
 
     Path(application_id): Path<Sqid>,
 ) -> RestResult<SigninResponse> {
-    todo!()
+    let jti = auth.token.claims.jti;
+    let user_id = auth.token.claims.sub;
+    let app_id: Uuid = application_id
+        .try_into()
+        .inspect_err(|e| error!("failed to convert application_id: error={}", e))?;
+
+    info!(
+        "legacy token refresh requested: user_id={}, application_id={}, old_jti={}",
+        user_id, app_id, jti
+    );
+
+    if revoked_jwt.is_revoked(jti).await? {
+        warn!(
+            "token refresh rejected - jwt already revoked: user_id={}, application_id={}, jti={}",
+            user_id, app_id, jti
+        );
+        return Err(Error::with_code(
+            StatusCode::BAD_REQUEST,
+            format!("jwt of jti={jti} has been revoked"),
+        ));
+    }
+
+    revoked_jwt
+        .set_revoked(jti)
+        .await
+        .inspect_err(|e| {
+            error!(
+                "failed to revoke old jwt during refresh: user_id={}, application_id={}, old_jti={}, error={}",
+                user_id, app_id, jti, e
+            )
+        })?;
+
+    info!(
+        "old jwt revoked successfully during refresh: user_id={}, application_id={}, old_jti={}",
+        user_id, app_id, jti
+    );
+
+    let jwt = keyboxes
+        .sign_jwt::<SystemClaim>(
+            user_id,
+            SignJwtOptions {
+                application_id: consts::SYSTEM_APPLICATION_UUID,
+                iss: consts::DEFAULT_JWT_ISSUER.into(),
+                aud: consts::DEFAULT_JWT_ISSUER.into(),
+            },
+        )
+        .await
+        .inspect_err(|e| {
+            error!(
+                "failed to sign new jwt during refresh: user_id={}, application_id={}, old_jti={}, error={}",
+                user_id, app_id, jti, e
+            )
+        })?;
+
+    info!(
+        "legacy token refresh successful: user_id={}, application_id={}, old_jti={}",
+        user_id, app_id, jti
+    );
+
+    Ok(ApiResponse::new(SigninResponse { jwt }))
 }
 
 /// Create application secret
@@ -454,11 +575,16 @@ pub async fn legacy_refresh_application_auth_token(
 pub async fn create_application_secret(
     _: RequireAuth<SystemClaim>,
 
-    State(AppState { database, .. }): State<AppState>,
+    State(AppState { applications, .. }): State<AppState>,
     Path(application_id): Path<Sqid>,
-) -> RestResult<()> {
-    let _application_id = Uuid::try_from(application_id)?;
-    todo!()
+) -> RestResult<SecretVO> {
+    let model = applications
+        .secrets()
+        .create_secret(application_id.try_into()?)
+        .await?;
+
+    // Return unmasked version
+    Ok(ApiResponse::new(SecretVO::with_unmasked(model)))
 }
 
 /// Get application secrets
@@ -486,10 +612,7 @@ pub async fn get_application_secrets(
 
     Path(application_id): Path<Sqid>,
 
-    State(AppState {
-        application_secrets,
-        ..
-    }): State<AppState>,
+    State(AppState { applications, .. }): State<AppState>,
 ) -> RestResult<Vec<SecretVO>> {
     let application_id: uuid::Uuid = application_id
         .try_into()
@@ -500,8 +623,9 @@ pub async fn get_application_secrets(
         application_id
     );
 
-    let secrets = application_secrets
-        .get_secrets(application_id)
+    let secrets = applications
+        .secrets()
+        .get_all_secrets_of(application_id)
         .await
         .inspect_err(|e| {
             error!(
@@ -516,8 +640,9 @@ pub async fn get_application_secrets(
         secrets.len()
     );
 
+    // Return masked version
     Ok(ApiResponse::new(
-        secrets.into_iter().map(Into::into).collect(),
+        secrets.into_iter().map(SecretVO::with_masked).collect(),
     ))
 }
 
@@ -547,20 +672,18 @@ pub async fn get_application_secret(
 
     Path((application_id, secret_id)): Path<(Sqid, Sqid)>,
 
-    State(AppState {
-        application_secrets,
-        ..
-    }): State<AppState>,
+    State(AppState { applications, .. }): State<AppState>,
 ) -> RestResult<SecretVO> {
     let secret_id: Uuid = secret_id.try_into()?;
 
     Ok(ApiResponse::new(
-        application_secrets
-            .get_secrets(application_id.try_into()?)
+        applications
+            .secrets()
+            .get_all_secrets_of(application_id.try_into()?)
             .await?
             .into_iter()
             .find(|it| it.id == secret_id)
-            .map(Into::into)
+            .map(SecretVO::with_masked)
             .ok_or(Error::with_code(
                 StatusCode::NOT_FOUND,
                 format!("cannot found secret with id={secret_id}"),
@@ -590,12 +713,15 @@ pub async fn get_application_secret(
 pub async fn delete_application_secret(
     _: middlewares::auth::RequireAuth<SystemClaim>,
 
-    State(AppState { database, .. }): State<AppState>,
+    State(AppState { applications, .. }): State<AppState>,
     Path((application_id, secret_id)): Path<(Sqid, Sqid)>,
 ) -> RestResult<()> {
-    let _application_id = Uuid::try_from(application_id)?;
-    let _secret_id = Uuid::try_from(secret_id)?;
-    todo!()
+    applications
+        .secrets()
+        .delete_secret(application_id.try_into()?, secret_id.try_into()?)
+        .await?;
+
+    Ok(ApiResponse::new(()))
 }
 
 mod spec_middlewares {
@@ -617,6 +743,7 @@ mod spec_middlewares {
     /// path-based application ID extraction which assumes specific URL patterns. Using it outside
     /// this crate may lead to unexpected behavior.
     #[derive(Debug, Clone)]
+    #[allow(unused)]
     pub struct RequireMatchedApplicationSecret {
         pub secret: String,
         pub application_id: Uuid,

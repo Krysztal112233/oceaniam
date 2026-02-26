@@ -1,0 +1,226 @@
+use std::time::Duration;
+
+use axum::http::StatusCode;
+use moka::future::Cache;
+use oceaniam_common::{error::Error, helpers::gen_random_with_charset};
+use oceaniam_database::{
+    helper::users::UserHelper, model::application_secrets::Model as SecretModel,
+};
+use oceaniam_database::{
+    helper::{applications::ApplicationHelper, applications_secrets::ApplicationSecretsHelper},
+    model::{
+        prelude::{ApplicationSecrets, Applications, Users},
+        users::Model as UserModel,
+    },
+};
+use oceaniam_vo::auth::AuthVO;
+use sea_orm::prelude::*;
+use uuid::Uuid;
+
+/// TODO: In future, using [xorf] to detect does [Applications] existed in database for higher performance.
+#[derive(Debug, Clone)]
+pub struct ManagedApplications {
+    database: DatabaseConnection,
+    secrets: Secrets,
+    users: Cache<Uuid, ApplicationUsers>,
+}
+
+#[allow(unused)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+enum UserIdentifier {
+    Email(String),
+    Phone(String),
+    Id(Uuid),
+}
+
+impl From<AuthVO> for UserIdentifier {
+    fn from(value: AuthVO) -> Self {
+        match value {
+            AuthVO::Email { email, .. } => UserIdentifier::Email(email),
+            AuthVO::Phone { phone, .. } => UserIdentifier::Phone(phone),
+        }
+    }
+}
+
+impl ManagedApplications {
+    pub fn new(database: DatabaseConnection) -> Self {
+        Self {
+            database: database.clone(),
+            users: Cache::builder()
+                .time_to_idle(Duration::from_mins(30))
+                .build(),
+            secrets: Secrets::new(database),
+        }
+    }
+
+    async fn get_application_users(&self, application_id: Uuid) -> Result<ApplicationUsers, Error> {
+        Ok(self
+            .users
+            .try_get_with(
+                application_id,
+                ApplicationUsers::new(application_id, self.database.clone()),
+            )
+            .await?)
+    }
+
+    /// TODO: Check does [Applications] existed in future
+    #[allow(private_bounds)]
+    pub async fn find_user_by(
+        &self,
+        application_id: Uuid,
+        user_identifier: impl Into<UserIdentifier> + Send,
+    ) -> Result<UserModel, Error> {
+        self.get_application_users(application_id)
+            .await?
+            .find_user_by(user_identifier.into())
+            .await
+    }
+
+    pub fn secrets(&self) -> &Secrets {
+        &self.secrets
+    }
+}
+
+/// If [ApplicationUsers::application_id] doesn't existed in database, the entire functions of this structure will be noop
+#[derive(Debug, Clone)]
+struct ApplicationUsers {
+    application_id: Uuid,
+    database: DatabaseConnection,
+    cache: Cache<UserIdentifier, UserModel>,
+}
+
+impl ApplicationUsers {
+    async fn new(application_id: Uuid, database: DatabaseConnection) -> Result<Self, Error> {
+        if Applications::is_exist(application_id, &database).await? {
+            Err(Error::with_code(
+                StatusCode::NOT_FOUND,
+                format!("application_id={application_id} not found"),
+            ))
+        } else {
+            Ok(Self {
+                application_id,
+                database,
+                cache: Cache::builder().build(),
+            })
+        }
+    }
+
+    async fn find_user_by(&self, user_identifier: UserIdentifier) -> Result<UserModel, Error> {
+        Ok(self
+            .cache
+            .try_get_with(user_identifier.clone(), async move {
+                match user_identifier {
+                    UserIdentifier::Email(mail) => {
+                        Users::find_by_email(self.application_id, mail, &self.database).await
+                    }
+                    UserIdentifier::Phone(phone) => {
+                        Users::find_by_phone(self.application_id, phone, &self.database).await
+                    }
+                    UserIdentifier::Id(uuid) => Users::find_by_id(uuid)
+                        .one(&self.database)
+                        .await?
+                        .ok_or(Error::with_code(
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            oceaniam_common::consts::USER_LOGIN_FAILED_MSG,
+                        )),
+                }
+            })
+            .await?)
+    }
+}
+
+/// If [ApplicationUsers::application_id] doesn't existed in database, the entire functions of this structure will be noop
+///
+/// TODO: In future, using [xorf] to detect does secret existed in database for higher performance.
+#[derive(Debug, Clone)]
+pub struct Secrets {
+    database: DatabaseConnection,
+    secrets: Cache<Uuid, Vec<SecretModel>>,
+
+    belong: Cache<String, Uuid>,
+}
+
+impl Secrets {
+    pub fn new(database: DatabaseConnection) -> Self {
+        Self {
+            database,
+            secrets: Cache::builder()
+                .time_to_live(Duration::from_secs(5))
+                .build(),
+            belong: Cache::builder()
+                .time_to_live(Duration::from_mins(5))
+                .build(),
+        }
+    }
+
+    pub async fn create_secret(&self, application_id: Uuid) -> Result<SecretModel, Error> {
+        let model = ApplicationSecrets::create_secret(
+            application_id,
+            Uuid::now_v7(),
+            gen_secret(),
+            &self.database,
+        )
+        .await?;
+
+        self.refresh(application_id).await?;
+
+        Ok(model)
+    }
+
+    async fn refresh(&self, application_id: Uuid) -> Result<(), Error> {
+        self.secrets
+            .insert(
+                application_id,
+                ApplicationSecrets::get_all(application_id, &self.database).await?,
+            )
+            .await;
+
+        Ok(())
+    }
+
+    /// TODO: See [Secrets]
+    pub async fn find_secret_belong_to(&self, secret: impl Into<String>) -> Result<Uuid, Error> {
+        let secret = secret.into();
+
+        Ok(self
+            .belong
+            .try_get_with(secret.clone(), async {
+                Ok(
+                    ApplicationSecrets::find_secret_belong(secret, &self.database)
+                        .await?
+                        .application_id,
+                )
+            })
+            .await?)
+    }
+
+    pub async fn get_all_secrets_of(
+        &self,
+        application_id: Uuid,
+    ) -> Result<Vec<SecretModel>, Error> {
+        Ok(self
+            .secrets
+            .try_get_with(application_id, async {
+                ApplicationSecrets::get_all(application_id, &self.database).await
+            })
+            .await?)
+    }
+
+    pub async fn delete_secret(&self, application_id: Uuid, secret_id: Uuid) -> Result<(), Error> {
+        ApplicationSecrets::delete_secret(application_id, secret_id, &self.database).await?;
+
+        self.refresh(application_id).await?;
+
+        Ok(())
+    }
+}
+
+fn gen_secret() -> String {
+    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
+                            abcdefghijklmnopqrstuvwxyz\
+                            0123456789";
+
+    let random = gen_random_with_charset(32, CHARSET);
+
+    format!("app_{random}")
+}
