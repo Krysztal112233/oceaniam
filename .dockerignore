@@ -1,2 +1,6 @@
-/target
-
+.git
+*/**/target
+*/**/.react-router
+*/**/build
+*/**/node_modules
+*/**/README.md

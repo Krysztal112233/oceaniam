@@ -32,6 +32,8 @@ async fn main() -> Result<(), Error> {
         .with_max_level(tracing::Level::DEBUG)
         .init();
 
+    let _ = dotenvy::dotenv();
+
     let config = BackendConfig::new().inspect_err(|e| error!("{e}"))?;
 
     let states = {

@@ -55,8 +55,12 @@ pub struct BackendConfig {
 impl BackendConfig {
     pub fn new() -> Result<Self, Error> {
         Ok(Config::builder()
-            .add_source(config::File::with_name("config.toml"))
-            .add_source(config::Environment::with_prefix("OCEANIAM"))
+            .add_source(config::File::with_name("config.toml").required(false))
+            .add_source(
+                config::Environment::with_prefix("OCEANIAM")
+                    .prefix_separator("_")
+                    .separator("__"),
+            )
             .build()?
             .try_deserialize()?)
     }

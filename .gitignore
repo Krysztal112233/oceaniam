@@ -1,8 +1,10 @@
-/target
-.env
+/**/*/target
 
 ## Exclude typescript bindgen
-/**/bindings
+/**/*/bindings
 
-## Exclude config fie
+## Exclude config file
 config.toml
+
+## Exclude nodejs relative
+/**/*/node_modules

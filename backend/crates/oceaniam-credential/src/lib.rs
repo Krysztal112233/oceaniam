@@ -1,5 +1,3 @@
-#![doc = include_str!("../README.md")]
-
 use log::error;
 use oceaniam_database::{
     helper::SafeTransactionConnectionTrait,

@@ -19,9 +19,11 @@ services:
 
   backend-migration:
     build:
-      context: .
+      context: ./
       dockerfile: Dockerfile
       target: migration
+      labels:
+        - docker.io/krysztal112233/oceaniam-migration:latest
     restart: "no"
     env_file:
       - .env
@@ -31,14 +33,14 @@ services:
 
   backend:
     build:
-      context: .
+      context: ./
       dockerfile: Dockerfile
       target: backend
+      labels:
+        - docker.io/krysztal112233/oceaniam-backend:latest
     restart: unless-stopped
     env_file:
       - .env
-    volumes:
-      - ./config.toml:/app/config.toml:ro
     ports:
       - 8000:8000
     depends_on:
@@ -46,6 +48,17 @@ services:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
+
+  frontend:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      target: frontend
+      labels:
+        - docker.io/krysztal112233/oceaniam-frontend:latest
+    restart: unless-stopped
+    ports:
+      - 8900:80
 
 volumes:
   postgres:

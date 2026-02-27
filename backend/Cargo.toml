@@ -25,6 +25,7 @@ bloomfilter = "3"
 chrono = "0.4"
 clap = { version = "*", features = ["derive"] }
 config = { version = "0.15", features = ["toml"] }
+dotenvy = "0.15"
 futures = "0.3"
 garde = { version = "*", features = ["derive", "phone-number", "email"] }
 im = { version = "15.1", features = ["serde"] }
@@ -54,6 +55,7 @@ utoipa-axum = "*"
 utoipa-scalar = { version = "*", features = ["axum"] }
 uuid = { version = "1.18", features = ["v7"] }
 xorf = "0.12"
+yew = { version = "0.22", features = ["csr"] }
 zeroize = "1.8"
 
 # lock the fuck version. sucks.
