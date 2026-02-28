@@ -30,5 +30,5 @@ RUN pnpm build
 
 FROM docker.io/ferronserver/ferron:2-alpine AS frontend
 WORKDIR /var/www/ferron
-COPY --from=frontend-builder /builder/build/client/ .
+COPY --from=frontend-builder /builder/dist/ .
 CMD ["/usr/sbin/ferron" "--config-adapter" "docker-auto"]
