@@ -1,0 +1,58 @@
+<script setup lang="ts">
+import { computed } from "vue";
+import { authState, logout } from "../../auth";
+
+const emit = defineEmits<{
+    (event: "open-login"): void;
+}>();
+
+const avatarText = computed(() => {
+    if (!authState.user?.displayName) return "?";
+    return authState.user.displayName.trim().slice(0, 1).toUpperCase();
+});
+
+function openLogin() {
+    emit("open-login");
+}
+</script>
+
+<template>
+    <div class="w-full">
+        <div
+            v-if="authState.user"
+            class="flex items-center justify-between gap-3"
+        >
+            <div class="flex min-w-0 items-center gap-3">
+                <div class="avatar placeholder">
+                    <div
+                        class="w-10 rounded-full bg-neutral text-neutral-content"
+                    >
+                        <span class="text-sm">{{ avatarText }}</span>
+                    </div>
+                </div>
+
+                <div class="min-w-0">
+                    <div class="truncate text-sm font-medium">
+                        {{ authState.user.displayName }}
+                    </div>
+                    <div class="truncate text-xs opacity-70">
+                        {{ authState.user.username }}
+                    </div>
+                </div>
+            </div>
+
+            <button type="button" class="btn btn-ghost btn-sm" @click="logout">
+                退出
+            </button>
+        </div>
+
+        <button
+            v-else
+            type="button"
+            class="btn btn-primary btn-sm w-full"
+            @click="openLogin"
+        >
+            登录
+        </button>
+    </div>
+</template>

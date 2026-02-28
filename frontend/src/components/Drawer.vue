@@ -42,14 +42,20 @@
                 class="drawer-overlay"
             ></label>
 
-            <aside class="min-h-full w-64 bg-base-200 p-4 text-base-content">
+            <aside
+                class="flex h-full min-h-full w-64 flex-col bg-base-200 p-4 text-base-content"
+            >
                 <div class="mb-4 flex items-center justify-start">
                     <span class="text-lg font-semibold">{{ logoText }}</span>
                 </div>
 
-                <nav class="flex flex-col gap-1">
+                <nav class="flex flex-1 flex-col gap-1 overflow-y-auto">
                     <slot></slot>
                 </nav>
+
+                <div v-if="$slots.footer" class="mt-4 border-t border-base-300 pt-4">
+                    <slot name="footer"></slot>
+                </div>
             </aside>
         </div>
     </div>
