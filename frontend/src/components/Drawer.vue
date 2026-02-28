@@ -1,36 +1,14 @@
 <template>
-    <div class="drawer lg:drawer-open">
-        <input :id="drawerId" type="checkbox" class="drawer-toggle" />
+    <div class="drawer" :class="{ 'lg:drawer-open': drawerOpen }">
+        <input
+            :id="drawerId"
+            v-model="drawerOpen"
+            type="checkbox"
+            class="drawer-toggle"
+        />
 
         <div class="drawer-content flex min-h-screen flex-col bg-base-100">
-            <header class="navbar bg-base-100 lg:hidden">
-                <div class="flex-none">
-                    <label
-                        :for="drawerId"
-                        aria-label="Open sidebar"
-                        class="btn btn-square btn-ghost"
-                    >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            class="h-6 w-6 stroke-current"
-                        >
-                            <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M4 6h16M4 12h16M4 18h16"
-                            />
-                        </svg>
-                    </label>
-                </div>
-                <div class="flex-1 px-2 text-lg font-semibold">
-                    {{ logoText }}
-                </div>
-            </header>
-
-            <main class="flex-1 p-4">
+            <main class="flex-1 p-4" :style="{ paddingTop: `${topOffset}px` }">
                 <slot name="content"></slot>
             </main>
         </div>
@@ -39,21 +17,21 @@
             <label
                 :for="drawerId"
                 aria-label="Close sidebar"
-                class="drawer-overlay"
+                class="drawer-overlay lg:hidden"
             ></label>
 
             <aside
                 class="flex h-full min-h-full w-64 flex-col bg-base-200 p-4 text-base-content"
+                :style="{ paddingTop: `${topOffset}px` }"
             >
-                <div class="mb-4 flex items-center justify-start">
-                    <span class="text-lg font-semibold">{{ logoText }}</span>
-                </div>
-
                 <nav class="flex flex-1 flex-col gap-1 overflow-y-auto">
                     <slot></slot>
                 </nav>
 
-                <div v-if="$slots.footer" class="mt-4 border-t border-base-300 pt-4">
+                <div
+                    v-if="$slots.footer"
+                    class="mt-4 border-t border-base-300 pt-4"
+                >
                     <slot name="footer"></slot>
                 </div>
             </aside>
@@ -62,13 +40,30 @@
 </template>
 
 <script setup lang="ts">
-withDefaults(
+import { computed } from "vue";
+
+const props = withDefaults(
     defineProps<{
-        logoText: string;
+        open?: boolean;
         drawerId?: string;
+        topOffset?: number;
     }>(),
     {
+        open: false,
         drawerId: "app-drawer",
+        topOffset: 64,
     },
 );
+
+const emit = defineEmits<{
+    (event: "update:open", value: boolean): void;
+}>();
+
+const drawerOpen = computed({
+    get: () => props.open,
+    set: (value) => emit("update:open", value),
+});
+
+const drawerId = computed(() => props.drawerId);
+const topOffset = computed(() => props.topOffset);
 </script>
