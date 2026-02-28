@@ -17,7 +17,7 @@ jobs:
         run: rustup component add rustfmt
       - name: cargo fmt
         run: |
-          cargo fmt --all -- --check
+          cd ./backend && cargo fmt --all -- --check
 
   clippy:
     name: Run `cargo clippy -- -D warnings`
@@ -33,7 +33,7 @@ jobs:
         run: rustup component add clippy
       - name: Run `cargo clippy`
         run: |
-          cargo clippy --all-targets -- -D warnings
+          cd ./backend && cargo clippy --all-targets -- -D warnings
 
   compose:
     name: Run `docker compose build`
