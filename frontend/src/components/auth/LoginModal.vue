@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
-import { authState, login } from "../../auth";
+import { authState, login } from "../../utils/auth.ts";
 
 const props = defineProps<{
     open: boolean;
