@@ -6,3 +6,8 @@ gen-entities:
 
 watch-backend:
     watchexec -e rs -r cargo run -p oceaniam
+
+refresh-export:
+    cd ./backend && cargo test -p oceaniam-export
+    cp -r ./backend/crates/oceaniam-export/bindings ./frontend/src/utils/exports
+
