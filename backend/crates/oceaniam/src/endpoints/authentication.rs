@@ -15,9 +15,11 @@
 //! - All authentication failures return 401 to prevent username enumeration attacks
 
 use axum::{Json, extract::State, http::StatusCode};
+use axum_extra::extract::cookie::Cookie;
 use log::error;
 use oceaniam_common::{
-    ApiResponse, ErrorResponse, RestResult, consts, error::Error, jwt::SystemClaim,
+    ApiResponse, ApiResponseWithHeader, ErrorResponse, RestResult, WithHeaderRestResult, consts,
+    error::Error, jwt::SystemClaim,
 };
 use oceaniam_credential::credential;
 use oceaniam_database::{
@@ -27,7 +29,7 @@ use oceaniam_vo::auth::{SigninResponse, SignoutResponse, SignupResponse, SystemS
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::{
-    middlewares,
+    middlewares::{self, auth::TokenDispatchMethod},
     state::{AppState, keybox::SignJwtOptions},
 };
 
@@ -54,6 +56,7 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
         path = "/auth/tokens",
         tag = "SystemAuthentication",
         request_body = SystemSigninRequest,
+        params(("X-OceanIAM-Token-Dispatch" = String, Header, description = "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both.")),
         responses(
             (status = 200, description = "Successfully authenticated", body = ApiResponse<SigninResponse>),
             (status = 400, description = "Invalid request body"),
@@ -62,6 +65,8 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
         ),
     )]
 pub async fn create_auth_token(
+    _mtd: middlewares::auth::TokenDispatchMethod,
+
     State(AppState {
         credentials,
         database,
@@ -186,13 +191,20 @@ pub async fn create_auth_user(
 
 /// Refresh auth token
 ///
-/// Revokes the current JWT token and issues a new one with a fresh expiration time.
-/// This implements token rotation for enhanced security - the old token becomes
-/// invalid immediately after refresh.
+/// Rotates the current JWT by revoking its JTI and issuing a new token.
+///
+/// The new token can be delivered back to the client via JSON response body and/or
+/// an HTTP cookie, controlled by the `X-OceanIAM-Token-Dispatch` request header:
+///
+/// - `json`: JSON body only
+/// - `cookie`: cookie only (JSON body will be empty: `{}`)
+/// - `both`: JSON body + cookie (default)
+///
+/// Cookie name: `auth_token`.
 ///
 /// # Authorization
 ///
-/// Requires a valid JWT token in the Authorization header.
+/// Requires `Authorization: Bearer <jwt>`.
 ///
 /// # Security
 ///
@@ -201,27 +213,34 @@ pub async fn create_auth_user(
 ///
 /// # Errors
 ///
-/// Returns 401 if the token is invalid or has already been revoked
-/// Returns 500 if database operation fails
+/// Returns 203 if the `Authorization` header is missing
+/// Returns 400 if the token is malformed, invalid/expired, or already revoked
+/// Returns 500 if the database operation fails or a new token cannot be signed
 #[utoipa::path(
-        post,
-        path = "/auth/tokens/refresh",
-        tag = "SystemAuthentication",
-        params(("Authorization" = String, Header, description = "Bearer token to refresh")),
-        responses(
-            (status = 200, description = "Token refreshed successfully", body = ApiResponse<SigninResponse>),
-            (status = 401, description = "Invalid, expired, or revoked token", body = ApiResponse<ErrorResponse>),
-            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
-        ),
-    )]
+	        post,
+	        path = "/auth/tokens/refresh",
+	        tag = "SystemAuthentication",
+	        params(
+	            ("Authorization" = String, Header, description = "Bearer token to refresh"),
+	            ("X-OceanIAM-Token-Dispatch" = String, Header, description = "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both."),
+	        ),
+	        responses(
+	            (status = 200, description = "Token refreshed successfully", body = ApiResponse<Option<SigninResponse>>),
+	            (status = 203, description = "Missing Authorization header"),
+	            (status = 400, description = "Invalid, expired, or revoked token", body = ApiResponse<ErrorResponse>),
+	            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
+	        ),
+	    )]
 pub async fn refresh_auth_token(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
+    token_mtd: middlewares::auth::TokenDispatchMethod,
+
     State(AppState {
         revoked_jwt,
         keyboxes,
         ..
     }): State<AppState>,
-) -> RestResult<SigninResponse> {
+) -> WithHeaderRestResult<Option<SigninResponse>> {
     let jti = auth.token.claims.jti;
 
     if revoked_jwt.is_revoked(jti).await? {
@@ -248,5 +267,14 @@ pub async fn refresh_auth_token(
         .await
         .inspect_err(|e| error!("failed to sign new jwt: {}", e))?;
 
-    Ok(ApiResponse::new(SigninResponse { jwt }))
+    let cookie = Cookie::new("auth_token", jwt.clone());
+    let resp = ApiResponseWithHeader::new(Some(SigninResponse { jwt }));
+
+    let resp = match token_mtd {
+        TokenDispatchMethod::Json => resp,
+        TokenDispatchMethod::Both => resp.with_cookie(cookie)?,
+        TokenDispatchMethod::Cookie => ApiResponseWithHeader::new(None).with_cookie(cookie)?,
+    };
+
+    Ok(resp)
 }

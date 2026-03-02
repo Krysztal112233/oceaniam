@@ -1,17 +1,23 @@
 //! Application management-related API endpoints
 //!
-//! Provides interfaces for application queries and JWKS retrieval
+//! Provides interfaces for:
+//! - Application CRUD and listing
+//! - JWKS retrieval for applications
+//! - Application user management and legacy authentication flows
+//! - Application secret management
 
 use axum::{
     Json,
     extract::{Path, Query, State},
     http::StatusCode,
 };
+use axum_extra::extract::cookie::Cookie;
 use axum_valid::Garde;
 use chrono::Utc;
 use log::{error, info, warn};
 use oceaniam_common::{
-    ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse, RestResult, consts,
+    ApiResponse, ApiResponseWithHeader, Empty, ErrorResponse, PageParam, PagedResponse, RestResult,
+    WithHeaderRestResult, consts,
     error::Error,
     jwks::{JwkSet, JwkSetSchema},
     jwt::{Claim, SystemClaim},
@@ -38,7 +44,10 @@ use uuid::Uuid;
 
 use crate::{
     endpoints::applications::spec_middlewares::RequireMatchedApplicationSecret,
-    middlewares::{self, auth::RequireAuth},
+    middlewares::{
+        self,
+        auth::{RequireAuth, TokenDispatchMethod},
+    },
     state::{AppState, keybox::SignJwtOptions},
 };
 
@@ -65,12 +74,13 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
         path = "/applications",
         tag = "Applications",
         params(
-            ("Authorization" = String, Header, description = "Authorization payload"),
+            ("Authorization" = String, Header, description = "Bearer token"),
         ),
         responses(
             (status = 200, body = ApiResponse<PagedResponse<ApplicationVO>>),
-            (status = 401, body = ApiResponse<ErrorResponse>),
-            (status = 500, body = ApiResponse<ErrorResponse>),
+            (status = 203, description = "Missing Authorization header"),
+            (status = 400, description = "Invalid token or bad request", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
 pub async fn get_applications(
@@ -102,11 +112,13 @@ pub async fn get_applications(
         post,
         path = "/applications",
         tag = "Applications",
-        params(("Authorization" = String, Header, description = "Authorization payload")),
+        params(("Authorization" = String, Header, description = "Bearer token")),
+        request_body = CreateApplicationRequest,
         responses(
             (status = 200, body = ApiResponse<CreateApplicationResponse>),
-            (status = 401, body = ApiResponse<ErrorResponse>),
-            (status = 500, body = ApiResponse<ErrorResponse>),
+            (status = 203, description = "Missing Authorization header"),
+            (status = 400, description = "Invalid token or bad request", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
 pub async fn create_application(
@@ -159,9 +171,9 @@ pub async fn create_application(
         tag = "Applications",
         responses(
             (status = 200, body = ApiResponse<Empty>),
-            (status = 401, body = ApiResponse<ErrorResponse>),
-            (status = 404, body = ApiResponse<ErrorResponse>),
-            (status = 500, body = ApiResponse<ErrorResponse>),
+            (status = 400, description = "Invalid application id", body = ApiResponse<ErrorResponse>),
+            (status = 404, description = "Application not found", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
 pub async fn delete_application(
@@ -185,9 +197,9 @@ pub async fn delete_application(
         tag = "Applications",
         responses(
             (status = 200, body = JwkSetSchema),
-            (status = 401, body = ApiResponse<ErrorResponse>),
-            (status = 404, body = ApiResponse<ErrorResponse>),
-            (status = 500, body = ApiResponse<ErrorResponse>),
+            (status = 400, description = "Invalid application id", body = ApiResponse<ErrorResponse>),
+            (status = 404, description = "Application not found", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
 pub async fn get_application_jwks(
@@ -210,8 +222,9 @@ pub async fn get_application_jwks(
         ),
         responses(
             (status = 200, body = ApiResponse<PagedResponse<ApplicationUserVO>>),
-            (status = 401, description = "Unauthorized"),
-            (status = 500, description = "Internal server error"),
+            (status = 203, description = "Missing Authorization header"),
+            (status = 400, description = "Invalid token or bad request", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
 pub async fn get_application_users(
@@ -252,12 +265,12 @@ pub async fn get_application_users(
         path = "/applications/{application_id}/users",
         tag = "ApplicationUsers",
         params(
-            ("Authorization" = String, Header, description = "Bearer token"),
             ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("application_id" = String, Path, description = "Application ID"),
         ),
+        request_body = CreateApplicationUserRequest,
         responses(
-            (status = 201, body = ApiResponse<ApplicationUserVO>),
+            (status = 200, body = ApiResponse<ApplicationUserVO>),
             (status = 400, description = "Bad request"),
             (status = 401, description = "Unauthorized"),
             (status = 403, description = "Forbidden - secret does not belong to this application"),
@@ -299,18 +312,30 @@ pub async fn create_application_user(
 }
 
 /// Create auth token (signin)
+///
+/// Issues an application user JWT after verifying the provided credentials.
+///
+/// The response payload and/or cookie can be controlled via the optional
+/// `X-OceanIAM-Token-Dispatch` header:
+///
+/// - `json`: JSON body only
+/// - `cookie`: cookie only (JSON body will be empty: `{}`)
+/// - `both`: JSON body + cookie (default)
+///
+/// Cookie name: `auth_token`.
 #[utoipa::path(
         post,
         path = "/applications/{application_id}/auth/tokens",
         tag = "ApplicationUserAuthentication",
         params(
-            ("Authorization" = String, Header, description = "Bearer token"),
             ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
+            ("X-OceanIAM-Token-Dispatch" = String, Header, description = "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both."),
             ("application_id" = String, Path, description = "Application ID"),
         ),
+        request_body = AuthVO,
         responses(
-            (status = 200, body = ApiResponse<SigninResponse>),
-            (status = 400, description = "Invalid credentials"),
+            (status = 200, body = ApiResponse<Option<SigninResponse>>),
+            (status = 400, description = "Bad request"),
             (status = 401, description = "Unauthorized"),
             (status = 403, description = "Forbidden - secret does not belong to this application"),
             (status = 404, description = "Application not found"),
@@ -319,6 +344,8 @@ pub async fn create_application_user(
     )]
 pub async fn legacy_create_application_auth_token(
     _: RequireMatchedApplicationSecret,
+
+    token_mtd: TokenDispatchMethod,
 
     State(AppState {
         applications,
@@ -329,20 +356,20 @@ pub async fn legacy_create_application_auth_token(
 
     Path(application_id): Path<Sqid>,
     Json(auth): Json<AuthVO>,
-) -> RestResult<SigninResponse> {
+) -> WithHeaderRestResult<Option<SigninResponse>> {
     let user = applications
         .find_user_by(application_id.try_into()?, auth.clone())
         .await?;
 
     let vault = credentials.get_credential(user.id).await?;
 
-    let result = match auth {
+    let verify_result = match auth {
         AuthVO::Email { password, .. } | AuthVO::Phone { password, .. } => {
             Password::from(vault).verify(&password).await?
         }
     };
 
-    if !result {
+    if !verify_result {
         return Err(Error::with_code(
             StatusCode::INTERNAL_SERVER_ERROR,
             consts::USER_LOGIN_FAILED_MSG,
@@ -361,10 +388,25 @@ pub async fn legacy_create_application_auth_token(
         )
         .await?;
 
-    Ok(ApiResponse::new(SigninResponse { jwt }))
+    let cookie = Cookie::new("auth_token", jwt.clone());
+    let resp = ApiResponseWithHeader::new(Some(SigninResponse { jwt }));
+
+    let resp = match token_mtd {
+        TokenDispatchMethod::Cookie => ApiResponseWithHeader::new(None).with_cookie(cookie)?,
+        TokenDispatchMethod::Json => resp,
+        TokenDispatchMethod::Both => resp.with_cookie(cookie)?,
+    };
+
+    Ok(resp)
 }
 
 /// Delete auth token (signout)
+///
+/// Revokes the current JWT by adding its JTI (JWT ID) to the revoked tokens list.
+///
+/// # Authorization
+///
+/// Requires `Authorization: Bearer <jwt>`.
 #[utoipa::path(
         delete,
         path = "/applications/{application_id}/auth/tokens",
@@ -376,10 +418,12 @@ pub async fn legacy_create_application_auth_token(
         ),
         responses(
             (status = 200, body = ApiResponse<SignoutResponse>),
+            (status = 203, description = "Missing Authorization header"),
+            (status = 400, description = "Invalid, expired, or revoked token", body = ApiResponse<ErrorResponse>),
             (status = 401, description = "Unauthorized"),
             (status = 403, description = "Forbidden - secret does not belong to this application"),
             (status = 404, description = "Application not found"),
-            (status = 500, description = "Internal server error"),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
 pub async fn legacy_delete_application_auth_token(
@@ -421,25 +465,44 @@ pub async fn legacy_delete_application_auth_token(
 }
 
 /// Refresh auth token
+///
+/// Rotates the current JWT by revoking its JTI and issuing a new token.
+///
+/// The new token can be delivered back to the client via JSON response body and/or
+/// an HTTP cookie, controlled by the `X-OceanIAM-Token-Dispatch` request header:
+///
+/// - `json`: JSON body only
+/// - `cookie`: cookie only (JSON body will be empty: `{}`)
+/// - `both`: JSON body + cookie (default)
+///
+/// Cookie name: `auth_token`.
+///
+/// # Authorization
+///
+/// Requires `Authorization: Bearer <jwt>`.
 #[utoipa::path(
         post,
         path = "/applications/{application_id}/auth/tokens/refresh",
         tag = "ApplicationUserAuthentication",
         params(
-            ("Authorization" = String, Header, description = "Bearer refresh token"),
+            ("Authorization" = String, Header, description = "Bearer token to refresh"),
             ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
+            ("X-OceanIAM-Token-Dispatch" = String, Header, description = "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both."),
             ("application_id" = String, Path, description = "Application ID"),
         ),
         responses(
-            (status = 200, body = ApiResponse<SigninResponse>),
-            (status = 401, description = "Invalid or expired refresh token"),
+            (status = 200, body = ApiResponse<Option<SigninResponse>>),
+            (status = 203, description = "Missing Authorization header"),
+            (status = 400, description = "Invalid, expired, or revoked token", body = ApiResponse<ErrorResponse>),
+            (status = 401, description = "Unauthorized"),
             (status = 403, description = "Forbidden - secret does not belong to this application"),
             (status = 404, description = "Application not found"),
-            (status = 500, description = "Internal server error"),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
 pub async fn legacy_refresh_application_auth_token(
     auth: RequireAuth<Claim>,
+    token_mtd: TokenDispatchMethod,
     _: RequireMatchedApplicationSecret,
 
     State(AppState {
@@ -449,7 +512,7 @@ pub async fn legacy_refresh_application_auth_token(
     }): State<AppState>,
 
     Path(application_id): Path<Sqid>,
-) -> RestResult<SigninResponse> {
+) -> WithHeaderRestResult<Option<SigninResponse>> {
     let jti = auth.token.claims.jti;
     let user_id = auth.token.claims.sub;
     let app_id: Uuid = application_id
@@ -509,7 +572,16 @@ pub async fn legacy_refresh_application_auth_token(
         user_id, app_id, jti
     );
 
-    Ok(ApiResponse::new(SigninResponse { jwt }))
+    let cookie = Cookie::new("auth_token", jwt.clone());
+    let resp = ApiResponseWithHeader::new(Some(SigninResponse { jwt }));
+
+    let resp = match token_mtd {
+        TokenDispatchMethod::Cookie => ApiResponseWithHeader::new(None).with_cookie(cookie)?,
+        TokenDispatchMethod::Json => resp,
+        TokenDispatchMethod::Both => resp.with_cookie(cookie)?,
+    };
+
+    Ok(resp)
 }
 
 /// Create application secret
@@ -521,15 +593,12 @@ pub async fn legacy_refresh_application_auth_token(
         tag = "ApplicationSecrets",
         params(
             ("Authorization" = String, Header, description = "Bearer token"),
-            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
-            ("application_id" = String, Path, description = "Application ID"),
-        ),
-        responses(
-            (status = 200, body = ApiResponse<Empty>),
-            (status = 401, description = "Unauthorized"),
-            (status = 403, description = "Forbidden - secret does not belong to this application"),
-            (status = 404, description = "Application not found"),
-            (status = 500, description = "Internal server error"),
+            ("application_id" = String, Path, description = "Application ID"),), responses(
+            (status = 200, body = ApiResponse<SecretVO>),
+            (status = 203, description = "Missing Authorization header"),
+            (status = 400, description = "Invalid token or bad request", body = ApiResponse<ErrorResponse>),
+            (status = 404, description = "Application not found", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
 pub async fn create_application_secret(
@@ -549,22 +618,24 @@ pub async fn create_application_secret(
 
 /// Get application secrets
 ///
-/// Returns a paginated list of API secrets for the specified application
+/// Returns a list of API secrets for the specified application.
+///
+/// Secrets are returned in a **masked** form. Use `get_application_secret` for
+/// retrieving a specific secret (also masked).
 #[utoipa::path(
         get,
         path = "/applications/{application_id}/secrets",
         tag = "ApplicationSecrets",
         params(
             ("Authorization" = String, Header, description = "Bearer token"),
-            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("application_id" = String, Path, description = "Application ID"),
         ),
         responses(
-            (status = 200, body = ApiResponse<Empty>),
-            (status = 401, description = "Unauthorized"),
-            (status = 403, description = "Forbidden - secret does not belong to this application"),
-            (status = 404, description = "Application not found"),
-            (status = 500, description = "Internal server error"),
+            (status = 200, body = ApiResponse<Vec<SecretVO>>),
+            (status = 203, description = "Missing Authorization header"),
+            (status = 400, description = "Invalid token or bad request", body = ApiResponse<ErrorResponse>),
+            (status = 404, description = "Application not found", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
 pub async fn get_application_secrets(
@@ -615,16 +686,15 @@ pub async fn get_application_secrets(
         tag = "ApplicationSecrets",
         params(
             ("Authorization" = String, Header, description = "Bearer token"),
-            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("application_id" = String, Path, description = "Application ID"),
             ("secret_id" = String, Path, description = "Secret ID"),
         ),
         responses(
-            (status = 200, body = ApiResponse<Empty>),
-            (status = 401, description = "Unauthorized"),
-            (status = 403, description = "Forbidden - secret does not belong to this application"),
-            (status = 404, description = "Secret not found"),
-            (status = 500, description = "Internal server error"),
+            (status = 200, body = ApiResponse<SecretVO>),
+            (status = 203, description = "Missing Authorization header"),
+            (status = 400, description = "Invalid token or bad request", body = ApiResponse<ErrorResponse>),
+            (status = 404, description = "Secret not found", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
 pub async fn get_application_secret(
@@ -665,9 +735,10 @@ pub async fn get_application_secret(
         ),
         responses(
             (status = 200, body = ApiResponse<Empty>),
-            (status = 401, description = "Unauthorized"),
-            (status = 404, description = "Secret not found"),
-            (status = 500, description = "Internal server error"),
+            (status = 203, description = "Missing Authorization header"),
+            (status = 400, description = "Invalid token or bad request", body = ApiResponse<ErrorResponse>),
+            (status = 404, description = "Secret not found", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
 pub async fn delete_application_secret(
@@ -685,13 +756,14 @@ pub async fn delete_application_secret(
 }
 
 mod spec_middlewares {
-
     use axum::{
         extract::FromRequestParts,
         http::{StatusCode, request::Parts},
     };
     use log::warn;
     use uuid::Uuid;
+
+    use oceaniam_common::types::sqid::Sqid;
 
     use crate::{middlewares::application::RequireApplicationSecret, state::AppState};
 
@@ -729,7 +801,8 @@ mod spec_middlewares {
                 .iter()
                 .position(|&s| s == "applications")
                 .and_then(|idx| path_segments.get(idx + 1))
-                .and_then(|id| Uuid::parse_str(id).ok())
+                .and_then(|id| id.parse::<Sqid>().ok())
+                .and_then(|id| Uuid::try_from(id).ok())
                 .ok_or_else(|| {
                     warn!(
                         "application authorization failed: cannot extract application_id from path"
