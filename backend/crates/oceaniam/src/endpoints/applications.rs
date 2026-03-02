@@ -136,6 +136,7 @@ pub async fn create_application(
         id,
         comment,
         tenant_id,
+        ..
     } = applications
         .create_application(tenant_id.try_into()?, comment)
         .await?;

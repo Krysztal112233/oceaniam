@@ -42,6 +42,7 @@ impl From<model::applications::Model> for ApplicationVO {
             id,
             comment,
             tenant_id,
+            ..
         }: model::applications::Model,
     ) -> Self {
         Self {

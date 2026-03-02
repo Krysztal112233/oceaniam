@@ -10,6 +10,8 @@ pub struct Model {
     pub id: Uuid,
     pub comment: Option<String>,
     pub tenant_id: Uuid,
+    #[sea_orm(column_type = "JsonBinary")]
+    pub configuration: Json,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

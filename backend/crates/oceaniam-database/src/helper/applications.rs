@@ -2,6 +2,7 @@ use oceaniam_common::{PageParam, PagedResponse, error::Error};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter,
 };
+use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
@@ -33,11 +34,13 @@ pub trait ApplicationHelper {
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::applications::Model, Error> {
         let CreateApplicationOptions { comment } = opts;
+        let configuration = json!({});
 
         Ok(model::applications::Model {
             id,
             tenant_id,
             comment,
+            configuration,
         }
         .into_active_model()
         .insert(database)
