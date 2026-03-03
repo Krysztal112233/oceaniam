@@ -8,7 +8,7 @@
         "dev": "vite --host",
         "dev:all": "pnpm -r --parallel dev",
         "prebuild": "pnpm -C packages/sdk build",
-        "build": "vue-tsc -b && vite build",
+        "build": "vue-tsc -p tsconfig.json && vite build",
         "preview": "vite preview",
         "refresh-types": "node scripts/refresh-types.mjs"
     },
