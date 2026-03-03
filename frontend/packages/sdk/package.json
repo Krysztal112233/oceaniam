@@ -1,0 +1,24 @@
+{
+    "name": "@oceaniam/sdk",
+    "version": "0.0.0",
+    "private": true,
+    "type": "module",
+    "files": [
+        "dist"
+    ],
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.js"
+        }
+    },
+    "scripts": {
+        "build": "tsc -p tsconfig.build.json",
+        "dev": "tsc -p tsconfig.build.json -w",
+        "clean": "rm -rf dist"
+    },
+    "devDependencies": {
+        "typescript": "~5.9.3"
+    }
+}
+

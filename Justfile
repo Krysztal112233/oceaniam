@@ -9,5 +9,5 @@ watch-backend:
 
 refresh-export:
     cd ./backend && cargo test -p oceaniam-export
-    cp -r ./backend/crates/oceaniam-export/bindings ./frontend/src/api/types
+    cp -r ./backend/crates/oceaniam-export/bindings ./frontend/packages/sdk/src/types
 
