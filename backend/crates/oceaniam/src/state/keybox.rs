@@ -32,7 +32,7 @@ pub struct ManagedKeyBoxes {
 pub struct SignJwtOptions {
     pub application_id: Uuid,
     pub iss: String,
-    pub aud: String,
+    pub aud: Vec<String>,
 }
 
 #[allow(unused)]

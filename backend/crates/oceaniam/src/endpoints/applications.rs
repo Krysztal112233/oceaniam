@@ -26,7 +26,7 @@ use oceaniam_common::{
 use oceaniam_credential::credential::Password;
 use oceaniam_database::{
     helper::{
-        applications::ApplicationHelper,
+        applications::{ApplicationConfiguration, ApplicationHelper},
         users::{CreateUserOpts, UserHelper},
     },
     model::{self, prelude::*},
@@ -358,8 +358,12 @@ pub async fn legacy_create_application_auth_token(
     Path(application_id): Path<Sqid>,
     Json(auth): Json<AuthVO>,
 ) -> WithHeaderRestResult<Option<SigninResponse>> {
+    let application_id = application_id.try_into()?;
+
+    let ApplicationConfiguration { authentication, .. } =
+        applications.get_configuration(application_id).await?;
     let user = applications
-        .find_user_by(application_id.try_into()?, auth.clone())
+        .find_user_by(application_id, auth.clone())
         .await?;
 
     let vault = credentials.get_credential(user.id).await?;
@@ -377,14 +381,13 @@ pub async fn legacy_create_application_auth_token(
         ));
     }
 
-    // TODO: Make application configurable
     let jwt = keyboxes
         .sign_jwt::<Claim>(
             user.id,
             SignJwtOptions {
                 application_id: user.application_id,
-                iss: consts::DEFAULT_JWT_ISSUER.into(),
-                aud: consts::DEFAULT_JWT_ISSUER.into(),
+                iss: authentication.issuer,
+                aud: authentication.audience,
             },
         )
         .await?;
@@ -509,6 +512,7 @@ pub async fn legacy_refresh_application_auth_token(
     State(AppState {
         revoked_jwt,
         keyboxes,
+        applications,
         ..
     }): State<AppState>,
 
@@ -516,19 +520,22 @@ pub async fn legacy_refresh_application_auth_token(
 ) -> WithHeaderRestResult<Option<SigninResponse>> {
     let jti = auth.token.claims.jti;
     let user_id = auth.token.claims.sub;
-    let app_id: Uuid = application_id
+    let application_id: Uuid = application_id
         .try_into()
         .inspect_err(|e| error!("failed to convert application_id: error={}", e))?;
 
+    let ApplicationConfiguration { authentication } =
+        applications.get_configuration(application_id).await?;
+
     info!(
         "legacy token refresh requested: user_id={}, application_id={}, old_jti={}",
-        user_id, app_id, jti
+        user_id, application_id, jti
     );
 
     if revoked_jwt.is_revoked(jti).await? {
         warn!(
             "token refresh rejected - jwt already revoked: user_id={}, application_id={}, jti={}",
-            user_id, app_id, jti
+            user_id, application_id, jti
         );
         return Err(Error::with_code(
             StatusCode::BAD_REQUEST,
@@ -542,13 +549,13 @@ pub async fn legacy_refresh_application_auth_token(
         .inspect_err(|e| {
             error!(
                 "failed to revoke old jwt during refresh: user_id={}, application_id={}, old_jti={}, error={}",
-                user_id, app_id, jti, e
+                user_id, application_id, jti, e
             )
         })?;
 
     info!(
         "old jwt revoked successfully during refresh: user_id={}, application_id={}, old_jti={}",
-        user_id, app_id, jti
+        user_id, application_id, jti
     );
 
     let jwt = keyboxes
@@ -556,21 +563,21 @@ pub async fn legacy_refresh_application_auth_token(
             user_id,
             SignJwtOptions {
                 application_id: consts::SYSTEM_APPLICATION_UUID,
-                iss: consts::DEFAULT_JWT_ISSUER.into(),
-                aud: consts::DEFAULT_JWT_ISSUER.into(),
+                iss: authentication.issuer,
+                aud: authentication.audience,
             },
         )
         .await
         .inspect_err(|e| {
             error!(
                 "failed to sign new jwt during refresh: user_id={}, application_id={}, old_jti={}, error={}",
-                user_id, app_id, jti, e
+                user_id, application_id, jti, e
             )
         })?;
 
     info!(
         "legacy token refresh successful: user_id={}, application_id={}, old_jti={}",
-        user_id, app_id, jti
+        user_id, application_id, jti
     );
 
     let cookie = Cookie::new("auth_token", jwt.clone());

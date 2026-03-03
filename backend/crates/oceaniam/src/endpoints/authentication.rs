@@ -23,7 +23,8 @@ use oceaniam_common::{
 };
 use oceaniam_credential::credential;
 use oceaniam_database::{
-    helper::administrators::AdministratorsHelper, model::prelude::Administrators,
+    helper::{administrators::AdministratorsHelper, applications::ApplicationConfiguration},
+    model::prelude::Administrators,
 };
 use oceaniam_vo::auth::{SigninResponse, SignoutResponse, SignupResponse, SystemSigninRequest};
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -71,6 +72,7 @@ pub async fn create_auth_token(
         credentials,
         database,
         keyboxes,
+        applications,
         ..
     }): State<AppState>,
 
@@ -85,6 +87,10 @@ pub async fn create_auth_token(
             password,
         ),
     };
+
+    let ApplicationConfiguration { authentication, .. } = applications
+        .get_configuration(consts::SYSTEM_APPLICATION_UUID)
+        .await?;
 
     let succeed = {
         let cred = credentials
@@ -109,8 +115,8 @@ pub async fn create_auth_token(
             id,
             SignJwtOptions {
                 application_id: consts::SYSTEM_APPLICATION_UUID,
-                iss: consts::DEFAULT_JWT_ISSUER.into(),
-                aud: consts::DEFAULT_JWT_ISSUER.into(),
+                iss: authentication.issuer,
+                aud: authentication.audience,
             },
         )
         .await
@@ -238,10 +244,15 @@ pub async fn refresh_auth_token(
     State(AppState {
         revoked_jwt,
         keyboxes,
+        applications,
         ..
     }): State<AppState>,
 ) -> WithHeaderRestResult<Option<SigninResponse>> {
     let jti = auth.token.claims.jti;
+
+    let ApplicationConfiguration { authentication, .. } = applications
+        .get_configuration(consts::SYSTEM_APPLICATION_UUID)
+        .await?;
 
     if revoked_jwt.is_revoked(jti).await? {
         return Err(Error::with_code(
@@ -260,8 +271,9 @@ pub async fn refresh_auth_token(
             auth.token.claims.sub,
             SignJwtOptions {
                 application_id: consts::SYSTEM_APPLICATION_UUID,
-                iss: consts::DEFAULT_JWT_ISSUER.into(),
-                aud: consts::DEFAULT_JWT_ISSUER.into(),
+
+                iss: authentication.issuer,
+                aud: authentication.audience,
             },
         )
         .await

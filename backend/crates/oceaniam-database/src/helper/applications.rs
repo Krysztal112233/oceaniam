@@ -1,8 +1,9 @@
-use oceaniam_common::{PageParam, PagedResponse, error::Error};
+use axum::http::StatusCode;
+use oceaniam_common::{PageParam, PagedResponse, consts, error::Error};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter,
 };
-use serde_json::json;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
@@ -13,6 +14,7 @@ use crate::{
 #[derive(Debug, Default)]
 pub struct CreateApplicationOptions {
     pub comment: Option<String>,
+    pub configuration: ApplicationConfiguration,
 }
 
 #[async_trait::async_trait]
@@ -33,14 +35,16 @@ pub trait ApplicationHelper {
 
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::applications::Model, Error> {
-        let CreateApplicationOptions { comment } = opts;
-        let configuration = json!({});
+        let CreateApplicationOptions {
+            comment,
+            configuration,
+        } = opts;
 
         Ok(model::applications::Model {
             id,
             tenant_id,
             comment,
-            configuration,
+            configuration: serde_json::to_value(configuration)?,
         }
         .into_active_model()
         .insert(database)
@@ -83,6 +87,21 @@ pub trait ApplicationHelper {
             .await?)
     }
 
+    async fn get_application(
+        application_id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::applications::Model, Error> {
+        Applications::find_by_id(application_id)
+            .one(database)
+            .await
+            .map(|it| {
+                it.ok_or(Error::with_code(
+                    StatusCode::NOT_FOUND,
+                    format!("application_id={application_id} not found"),
+                ))
+            })?
+    }
+
     async fn delete_application(
         application_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -96,3 +115,29 @@ pub trait ApplicationHelper {
 }
 
 impl ApplicationHelper for Applications {}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ApplicationConfiguration {
+    pub authentication: AuthenticationConfiguration,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthenticationConfiguration {
+    pub issuer: String,
+    pub audience: Vec<String>,
+}
+
+impl Default for AuthenticationConfiguration {
+    fn default() -> Self {
+        Self {
+            issuer: consts::DEFAULT_JWT_ISSUER.to_owned(),
+            audience: Vec::new(),
+        }
+    }
+}
+
+impl From<model::applications::Model> for ApplicationConfiguration {
+    fn from(value: model::applications::Model) -> Self {
+        serde_json::from_value(value.configuration).unwrap()
+    }
+}

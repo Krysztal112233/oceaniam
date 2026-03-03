@@ -4,7 +4,7 @@ use axum::http::StatusCode;
 use log::{error, info};
 use moka::future::Cache;
 use oceaniam_common::{error::Error, helpers::gen_random_with_charset};
-use oceaniam_database::helper::applications::CreateApplicationOptions;
+use oceaniam_database::helper::applications::{ApplicationConfiguration, CreateApplicationOptions};
 use oceaniam_database::helper::users::{CreateUserOpts, CreateUserResult};
 use oceaniam_database::{
     helper::users::UserHelper, model::application_secrets::Model as SecretModel,
@@ -29,6 +29,8 @@ pub struct ManagedApplications {
     database: DatabaseConnection,
     secrets: Secrets,
     users: Cache<Uuid, ApplicationUsers>,
+
+    configurations: Cache<Uuid, ApplicationConfiguration>,
 
     /// This field are shared with global states.
     shared_credential_vaults: ManagedCredentialVaults,
@@ -58,6 +60,9 @@ impl ManagedApplications {
                 .time_to_idle(Duration::from_mins(30))
                 .build(),
             secrets: Secrets::new(database),
+            configurations: Cache::builder()
+                .time_to_idle(Duration::from_mins(30))
+                .build(),
 
             shared_credential_vaults: credential,
         }
@@ -116,13 +121,32 @@ impl ManagedApplications {
         let model = Applications::create_with_opts(
             Uuid::now_v7(),
             tenant_id,
-            CreateApplicationOptions { comment },
+            CreateApplicationOptions {
+                comment,
+                ..CreateApplicationOptions::default()
+            },
             &self.database,
         )
         .await
         .inspect_err(|e| error!("{e}"))?;
 
         Ok(model)
+    }
+
+    pub async fn get_configuration(
+        &self,
+        application_id: Uuid,
+    ) -> Result<ApplicationConfiguration, Error> {
+        Ok(self
+            .configurations
+            .try_get_with(application_id, async {
+                Ok(
+                    Applications::get_application(application_id, &self.database)
+                        .await?
+                        .into(),
+                )
+            })
+            .await?)
     }
 }
 

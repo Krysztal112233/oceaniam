@@ -43,7 +43,7 @@ pub struct Claim {
     /// Audience
     ///
     /// Token audience (optional), represents the intended recipient of the token
-    pub aud: Option<String>,
+    pub aud: Option<Vec<String>>,
 
     /// JWT ID
     ///
@@ -81,7 +81,7 @@ pub struct SystemClaim {
     /// Audience
     ///
     /// Token audience (optional), represents the intended recipient of the token
-    pub aud: Option<String>,
+    pub aud: Option<Vec<String>>,
 
     /// JWT ID
     ///
@@ -90,7 +90,7 @@ pub struct SystemClaim {
 }
 
 pub trait ClaimHelper: DeserializeOwned + Serialize + Clone {
-    fn new(sub: Uuid, ttl_seconds: i64, iss: Option<String>, aud: Option<String>) -> Self;
+    fn new(sub: Uuid, ttl_seconds: i64, iss: Option<String>, aud: Option<Vec<String>>) -> Self;
 
     fn jti(&self) -> Uuid;
 
@@ -108,7 +108,7 @@ pub trait ClaimHelper: DeserializeOwned + Serialize + Clone {
 }
 
 impl ClaimHelper for Claim {
-    fn new(sub: Uuid, ttl_seconds: i64, iss: Option<String>, aud: Option<String>) -> Self {
+    fn new(sub: Uuid, ttl_seconds: i64, iss: Option<String>, aud: Option<Vec<String>>) -> Self {
         let now = chrono::Utc::now().timestamp();
         Self {
             sub,
@@ -126,7 +126,7 @@ impl ClaimHelper for Claim {
 }
 
 impl ClaimHelper for SystemClaim {
-    fn new(sub: Uuid, ttl_seconds: i64, iss: Option<String>, aud: Option<String>) -> Self {
+    fn new(sub: Uuid, ttl_seconds: i64, iss: Option<String>, aud: Option<Vec<String>>) -> Self {
         let now = chrono::Utc::now().timestamp();
         Self {
             sub,
