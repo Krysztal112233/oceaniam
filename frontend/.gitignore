@@ -25,3 +25,6 @@ dist-ssr
 
 # Exclude vite
 .vite/
+
+# Generated SDK barrel file
+packages/sdk/src/types/index.ts

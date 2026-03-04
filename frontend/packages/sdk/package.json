@@ -8,17 +8,22 @@
     ],
     "exports": {
         ".": {
-            "types": "./dist/index.d.ts",
-            "default": "./dist/index.js"
+            "types": "./dist/index.d.mts",
+            "default": "./dist/index.mjs"
+        },
+        "./types": {
+            "types": "./dist/types/index.d.mts",
+            "default": "./dist/types/index.mjs"
         }
     },
     "scripts": {
-        "build": "tsc -p tsconfig.build.json",
-        "dev": "tsc -p tsconfig.build.json -w",
-        "clean": "rm -rf dist"
+        "gen:types-index": "node ./scripts/gen-types-index.mjs",
+        "build": "pnpm run clean && pnpm run gen:types-index && obuild",
+        "dev": "pnpm run gen:types-index && obuild --stub",
+        "clean": "rm -rf dist src/types/index.ts"
     },
     "devDependencies": {
+        "obuild": "0.4.27",
         "typescript": "~5.9.3"
     }
 }
-
