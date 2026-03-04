@@ -6,6 +6,7 @@ members = [
 	"crates/oceaniam-credential",
 	"crates/oceaniam-database",
 	"crates/oceaniam-export",
+	"crates/oceaniam-filter",
 	"crates/oceaniam-keybox",
 	"crates/oceaniam-vo",
 ]
@@ -38,6 +39,7 @@ names = { version = "0.14", default-features = false }
 num_cpus = "1.17"
 parking_lot = "0.12"
 rand = "0.8"
+rapidhash = "4.4"
 reqwest = { version = "0.13", features = ["json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -66,6 +68,7 @@ oceaniam-common = { path = "./crates/oceaniam-common/" }
 oceaniam-credential = { path = "./crates/oceaniam-credential/" }
 oceaniam-database = { path = "./crates/oceaniam-database/" }
 oceaniam-export = { path = "./crates/oceaniam-export/" }
+oceaniam-filter = { path = "./crates/oceaniam-filter/" }
 oceaniam-keybox = { path = "./crates/oceaniam-keybox/" }
 oceaniam-vo = { path = "./crates/oceaniam-vo/" }
 

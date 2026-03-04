@@ -2284,6 +2284,7 @@ dependencies = [
  "oceaniam-common",
  "oceaniam-credential",
  "oceaniam-database",
+ "oceaniam-filter",
  "oceaniam-keybox",
  "oceaniam-vo",
  "parking_lot",
@@ -2381,6 +2382,19 @@ dependencies = [
  "oceaniam-vo",
  "serde",
  "ts-rs",
+]
+
+[[package]]
+name = "oceaniam-filter"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "futures",
+ "itertools",
+ "oceaniam-common",
+ "parking_lot",
+ "rapidhash",
+ "xorf",
 ]
 
 [[package]]
@@ -2989,6 +3003,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f97cdb2a36ed4183de61b2f824cc45c9f1037f28afe0a322e9fff4c108b5aaa"
 dependencies = [
  "rand_core 0.6.4",
+]
+
+[[package]]
+name = "rapidhash"
+version = "4.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5e48930979c155e2f33aa36ab3119b5ee81332beb6482199a8ecd6029b80b59"
+dependencies = [
+ "rustversion",
 ]
 
 [[package]]

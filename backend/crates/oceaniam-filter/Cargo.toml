@@ -1,0 +1,14 @@
+[package]
+name = "oceaniam-filter"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+axum.workspace = true
+futures.workspace = true
+itertools.workspace = true
+parking_lot.workspace = true
+rapidhash.workspace = true
+xorf.workspace = true
+
+oceaniam-common.workspace = true

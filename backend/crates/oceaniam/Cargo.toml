@@ -38,5 +38,6 @@ migration.workspace = true
 oceaniam-common.workspace = true
 oceaniam-credential.workspace = true
 oceaniam-database.workspace = true
-oceaniam-vo.workspace = true
+oceaniam-filter.workspace = true
 oceaniam-keybox.workspace = true
+oceaniam-vo.workspace = true
