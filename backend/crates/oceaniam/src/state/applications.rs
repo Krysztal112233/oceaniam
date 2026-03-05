@@ -17,12 +17,12 @@ use oceaniam_database::{
         users::Model as UserModel,
     },
 };
-use oceaniam_filter::Filter;
 use oceaniam_vo::auth::AuthVO;
 use sea_orm::prelude::*;
 use uuid::Uuid;
 
 use crate::state::credentials::ManagedCredentialVaults;
+use crate::state::filters::ManagedFilters;
 
 /// TODO: In future, using [xorf] to detect does [Applications] existed in database for higher performance.
 #[derive(Debug, Clone)]
@@ -37,7 +37,7 @@ pub struct ManagedApplications<'a> {
     /// This field are shared with global states.
     shared_credential_vaults: ManagedCredentialVaults,
 
-    application_id_filter: Filter<'a>,
+    filters: ManagedFilters<'a>,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -58,23 +58,22 @@ impl From<AuthVO> for UserIdentifier {
 
 impl ManagedApplications<'_> {
     pub fn new<'a>(
+        filters: ManagedFilters<'a>,
         credential: ManagedCredentialVaults,
         database: DatabaseConnection,
     ) -> ManagedApplications<'a> {
-        let application_id_filter = Filter::new();
-
         ManagedApplications {
             database: database.clone(),
             users: Cache::builder()
                 .time_to_idle(Duration::from_mins(30))
                 .build(),
-            secrets: Secrets::new(application_id_filter.clone(), database),
+            secrets: Secrets::new(filters.clone(), database),
             configurations: Cache::builder()
                 .time_to_idle(Duration::from_mins(30))
                 .build(),
 
             shared_credential_vaults: credential,
-            application_id_filter,
+            filters,
         }
     }
 
@@ -112,10 +111,6 @@ impl ManagedApplications<'_> {
             .await
     }
 
-    pub fn secrets(&self) -> &Secrets<'_> {
-        &self.secrets
-    }
-
     pub async fn delete_application(&self, application_id: Uuid) -> Result<(), Error> {
         self.is_application_exist(application_id).await?;
 
@@ -125,6 +120,10 @@ impl ManagedApplications<'_> {
             .await
             .inspect_err(|e| error!("{e}"))
             .inspect(|_| info!("application deleted successfully: id={application_id}"))?;
+
+        self.filters.application_id_filter().mark();
+        self.filters.secret_filter().mark();
+        self.filters.secret_id_filter().mark();
 
         Ok(())
     }
@@ -145,6 +144,8 @@ impl ManagedApplications<'_> {
         )
         .await
         .inspect_err(|e| error!("{e}"))?;
+
+        self.filters.application_id_filter().mark();
 
         Ok(model)
     }
@@ -168,7 +169,7 @@ impl ManagedApplications<'_> {
     }
 
     async fn is_application_exist(&self, application_id: Uuid) -> Result<(), Error> {
-        if self.application_id_filter.exists(&application_id) {
+        if self.filters.application_id_filter().exists(&application_id) {
             Ok(())
         } else {
             Err(Error::with_code(
@@ -176,6 +177,12 @@ impl ManagedApplications<'_> {
                 format!("application_id={application_id} doesn't exist"),
             ))
         }
+    }
+}
+
+impl<'a> ManagedApplications<'a> {
+    pub fn secrets(&self) -> &Secrets<'a> {
+        &self.secrets
     }
 }
 
@@ -292,14 +299,11 @@ pub struct Secrets<'a> {
 
     belong: Cache<String, Uuid>,
 
-    secret_id_filter: Filter<'a>,
-    secret_filter: Filter<'a>,
-    /// This fied are shared from [`ManagedApplications`]
-    application_id_filter: Filter<'a>,
+    filters: ManagedFilters<'a>,
 }
 
 impl Secrets<'_> {
-    pub fn new<'a>(application_id_filter: Filter<'a>, database: DatabaseConnection) -> Secrets<'a> {
+    pub fn new<'a>(filters: ManagedFilters<'a>, database: DatabaseConnection) -> Secrets<'a> {
         Secrets {
             database,
             secrets: Cache::builder()
@@ -309,9 +313,7 @@ impl Secrets<'_> {
                 .time_to_live(Duration::from_mins(5))
                 .build(),
 
-            secret_id_filter: Filter::new(),
-            secret_filter: Filter::new(),
-            application_id_filter,
+            filters,
         }
     }
 
@@ -325,6 +327,9 @@ impl Secrets<'_> {
         .await?;
 
         self.refresh(application_id).await?;
+
+        self.filters.secret_filter().mark();
+        self.filters.secret_id_filter().mark();
 
         Ok(model)
     }
@@ -382,11 +387,14 @@ impl Secrets<'_> {
 
         self.refresh(application_id).await?;
 
+        self.filters.secret_id_filter().mark();
+        self.filters.secret_filter().mark();
+
         Ok(())
     }
 
     async fn is_secret_id_exist(&self, secret_id: Uuid) -> Result<(), Error> {
-        if self.secret_id_filter.exists(&secret_id) {
+        if self.filters.secret_id_filter().exists(&secret_id) {
             Ok(())
         } else {
             Err(Error::with_code(
@@ -399,7 +407,7 @@ impl Secrets<'_> {
     async fn is_secret_exist(&self, secret: impl Into<String>) -> Result<(), Error> {
         let secret = secret.into();
 
-        if self.secret_filter.exists(&secret) {
+        if self.filters.secret_filter().exists(&secret) {
             Ok(())
         } else {
             Err(Error::with_code(
@@ -410,7 +418,7 @@ impl Secrets<'_> {
     }
 
     async fn is_application_exist(&self, application_id: Uuid) -> Result<(), Error> {
-        if self.application_id_filter.exists(&application_id) {
+        if self.filters.application_id_filter().exists(&application_id) {
             Ok(())
         } else {
             Err(Error::with_code(

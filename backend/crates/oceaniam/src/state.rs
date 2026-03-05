@@ -1,6 +1,7 @@
 use crate::state::{
     applications::ManagedApplications, credentials::ManagedCredentialVaults,
-    keybox::ManagedKeyBoxes, revoked::RevokedJwt, roller::BuiltinScheduledJwkSetRoller,
+    filters::ManagedFilters, keybox::ManagedKeyBoxes, revoked::RevokedJwt,
+    roller::BuiltinScheduledJwkSetRoller,
 };
 
 use axum::extract::FromRef;
@@ -19,6 +20,7 @@ use uuid::Uuid;
 
 pub mod applications;
 pub mod credentials;
+pub mod filters;
 pub mod keybox;
 pub mod revoked;
 pub mod roller;
@@ -46,16 +48,19 @@ pub struct AppState<'a> {
     /// Application relative actions
     pub applications: ManagedApplications<'a>,
 
+    pub filters: ManagedFilters<'a>,
+
     pub _unit: (),
 }
 
-impl AppState<'_> {
+impl AppState<'static> {
     pub async fn new(database: DatabaseConnection) -> Result<Self, Error> {
         let keybox = ManagedKeyBoxes::new(database.clone());
 
         initial_system_keybox(keybox.clone(), &database).await?;
 
         let credentials = ManagedCredentialVaults::new(database.clone());
+        let filters = ManagedFilters::new(database.clone());
         Ok(Self {
             database: database.clone(),
             keyboxes: keybox,
@@ -79,7 +84,9 @@ impl AppState<'_> {
             revoked_jwt: RevokedJwt::new(database.clone()),
             credentials: credentials.clone(),
 
-            applications: ManagedApplications::new(credentials, database),
+            applications: ManagedApplications::new(filters.clone(), credentials, database),
+
+            filters,
 
             _unit: (),
         })

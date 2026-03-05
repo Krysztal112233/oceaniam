@@ -2,6 +2,7 @@ use axum::http::StatusCode;
 use oceaniam_common::{PageParam, PagedResponse, consts, error::Error};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter,
+    QuerySelect,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -83,6 +84,20 @@ pub trait ApplicationHelper {
 
         Ok(Applications::find()
             .filter(TenantId.eq(tenant_id))
+            .all(database)
+            .await?)
+    }
+
+    async fn get_all_application_ids(
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<Vec<Uuid>, Error> {
+        use crate::model::applications::Column::*;
+
+        Ok(Applications::find()
+            .select_only()
+            .column(Id)
+            .distinct()
+            .into_tuple::<Uuid>()
             .all(database)
             .await?)
     }

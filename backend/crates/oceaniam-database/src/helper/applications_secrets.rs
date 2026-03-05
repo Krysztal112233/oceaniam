@@ -4,7 +4,7 @@ use oceaniam_common::error::Error;
 use oceaniam_common::{PageParam, PagedResponse};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, PaginatorTrait,
-    QueryFilter,
+    QueryFilter, QuerySelect,
 };
 use uuid::Uuid;
 
@@ -109,6 +109,34 @@ pub trait ApplicationSecretsHelper {
             .await?;
 
         Ok(())
+    }
+
+    async fn get_all_secret_ids(
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<Vec<Uuid>, Error> {
+        use model::application_secrets::Column::*;
+
+        Ok(ApplicationSecrets::find()
+            .select_only()
+            .column(Id)
+            .distinct()
+            .into_tuple::<Uuid>()
+            .all(database)
+            .await?)
+    }
+
+    async fn get_all_secrets(
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<Vec<String>, Error> {
+        use model::application_secrets::Column::*;
+
+        Ok(ApplicationSecrets::find()
+            .select_only()
+            .column(Secret)
+            .distinct()
+            .into_tuple::<String>()
+            .all(database)
+            .await?)
     }
 }
 
