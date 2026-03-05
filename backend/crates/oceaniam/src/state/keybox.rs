@@ -2,7 +2,6 @@ use std::time::Duration;
 
 use axum::http::StatusCode;
 use jsonwebtoken::Header;
-use log::{debug, error};
 use moka::future::{Cache, CacheBuilder};
 use oceaniam_common::{
     error::Error,
@@ -19,6 +18,7 @@ use oceaniam_database::{
 use oceaniam_keybox::{KeyBox, key::rsa_key::RsaKey, keybox::KeyOption};
 use sea_orm::DatabaseConnection;
 use tap::Tap;
+use tracing::{debug, error};
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]

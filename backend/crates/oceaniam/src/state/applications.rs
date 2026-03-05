@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use axum::http::StatusCode;
-use log::{error, info};
 use moka::future::Cache;
 use oceaniam_common::{error::Error, helpers::gen_random_with_charset};
 use oceaniam_database::helper::applications::{ApplicationConfiguration, CreateApplicationOptions};
@@ -19,6 +18,7 @@ use oceaniam_database::{
 };
 use oceaniam_vo::auth::AuthVO;
 use sea_orm::prelude::*;
+use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::state::credentials::ManagedCredentialVaults;

@@ -14,7 +14,6 @@ use axum::{
 use axum_extra::extract::cookie::Cookie;
 use axum_valid::Garde;
 use chrono::Utc;
-use log::{error, info, warn};
 use oceaniam_common::{
     ApiResponse, ApiResponseWithHeader, Empty, ErrorResponse, PageParam, PagedResponse, RestResult,
     WithHeaderRestResult, consts,
@@ -39,6 +38,7 @@ use oceaniam_vo::{
     },
     auth::{AuthVO, SigninResponse, SignoutResponse},
 };
+use tracing::{error, info, warn};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
@@ -88,7 +88,14 @@ pub async fn get_applications(
     Query(GetApplicationParam { tenant_id, page }): Query<GetApplicationParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> RestResult<PagedResponse<ApplicationVO>> {
-    info!("getting applications for tenant_id={tenant_id}");
+    let span = tracing::info_span!(
+        "applications.list",
+        tenant_id = %tenant_id,
+        has_pagination = page.is_some()
+    );
+    let _guard = span.enter();
+
+    info!(tenant_id = %tenant_id, "getting applications");
 
     let PagedResponse { items, page_info } = match page {
         Some(page) => {
@@ -141,7 +148,15 @@ pub async fn create_application(
         .create_application(tenant_id.try_into()?, comment)
         .await?;
 
-    info!("application created successfully: id={id}");
+    let span =
+        tracing::info_span!("applications.create", tenant_id = %tenant_id, application_id = %id);
+    let _guard = span.enter();
+
+    info!(
+        tenant_id = %tenant_id,
+        application_id = %id,
+        "application created successfully"
+    );
 
     keyboxes
         .create_keybox(
@@ -154,7 +169,11 @@ pub async fn create_application(
         )
         .await?;
 
-    info!("default keybox of application created successfully: id={id}");
+    info!(
+        tenant_id = %tenant_id,
+        application_id = %id,
+        "default keybox of application created successfully"
+    );
 
     Ok(ApiResponse::new(CreateApplicationResponse {
         tenant_id: tenant_id.into(),
@@ -238,18 +257,34 @@ pub async fn get_application_users(
     let operator_id = auth.token.claims.sub;
 
     let application_id = application_id.try_into()?;
+    let span = tracing::info_span!(
+        "application_users.list",
+        operator_id = %operator_id,
+        application_id = %application_id
+    );
+    let _guard = span.enter();
 
     let PagedResponse { items, page_info } = match page {
         Some(page) => Users::get_users(application_id, page, &database)
             .await
             .inspect_err(|e| {
-                error!("user list query failed: operator_id={operator_id}, error={e}",)
+                error!(
+                    operator_id = %operator_id,
+                    application_id = %application_id,
+                    error = %e,
+                    "user list query failed"
+                )
             })?,
         None => PagedResponse::with_entire(
             Users::get_all_users(application_id, &database)
                 .await
                 .inspect_err(|e| {
-                    error!("user list query failed: operator_id={operator_id}, error={e}",)
+                    error!(
+                        operator_id = %operator_id,
+                        application_id = %application_id,
+                        error = %e,
+                        "user list query failed"
+                    )
                 })?,
         ),
     };
@@ -440,28 +475,45 @@ pub async fn legacy_delete_application_auth_token(
     // TODO: might need more security...?
     let jti = auth.token.claims.jti;
     let user_id = auth.token.claims.sub;
-    let app_id: Uuid = application_id
-        .try_into()
-        .inspect_err(|e| error!("failed to convert application_id: error={}", e))?;
+    let app_id: Uuid = application_id.try_into().inspect_err(|e| {
+        error!(
+            user_id = %user_id,
+            jti = %jti,
+            error = %e,
+            "failed to convert application_id"
+        )
+    })?;
+
+    let span = tracing::info_span!(
+        "application_auth.signout_legacy",
+        user_id = %user_id,
+        application_id = %app_id,
+        jti = %jti
+    );
+    let _guard = span.enter();
 
     info!(
-        "legacy signout requested: user_id={}, application_id={}, jti={}",
-        user_id, app_id, jti
+        user_id = %user_id,
+        application_id = %app_id,
+        jti = %jti,
+        "legacy signout requested"
     );
 
-    revoked_jwt
-        .set_revoked(jti)
-        .await
-        .inspect_err(|e| {
-            error!(
-                "failed to revoke jwt during legacy signout: user_id={}, application_id={}, jti={}, error={}",
-                user_id, app_id, jti, e
-            )
-        })?;
+    revoked_jwt.set_revoked(jti).await.inspect_err(|e| {
+        error!(
+            user_id = %user_id,
+            application_id = %app_id,
+            jti = %jti,
+            error = %e,
+            "failed to revoke jwt during legacy signout"
+        )
+    })?;
 
     info!(
-        "legacy signout successful: user_id={}, application_id={}, jti={}",
-        user_id, app_id, jti
+        user_id = %user_id,
+        application_id = %app_id,
+        jti = %jti,
+        "legacy signout successful"
     );
 
     Ok(ApiResponse::new(SignoutResponse::default()))
@@ -519,22 +571,40 @@ pub async fn legacy_refresh_application_auth_token(
 ) -> WithHeaderRestResult<Option<SigninResponse>> {
     let jti = auth.token.claims.jti;
     let user_id = auth.token.claims.sub;
-    let application_id: Uuid = application_id
-        .try_into()
-        .inspect_err(|e| error!("failed to convert application_id: error={}", e))?;
+    let application_id: Uuid = application_id.try_into().inspect_err(|e| {
+        error!(
+            user_id = %user_id,
+            old_jti = %jti,
+            error = %e,
+            "failed to convert application_id"
+        )
+    })?;
+
+    let span = tracing::info_span!(
+        "application_auth.refresh_legacy",
+        user_id = %user_id,
+        application_id = %application_id,
+        old_jti = %jti,
+        token_dispatch = ?token_mtd
+    );
+    let _guard = span.enter();
 
     let ApplicationConfiguration { authentication } =
         applications.get_configuration(application_id).await?;
 
     info!(
-        "legacy token refresh requested: user_id={}, application_id={}, old_jti={}",
-        user_id, application_id, jti
+        user_id = %user_id,
+        application_id = %application_id,
+        old_jti = %jti,
+        "legacy token refresh requested"
     );
 
     if revoked_jwt.is_revoked(jti).await? {
         warn!(
-            "token refresh rejected - jwt already revoked: user_id={}, application_id={}, jti={}",
-            user_id, application_id, jti
+            user_id = %user_id,
+            application_id = %application_id,
+            old_jti = %jti,
+            "token refresh rejected: jwt already revoked"
         );
         return Err(Error::with_code(
             StatusCode::BAD_REQUEST,
@@ -542,19 +612,21 @@ pub async fn legacy_refresh_application_auth_token(
         ));
     }
 
-    revoked_jwt
-        .set_revoked(jti)
-        .await
-        .inspect_err(|e| {
-            error!(
-                "failed to revoke old jwt during refresh: user_id={}, application_id={}, old_jti={}, error={}",
-                user_id, application_id, jti, e
-            )
-        })?;
+    revoked_jwt.set_revoked(jti).await.inspect_err(|e| {
+        error!(
+            user_id = %user_id,
+            application_id = %application_id,
+            old_jti = %jti,
+            error = %e,
+            "failed to revoke old jwt during refresh"
+        )
+    })?;
 
     info!(
-        "old jwt revoked successfully during refresh: user_id={}, application_id={}, old_jti={}",
-        user_id, application_id, jti
+        user_id = %user_id,
+        application_id = %application_id,
+        old_jti = %jti,
+        "old jwt revoked successfully during refresh"
     );
 
     let jwt = keyboxes
@@ -569,14 +641,19 @@ pub async fn legacy_refresh_application_auth_token(
         .await
         .inspect_err(|e| {
             error!(
-                "failed to sign new jwt during refresh: user_id={}, application_id={}, old_jti={}, error={}",
-                user_id, application_id, jti, e
+                user_id = %user_id,
+                application_id = %application_id,
+                old_jti = %jti,
+                error = %e,
+                "failed to sign new jwt during refresh"
             )
         })?;
 
     info!(
-        "legacy token refresh successful: user_id={}, application_id={}, old_jti={}",
-        user_id, application_id, jti
+        user_id = %user_id,
+        application_id = %application_id,
+        old_jti = %jti,
+        "legacy token refresh successful"
     );
 
     let cookie = Cookie::new("auth_token", jwt.clone());
@@ -654,12 +731,12 @@ pub async fn get_application_secrets(
 ) -> RestResult<Vec<SecretVO>> {
     let application_id: uuid::Uuid = application_id
         .try_into()
-        .inspect_err(|e| error!("failed to convert application_id: error={}", e))?;
+        .inspect_err(|e| error!(error = %e, "failed to convert application_id"))?;
 
-    info!(
-        "fetching application secrets: application_id={}",
-        application_id
-    );
+    let span = tracing::info_span!("application_secrets.list", application_id = %application_id);
+    let _guard = span.enter();
+
+    info!(application_id = %application_id, "fetching application secrets");
 
     let secrets = applications
         .secrets()
@@ -667,15 +744,16 @@ pub async fn get_application_secrets(
         .await
         .inspect_err(|e| {
             error!(
-                "failed to fetch application secrets: application_id={}, error={}",
-                application_id, e
+                application_id = %application_id,
+                error = %e,
+                "failed to fetch application secrets"
             );
         })?;
 
     info!(
-        "application secrets fetched successfully: application_id={}, count={}",
-        application_id,
-        secrets.len()
+        application_id = %application_id,
+        count = secrets.len(),
+        "application secrets fetched successfully"
     );
 
     // Return masked version
@@ -767,7 +845,7 @@ mod spec_middlewares {
         extract::FromRequestParts,
         http::{StatusCode, request::Parts},
     };
-    use log::warn;
+    use tracing::warn;
     use uuid::Uuid;
 
     use oceaniam_common::types::sqid::Sqid;
@@ -821,8 +899,9 @@ mod spec_middlewares {
             // Verify the secret belongs to the requested application
             if !secret.is_matched(application_id) {
                 warn!(
-                    "application authorization failed: secret belongs to application {} but tried to access {}",
-                    secret.of_application, application_id
+                    secret_application_id = %secret.of_application,
+                    requested_application_id = %application_id,
+                    "application authorization failed: secret belongs to different application"
                 );
                 return Err(StatusCode::FORBIDDEN);
             }

@@ -5,9 +5,9 @@ use axum::{
     http::{HeaderMap, StatusCode, header, request::Parts},
 };
 use jsonwebtoken::{DecodingKey, Header, TokenData, Validation, decode, decode_header};
-use log::error;
 use oceaniam_common::{error::Error, jwks::JwkSet, jwt::ClaimHelper};
 use serde::{Serialize, de::DeserializeOwned};
+use tracing::error;
 
 use crate::state::AppState;
 
@@ -25,9 +25,12 @@ pub async fn validate<C>(
 where
     C: Serialize + DeserializeOwned,
 {
+    // NOTE: We have already proved that `kid` must exist.
+    let kid = header.kid.as_ref().unwrap();
+    let span = tracing::debug_span!("jwt.validate", kid = %kid);
+    let _guard = span.enter();
+
     let key = {
-        // NOTE: We have already proved that `kid` must exist.
-        let kid = header.kid.as_ref().unwrap();
         let tmp = jsonwebtoken::jwk::JwkSet::from(jwks);
         let Some(jwk) = tmp.find(kid) else {
             return Err(Error::with_code(
@@ -36,11 +39,17 @@ where
             ));
         };
 
-        DecodingKey::from_jwk(jwk)
-            .inspect_err(|e| error!("failed to create decoding key from jwk: {}", e))?
+        DecodingKey::from_jwk(jwk).inspect_err(|e| {
+            error!(
+                kid = %kid,
+                error = %e,
+                "failed to create decoding key from jwk"
+            )
+        })?
     };
 
-    Ok(decode(token, &key, validation).inspect_err(|e| error!("failed to decode token: {}", e))?)
+    Ok(decode(token, &key, validation)
+        .inspect_err(|e| error!(kid = %kid, error = %e, "failed to decode token"))?)
 }
 
 impl<C> FromRequestParts<AppState<'_>> for RequireAuth<C>
@@ -88,11 +97,13 @@ where
         };
 
         let jti = token.claims.jti();
-        if let Ok(true) = revoked_jwt
-            .is_revoked(jti)
-            .await
-            .inspect_err(|e| error!("jwt with jti({jti}) has been revoked or database failed: {e}"))
-        {
+        if let Ok(true) = revoked_jwt.is_revoked(jti).await.inspect_err(|e| {
+            error!(
+                jti = %jti,
+                error = %e,
+                "failed to check jwt revocation or database failed"
+            )
+        }) {
             return Err(StatusCode::BAD_REQUEST);
         }
 

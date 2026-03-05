@@ -3,9 +3,9 @@
 use std::time::Duration;
 
 use chrono::Utc;
-use log::{debug, error};
 use oceaniam_common::{consts, error::Error};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use tracing::{debug, error};
 use uuid::Uuid;
 
 use crate::{

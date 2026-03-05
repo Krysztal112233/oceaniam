@@ -16,7 +16,6 @@ futures.workspace = true
 im.workspace = true
 itertools.workspace = true
 jsonwebtoken.workspace = true
-log.workspace = true
 mimalloc.workspace = true
 moka.workspace = true
 parking_lot.workspace = true

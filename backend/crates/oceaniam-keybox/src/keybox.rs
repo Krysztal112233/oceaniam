@@ -1,7 +1,6 @@
 use chrono::{DateTime, FixedOffset, Utc};
 use im::HashMap;
 use itertools::Itertools;
-use log::error;
 use oceaniam_common::{consts, error::Error};
 use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, key_boxes::KeyBoxesHelper},
@@ -13,6 +12,7 @@ use oceaniam_database::{
 };
 use sea_orm::IntoActiveModel;
 use serde_json::Value;
+use tracing::error;
 use uuid::Uuid;
 
 use crate::{

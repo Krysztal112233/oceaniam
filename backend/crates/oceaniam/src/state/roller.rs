@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use log::error;
 use oceaniam_common::{
     consts,
     error::Error,
@@ -9,6 +8,7 @@ use oceaniam_common::{
 use oceaniam_database::{helper::key_boxes::KeyBoxesHelper, model::prelude::KeyBoxes};
 use oceaniam_keybox::KeyBox;
 use sea_orm::DatabaseConnection;
+use tracing::error;
 
 #[derive(Debug)]
 pub struct BuiltinScheduledJwkSetRoller {

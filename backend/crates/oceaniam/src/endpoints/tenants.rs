@@ -6,12 +6,12 @@ use axum::{
     Json,
     extract::{Path, Query, State},
 };
-use log::{error, warn};
 use oceaniam_common::{
     ApiResponse, Empty, PagedResponse, RestResult, jwt::SystemClaim, types::sqid::Sqid,
 };
 use oceaniam_database::{helper::tenants::TenantsHelper, model::prelude::*};
 use oceaniam_vo::tenants::{CreateTenantRequest, GetTenantsRequest, TenantVO};
+use tracing::{error, warn};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
@@ -46,16 +46,18 @@ pub async fn get_tenants(
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> RestResult<PagedResponse<TenantVO>> {
     let operator_id = auth.token.claims.sub;
+    let span = tracing::info_span!("tenants.list", operator_id = %operator_id);
+    let _guard = span.enter();
 
-    let PagedResponse { items, page_info } = Tenants::get_tenants(page, &database)
-        .await
-        .inspect_err(|e| {
-            error!("tenant list query failed: operator_id={operator_id}, error={e}",)
-        })?;
+    let PagedResponse { items, page_info } =
+        Tenants::get_tenants(page, &database).await.inspect_err(
+            |e| error!(operator_id = %operator_id, error = %e, "tenant list query failed"),
+        )?;
 
     warn!(
-        "tenant list queried successfully: operator_id={operator_id}, count={}",
-        items.len()
+        operator_id = %operator_id,
+        count = items.len(),
+        "tenant list queried successfully"
     );
 
     Ok(ApiResponse::new(PagedResponse {
@@ -88,13 +90,21 @@ pub async fn get_tenant(
 ) -> RestResult<TenantVO> {
     let operator_id = auth.token.claims.sub;
     let uuid = tenant_id.try_into()?;
+    let span = tracing::info_span!(
+        "tenants.get",
+        operator_id = %operator_id,
+        tenant_id = %uuid
+    );
+    let _guard = span.enter();
 
     let result = Tenants::get_tenant(uuid, &database)
         .await
         .inspect_err(|e| {
             error!(
-                "tenant query failed: tenant_id={}, operator_id={}, error={}",
-                uuid, operator_id, e
+                tenant_id = %uuid,
+                operator_id = %operator_id,
+                error = %e,
+                "tenant query failed"
             )
         })?;
 
@@ -126,14 +136,29 @@ pub async fn create_tenant(
 ) -> RestResult<TenantVO> {
     let operator_id = auth.token.claims.sub;
     let tenant_id = Uuid::now_v7();
+    let span = tracing::info_span!(
+        "tenants.create",
+        operator_id = %operator_id,
+        tenant_id = %tenant_id
+    );
+    let _guard = span.enter();
 
     let model = Tenants::create_tenant(tenant_id, comment, &database)
         .await
         .inspect_err(|e| {
-            warn!("tenant creation failed: tenant_id={tenant_id}, operator_id={operator_id}, error={e}")
+            warn!(
+                tenant_id = %tenant_id,
+                operator_id = %operator_id,
+                error = %e,
+                "tenant creation failed"
+            )
         })?;
 
-    warn!("tenant created successfully: tenant_id={tenant_id}, operator_id={operator_id}",);
+    warn!(
+        tenant_id = %tenant_id,
+        operator_id = %operator_id,
+        "tenant created successfully"
+    );
 
     Ok(ApiResponse::new(model.into()))
 }
@@ -159,19 +184,28 @@ pub async fn delete_tenant(
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> RestResult<()> {
     let operator_id = auth.token.claims.sub;
+    let span = tracing::info_span!(
+        "tenants.delete",
+        operator_id = %operator_id,
+        tenant_id = %tenant_id
+    );
+    let _guard = span.enter();
 
     Tenants::delete_tenant(tenant_id, &database)
         .await
         .inspect_err(|e| {
             error!(
-                "tenant deletion failed: tenant_id={}, operator_id={}, error={}",
-                tenant_id, operator_id, e
+                tenant_id = %tenant_id,
+                operator_id = %operator_id,
+                error = %e,
+                "tenant deletion failed"
             )
         })?;
 
     warn!(
-        "tenant deleted successfully: tenant_id={}, operator_id={}",
-        tenant_id, operator_id
+        tenant_id = %tenant_id,
+        operator_id = %operator_id,
+        "tenant deleted successfully"
     );
 
     Ok(ApiResponse::new(()))

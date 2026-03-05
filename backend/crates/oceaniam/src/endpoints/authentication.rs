@@ -16,7 +16,6 @@
 
 use axum::{Json, extract::State, http::StatusCode};
 use axum_extra::extract::cookie::Cookie;
-use log::error;
 use oceaniam_common::{
     ApiResponse, ApiResponseWithHeader, ErrorResponse, RestResult, WithHeaderRestResult, consts,
     error::Error, jwt::SystemClaim,
@@ -27,6 +26,7 @@ use oceaniam_database::{
     model::prelude::Administrators,
 };
 use oceaniam_vo::auth::{SigninResponse, SignoutResponse, SignupResponse, SystemSigninRequest};
+use tracing::error;
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::{
@@ -66,7 +66,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
         ),
     )]
 pub async fn create_auth_token(
-    _mtd: middlewares::auth::TokenDispatchMethod,
+    token_mtd: middlewares::auth::TokenDispatchMethod,
 
     State(AppState {
         credentials,
@@ -82,11 +82,19 @@ pub async fn create_auth_token(
         SystemSigninRequest::Name { name, password } => (
             Administrators::get_by_name(name, &database)
                 .await
-                .inspect_err(|e| error!("failed to get administrator by name: {}", e))?
+                .inspect_err(|e| error!(error = %e, "failed to get administrator by name"))?
                 .id,
             password,
         ),
     };
+
+    let span = tracing::info_span!(
+        "auth.signin",
+        application_id = %consts::SYSTEM_APPLICATION_UUID,
+        admin_id = %id,
+        token_dispatch = ?token_mtd
+    );
+    let _guard = span.enter();
 
     let ApplicationConfiguration { authentication, .. } = applications
         .get_configuration(consts::SYSTEM_APPLICATION_UUID)
@@ -96,11 +104,11 @@ pub async fn create_auth_token(
         let cred = credentials
             .get_credential(id)
             .await
-            .inspect_err(|e| error!("failed to get credential: {}", e))?;
+            .inspect_err(|e| error!(admin_id = %id, error = %e, "failed to get credential"))?;
         credential::Password::from(cred)
             .verify(password)
             .await
-            .inspect_err(|e| error!("failed to verify password: {}", e))?
+            .inspect_err(|e| error!(admin_id = %id, error = %e, "failed to verify password"))?
     };
 
     if !succeed {
@@ -120,7 +128,7 @@ pub async fn create_auth_token(
             },
         )
         .await
-        .inspect_err(|e| error!("failed to sign jwt: {}", e))?;
+        .inspect_err(|e| error!(admin_id = %id, error = %e, "failed to sign jwt"))?;
 
     Ok(ApiResponse::new(SigninResponse { jwt }))
 }
@@ -153,10 +161,24 @@ pub async fn delete_auth_token(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
     State(AppState { revoked_jwt, .. }): State<AppState<'_>>,
 ) -> RestResult<SignoutResponse> {
+    let span = tracing::info_span!(
+        "auth.signout",
+        sub = %auth.token.claims.sub,
+        jti = %auth.token.claims.jti
+    );
+    let _guard = span.enter();
+
     revoked_jwt
         .set_revoked(auth.token.claims.jti)
         .await
-        .inspect_err(|e| error!("{e}"))?;
+        .inspect_err(|e| {
+            error!(
+                sub = %auth.token.claims.sub,
+                jti = %auth.token.claims.jti,
+                error = %e,
+                "failed to revoke jwt"
+            )
+        })?;
 
     Ok(ApiResponse::new(SignoutResponse::default()))
 }
@@ -250,6 +272,14 @@ pub async fn refresh_auth_token(
 ) -> WithHeaderRestResult<Option<SigninResponse>> {
     let jti = auth.token.claims.jti;
 
+    let span = tracing::info_span!(
+        "auth.refresh",
+        sub = %auth.token.claims.sub,
+        old_jti = %jti,
+        token_dispatch = ?token_mtd
+    );
+    let _guard = span.enter();
+
     let ApplicationConfiguration { authentication, .. } = applications
         .get_configuration(consts::SYSTEM_APPLICATION_UUID)
         .await?;
@@ -261,10 +291,14 @@ pub async fn refresh_auth_token(
         ));
     }
 
-    revoked_jwt
-        .set_revoked(jti)
-        .await
-        .inspect_err(|e| error!("failed to revoke jwt: {}", e))?;
+    revoked_jwt.set_revoked(jti).await.inspect_err(|e| {
+        error!(
+            sub = %auth.token.claims.sub,
+            jti = %jti,
+            error = %e,
+            "failed to revoke jwt"
+        )
+    })?;
 
     let jwt = keyboxes
         .sign_jwt::<SystemClaim>(
@@ -277,7 +311,14 @@ pub async fn refresh_auth_token(
             },
         )
         .await
-        .inspect_err(|e| error!("failed to sign new jwt: {}", e))?;
+        .inspect_err(|e| {
+            error!(
+                sub = %auth.token.claims.sub,
+                old_jti = %jti,
+                error = %e,
+                "failed to sign refreshed jwt"
+            )
+        })?;
 
     let cookie = Cookie::new("auth_token", jwt.clone());
     let resp = ApiResponseWithHeader::new(Some(SigninResponse { jwt }));

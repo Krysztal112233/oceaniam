@@ -5,8 +5,8 @@ edition.workspace = true
 
 [dependencies]
 async-trait.workspace = true
-axum.workspace = true
 axum-extra = { workspace = true, features = ["cookie"] }
+axum.workspace = true
 chrono.workspace = true
 config.workspace = true
 garde.workspace = true
@@ -26,6 +26,7 @@ sqids.workspace = true
 tap.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
+tracing.workspace = true
 ts-rs.workspace = true
 utoipa.workspace = true
 uuid.workspace = true

@@ -1,10 +1,10 @@
-use log::error;
 use oceaniam_database::{
     helper::SafeTransactionConnectionTrait,
     model::{self, prelude::Credentials},
 };
 use sea_orm::{EntityTrait, IntoActiveModel};
 use serde::{Deserialize, Serialize};
+use tracing::error;
 use uuid::Uuid;
 
 use crate::{credential::Password, error::Error};

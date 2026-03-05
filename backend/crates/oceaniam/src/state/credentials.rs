@@ -1,12 +1,12 @@
 use std::{sync::Arc, time::Duration};
 
 use axum::http::StatusCode;
-use log::error;
 use moka::future::{Cache, CacheBuilder};
 use oceaniam_common::error::Error;
 use oceaniam_credential::CredentialVault;
 use oceaniam_database::model::{self, prelude::Credentials};
 use sea_orm::{DatabaseConnection, EntityTrait};
+use tracing::error;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]

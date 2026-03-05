@@ -8,7 +8,6 @@ use std::{
     time::Duration,
 };
 
-use log::error;
 use oceaniam_common::error::Error;
 use oceaniam_database::{
     helper::{applications::ApplicationHelper, applications_secrets::ApplicationSecretsHelper},
@@ -16,6 +15,7 @@ use oceaniam_database::{
 };
 use oceaniam_filter::Filter;
 use sea_orm::DatabaseConnection;
+use tracing::{debug, error};
 
 type RefreshFuture = Pin<Box<dyn Future<Output = Result<(), Error>> + Send + 'static>>;
 type RefreshFn<'a> = Arc<dyn Fn(Filter<'a>) -> RefreshFuture + Send + Sync + 'static>;
@@ -135,6 +135,12 @@ impl ManagedFilters<'_> {
                 Box::pin(async move {
                     let keys = Applications::get_all_application_ids(&database).await?;
                     filter.replace_from(&keys).await?;
+
+                    debug!(
+                        len=%keys.len(),
+                        "refreshed application_id_filter"
+                    );
+
                     Ok(())
                 })
             })
@@ -147,6 +153,12 @@ impl ManagedFilters<'_> {
                 Box::pin(async move {
                     let keys = ApplicationSecrets::get_all_secret_ids(&database).await?;
                     filter.replace_from(&keys).await?;
+
+                    debug!(
+                        len=%keys.len(),
+                        "refreshed applications_secret_ids"
+                    );
+
                     Ok(())
                 })
             })
@@ -159,6 +171,12 @@ impl ManagedFilters<'_> {
                 Box::pin(async move {
                     let keys = ApplicationSecrets::get_all_secrets(&database).await?;
                     filter.replace_from(&keys).await?;
+
+                    debug!(
+                        len=%keys.len(),
+                        "refreshed applications_secrets"
+                    );
+
                     Ok(())
                 })
             })

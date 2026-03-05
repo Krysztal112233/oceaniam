@@ -2,7 +2,7 @@ use axum::{
     extract::FromRequestParts,
     http::{StatusCode, request::Parts},
 };
-use log::warn;
+use tracing::warn;
 use uuid::Uuid;
 
 use crate::state::AppState;
@@ -26,6 +26,10 @@ impl FromRequestParts<AppState<'_>> for RequireApplicationSecret {
         parts: &mut Parts,
         AppState { applications, .. }: &AppState<'_>,
     ) -> Result<Self, Self::Rejection> {
+        let header_present = parts.headers.contains_key("X-OceanIAM-Application-Secret");
+        let span = tracing::debug_span!("app_secret.extract", header_present);
+        let _guard = span.enter();
+
         let secret = parts
             .headers
             .get("X-OceanIAM-Application-Secret")
@@ -33,7 +37,8 @@ impl FromRequestParts<AppState<'_>> for RequireApplicationSecret {
 
         let Some(secret) = secret else {
             warn!(
-                "application authentication failed: missing `X-OceanIAM-Application-Secret` header"
+                header = "X-OceanIAM-Application-Secret",
+                "application authentication failed: missing application secret header"
             );
             return Err(StatusCode::UNAUTHORIZED);
         };
@@ -42,9 +47,7 @@ impl FromRequestParts<AppState<'_>> for RequireApplicationSecret {
             .secrets()
             .find_secret_belong_to(secret)
             .await
-            .inspect_err(|e| {
-                warn!("application authentication failed: invalid secret provided: {e}")
-            })
+            .inspect_err(|e| warn!(error = %e, "application authentication failed: invalid application secret"))
         else {
             return Err(StatusCode::UNAUTHORIZED);
         };

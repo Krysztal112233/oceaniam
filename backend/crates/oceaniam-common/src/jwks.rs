@@ -89,8 +89,8 @@ impl ManagedJwkSet {
 pub mod roller {
     use std::time::Duration;
 
-    use log::error;
     use reqwest::{Client, StatusCode};
+    use tracing::error;
 
     use crate::{
         error::Error,
