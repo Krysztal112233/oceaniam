@@ -21,11 +21,11 @@ mod tenants;
             (status = 200, body = ApiResponse<Empty>)
         )
     )]
-async fn root(State(_ext): State<AppState>) -> RestResult<Empty> {
+async fn root(State(_ext): State<AppState<'_>>) -> RestResult<Empty> {
     Ok(ApiResponse::default())
 }
 
-pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
+pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
     router
         .routes(routes!(root))
         .pipe(authentication::endpoint)

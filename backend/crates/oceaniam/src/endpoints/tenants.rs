@@ -17,7 +17,7 @@ use uuid::Uuid;
 
 use crate::{middlewares, state::AppState};
 
-pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
+pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
     router
         .routes(routes!(get_tenants))
         .routes(routes!(get_tenant))
@@ -43,7 +43,7 @@ pub async fn get_tenants(
 
     Query(page): Query<GetTenantsRequest>,
 
-    State(AppState { database, .. }): State<AppState>,
+    State(AppState { database, .. }): State<AppState<'_>>,
 ) -> RestResult<PagedResponse<TenantVO>> {
     let operator_id = auth.token.claims.sub;
 
@@ -84,7 +84,7 @@ pub async fn get_tenants(
 pub async fn get_tenant(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
     Path(tenant_id): Path<Sqid>,
-    State(AppState { database, .. }): State<AppState>,
+    State(AppState { database, .. }): State<AppState<'_>>,
 ) -> RestResult<TenantVO> {
     let operator_id = auth.token.claims.sub;
     let uuid = tenant_id.try_into()?;
@@ -120,7 +120,7 @@ pub async fn get_tenant(
 pub async fn create_tenant(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
 
-    State(AppState { database, .. }): State<AppState>,
+    State(AppState { database, .. }): State<AppState<'_>>,
 
     Json(CreateTenantRequest { comment }): Json<CreateTenantRequest>,
 ) -> RestResult<TenantVO> {
@@ -156,7 +156,7 @@ pub async fn create_tenant(
 pub async fn delete_tenant(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
     Path(tenant_id): Path<Uuid>,
-    State(AppState { database, .. }): State<AppState>,
+    State(AppState { database, .. }): State<AppState<'_>>,
 ) -> RestResult<()> {
     let operator_id = auth.token.claims.sub;
 

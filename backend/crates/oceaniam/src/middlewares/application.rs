@@ -19,12 +19,12 @@ impl RequireApplicationSecret {
     }
 }
 
-impl FromRequestParts<AppState> for RequireApplicationSecret {
+impl FromRequestParts<AppState<'_>> for RequireApplicationSecret {
     type Rejection = StatusCode;
 
     async fn from_request_parts(
         parts: &mut Parts,
-        AppState { applications, .. }: &AppState,
+        AppState { applications, .. }: &AppState<'_>,
     ) -> Result<Self, Self::Rejection> {
         let secret = parts
             .headers

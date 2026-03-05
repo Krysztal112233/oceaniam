@@ -24,7 +24,7 @@ pub mod revoked;
 pub mod roller;
 
 #[derive(Debug, Clone)]
-pub struct AppState {
+pub struct AppState<'a> {
     pub database: DatabaseConnection,
 
     /// WARN: Only for system authentications.
@@ -44,12 +44,12 @@ pub struct AppState {
     pub credentials: ManagedCredentialVaults,
 
     /// Application relative actions
-    pub applications: ManagedApplications,
+    pub applications: ManagedApplications<'a>,
 
     pub _unit: (),
 }
 
-impl AppState {
+impl AppState<'_> {
     pub async fn new(database: DatabaseConnection) -> Result<Self, Error> {
         let keybox = ManagedKeyBoxes::new(database.clone());
 
@@ -130,7 +130,7 @@ async fn initial_system_keybox(
     Ok(())
 }
 
-impl FromRef<AppState> for () {
+impl FromRef<AppState<'_>> for () {
     fn from_ref(input: &AppState) -> Self {
         input._unit
     }

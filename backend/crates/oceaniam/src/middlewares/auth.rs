@@ -43,7 +43,7 @@ where
     Ok(decode(token, &key, validation).inspect_err(|e| error!("failed to decode token: {}", e))?)
 }
 
-impl<C> FromRequestParts<AppState> for RequireAuth<C>
+impl<C> FromRequestParts<AppState<'_>> for RequireAuth<C>
 where
     C: Serialize + DeserializeOwned + ClaimHelper + Send,
 {
@@ -56,7 +56,7 @@ where
             system_jwt_validator: jwt_validator,
             revoked_jwt,
             ..
-        }: &AppState,
+        }: &AppState<'_>,
     ) -> Result<Self, Self::Rejection> {
         let auth_header = parts
             .headers
@@ -171,10 +171,13 @@ impl TokenDispatchMethod {
     }
 }
 
-impl FromRequestParts<AppState> for TokenDispatchMethod {
+impl FromRequestParts<AppState<'_>> for TokenDispatchMethod {
     type Rejection = Infallible;
 
-    async fn from_request_parts(parts: &mut Parts, _: &AppState) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        _: &AppState<'_>,
+    ) -> Result<Self, Self::Rejection> {
         Ok(Self::from_headers(&parts.headers))
     }
 }

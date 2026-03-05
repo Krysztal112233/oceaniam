@@ -34,7 +34,7 @@ use crate::{
     state::{AppState, keybox::SignJwtOptions},
 };
 
-pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
+pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
     router
         .routes(routes!(create_auth_user))
         .routes(routes!(create_auth_token))
@@ -74,7 +74,7 @@ pub async fn create_auth_token(
         keyboxes,
         applications,
         ..
-    }): State<AppState>,
+    }): State<AppState<'_>>,
 
     Json(auth): Json<SystemSigninRequest>,
 ) -> RestResult<SigninResponse> {
@@ -151,7 +151,7 @@ pub async fn create_auth_token(
     )]
 pub async fn delete_auth_token(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
-    State(AppState { revoked_jwt, .. }): State<AppState>,
+    State(AppState { revoked_jwt, .. }): State<AppState<'_>>,
 ) -> RestResult<SignoutResponse> {
     revoked_jwt
         .set_revoked(auth.token.claims.jti)
@@ -188,7 +188,7 @@ pub async fn delete_auth_token(
     )]
 #[allow(unused)]
 pub async fn create_auth_user(
-    State(AppState { revoked_jwt, .. }): State<AppState>,
+    State(AppState { revoked_jwt, .. }): State<AppState<'_>>,
 
     Json(auth): Json<SystemSigninRequest>,
 ) -> RestResult<()> {
@@ -246,7 +246,7 @@ pub async fn refresh_auth_token(
         keyboxes,
         applications,
         ..
-    }): State<AppState>,
+    }): State<AppState<'_>>,
 ) -> WithHeaderRestResult<Option<SigninResponse>> {
     let jti = auth.token.claims.jti;
 

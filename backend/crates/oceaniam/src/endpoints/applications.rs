@@ -51,7 +51,7 @@ use crate::{
     state::{AppState, keybox::SignJwtOptions},
 };
 
-pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
+pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
     router
         .routes(routes!(create_application))
         .routes(routes!(delete_application))
@@ -86,7 +86,7 @@ pub fn endpoint(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
 pub async fn get_applications(
     _: middlewares::auth::RequireAuth<SystemClaim>,
     Query(GetApplicationParam { tenant_id, page }): Query<GetApplicationParam>,
-    State(AppState { database, .. }): State<AppState>,
+    State(AppState { database, .. }): State<AppState<'_>>,
 ) -> RestResult<PagedResponse<ApplicationVO>> {
     info!("getting applications for tenant_id={tenant_id}");
 
@@ -128,7 +128,7 @@ pub async fn create_application(
         applications,
         keyboxes,
         ..
-    }): State<AppState>,
+    }): State<AppState<'_>>,
 
     Json(CreateApplicationRequest { tenant_id, comment }): Json<CreateApplicationRequest>,
 ) -> RestResult<CreateApplicationResponse> {
@@ -180,7 +180,7 @@ pub async fn create_application(
 pub async fn delete_application(
     Path(application_id): Path<Sqid>,
 
-    State(AppState { applications, .. }): State<AppState>,
+    State(AppState { applications, .. }): State<AppState<'_>>,
 ) -> RestResult<()> {
     Ok(ApiResponse::new(
         applications
@@ -206,7 +206,7 @@ pub async fn delete_application(
 pub async fn get_application_jwks(
     Path(application_id): Path<Sqid>,
 
-    State(AppState { keyboxes, .. }): State<AppState>,
+    State(AppState { keyboxes, .. }): State<AppState<'_>>,
 ) -> RestResult<JwkSet> {
     Ok(ApiResponse::new(
         keyboxes.get_jwks(application_id.try_into()?).await?,
@@ -230,7 +230,7 @@ pub async fn get_application_jwks(
     )]
 pub async fn get_application_users(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
-    State(AppState { database, .. }): State<AppState>,
+    State(AppState { database, .. }): State<AppState<'_>>,
 
     Path(application_id): Path<Sqid>,
     Query(page): Query<Option<PageParam>>,
@@ -279,11 +279,10 @@ pub async fn get_application_users(
             (status = 500, description = "Internal server error"),
         ),
     )]
-#[axum::debug_handler]
 pub async fn create_application_user(
     _: RequireMatchedApplicationSecret,
 
-    State(AppState { applications, .. }): State<AppState>,
+    State(AppState { applications, .. }): State<AppState<'_>>,
 
     Path(application_id): Path<Sqid>,
     Garde(Json(CreateApplicationUserRequest {
@@ -353,7 +352,7 @@ pub async fn legacy_create_application_auth_token(
         credentials,
         keyboxes,
         ..
-    }): State<AppState>,
+    }): State<AppState<'_>>,
 
     Path(application_id): Path<Sqid>,
     Json(auth): Json<AuthVO>,
@@ -434,7 +433,7 @@ pub async fn legacy_delete_application_auth_token(
     _: RequireMatchedApplicationSecret,
     auth: RequireAuth<Claim>,
 
-    State(AppState { revoked_jwt, .. }): State<AppState>,
+    State(AppState { revoked_jwt, .. }): State<AppState<'_>>,
 
     Path(application_id): Path<Sqid>,
 ) -> RestResult<SignoutResponse> {
@@ -514,7 +513,7 @@ pub async fn legacy_refresh_application_auth_token(
         keyboxes,
         applications,
         ..
-    }): State<AppState>,
+    }): State<AppState<'_>>,
 
     Path(application_id): Path<Sqid>,
 ) -> WithHeaderRestResult<Option<SigninResponse>> {
@@ -612,7 +611,7 @@ pub async fn legacy_refresh_application_auth_token(
 pub async fn create_application_secret(
     _: RequireAuth<SystemClaim>,
 
-    State(AppState { applications, .. }): State<AppState>,
+    State(AppState { applications, .. }): State<AppState<'_>>,
     Path(application_id): Path<Sqid>,
 ) -> RestResult<SecretVO> {
     let model = applications
@@ -651,7 +650,7 @@ pub async fn get_application_secrets(
 
     Path(application_id): Path<Sqid>,
 
-    State(AppState { applications, .. }): State<AppState>,
+    State(AppState { applications, .. }): State<AppState<'_>>,
 ) -> RestResult<Vec<SecretVO>> {
     let application_id: uuid::Uuid = application_id
         .try_into()
@@ -710,7 +709,7 @@ pub async fn get_application_secret(
 
     Path((application_id, secret_id)): Path<(Sqid, Sqid)>,
 
-    State(AppState { applications, .. }): State<AppState>,
+    State(AppState { applications, .. }): State<AppState<'_>>,
 ) -> RestResult<SecretVO> {
     let secret_id: Uuid = secret_id.try_into()?;
 
@@ -752,7 +751,7 @@ pub async fn get_application_secret(
 pub async fn delete_application_secret(
     _: middlewares::auth::RequireAuth<SystemClaim>,
 
-    State(AppState { applications, .. }): State<AppState>,
+    State(AppState { applications, .. }): State<AppState<'_>>,
     Path((application_id, secret_id)): Path<(Sqid, Sqid)>,
 ) -> RestResult<()> {
     applications
@@ -789,15 +788,16 @@ mod spec_middlewares {
         pub application_id: Uuid,
     }
 
-    impl FromRequestParts<AppState> for RequireMatchedApplicationSecret {
+    impl FromRequestParts<AppState<'_>> for RequireMatchedApplicationSecret {
         type Rejection = StatusCode;
 
         async fn from_request_parts(
             parts: &mut Parts,
-            state: &AppState,
+            state: &AppState<'_>,
         ) -> Result<Self, Self::Rejection> {
             // First, validate the application secret
-            let secret = RequireApplicationSecret::from_request_parts(parts, state).await?;
+            let secret: RequireApplicationSecret =
+                RequireApplicationSecret::from_request_parts(parts, state).await?;
 
             // Extract application_id from path
             let path = parts.uri.path();
