@@ -9,3 +9,9 @@ ORBAC based IAM implemented in Rust.
 ## Design
 
 You can find all related designs in [./docs/design](./docs/design)
+
+## Frontend
+
+All frontend source code storaged at [./frontend/](./frontend/) and powered by Vue3 and daisyUI.
+
+## Deploy

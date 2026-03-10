@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import { authState, logout } from "../../auth";
+import { authState, logout } from "../../utils/auth.ts";
 
 const props = withDefaults(
     defineProps<{
@@ -20,8 +20,18 @@ const avatarText = computed(() => {
     return authState.user.displayName.trim().slice(0, 1).toUpperCase();
 });
 
+const isBusy = computed(() => authState.loading);
+
 function openLogin() {
     emit("open-login");
+}
+
+async function handleLogout() {
+    try {
+        await logout();
+    } catch {
+        // errors are swallowed inside logout; this is defensive
+    }
 }
 </script>
 
@@ -34,7 +44,9 @@ function openLogin() {
             >
                 <div class="flex min-w-0 items-center gap-3">
                     <div class="avatar placeholder">
-                        <div class="w-10 rounded-full bg-neutral text-neutral-content">
+                        <div
+                            class="w-10 rounded-full bg-neutral text-neutral-content"
+                        >
                             <span class="text-sm">{{ avatarText }}</span>
                         </div>
                     </div>
@@ -49,7 +61,13 @@ function openLogin() {
                     </div>
                 </div>
 
-                <button type="button" class="btn btn-ghost btn-sm" @click="logout">
+                <button
+                    type="button"
+                    class="btn btn-ghost btn-sm"
+                    :class="{ loading: isBusy }"
+                    :disabled="isBusy"
+                    @click="handleLogout"
+                >
                     退出
                 </button>
             </div>
@@ -57,7 +75,9 @@ function openLogin() {
             <div v-else class="dropdown dropdown-end">
                 <button type="button" class="btn btn-ghost btn-sm gap-2">
                     <div class="avatar placeholder">
-                        <div class="w-8 rounded-full bg-neutral text-neutral-content">
+                        <div
+                            class="w-8 rounded-full bg-neutral text-neutral-content"
+                        >
                             <span class="text-xs">{{ avatarText }}</span>
                         </div>
                     </div>
@@ -67,13 +87,22 @@ function openLogin() {
                 </button>
 
                 <ul
-                    class="dropdown-content menu z-[1] w-56 rounded-box bg-base-100 p-2 shadow"
+                    class="dropdown-content menu z-1 w-56 rounded-box bg-base-100 p-2 shadow"
                 >
                     <li class="menu-title">
-                        <span class="truncate">{{ authState.user.username }}</span>
+                        <span class="truncate">{{
+                            authState.user.username
+                        }}</span>
                     </li>
                     <li>
-                        <button type="button" @click="logout">退出</button>
+                        <button
+                            type="button"
+                            :class="{ loading: isBusy }"
+                            :disabled="isBusy"
+                            @click="handleLogout"
+                        >
+                            退出
+                        </button>
                     </li>
                 </ul>
             </div>
@@ -84,6 +113,7 @@ function openLogin() {
             type="button"
             class="btn btn-primary btn-sm"
             :class="props.variant === 'sidebar' ? 'w-full' : ''"
+            :disabled="isBusy"
             @click="openLogin"
         >
             登录

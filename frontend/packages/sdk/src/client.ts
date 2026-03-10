@@ -139,6 +139,7 @@ export async function doSystemSignout(
     }
 
     let msg = text || `${res.status} ${res.statusText}`;
+    // NOTE: AI-generated content
     try {
         const json = JSON.parse(text) as unknown;
         if (
