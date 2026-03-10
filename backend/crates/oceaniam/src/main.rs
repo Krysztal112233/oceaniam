@@ -1,7 +1,7 @@
-use axum::Router;
+use axum::{Router, http::HeaderValue};
 use mimalloc::MiMalloc;
 use oceaniam_common::{
-    config::{BackendConfig, DatabaseConfig},
+    config::{BackendConfig, CorsConfig, DatabaseConfig},
     consts,
     error::Error,
 };
@@ -11,7 +11,10 @@ use oceaniam_database::{
 };
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use tap::Pipe;
-use tower_http::trace::TraceLayer;
+use tower_http::{
+    cors::{Any, CorsLayer},
+    trace::TraceLayer,
+};
 use tracing::{debug, error, warn};
 use tracing_subscriber::EnvFilter;
 use utoipa::openapi::Contact;
@@ -69,6 +72,7 @@ async fn main() -> Result<(), Error> {
 
     let router: Router = router
         .merge(Scalar::with_url("/docs", openapi))
+        .layer(to_cors_layer(config.cors.clone()))
         .layer(TraceLayer::new_for_http())
         .with_state(states);
 
@@ -168,4 +172,11 @@ fn redact_dsn(dsn: &str) -> String {
 
     redacted.push_str(&out[start..]);
     redacted
+}
+
+fn to_cors_layer(CorsConfig { allow_origin }: CorsConfig) -> CorsLayer {
+    CorsLayer::new()
+        .allow_headers(Any)
+        .allow_methods(Any)
+        .allow_origin(allow_origin.parse::<HeaderValue>().unwrap())
 }

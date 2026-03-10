@@ -47,9 +47,15 @@ impl From<DatabaseConfig> for ConnectOptions {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CorsConfig {
+    pub allow_origin: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackendConfig {
     pub addr: String,
     pub database: DatabaseConfig,
+    pub cors: CorsConfig,
 }
 
 impl BackendConfig {
@@ -59,7 +65,8 @@ impl BackendConfig {
             .add_source(
                 config::Environment::with_prefix("OCEANIAM")
                     .prefix_separator("_")
-                    .separator("__"),
+                    .separator("__")
+                    .list_separator(","),
             )
             .build()?
             .try_deserialize()?)

@@ -48,7 +48,7 @@ strum = { version = "0.27", features = ["derive"] }
 tap = "1.0"
 thiserror = "2.0"
 tokio = { version = "1", features = ["full"] }
-tower-http = { version = "0.6", features = ["trace"] }
+tower-http = { version = "0.6", features = ["trace", "cors"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 url = { version = "2.5", features = ["serde"] }
