@@ -38,35 +38,38 @@ function writeAuthCookie(token: string | null): void {
 }
 
 // NOTE: AI-generated function
-export const useAuthStore = defineStore("auth", () => {
-    const initialJwt = readCookie(AUTH_TOKEN_COOKIE_NAME);
+export const useAuthStore = defineStore("auth", {
+    state: () => {
+        const initialJwt = readCookie(AUTH_TOKEN_COOKIE_NAME);
 
-    const isLoggedIn = ref(Boolean(initialJwt));
-    const username = ref<string | null>(null);
-    const jwt = ref<string | null>(initialJwt);
-    const expiresAt = ref<number | null>(null);
+        const isLoggedIn = ref(Boolean(initialJwt));
+        const username = ref<string | null>(null);
+        const jwt = ref<string | null>(initialJwt);
+        const expiresAt = ref<number | null>(null);
 
-    function syncFromCookie(): void {
-        const token = readCookie(AUTH_TOKEN_COOKIE_NAME);
-        jwt.value = token;
-        isLoggedIn.value = Boolean(token);
-        if (!token) {
-            username.value = null;
-            expiresAt.value = null;
+        function syncFromCookie(): void {
+            const token = readCookie(AUTH_TOKEN_COOKIE_NAME);
+            jwt.value = token;
+            isLoggedIn.value = Boolean(token);
+            if (!token) {
+                username.value = null;
+                expiresAt.value = null;
+            }
         }
-    }
 
-    function setAuthToken(token: string | null): void {
-        writeAuthCookie(token);
-        syncFromCookie();
-    }
+        function setAuthToken(token: string | null): void {
+            writeAuthCookie(token);
+            syncFromCookie();
+        }
 
-    return {
-        isLoggedIn,
-        expiresAt,
-        username,
-        jwt,
-        syncFromCookie,
-        setAuthToken,
-    };
+        return {
+            isLoggedIn,
+            expiresAt,
+            username,
+            jwt,
+            syncFromCookie,
+            setAuthToken,
+        };
+    },
+    persist: true,
 });

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { authState, logout } from "../../utils/auth.ts";
+import { useAuthStore } from "../../stores/auth";
 
 const props = withDefaults(
     defineProps<{
@@ -15,9 +16,15 @@ const emit = defineEmits<{
     (event: "open-login"): void;
 }>();
 
+const authStore = useAuthStore();
+
+const username = computed(() => authStore.username?.trim() || "");
+const displayName = computed(() => username.value || "已登录");
+const isLoggedIn = computed(() => authStore.isLoggedIn);
+
 const avatarText = computed(() => {
-    if (!authState.user?.displayName) return "?";
-    return authState.user.displayName.trim().slice(0, 1).toUpperCase();
+    if (!displayName.value) return "?";
+    return displayName.value.trim().slice(0, 1).toUpperCase();
 });
 
 const isBusy = computed(() => authState.loading);
@@ -37,7 +44,7 @@ async function handleLogout() {
 
 <template>
     <div :class="props.variant === 'sidebar' ? 'w-full' : ''">
-        <template v-if="authState.user">
+        <template v-if="isLoggedIn">
             <div
                 v-if="props.variant === 'sidebar'"
                 class="flex items-center justify-between gap-3"
@@ -53,10 +60,10 @@ async function handleLogout() {
 
                     <div class="min-w-0">
                         <div class="truncate text-sm font-medium">
-                            {{ authState.user.displayName }}
+                            {{ displayName }}
                         </div>
                         <div class="truncate text-xs opacity-70">
-                            {{ authState.user.username }}
+                            {{ username || "未设置" }}
                         </div>
                     </div>
                 </div>
@@ -82,7 +89,7 @@ async function handleLogout() {
                         </div>
                     </div>
                     <span class="hidden max-w-40 truncate sm:inline">
-                        {{ authState.user.displayName }}
+                        {{ displayName }}
                     </span>
                 </button>
 
@@ -90,9 +97,7 @@ async function handleLogout() {
                     class="dropdown-content menu z-1 w-56 rounded-box bg-base-100 p-2 shadow"
                 >
                     <li class="menu-title">
-                        <span class="truncate">{{
-                            authState.user.username
-                        }}</span>
+                        <span class="truncate">{{ username || "未设置" }}</span>
                     </li>
                     <li>
                         <button
