@@ -17,6 +17,8 @@ pub const DEFAULT_KEY_EXPIRES_AFTER: Duration = Duration::from_hours(24 * 30);
 
 pub const DEFAULT_KEY_RETIED_AFTER: Duration = Duration::from_hours(24 * 30);
 
+pub const DEFAULT_JWT_AUDIENCE: &str = "OceanIAM";
+
 pub const DEFAULT_JWT_ISSUER: &str = "OceanIAM";
 
 pub static MAX_CPU_BOUND_SEMAPHORE: LazyLock<Semaphore> =

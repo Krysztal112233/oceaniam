@@ -27,6 +27,7 @@ mod m20260222_103403_create_application_secret;
 mod m20260223_084124_create_nickname_for_users;
 mod m20260302_163002_alter_application_configs;
 mod m20260303_095046_alter_fill_default_configuration;
+mod m20260311_100109_alter_configuration_empty_audience;
 
 pub struct Migrator;
 
@@ -60,6 +61,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260223_084124_create_nickname_for_users::Migration),
             Box::new(m20260302_163002_alter_application_configs::Migration),
             Box::new(m20260303_095046_alter_fill_default_configuration::Migration),
+            Box::new(m20260311_100109_alter_configuration_empty_audience::Migration),
         ]
     }
 }

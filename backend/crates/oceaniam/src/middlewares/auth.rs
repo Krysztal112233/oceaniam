@@ -31,8 +31,8 @@ where
     let _guard = span.enter();
 
     let key = {
-        let tmp = jsonwebtoken::jwk::JwkSet::from(jwks);
-        let Some(jwk) = tmp.find(kid) else {
+        let jwkset = jsonwebtoken::jwk::JwkSet::from(jwks);
+        let Some(jwk) = jwkset.find(kid) else {
             return Err(Error::with_code(
                 StatusCode::BAD_REQUEST,
                 format!("cannot find jwk for kid `{kid}`."),
@@ -62,7 +62,7 @@ where
         parts: &mut Parts,
         AppState {
             system_jwks,
-            system_jwt_validator: jwt_validator,
+            system_jwt_validator,
             revoked_jwt,
             ..
         }: &AppState<'_>,
@@ -91,7 +91,13 @@ where
             return Err(StatusCode::BAD_REQUEST);
         }
 
-        let Ok(token) = validate::<C>(&header, system_jwks.jwks(), token, jwt_validator).await
+        let Ok(token) = validate::<C>(
+            &header,
+            system_jwks.jwks(),
+            token,
+            dbg!(system_jwt_validator),
+        )
+        .await
         else {
             return Err(StatusCode::BAD_REQUEST);
         };

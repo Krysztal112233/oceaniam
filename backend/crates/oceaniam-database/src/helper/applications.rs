@@ -146,7 +146,7 @@ impl Default for AuthenticationConfiguration {
     fn default() -> Self {
         Self {
             issuer: consts::DEFAULT_JWT_ISSUER.to_owned(),
-            audience: Vec::new(),
+            audience: vec![consts::DEFAULT_JWT_AUDIENCE.to_owned()],
         }
     }
 }
