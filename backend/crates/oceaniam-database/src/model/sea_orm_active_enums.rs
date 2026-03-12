@@ -21,6 +21,8 @@ pub enum AuditType {
     SignJwt,
     #[sea_orm(string_value = "revoke_jwt")]
     RevokeJwt,
+    #[sea_orm(string_value = "refresh_jwt")]
+    RefreshJwt,
     #[sea_orm(string_value = "create_application")]
     CreateApplication,
     #[sea_orm(string_value = "delete_application")]

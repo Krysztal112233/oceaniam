@@ -16,6 +16,7 @@
 
 use axum::{Json, extract::State, http::StatusCode};
 use axum_extra::extract::cookie::Cookie;
+use oceaniam_audit::types::{AuditPayload, RefreshJwtPayload, RevokeJwtPayload, SignJwtPayload};
 use oceaniam_common::{
     ApiResponse, ApiResponseWithHeader, ErrorResponse, RestResult, WithHeaderRestResult, consts,
     error::Error, jwt::SystemClaim,
@@ -73,6 +74,7 @@ pub async fn create_auth_token(
         database,
         keyboxes,
         applications,
+        auditing,
         ..
     }): State<AppState<'_>>,
 
@@ -130,6 +132,13 @@ pub async fn create_auth_token(
         .await
         .inspect_err(|e| error!(admin_id = %id, error = %e, "failed to sign jwt"))?;
 
+    auditing
+        .write(AuditPayload::from(SignJwtPayload {
+            application_id: consts::SYSTEM_APPLICATION_UUID,
+            subject_id: id,
+        }))
+        .await;
+
     Ok(ApiResponse::new(SigninResponse { jwt }))
 }
 
@@ -159,7 +168,11 @@ pub async fn create_auth_token(
     )]
 pub async fn delete_auth_token(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
-    State(AppState { revoked_jwt, .. }): State<AppState<'_>>,
+    State(AppState {
+        revoked_jwt,
+        auditing,
+        ..
+    }): State<AppState<'_>>,
 ) -> RestResult<SignoutResponse> {
     let span = tracing::info_span!(
         "auth.signout",
@@ -179,6 +192,14 @@ pub async fn delete_auth_token(
                 "failed to revoke jwt"
             )
         })?;
+
+    auditing
+        .write(AuditPayload::from(RevokeJwtPayload {
+            subject_id: auth.token.claims.sub,
+            jti: auth.token.claims.jti,
+            application_id: Some(consts::SYSTEM_APPLICATION_UUID),
+        }))
+        .await;
 
     Ok(ApiResponse::new(SignoutResponse::default()))
 }
@@ -267,6 +288,7 @@ pub async fn refresh_auth_token(
         revoked_jwt,
         keyboxes,
         applications,
+        auditing,
         ..
     }): State<AppState<'_>>,
 ) -> WithHeaderRestResult<Option<SigninResponse>> {
@@ -319,6 +341,14 @@ pub async fn refresh_auth_token(
                 "failed to sign refreshed jwt"
             )
         })?;
+
+    auditing
+        .write(AuditPayload::from(RefreshJwtPayload {
+            application_id: consts::SYSTEM_APPLICATION_UUID,
+            subject_id: auth.token.claims.sub,
+            old_jti: jti,
+        }))
+        .await;
 
     let cookie = Cookie::new("auth_token", jwt.clone());
     let resp = ApiResponseWithHeader::new(Some(SigninResponse { jwt }));

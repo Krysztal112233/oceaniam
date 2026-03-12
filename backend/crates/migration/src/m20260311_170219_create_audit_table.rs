@@ -12,8 +12,8 @@ impl MigrationTrait for Migration {
                 Type::create()
                     .as_enum(AuditTypeEnum::AuditType)
                     .values([
-                        AuditTypeEnum::SignJWT,
-                        AuditTypeEnum::RevokeJWT,
+                        AuditTypeEnum::SignJwt,
+                        AuditTypeEnum::RevokeJwt,
                         AuditTypeEnum::CreateApplication,
                         AuditTypeEnum::DeleteApplication,
                         AuditTypeEnum::CreateTenants,
@@ -36,8 +36,8 @@ impl MigrationTrait for Migration {
                         Audits::AuditType,
                         AuditTypeEnum::AuditType,
                         [
-                            AuditTypeEnum::SignJWT,
-                            AuditTypeEnum::RevokeJWT,
+                            AuditTypeEnum::SignJwt,
+                            AuditTypeEnum::RevokeJwt,
                             AuditTypeEnum::CreateApplication,
                             AuditTypeEnum::DeleteApplication,
                             AuditTypeEnum::CreateTenants,
@@ -91,8 +91,8 @@ enum Audits {
 enum AuditTypeEnum {
     AuditType,
 
-    SignJWT,
-    RevokeJWT,
+    SignJwt,
+    RevokeJwt,
 
     CreateApplication,
     DeleteApplication,

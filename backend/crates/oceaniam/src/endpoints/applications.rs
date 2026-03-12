@@ -14,6 +14,11 @@ use axum::{
 use axum_extra::extract::cookie::Cookie;
 use axum_valid::Garde;
 use chrono::Utc;
+use oceaniam_audit::types::{
+    AuditPayload, CreateApplicationPayload, CreateApplicationSecretPayload,
+    CreateApplicationUserPayload, DeleteApplicationPayload, DeleteApplicationSecretPayload,
+    RefreshJwtPayload, RevokeJwtPayload, SignJwtPayload,
+};
 use oceaniam_common::{
     ApiResponse, ApiResponseWithHeader, Empty, ErrorResponse, PageParam, PagedResponse, RestResult,
     WithHeaderRestResult, consts,
@@ -133,6 +138,7 @@ pub async fn create_application(
 
     State(AppState {
         applications,
+        auditing,
         keyboxes,
         ..
     }): State<AppState<'_>>,
@@ -175,6 +181,14 @@ pub async fn create_application(
         "default keybox of application created successfully"
     );
 
+    auditing
+        .write(AuditPayload::from(CreateApplicationPayload {
+            application_id: id,
+            tenant_id,
+            comment: comment.clone(),
+        }))
+        .await;
+
     Ok(ApiResponse::new(CreateApplicationResponse {
         tenant_id: tenant_id.into(),
         application_id: id.into(),
@@ -199,13 +213,23 @@ pub async fn create_application(
 pub async fn delete_application(
     Path(application_id): Path<Sqid>,
 
-    State(AppState { applications, .. }): State<AppState<'_>>,
+    State(AppState {
+        applications,
+        auditing,
+        ..
+    }): State<AppState<'_>>,
 ) -> RestResult<()> {
-    Ok(ApiResponse::new(
-        applications
-            .delete_application(application_id.try_into()?)
-            .await?,
-    ))
+    let application_id = application_id.try_into()?;
+
+    applications.delete_application(application_id).await?;
+
+    auditing
+        .write(AuditPayload::from(DeleteApplicationPayload {
+            application_id,
+        }))
+        .await;
+
+    Ok(ApiResponse::new(()))
 }
 
 /// Get application JWKS
@@ -317,7 +341,11 @@ pub async fn get_application_users(
 pub async fn create_application_user(
     _: RequireMatchedApplicationSecret,
 
-    State(AppState { applications, .. }): State<AppState<'_>>,
+    State(AppState {
+        applications,
+        auditing,
+        ..
+    }): State<AppState<'_>>,
 
     Path(application_id): Path<Sqid>,
     Garde(Json(CreateApplicationUserRequest {
@@ -342,6 +370,16 @@ pub async fn create_application_user(
             password,
         )
         .await?;
+
+    auditing
+        .write(AuditPayload::from(CreateApplicationUserPayload {
+            application_id,
+            user_id: user.id,
+            email: user.email.clone(),
+            phone: user.phone.clone(),
+            nickname: user.nickname.clone(),
+        }))
+        .await;
 
     Ok(ApiResponse::new(user.into()))
 }
@@ -386,6 +424,7 @@ pub async fn legacy_create_application_auth_token(
         applications,
         credentials,
         keyboxes,
+        auditing,
         ..
     }): State<AppState<'_>>,
 
@@ -425,6 +464,13 @@ pub async fn legacy_create_application_auth_token(
             },
         )
         .await?;
+
+    auditing
+        .write(AuditPayload::from(SignJwtPayload {
+            application_id: user.application_id,
+            subject_id: user.id,
+        }))
+        .await;
 
     let cookie = Cookie::new("auth_token", jwt.clone());
     let resp = ApiResponseWithHeader::new(Some(SigninResponse { jwt }));
@@ -468,7 +514,11 @@ pub async fn legacy_delete_application_auth_token(
     _: RequireMatchedApplicationSecret,
     auth: RequireAuth<Claim>,
 
-    State(AppState { revoked_jwt, .. }): State<AppState<'_>>,
+    State(AppState {
+        revoked_jwt,
+        auditing,
+        ..
+    }): State<AppState<'_>>,
 
     Path(application_id): Path<Sqid>,
 ) -> RestResult<SignoutResponse> {
@@ -515,6 +565,14 @@ pub async fn legacy_delete_application_auth_token(
         jti = %jti,
         "legacy signout successful"
     );
+
+    auditing
+        .write(AuditPayload::from(RevokeJwtPayload {
+            subject_id: user_id,
+            jti,
+            application_id: Some(app_id),
+        }))
+        .await;
 
     Ok(ApiResponse::new(SignoutResponse::default()))
 }
@@ -564,6 +622,7 @@ pub async fn legacy_refresh_application_auth_token(
         revoked_jwt,
         keyboxes,
         applications,
+        auditing,
         ..
     }): State<AppState<'_>>,
 
@@ -630,7 +689,7 @@ pub async fn legacy_refresh_application_auth_token(
     );
 
     let jwt = keyboxes
-        .sign_jwt::<SystemClaim>(
+        .sign_jwt::<Claim>(
             user_id,
             SignJwtOptions {
                 application_id: consts::SYSTEM_APPLICATION_UUID,
@@ -655,6 +714,14 @@ pub async fn legacy_refresh_application_auth_token(
         old_jti = %jti,
         "legacy token refresh successful"
     );
+
+    auditing
+        .write(AuditPayload::from(RefreshJwtPayload {
+            application_id,
+            subject_id: user_id,
+            old_jti: jti,
+        }))
+        .await;
 
     let cookie = Cookie::new("auth_token", jwt.clone());
     let resp = ApiResponseWithHeader::new(Some(SigninResponse { jwt }));
@@ -688,13 +755,22 @@ pub async fn legacy_refresh_application_auth_token(
 pub async fn create_application_secret(
     _: RequireAuth<SystemClaim>,
 
-    State(AppState { applications, .. }): State<AppState<'_>>,
+    State(AppState {
+        applications,
+        auditing,
+        ..
+    }): State<AppState<'_>>,
     Path(application_id): Path<Sqid>,
 ) -> RestResult<SecretVO> {
-    let model = applications
-        .secrets()
-        .create_secret(application_id.try_into()?)
-        .await?;
+    let application_id = application_id.try_into()?;
+    let model = applications.secrets().create_secret(application_id).await?;
+
+    auditing
+        .write(AuditPayload::from(CreateApplicationSecretPayload {
+            application_id,
+            secret_id: model.id,
+        }))
+        .await;
 
     // Return unmasked version
     Ok(ApiResponse::new(SecretVO::with_unmasked(model)))
@@ -829,13 +905,27 @@ pub async fn get_application_secret(
 pub async fn delete_application_secret(
     _: middlewares::auth::RequireAuth<SystemClaim>,
 
-    State(AppState { applications, .. }): State<AppState<'_>>,
+    State(AppState {
+        applications,
+        auditing,
+        ..
+    }): State<AppState<'_>>,
     Path((application_id, secret_id)): Path<(Sqid, Sqid)>,
 ) -> RestResult<()> {
+    let application_id = application_id.try_into()?;
+    let secret_id = secret_id.try_into()?;
+
     applications
         .secrets()
-        .delete_secret(application_id.try_into()?, secret_id.try_into()?)
+        .delete_secret(application_id, secret_id)
         .await?;
+
+    auditing
+        .write(AuditPayload::from(DeleteApplicationSecretPayload {
+            application_id,
+            secret_id,
+        }))
+        .await;
 
     Ok(ApiResponse::new(()))
 }

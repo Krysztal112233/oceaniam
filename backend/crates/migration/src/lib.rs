@@ -29,6 +29,7 @@ mod m20260302_163002_alter_application_configs;
 mod m20260303_095046_alter_fill_default_configuration;
 mod m20260311_100109_alter_configuration_empty_audience;
 mod m20260311_170219_create_audit_table;
+mod m20260312_135205_alter_audit_type_refresh_jwt;
 
 pub struct Migrator;
 
@@ -64,6 +65,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260303_095046_alter_fill_default_configuration::Migration),
             Box::new(m20260311_100109_alter_configuration_empty_audience::Migration),
             Box::new(m20260311_170219_create_audit_table::Migration),
+            Box::new(m20260312_135205_alter_audit_type_refresh_jwt::Migration),
         ]
     }
 }

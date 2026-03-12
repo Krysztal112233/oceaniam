@@ -6,6 +6,7 @@ use axum::{
     Json,
     extract::{Path, Query, State},
 };
+use oceaniam_audit::types::{AuditPayload, CreateTenantsPayload, DeleteTenantsPayload};
 use oceaniam_common::{
     ApiResponse, Empty, PagedResponse, RestResult, jwt::SystemClaim, types::sqid::Sqid,
 };
@@ -130,7 +131,11 @@ pub async fn get_tenant(
 pub async fn create_tenant(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
 
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState {
+        database,
+        auditing,
+        ..
+    }): State<AppState<'_>>,
 
     Json(CreateTenantRequest { comment }): Json<CreateTenantRequest>,
 ) -> RestResult<TenantVO> {
@@ -160,6 +165,14 @@ pub async fn create_tenant(
         "tenant created successfully"
     );
 
+    auditing
+        .write(AuditPayload::from(CreateTenantsPayload {
+            tenant_id: model.id,
+            comment: model.comment.clone(),
+            operator_id: Some(operator_id),
+        }))
+        .await;
+
     Ok(ApiResponse::new(model.into()))
 }
 
@@ -181,7 +194,11 @@ pub async fn create_tenant(
 pub async fn delete_tenant(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
     Path(tenant_id): Path<Uuid>,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState {
+        database,
+        auditing,
+        ..
+    }): State<AppState<'_>>,
 ) -> RestResult<()> {
     let operator_id = auth.token.claims.sub;
     let span = tracing::info_span!(
@@ -207,6 +224,13 @@ pub async fn delete_tenant(
         operator_id = %operator_id,
         "tenant deleted successfully"
     );
+
+    auditing
+        .write(AuditPayload::from(DeleteTenantsPayload {
+            tenant_id,
+            operator_id: Some(operator_id),
+        }))
+        .await;
 
     Ok(ApiResponse::new(()))
 }

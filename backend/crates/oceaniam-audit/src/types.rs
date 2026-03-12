@@ -11,6 +11,7 @@ use uuid::Uuid;
 pub enum AuditPayload {
     SignJwt(SignJwtPayload),
     RevokeJwt(RevokeJwtPayload),
+    RefreshJwt(RefreshJwtPayload),
     CreateApplication(CreateApplicationPayload),
     DeleteApplication(DeleteApplicationPayload),
     CreateTenants(CreateTenantsPayload),
@@ -26,6 +27,7 @@ impl AuditPayload {
         match self {
             Self::SignJwt(_) => AuditType::SignJwt,
             Self::RevokeJwt(_) => AuditType::RevokeJwt,
+            Self::RefreshJwt(_) => AuditType::RefreshJwt,
             Self::CreateApplication(_) => AuditType::CreateApplication,
             Self::DeleteApplication(_) => AuditType::DeleteApplication,
             Self::CreateTenants(_) => AuditType::CreateTenants,
@@ -51,6 +53,12 @@ impl From<SignJwtPayload> for AuditPayload {
 impl From<RevokeJwtPayload> for AuditPayload {
     fn from(value: RevokeJwtPayload) -> Self {
         Self::RevokeJwt(value)
+    }
+}
+
+impl From<RefreshJwtPayload> for AuditPayload {
+    fn from(value: RefreshJwtPayload) -> Self {
+        Self::RefreshJwt(value)
     }
 }
 
@@ -113,6 +121,13 @@ pub struct RevokeJwtPayload {
     pub subject_id: Uuid,
     pub jti: Uuid,
     pub application_id: Option<Uuid>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+pub struct RefreshJwtPayload {
+    pub application_id: Uuid,
+    pub subject_id: Uuid,
+    pub old_jti: Uuid,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
