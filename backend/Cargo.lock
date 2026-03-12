@@ -2280,6 +2280,7 @@ dependencies = [
  "migration",
  "mimalloc",
  "moka",
+ "oceaniam-audit",
  "oceaniam-common",
  "oceaniam-credential",
  "oceaniam-database",
@@ -2300,6 +2301,17 @@ dependencies = [
  "utoipa-scalar",
  "uuid",
  "xorf",
+]
+
+[[package]]
+name = "oceaniam-audit"
+version = "0.1.0"
+dependencies = [
+ "oceaniam-database",
+ "serde",
+ "serde_json",
+ "ts-rs",
+ "uuid",
 ]
 
 [[package]]

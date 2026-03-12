@@ -2,6 +2,7 @@
 members = [
 	"crates/migration",
 	"crates/oceaniam",
+	"crates/oceaniam-audit",
 	"crates/oceaniam-common",
 	"crates/oceaniam-credential",
 	"crates/oceaniam-database",
@@ -64,6 +65,7 @@ zeroize = "1.8"
 rsa = { version = "0.9.8", features = ["serde", "pem"] }
 
 migration = { path = "./crates/migration/" }
+oceaniam-audit = { path = "./crates/oceaniam-audit/" }
 oceaniam-common = { path = "./crates/oceaniam-common/" }
 oceaniam-credential = { path = "./crates/oceaniam-credential/" }
 oceaniam-database = { path = "./crates/oceaniam-database/" }

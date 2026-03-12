@@ -1,5 +1,5 @@
 use crate::state::{
-    applications::ManagedApplications, credentials::ManagedCredentialVaults,
+    applications::ManagedApplications, audit::Auditing, credentials::ManagedCredentialVaults,
     filters::ManagedFilters, keybox::ManagedKeyBoxes, revoked::RevokedJwt,
     roller::BuiltinScheduledJwkSetRoller,
 };
@@ -51,6 +51,8 @@ pub struct AppState<'a> {
 
     pub filters: ManagedFilters<'a>,
 
+    pub auditing: Auditing,
+
     pub _unit: (),
 }
 
@@ -81,7 +83,7 @@ impl AppState<'static> {
                         ]
                     }),
             ),
-
+            auditing: Auditing::with_database(database.clone()),
             revoked_jwt: RevokedJwt::new(database.clone()),
             credentials: credentials.clone(),
 

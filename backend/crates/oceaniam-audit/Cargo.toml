@@ -1,0 +1,12 @@
+[package]
+name = "oceaniam-audit"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+ts-rs.workspace = true
+uuid.workspace = true
+
+oceaniam-database.workspace = true
