@@ -12,7 +12,8 @@ use oceaniam_common::{
 };
 use oceaniam_database::{helper::tenants::TenantsHelper, model::prelude::*};
 use oceaniam_vo::tenants::{CreateTenantRequest, GetTenantsRequest, TenantVO};
-use tracing::{error, warn};
+use tap::Tap;
+use tracing::{Span, error, field, warn};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
@@ -39,6 +40,12 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
             (status = 401, description = "Unauthorized"),
         ),
     )]
+#[tracing::instrument(
+    level = "info",
+    name = "tenants.list",
+    skip(auth, page, database),
+    fields(operator_id = field::Empty)
+)]
 pub async fn get_tenants(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
 
@@ -47,8 +54,9 @@ pub async fn get_tenants(
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> RestResult<PagedResponse<TenantVO>> {
     let operator_id = auth.token.claims.sub;
-    let span = tracing::info_span!("tenants.list", operator_id = %operator_id);
-    let _guard = span.enter();
+    Span::current().tap(|it| {
+        it.record("operator_id", field::display(&operator_id));
+    });
 
     let PagedResponse { items, page_info } =
         Tenants::get_tenants(page, &database).await.inspect_err(
@@ -84,6 +92,12 @@ pub async fn get_tenants(
             (status = 404, description = "Tenant not found"),
         ),
     )]
+#[tracing::instrument(
+    level = "info",
+    name = "tenants.get",
+    skip(auth, tenant_id, database),
+    fields(operator_id = field::Empty, tenant_id = field::Empty)
+)]
 pub async fn get_tenant(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
     Path(tenant_id): Path<Sqid>,
@@ -91,12 +105,10 @@ pub async fn get_tenant(
 ) -> RestResult<TenantVO> {
     let operator_id = auth.token.claims.sub;
     let uuid = tenant_id.try_into()?;
-    let span = tracing::info_span!(
-        "tenants.get",
-        operator_id = %operator_id,
-        tenant_id = %uuid
-    );
-    let _guard = span.enter();
+    Span::current().tap(|it| {
+        it.record("operator_id", field::display(&operator_id))
+            .record("tenant_id", field::display(&uuid));
+    });
 
     let result = Tenants::get_tenant(uuid, &database)
         .await
@@ -128,25 +140,27 @@ pub async fn get_tenant(
             (status = 401, description = "Unauthorized"),
         ),
     )]
+#[tracing::instrument(
+    level = "info",
+    name = "tenants.create",
+    skip(auth, database, auditing, comment),
+    fields(operator_id = field::Empty, tenant_id = field::Empty)
+)]
 pub async fn create_tenant(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
 
     State(AppState {
-        database,
-        auditing,
-        ..
+        database, auditing, ..
     }): State<AppState<'_>>,
 
     Json(CreateTenantRequest { comment }): Json<CreateTenantRequest>,
 ) -> RestResult<TenantVO> {
     let operator_id = auth.token.claims.sub;
     let tenant_id = Uuid::now_v7();
-    let span = tracing::info_span!(
-        "tenants.create",
-        operator_id = %operator_id,
-        tenant_id = %tenant_id
-    );
-    let _guard = span.enter();
+    Span::current().tap(|it| {
+        it.record("operator_id", field::display(&operator_id))
+            .record("tenant_id", field::display(&tenant_id));
+    });
 
     let model = Tenants::create_tenant(tenant_id, comment, &database)
         .await
@@ -191,22 +205,24 @@ pub async fn create_tenant(
             (status = 200, body = ApiResponse<Empty>),
         ),
     )]
+#[tracing::instrument(
+    level = "info",
+    name = "tenants.delete",
+    skip(auth, database, auditing),
+    fields(operator_id = field::Empty, tenant_id = field::Empty)
+)]
 pub async fn delete_tenant(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
     Path(tenant_id): Path<Uuid>,
     State(AppState {
-        database,
-        auditing,
-        ..
+        database, auditing, ..
     }): State<AppState<'_>>,
 ) -> RestResult<()> {
     let operator_id = auth.token.claims.sub;
-    let span = tracing::info_span!(
-        "tenants.delete",
-        operator_id = %operator_id,
-        tenant_id = %tenant_id
-    );
-    let _guard = span.enter();
+    Span::current().tap(|it| {
+        it.record("operator_id", field::display(&operator_id))
+            .record("tenant_id", field::display(&tenant_id));
+    });
 
     Tenants::delete_tenant(tenant_id, &database)
         .await

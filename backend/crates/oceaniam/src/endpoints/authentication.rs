@@ -27,7 +27,8 @@ use oceaniam_database::{
     model::prelude::Administrators,
 };
 use oceaniam_vo::auth::{SigninResponse, SignoutResponse, SignupResponse, SystemSigninRequest};
-use tracing::error;
+use tap::Tap;
+use tracing::{Span, error, field};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::{
@@ -66,6 +67,16 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
+#[tracing::instrument(
+    level = "info",
+    name = "auth.signin",
+    skip(token_mtd, credentials, database, keyboxes, applications, auditing, auth),
+    fields(
+        application_id = field::Empty,
+        admin_id = field::Empty,
+        token_dispatch = field::Empty
+    )
+)]
 pub async fn create_auth_token(
     token_mtd: middlewares::auth::TokenDispatchMethod,
 
@@ -89,14 +100,14 @@ pub async fn create_auth_token(
             password,
         ),
     };
-
-    let span = tracing::info_span!(
-        "auth.signin",
-        application_id = %consts::SYSTEM_APPLICATION_UUID,
-        admin_id = %id,
-        token_dispatch = ?token_mtd
-    );
-    let _guard = span.enter();
+    Span::current().tap(|it| {
+        it.record(
+            "application_id",
+            field::display(&consts::SYSTEM_APPLICATION_UUID),
+        )
+        .record("admin_id", field::display(&id))
+        .record("token_dispatch", field::debug(&token_mtd));
+    });
 
     let ApplicationConfiguration { authentication, .. } = applications
         .get_configuration(consts::SYSTEM_APPLICATION_UUID)
@@ -166,6 +177,12 @@ pub async fn create_auth_token(
             (status = 500, description = "Internal server error"),
         ),
     )]
+#[tracing::instrument(
+    level = "info",
+    name = "auth.signout",
+    skip(auth, revoked_jwt, auditing),
+    fields(sub = field::Empty, jti = field::Empty)
+)]
 pub async fn delete_auth_token(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
     State(AppState {
@@ -174,12 +191,10 @@ pub async fn delete_auth_token(
         ..
     }): State<AppState<'_>>,
 ) -> RestResult<SignoutResponse> {
-    let span = tracing::info_span!(
-        "auth.signout",
-        sub = %auth.token.claims.sub,
-        jti = %auth.token.claims.jti
-    );
-    let _guard = span.enter();
+    Span::current().tap(|it| {
+        it.record("sub", field::display(&auth.token.claims.sub))
+            .record("jti", field::display(&auth.token.claims.jti));
+    });
 
     revoked_jwt
         .set_revoked(auth.token.claims.jti)
@@ -229,12 +244,16 @@ pub async fn delete_auth_token(
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
+#[tracing::instrument(level = "info", name = "auth.signup", skip(revoked_jwt, auth))]
 #[allow(unused)]
 pub async fn create_auth_user(
     State(AppState { revoked_jwt, .. }): State<AppState<'_>>,
 
     Json(auth): Json<SystemSigninRequest>,
 ) -> RestResult<()> {
+    let _ = &revoked_jwt;
+    Span::current();
+
     Ok(ApiResponse::new(()))
 }
 
@@ -280,6 +299,12 @@ pub async fn create_auth_user(
 	            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
 	        ),
 	    )]
+#[tracing::instrument(
+    level = "info",
+    name = "auth.refresh",
+    skip(auth, token_mtd, revoked_jwt, keyboxes, applications, auditing),
+    fields(sub = field::Empty, old_jti = field::Empty, token_dispatch = field::Empty)
+)]
 pub async fn refresh_auth_token(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
     token_mtd: middlewares::auth::TokenDispatchMethod,
@@ -293,14 +318,11 @@ pub async fn refresh_auth_token(
     }): State<AppState<'_>>,
 ) -> WithHeaderRestResult<Option<SigninResponse>> {
     let jti = auth.token.claims.jti;
-
-    let span = tracing::info_span!(
-        "auth.refresh",
-        sub = %auth.token.claims.sub,
-        old_jti = %jti,
-        token_dispatch = ?token_mtd
-    );
-    let _guard = span.enter();
+    Span::current().tap(|it| {
+        it.record("sub", field::display(&auth.token.claims.sub))
+            .record("old_jti", field::display(&jti))
+            .record("token_dispatch", field::debug(&token_mtd));
+    });
 
     let ApplicationConfiguration { authentication, .. } = applications
         .get_configuration(consts::SYSTEM_APPLICATION_UUID)

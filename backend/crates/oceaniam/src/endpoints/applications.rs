@@ -43,7 +43,8 @@ use oceaniam_vo::{
     },
     auth::{AuthVO, SigninResponse, SignoutResponse},
 };
-use tracing::{error, info, warn};
+use tap::Tap;
+use tracing::{Span, error, field, info, warn};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
@@ -88,17 +89,21 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
+#[tracing::instrument(
+    level = "info",
+    name = "applications.list",
+    skip(database),
+    fields(tenant_id = field::Empty, has_pagination = field::Empty)
+)]
 pub async fn get_applications(
     _: middlewares::auth::RequireAuth<SystemClaim>,
     Query(GetApplicationParam { tenant_id, page }): Query<GetApplicationParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> RestResult<PagedResponse<ApplicationVO>> {
-    let span = tracing::info_span!(
-        "applications.list",
-        tenant_id = %tenant_id,
-        has_pagination = page.is_some()
-    );
-    let _guard = span.enter();
+    Span::current().tap(|it| {
+        it.record("tenant_id", field::display(&tenant_id))
+            .record("has_pagination", page.is_some());
+    });
 
     info!(tenant_id = %tenant_id, "getting applications");
 
@@ -133,6 +138,12 @@ pub async fn get_applications(
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
+#[tracing::instrument(
+    level = "info",
+    name = "applications.create",
+    skip(applications, auditing, keyboxes, comment),
+    fields(tenant_id = field::Empty, application_id = field::Empty)
+)]
 pub async fn create_application(
     _: middlewares::auth::RequireAuth<SystemClaim>,
 
@@ -153,10 +164,10 @@ pub async fn create_application(
     } = applications
         .create_application(tenant_id.try_into()?, comment)
         .await?;
-
-    let span =
-        tracing::info_span!("applications.create", tenant_id = %tenant_id, application_id = %id);
-    let _guard = span.enter();
+    Span::current().tap(|it| {
+        it.record("tenant_id", field::display(&tenant_id))
+            .record("application_id", field::display(&id));
+    });
 
     info!(
         tenant_id = %tenant_id,
@@ -210,6 +221,12 @@ pub async fn create_application(
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
+#[tracing::instrument(
+    level = "info",
+    name = "applications.delete",
+    skip(applications, auditing, application_id),
+    fields(application_id = field::Empty)
+)]
 pub async fn delete_application(
     Path(application_id): Path<Sqid>,
 
@@ -219,9 +236,19 @@ pub async fn delete_application(
         ..
     }): State<AppState<'_>>,
 ) -> RestResult<()> {
-    let application_id = application_id.try_into()?;
+    let application_id: Uuid = application_id
+        .try_into()
+        .inspect_err(|e| error!(error = %e, "failed to convert application_id"))?;
+    Span::current().tap(|it| {
+        it.record("application_id", field::display(&application_id));
+    });
 
-    applications.delete_application(application_id).await?;
+    applications
+        .delete_application(application_id)
+        .await
+        .inspect_err(
+            |e| error!(application_id = %application_id, error = %e, "application deletion failed"),
+        )?;
 
     auditing
         .write(AuditPayload::from(DeleteApplicationPayload {
@@ -246,13 +273,28 @@ pub async fn delete_application(
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
+#[tracing::instrument(
+    level = "info",
+    name = "applications.jwks",
+    skip(keyboxes, application_id),
+    fields(application_id = field::Empty)
+)]
 pub async fn get_application_jwks(
     Path(application_id): Path<Sqid>,
 
     State(AppState { keyboxes, .. }): State<AppState<'_>>,
 ) -> RestResult<JwkSet> {
+    let application_id: Uuid = application_id
+        .try_into()
+        .inspect_err(|e| error!(error = %e, "failed to convert application_id"))?;
+    Span::current().tap(|it| {
+        it.record("application_id", field::display(&application_id));
+    });
+
     Ok(ApiResponse::new(
-        keyboxes.get_jwks(application_id.try_into()?).await?,
+        keyboxes.get_jwks(application_id).await.inspect_err(
+            |e| error!(application_id = %application_id, error = %e, "failed to get jwks"),
+        )?,
     ))
 }
 
@@ -271,6 +313,12 @@ pub async fn get_application_jwks(
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
+#[tracing::instrument(
+    level = "info",
+    name = "application_users.list",
+    skip(auth, database, application_id, page),
+    fields(operator_id = field::Empty, application_id = field::Empty)
+)]
 pub async fn get_application_users(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
     State(AppState { database, .. }): State<AppState<'_>>,
@@ -281,12 +329,10 @@ pub async fn get_application_users(
     let operator_id = auth.token.claims.sub;
 
     let application_id = application_id.try_into()?;
-    let span = tracing::info_span!(
-        "application_users.list",
-        operator_id = %operator_id,
-        application_id = %application_id
-    );
-    let _guard = span.enter();
+    Span::current().tap(|it| {
+        it.record("operator_id", field::display(&operator_id))
+            .record("application_id", field::display(&application_id));
+    });
 
     let PagedResponse { items, page_info } = match page {
         Some(page) => Users::get_users(application_id, page, &database)
@@ -338,6 +384,12 @@ pub async fn get_application_users(
             (status = 500, description = "Internal server error"),
         ),
     )]
+#[tracing::instrument(
+    level = "info",
+    name = "application_users.create",
+    skip(applications, auditing, application_id, email, phone, nickname, password),
+    fields(application_id = field::Empty, user_id = field::Empty)
+)]
 pub async fn create_application_user(
     _: RequireMatchedApplicationSecret,
 
@@ -355,11 +407,23 @@ pub async fn create_application_user(
         password,
     })): Garde<Json<CreateApplicationUserRequest>>,
 ) -> RestResult<ApplicationUserVO> {
-    let application_id = application_id.try_into()?;
+    let application_id: Uuid = application_id
+        .try_into()
+        .inspect_err(|e| error!(error = %e, "failed to convert application_id"))?;
+    Span::current().tap(|it| {
+        it.record("application_id", field::display(&application_id));
+    });
 
     let user = applications
         .get_application_users(application_id)
-        .await?
+        .await
+        .inspect_err(|e| {
+            error!(
+                application_id = %application_id,
+                error = %e,
+                "failed to get application users helper"
+            )
+        })?
         .create_user(
             application_id,
             CreateUserOpts {
@@ -369,7 +433,23 @@ pub async fn create_application_user(
             },
             password,
         )
-        .await?;
+        .await
+        .inspect_err(|e| {
+            error!(
+                application_id = %application_id,
+                error = %e,
+                "application user creation failed"
+            )
+        })?;
+    Span::current().tap(|it| {
+        it.record("user_id", field::display(&user.id));
+    });
+
+    info!(
+        application_id = %application_id,
+        user_id = %user.id,
+        "application user created successfully"
+    );
 
     auditing
         .write(AuditPayload::from(CreateApplicationUserPayload {
@@ -415,6 +495,16 @@ pub async fn create_application_user(
             (status = 500, description = "Internal server error"),
         ),
     )]
+#[tracing::instrument(
+    level = "info",
+    name = "application_auth.signin_legacy",
+    skip(token_mtd, applications, credentials, keyboxes, auditing, application_id, auth),
+    fields(
+        application_id = field::Empty,
+        user_id = field::Empty,
+        token_dispatch = field::Empty
+    )
+)]
 pub async fn legacy_create_application_auth_token(
     _: RequireMatchedApplicationSecret,
 
@@ -431,20 +521,59 @@ pub async fn legacy_create_application_auth_token(
     Path(application_id): Path<Sqid>,
     Json(auth): Json<AuthVO>,
 ) -> WithHeaderRestResult<Option<SigninResponse>> {
-    let application_id = application_id.try_into()?;
+    let application_id: Uuid = application_id
+        .try_into()
+        .inspect_err(|e| error!(error = %e, "failed to convert application_id"))?;
+    Span::current().tap(|it| {
+        it.record("application_id", field::display(&application_id))
+            .record("token_dispatch", field::debug(&token_mtd));
+    });
 
-    let ApplicationConfiguration { authentication, .. } =
-        applications.get_configuration(application_id).await?;
+    let ApplicationConfiguration { authentication, .. } = applications
+        .get_configuration(application_id)
+        .await
+        .inspect_err(|e| {
+            error!(
+                application_id = %application_id,
+                error = %e,
+                "failed to get application configuration"
+            )
+        })?;
     let user = applications
         .find_user_by(application_id, auth.clone())
-        .await?;
+        .await
+        .inspect_err(|e| {
+            error!(
+                application_id = %application_id,
+                error = %e,
+                "failed to find application user"
+            )
+        })?;
+    Span::current().tap(|it| {
+        it.record("user_id", field::display(&user.id));
+    });
 
-    let vault = credentials.get_credential(user.id).await?;
+    let vault = credentials.get_credential(user.id).await.inspect_err(|e| {
+        error!(
+            application_id = %application_id,
+            user_id = %user.id,
+            error = %e,
+            "failed to get user credential"
+        )
+    })?;
 
     let verify_result = match auth {
-        AuthVO::Email { password, .. } | AuthVO::Phone { password, .. } => {
-            Password::from(vault).verify(&password).await?
-        }
+        AuthVO::Email { password, .. } | AuthVO::Phone { password, .. } => Password::from(vault)
+            .verify(&password)
+            .await
+            .inspect_err(|e| {
+                error!(
+                    application_id = %application_id,
+                    user_id = %user.id,
+                    error = %e,
+                    "failed to verify password"
+                )
+            })?,
     };
 
     if !verify_result {
@@ -463,7 +592,21 @@ pub async fn legacy_create_application_auth_token(
                 aud: authentication.audience,
             },
         )
-        .await?;
+        .await
+        .inspect_err(|e| {
+            error!(
+                application_id = %application_id,
+                user_id = %user.id,
+                error = %e,
+                "failed to sign jwt during legacy signin"
+            )
+        })?;
+
+    info!(
+        application_id = %application_id,
+        user_id = %user.id,
+        "legacy signin successful"
+    );
 
     auditing
         .write(AuditPayload::from(SignJwtPayload {
@@ -510,6 +653,12 @@ pub async fn legacy_create_application_auth_token(
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
+#[tracing::instrument(
+    level = "info",
+    name = "application_auth.signout_legacy",
+    skip(auth, revoked_jwt, auditing, application_id),
+    fields(user_id = field::Empty, application_id = field::Empty, jti = field::Empty)
+)]
 pub async fn legacy_delete_application_auth_token(
     _: RequireMatchedApplicationSecret,
     auth: RequireAuth<Claim>,
@@ -533,14 +682,11 @@ pub async fn legacy_delete_application_auth_token(
             "failed to convert application_id"
         )
     })?;
-
-    let span = tracing::info_span!(
-        "application_auth.signout_legacy",
-        user_id = %user_id,
-        application_id = %app_id,
-        jti = %jti
-    );
-    let _guard = span.enter();
+    Span::current().tap(|it| {
+        it.record("user_id", field::display(&user_id))
+            .record("application_id", field::display(&app_id))
+            .record("jti", field::display(&jti));
+    });
 
     info!(
         user_id = %user_id,
@@ -613,6 +759,17 @@ pub async fn legacy_delete_application_auth_token(
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
+#[tracing::instrument(
+    level = "info",
+    name = "application_auth.refresh_legacy",
+    skip(auth, token_mtd, revoked_jwt, keyboxes, applications, auditing, application_id),
+    fields(
+        user_id = field::Empty,
+        application_id = field::Empty,
+        old_jti = field::Empty,
+        token_dispatch = field::Empty
+    )
+)]
 pub async fn legacy_refresh_application_auth_token(
     auth: RequireAuth<Claim>,
     token_mtd: TokenDispatchMethod,
@@ -639,14 +796,12 @@ pub async fn legacy_refresh_application_auth_token(
         )
     })?;
 
-    let span = tracing::info_span!(
-        "application_auth.refresh_legacy",
-        user_id = %user_id,
-        application_id = %application_id,
-        old_jti = %jti,
-        token_dispatch = ?token_mtd
-    );
-    let _guard = span.enter();
+    Span::current().tap(|it| {
+        it.record("user_id", field::display(&user_id))
+            .record("application_id", field::display(&application_id))
+            .record("old_jti", field::display(&jti))
+            .record("token_dispatch", field::debug(&token_mtd));
+    });
 
     let ApplicationConfiguration { authentication } =
         applications.get_configuration(application_id).await?;
@@ -752,6 +907,12 @@ pub async fn legacy_refresh_application_auth_token(
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
+#[tracing::instrument(
+    level = "info",
+    name = "application_secrets.create",
+    skip(applications, auditing, application_id),
+    fields(application_id = field::Empty, secret_id = field::Empty)
+)]
 pub async fn create_application_secret(
     _: RequireAuth<SystemClaim>,
 
@@ -762,8 +923,32 @@ pub async fn create_application_secret(
     }): State<AppState<'_>>,
     Path(application_id): Path<Sqid>,
 ) -> RestResult<SecretVO> {
-    let application_id = application_id.try_into()?;
-    let model = applications.secrets().create_secret(application_id).await?;
+    let application_id: Uuid = application_id
+        .try_into()
+        .inspect_err(|e| error!(error = %e, "failed to convert application_id"))?;
+    Span::current().tap(|it| {
+        it.record("application_id", field::display(&application_id));
+    });
+    let model = applications
+        .secrets()
+        .create_secret(application_id)
+        .await
+        .inspect_err(|e| {
+            error!(
+                application_id = %application_id,
+                error = %e,
+                "failed to create application secret"
+            )
+        })?;
+    Span::current().tap(|it| {
+        it.record("secret_id", field::display(&model.id));
+    });
+
+    info!(
+        application_id = %application_id,
+        secret_id = %model.id,
+        "application secret created successfully"
+    );
 
     auditing
         .write(AuditPayload::from(CreateApplicationSecretPayload {
@@ -798,6 +983,12 @@ pub async fn create_application_secret(
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
+#[tracing::instrument(
+    level = "info",
+    name = "application_secrets.list",
+    skip(applications, application_id),
+    fields(application_id = field::Empty)
+)]
 pub async fn get_application_secrets(
     _: RequireAuth<SystemClaim>,
 
@@ -808,9 +999,9 @@ pub async fn get_application_secrets(
     let application_id: uuid::Uuid = application_id
         .try_into()
         .inspect_err(|e| error!(error = %e, "failed to convert application_id"))?;
-
-    let span = tracing::info_span!("application_secrets.list", application_id = %application_id);
-    let _guard = span.enter();
+    Span::current().tap(|it| {
+        it.record("application_id", field::display(&application_id));
+    });
 
     info!(application_id = %application_id, "fetching application secrets");
 
@@ -858,6 +1049,12 @@ pub async fn get_application_secrets(
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
+#[tracing::instrument(
+    level = "info",
+    name = "application_secrets.get",
+    skip(applications, application_id, secret_id),
+    fields(application_id = field::Empty, secret_id = field::Empty)
+)]
 pub async fn get_application_secret(
     _: RequireAuth<SystemClaim>,
 
@@ -865,12 +1062,21 @@ pub async fn get_application_secret(
 
     State(AppState { applications, .. }): State<AppState<'_>>,
 ) -> RestResult<SecretVO> {
-    let secret_id: Uuid = secret_id.try_into()?;
+    let application_id: Uuid = application_id
+        .try_into()
+        .inspect_err(|e| error!(error = %e, "failed to convert application_id"))?;
+    let secret_id: Uuid = secret_id.try_into().inspect_err(
+        |e| error!(application_id = %application_id, error = %e, "failed to convert secret_id"),
+    )?;
+    Span::current().tap(|it| {
+        it.record("application_id", field::display(&application_id))
+            .record("secret_id", field::display(&secret_id));
+    });
 
     Ok(ApiResponse::new(
         applications
             .secrets()
-            .get_all_secrets_of(application_id.try_into()?)
+            .get_all_secrets_of(application_id)
             .await?
             .into_iter()
             .find(|it| it.id == secret_id)
@@ -902,6 +1108,12 @@ pub async fn get_application_secret(
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
+#[tracing::instrument(
+    level = "info",
+    name = "application_secrets.delete",
+    skip(applications, auditing, application_id, secret_id),
+    fields(application_id = field::Empty, secret_id = field::Empty)
+)]
 pub async fn delete_application_secret(
     _: middlewares::auth::RequireAuth<SystemClaim>,
 
@@ -912,13 +1124,35 @@ pub async fn delete_application_secret(
     }): State<AppState<'_>>,
     Path((application_id, secret_id)): Path<(Sqid, Sqid)>,
 ) -> RestResult<()> {
-    let application_id = application_id.try_into()?;
-    let secret_id = secret_id.try_into()?;
+    let application_id: Uuid = application_id
+        .try_into()
+        .inspect_err(|e| error!(error = %e, "failed to convert application_id"))?;
+    let secret_id: Uuid = secret_id.try_into().inspect_err(
+        |e| error!(application_id = %application_id, error = %e, "failed to convert secret_id"),
+    )?;
+    Span::current().tap(|it| {
+        it.record("application_id", field::display(&application_id))
+            .record("secret_id", field::display(&secret_id));
+    });
 
     applications
         .secrets()
         .delete_secret(application_id, secret_id)
-        .await?;
+        .await
+        .inspect_err(|e| {
+            error!(
+                application_id = %application_id,
+                secret_id = %secret_id,
+                error = %e,
+                "failed to delete application secret"
+            )
+        })?;
+
+    info!(
+        application_id = %application_id,
+        secret_id = %secret_id,
+        "application secret deleted successfully"
+    );
 
     auditing
         .write(AuditPayload::from(DeleteApplicationSecretPayload {
