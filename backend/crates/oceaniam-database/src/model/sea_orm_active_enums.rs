@@ -15,6 +15,41 @@ use serde::{Deserialize, Serialize};
     ts_rs :: TS,
     strum :: Display,
 )]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "audit_type")]
+pub enum AuditType {
+    #[sea_orm(string_value = "sign_jwt")]
+    SignJwt,
+    #[sea_orm(string_value = "revoke_jwt")]
+    RevokeJwt,
+    #[sea_orm(string_value = "create_application")]
+    CreateApplication,
+    #[sea_orm(string_value = "delete_application")]
+    DeleteApplication,
+    #[sea_orm(string_value = "create_tenants")]
+    CreateTenants,
+    #[sea_orm(string_value = "delete_tenants")]
+    DeleteTenants,
+    #[sea_orm(string_value = "create_application_user")]
+    CreateApplicationUser,
+    #[sea_orm(string_value = "delete_application_user")]
+    DeleteApplicationUser,
+    #[sea_orm(string_value = "create_application_secret")]
+    CreateApplicationSecret,
+    #[sea_orm(string_value = "delete_application_secret")]
+    DeleteApplicationSecret,
+}
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Serialize,
+    Deserialize,
+    ts_rs :: TS,
+    strum :: Display,
+)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "key_alg")]
 pub enum KeyAlg {
     #[sea_orm(string_value = "rs256")]

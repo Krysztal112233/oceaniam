@@ -19,6 +19,7 @@ use tracing::{error, info, warn};
 use uuid::Uuid;
 
 pub mod applications;
+pub mod audit;
 pub mod credentials;
 pub mod filters;
 pub mod keybox;

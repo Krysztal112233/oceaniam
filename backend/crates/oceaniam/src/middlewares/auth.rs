@@ -91,13 +91,8 @@ where
             return Err(StatusCode::BAD_REQUEST);
         }
 
-        let Ok(token) = validate::<C>(
-            &header,
-            system_jwks.jwks(),
-            token,
-            dbg!(system_jwt_validator),
-        )
-        .await
+        let Ok(token) =
+            validate::<C>(&header, system_jwks.jwks(), token, system_jwt_validator).await
         else {
             return Err(StatusCode::BAD_REQUEST);
         };

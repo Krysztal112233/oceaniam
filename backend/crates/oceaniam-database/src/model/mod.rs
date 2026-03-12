@@ -5,6 +5,7 @@ pub mod prelude;
 pub mod administrators;
 pub mod application_secrets;
 pub mod applications;
+pub mod audits;
 pub mod credentials;
 pub mod key_boxes;
 pub mod revoked_jwts;

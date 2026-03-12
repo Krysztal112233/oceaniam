@@ -3,6 +3,7 @@
 pub use super::administrators::Entity as Administrators;
 pub use super::application_secrets::Entity as ApplicationSecrets;
 pub use super::applications::Entity as Applications;
+pub use super::audits::Entity as Audits;
 pub use super::credentials::Entity as Credentials;
 pub use super::key_boxes::Entity as KeyBoxes;
 pub use super::revoked_jwts::Entity as RevokedJwts;
