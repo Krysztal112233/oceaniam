@@ -1,5 +1,4 @@
 use axum::http::StatusCode;
-use futures::FutureExt;
 use oceaniam_common::{PageParam, PagedResponse, error::Error};
 use sea_orm::{ActiveModelTrait, EntityTrait, IntoActiveModel, PaginatorTrait};
 use uuid::Uuid;

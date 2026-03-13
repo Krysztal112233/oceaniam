@@ -27,6 +27,8 @@ bloomfilter = "3"
 chrono = "0.4"
 clap = { version = "*", features = ["derive"] }
 config = { version = "0.15", features = ["toml"] }
+crossbeam-channel = "0.5"
+crossbeam-queue = "0.3"
 dotenvy = "0.15"
 futures = "0.3"
 garde = { version = "*", features = ["derive", "phone-number", "email"] }
