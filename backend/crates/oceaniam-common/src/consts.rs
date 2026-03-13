@@ -22,6 +22,6 @@ pub const DEFAULT_JWT_AUDIENCE: &str = "OceanIAM";
 pub const DEFAULT_JWT_ISSUER: &str = "OceanIAM";
 
 pub static MAX_CPU_BOUND_SEMAPHORE: LazyLock<Semaphore> =
-    LazyLock::new(|| Semaphore::new(num_cpus::get() * 2));
+    LazyLock::new(|| Semaphore::new(num_cpus::get()));
 
 pub const USER_LOGIN_FAILED_MSG: &str = "user not found or password invalid";

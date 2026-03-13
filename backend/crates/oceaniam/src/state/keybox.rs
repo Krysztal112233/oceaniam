@@ -35,6 +35,12 @@ pub struct SignJwtOptions {
     pub aud: Vec<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct EncodedJwt<T> {
+    pub jwt: String,
+    pub claim: T,
+}
+
 #[allow(unused)]
 impl ManagedKeyBoxes {
     pub fn new(database: DatabaseConnection) -> Self {
@@ -127,7 +133,7 @@ impl ManagedKeyBoxes {
             iss,
             aud,
         }: SignJwtOptions,
-    ) -> Result<String, Error>
+    ) -> Result<EncodedJwt<T>, Error>
     where
         T: ClaimHelper,
     {
@@ -167,17 +173,21 @@ impl ManagedKeyBoxes {
                 .inspect_err(|e| error!("failed to convert key to rsakey: {}", e))?),
         };
 
-        T::new(
+        let claim = T::new(
             sub,
             Duration::from_hours(24 * 5).as_secs() as i64,
             Some(iss),
             Some(aud),
-        )
-        .encode(
-            Header::new(key_alg.into()).tap_mut(|it| it.kid = Some(kid.to_string())),
-            ket,
-        )
-        .inspect_err(|e| error!("failed to encode jwt: {}", e))
+        );
+
+        claim
+            .clone()
+            .encode(
+                Header::new(key_alg.into()).tap_mut(|it| it.kid = Some(kid.to_string())),
+                ket,
+            )
+            .inspect_err(|e| error!("failed to encode jwt: {}", e))
+            .map(|it| EncodedJwt { jwt: it, claim })
     }
 }
 

@@ -34,3 +34,12 @@ impl From<GetTenantsRequest> for PageParam {
         Self { page, per_page }
     }
 }
+
+impl Default for GetTenantsRequest {
+    fn default() -> Self {
+        Self {
+            page: 0,
+            per_page: 30,
+        }
+    }
+}

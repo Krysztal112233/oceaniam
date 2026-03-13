@@ -1,4 +1,5 @@
 use axum::http::StatusCode;
+use futures::FutureExt;
 use oceaniam_common::{PageParam, PagedResponse, error::Error};
 use sea_orm::{ActiveModelTrait, EntityTrait, IntoActiveModel, PaginatorTrait};
 use uuid::Uuid;
@@ -63,6 +64,15 @@ pub trait TenantsHelper {
             .paginate(database, page.per_page)
             .fetch_paged(page)
             .await
+    }
+
+    async fn get_all_tenants(
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<PagedResponse<model::tenants::Model>, Error> {
+        Ok(Tenants::find()
+            .all(database)
+            .await
+            .map(PagedResponse::with_entire)?)
     }
 }
 

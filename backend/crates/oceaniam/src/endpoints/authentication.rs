@@ -33,7 +33,10 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::{
     middlewares::{self, auth::TokenDispatchMethod},
-    state::{AppState, keybox::SignJwtOptions},
+    state::{
+        AppState,
+        keybox::{EncodedJwt, SignJwtOptions},
+    },
 };
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
@@ -131,7 +134,7 @@ pub async fn create_auth_token(
         ));
     }
 
-    let jwt = keyboxes
+    let EncodedJwt { jwt, claim } = keyboxes
         .sign_jwt::<SystemClaim>(
             id,
             SignJwtOptions {
@@ -145,6 +148,7 @@ pub async fn create_auth_token(
 
     auditing
         .write(AuditPayload::from(SignJwtPayload {
+            jti: claim.jti,
             application_id: consts::SYSTEM_APPLICATION_UUID,
             subject_id: id,
         }))
@@ -344,7 +348,7 @@ pub async fn refresh_auth_token(
         )
     })?;
 
-    let jwt = keyboxes
+    let EncodedJwt { jwt, claim } = keyboxes
         .sign_jwt::<SystemClaim>(
             auth.token.claims.sub,
             SignJwtOptions {
@@ -369,6 +373,7 @@ pub async fn refresh_auth_token(
             application_id: consts::SYSTEM_APPLICATION_UUID,
             subject_id: auth.token.claims.sub,
             old_jti: jti,
+            new_jti: claim.jti,
         }))
         .await;
 

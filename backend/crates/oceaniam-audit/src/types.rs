@@ -114,6 +114,7 @@ impl From<DeleteApplicationSecretPayload> for AuditPayload {
 pub struct SignJwtPayload {
     pub application_id: Uuid,
     pub subject_id: Uuid,
+    pub jti: Uuid,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
@@ -128,6 +129,7 @@ pub struct RefreshJwtPayload {
     pub application_id: Uuid,
     pub subject_id: Uuid,
     pub old_jti: Uuid,
+    pub new_jti: Uuid,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]

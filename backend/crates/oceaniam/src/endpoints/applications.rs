@@ -54,7 +54,10 @@ use crate::{
         self,
         auth::{RequireAuth, TokenDispatchMethod},
     },
-    state::{AppState, keybox::SignJwtOptions},
+    state::{
+        AppState,
+        keybox::{EncodedJwt, SignJwtOptions},
+    },
 };
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
@@ -583,7 +586,7 @@ pub async fn legacy_create_application_auth_token(
         ));
     }
 
-    let jwt = keyboxes
+    let EncodedJwt { jwt, claim } = keyboxes
         .sign_jwt::<Claim>(
             user.id,
             SignJwtOptions {
@@ -612,6 +615,7 @@ pub async fn legacy_create_application_auth_token(
         .write(AuditPayload::from(SignJwtPayload {
             application_id: user.application_id,
             subject_id: user.id,
+            jti: claim.jti,
         }))
         .await;
 
@@ -843,7 +847,7 @@ pub async fn legacy_refresh_application_auth_token(
         "old jwt revoked successfully during refresh"
     );
 
-    let jwt = keyboxes
+    let EncodedJwt { jwt, claim } = keyboxes
         .sign_jwt::<Claim>(
             user_id,
             SignJwtOptions {
@@ -875,6 +879,7 @@ pub async fn legacy_refresh_application_auth_token(
             application_id,
             subject_id: user_id,
             old_jti: jti,
+            new_jti: claim.jti,
         }))
         .await;
 

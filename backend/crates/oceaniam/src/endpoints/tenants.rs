@@ -4,14 +4,14 @@
 
 use axum::{
     Json,
-    extract::{Path, Query, State},
+    extract::{Path, State},
 };
 use oceaniam_audit::types::{AuditPayload, CreateTenantsPayload, DeleteTenantsPayload};
 use oceaniam_common::{
     ApiResponse, Empty, PagedResponse, RestResult, jwt::SystemClaim, types::sqid::Sqid,
 };
 use oceaniam_database::{helper::tenants::TenantsHelper, model::prelude::*};
-use oceaniam_vo::tenants::{CreateTenantRequest, GetTenantsRequest, TenantVO};
+use oceaniam_vo::tenants::{CreateTenantRequest, TenantVO};
 use tap::Tap;
 use tracing::{Span, error, field, warn};
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -43,13 +43,11 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
 #[tracing::instrument(
     level = "info",
     name = "tenants.list",
-    skip(auth, page, database),
+    skip(auth, database),
     fields(operator_id = field::Empty)
 )]
 pub async fn get_tenants(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
-
-    Query(page): Query<GetTenantsRequest>,
 
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> RestResult<PagedResponse<TenantVO>> {
@@ -59,7 +57,7 @@ pub async fn get_tenants(
     });
 
     let PagedResponse { items, page_info } =
-        Tenants::get_tenants(page, &database).await.inspect_err(
+        Tenants::get_all_tenants(&database).await.inspect_err(
             |e| error!(operator_id = %operator_id, error = %e, "tenant list query failed"),
         )?;
 
