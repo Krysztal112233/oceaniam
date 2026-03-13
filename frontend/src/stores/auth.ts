@@ -37,7 +37,6 @@ function writeAuthCookie(token: string | null): void {
     document.cookie = `${AUTH_TOKEN_COOKIE_NAME}=${encodeURIComponent(normalized)}; Path=/`;
 }
 
-// NOTE: AI-generated function
 export const useAuthStore = defineStore("auth", {
     state: () => {
         const initialJwt = readCookie(AUTH_TOKEN_COOKIE_NAME);

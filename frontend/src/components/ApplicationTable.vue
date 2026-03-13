@@ -1,0 +1,67 @@
+<script setup lang="ts">
+import type { ApplicationVO } from "../../packages/sdk/src/types/ApplicationVO";
+import ApplicationRowActions from "./ApplicationRowActions.vue";
+
+defineProps<{
+    applications: ApplicationVO[];
+}>();
+
+const emit = defineEmits<{
+    (event: "detail", applicationId: string): void;
+    (event: "delete", applicationId: string): void;
+}>();
+
+function formatComment(comment: ApplicationVO["comment"]): string {
+    if (!comment) {
+        return "暂无备注";
+    }
+
+    return comment;
+}
+</script>
+
+<template>
+    <div class="overflow-x-auto">
+        <table class="table table-zebra min-w-190">
+            <thead>
+                <tr class="text-sm text-base-content/70">
+                    <th class="whitespace-nowrap">ApplicationID</th>
+                    <th>Comment</th>
+                    <th class="w-44 whitespace-nowrap text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr
+                    v-for="application in applications"
+                    :key="application.id"
+                    class="hover"
+                >
+                    <td class="align-top">
+                        <div class="font-mono text-sm text-base-content">
+                            {{ application.id }}
+                        </div>
+                    </td>
+                    <td class="align-top">
+                        <span
+                            class="text-sm"
+                            :class="
+                                application.comment
+                                    ? 'text-base-content'
+                                    : 'text-base-content/50'
+                            "
+                        >
+                            {{ formatComment(application.comment) }}
+                        </span>
+                    </td>
+                    <td class="align-top">
+                        <ApplicationRowActions
+                            :application-id="application.id"
+                            @detail="emit('detail', $event)"
+                            @delete="emit('delete', $event)"
+                        />
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</template>
