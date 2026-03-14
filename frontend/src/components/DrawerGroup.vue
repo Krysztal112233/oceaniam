@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import ExpandMoreIcon from "@iconify-vue/material-symbols/expand-more";
+import type { Component } from "vue";
 import { computed, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import DrawerItem from "./DrawerItem.vue";
@@ -7,11 +8,13 @@ import DrawerItem from "./DrawerItem.vue";
 type DrawerGroupItem = {
     label: string;
     to: string;
+    icon?: Component;
 };
 
 const props = defineProps<{
     label: string;
     items: DrawerGroupItem[];
+    icon?: Component;
 }>();
 
 const route = useRoute();
@@ -38,6 +41,13 @@ watch(hasActiveChild, (value) => {
             :aria-expanded="expanded"
             @click="expanded = !expanded"
         >
+            <component
+                v-if="props.icon"
+                :is="props.icon"
+                width="16"
+                height="16"
+                class="shrink-0"
+            />
             <span class="min-w-0 flex-1 truncate text-left">{{
                 props.label
             }}</span>
@@ -58,6 +68,7 @@ watch(hasActiveChild, (value) => {
                 :key="item.to"
                 :tooltip="item.label"
                 :to="item.to"
+                :icon="item.icon"
             />
         </div>
     </div>

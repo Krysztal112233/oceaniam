@@ -19,8 +19,8 @@ defineProps<{
         <component
             v-if="icon"
             :is="icon"
-            width="24"
-            height="24"
+            width="16"
+            height="16"
             class="shrink-0"
         />
         <slot v-else name="icon"></slot>
