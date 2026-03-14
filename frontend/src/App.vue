@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import AppLayout from "./layout/AppLayout.vue";
+import DrawerGroup from "./components/DrawerGroup.vue";
 import DrawerItem from "./components/DrawerItem.vue";
 import AuthWidget from "./components/auth/AuthWidget.vue";
 import LoginModal from "./components/auth/LoginModal.vue";
@@ -20,7 +21,17 @@ const loginOpen = ref(false);
 
         <DrawerItem tooltip="Home" to="/" />
         <DrawerItem tooltip="Applications" to="/applications" />
-        <DrawerItem tooltip="Users" to="/users" />
+        <DrawerGroup
+            label="User Management"
+            :items="[{ label: 'Users', to: '/users' }]"
+        />
+        <DrawerGroup
+            label="Monitoring"
+            :items="[
+                { label: 'Audits', to: '/audits' },
+                { label: 'Statistics', to: '/statistics' },
+            ]"
+        />
 
         <template #navbar-right>
             <AuthWidget variant="navbar" @open-login="loginOpen = true" />
