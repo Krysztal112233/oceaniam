@@ -66,6 +66,10 @@ onBeforeUnmount(() => {
         :drawer-id="props.drawerId"
         @toggle-drawer="toggleDrawer"
     >
+        <template #brand-extra>
+            <slot name="navbar-brand-extra"></slot>
+        </template>
+
         <template #right>
             <slot name="navbar-right"></slot>
         </template>

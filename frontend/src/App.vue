@@ -11,15 +11,19 @@ const loginOpen = ref(false);
 
 <template>
     <AppLayout brandText="OceanIAM">
+        <template #navbar-brand-extra>
+            <div class="flex items-center gap-3">
+                <div class="h-6 w-px bg-base-300"></div>
+                <TenantSwitcher />
+            </div>
+        </template>
+
         <DrawerItem tooltip="Home" to="/" />
         <DrawerItem tooltip="Applications" to="/applications" />
         <DrawerItem tooltip="Users" to="/users" />
 
         <template #navbar-right>
-            <div class="flex items-center gap-2">
-                <TenantSwitcher />
-                <AuthWidget variant="navbar" @open-login="loginOpen = true" />
-            </div>
+            <AuthWidget variant="navbar" @open-login="loginOpen = true" />
         </template>
 
         <template #content>

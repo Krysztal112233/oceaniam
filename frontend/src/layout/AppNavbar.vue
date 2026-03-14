@@ -48,12 +48,16 @@ const emit = defineEmits<{
         </div>
 
         <div class="flex-1 min-w-0">
-            <RouterLink
-                to="/"
-                class="btn btn-ghost text-lg font-semibold normal-case"
-            >
-                {{ props.brandText }}
-            </RouterLink>
+            <div class="flex min-w-0 items-center gap-3">
+                <RouterLink
+                    to="/"
+                    class="btn btn-ghost text-lg font-semibold normal-case"
+                >
+                    {{ props.brandText }}
+                </RouterLink>
+
+                <slot name="brand-extra"></slot>
+            </div>
         </div>
 
         <div class="flex-none">
