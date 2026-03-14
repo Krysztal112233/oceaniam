@@ -1,11 +1,11 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use chrono::Utc;
 use crossbeam_queue::SegQueue;
 use oceaniam_audit::types::AuditPayload;
 use oceaniam_database::model::{self, prelude::Audits};
 use sea_orm::{DatabaseConnection, EntityTrait, IntoActiveModel};
-use tokio::sync::oneshot;
+use tokio::{sync::oneshot, time::sleep};
 use uuid::Uuid;
 
 use super::AuditWriter;
@@ -30,6 +30,7 @@ impl DatabaseAuditWriter {
 
         tokio::spawn(async move {
             loop {
+                sleep(Duration::from_millis(50)).await;
                 worker.compute_flush().await;
             }
         });
@@ -44,7 +45,9 @@ impl DatabaseAuditWriter {
                 buffer.push(pat);
             }
 
-            flush(buffer, self.database.clone());
+            if !buffer.is_empty() {
+                flush(buffer, self.database.clone());
+            }
         }
     }
 }
