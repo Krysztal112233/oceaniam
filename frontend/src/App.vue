@@ -38,6 +38,7 @@ const loginOpen = ref(false);
             label="Monitoring"
             :icon="MonitorHeartIcon"
             :items="[
+                { label: 'Overview', to: '/overview' },
                 { label: 'Audits', to: '/audits' },
                 {
                     label: 'Statistics',
