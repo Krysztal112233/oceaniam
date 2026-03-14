@@ -1,7 +1,11 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { authState, logout } from "../../utils/auth.ts";
 import { useAuthStore } from "../../stores/auth";
+
+type AuthPopoverElement = HTMLElement & {
+    hidePopover?: () => void;
+};
 
 const props = withDefaults(
     defineProps<{
@@ -17,6 +21,9 @@ const emit = defineEmits<{
 }>();
 
 const authStore = useAuthStore();
+const authPopoverRef = ref<AuthPopoverElement | null>(null);
+const authPopoverId = "auth-widget-popover";
+const authAnchorName = "--auth-widget-anchor";
 
 const username = computed(() => authStore.username?.trim() || "");
 const displayName = computed(() => username.value || "已登录");
@@ -35,6 +42,7 @@ function openLogin() {
 
 async function handleLogout() {
     try {
+        authPopoverRef.value?.hidePopover?.();
         await logout();
     } catch {
         // errors are swallowed inside logout; this is defensive
@@ -79,8 +87,13 @@ async function handleLogout() {
                 </button>
             </div>
 
-            <div v-else class="dropdown dropdown-end">
-                <button type="button" class="btn btn-ghost btn-sm gap-2">
+            <div v-else>
+                <button
+                    type="button"
+                    class="btn btn-ghost btn-sm gap-2"
+                    :popovertarget="authPopoverId"
+                    :style="{ anchorName: authAnchorName }"
+                >
                     <div class="avatar placeholder">
                         <div
                             class="w-8 rounded-full bg-neutral text-neutral-content"
@@ -94,7 +107,11 @@ async function handleLogout() {
                 </button>
 
                 <ul
-                    class="dropdown-content menu z-1 w-56 rounded-box bg-base-100 p-2 shadow"
+                    :id="authPopoverId"
+                    ref="authPopoverRef"
+                    popover="auto"
+                    class="dropdown menu mt-2 w-56 rounded-box bg-base-100 p-2 shadow"
+                    :style="{ positionAnchor: authAnchorName }"
                 >
                     <li class="menu-title">
                         <span class="truncate">{{ username || "未设置" }}</span>
