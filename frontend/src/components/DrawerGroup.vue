@@ -17,7 +17,7 @@ const props = defineProps<{
 const route = useRoute();
 
 const hasActiveChild = computed(() =>
-    props.items.some((item) => route.path === item.to),
+    props.items.some((item) => item.to === route.path),
 );
 
 const expanded = ref(hasActiveChild.value);

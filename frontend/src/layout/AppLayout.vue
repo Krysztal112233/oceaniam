@@ -83,7 +83,9 @@ onBeforeUnmount(() => {
         <slot></slot>
 
         <template #content>
-            <slot name="content"></slot>
+            <div class="mx-auto w-full lg:max-w-[80%]">
+                <slot name="content"></slot>
+            </div>
         </template>
 
         <template v-if="$slots.footer" #footer>
