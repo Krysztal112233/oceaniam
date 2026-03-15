@@ -31,6 +31,8 @@ defineProps<{
                             {{ summaryText }}
                         </p>
                     </div>
+
+                    <slot name="actions"></slot>
                 </div>
 
                 <slot></slot>

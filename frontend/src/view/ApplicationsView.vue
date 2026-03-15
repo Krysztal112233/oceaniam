@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import { computed, onMounted, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import ApplicationTable from "../components/ApplicationTable.vue";
+import CreateApplicationModal from "../components/CreateApplicationModal.vue";
 import EntityListPage from "../components/EntityListPage.vue";
 import { useTenantStore } from "../stores/tenant";
 
@@ -13,10 +14,14 @@ const {
     applicationsError,
     applicationsLoading,
     applicationsTotal,
+    createApplicationError,
+    createApplicationLoading,
     currentTenantId,
     hasTenants,
     tenantsLoading,
 } = storeToRefs(tenantStore);
+const isCreateDialogOpen = ref(false);
+const createSuccessMessage = ref("");
 
 const tenantId = computed(() => {
     const raw = route.params.tenantId;
@@ -31,9 +36,7 @@ const summaryText = computed(() => {
     }
 
     if (!activeTenantId) {
-        return hasTenants.value
-            ? "请先选择 tenant。"
-            : "当前没有可用 tenant。";
+        return hasTenants.value ? "请先选择 tenant。" : "当前没有可用 tenant。";
     }
 
     if (applicationsLoading.value) {
@@ -50,6 +53,25 @@ function handleDetail(applicationId: string) {
 
 function handleDelete(applicationId: string) {
     console.debug("application delete clicked:", applicationId);
+}
+
+function openCreateDialog() {
+    createSuccessMessage.value = "";
+    isCreateDialogOpen.value = true;
+}
+
+function closeCreateDialog() {
+    isCreateDialogOpen.value = false;
+}
+
+async function handleCreateApplication(comment: string) {
+    try {
+        await tenantStore.createApplication(comment);
+        createSuccessMessage.value = "Application 已创建，列表已刷新。";
+        closeCreateDialog();
+    } catch {
+        // error is stored in tenant store
+    }
 }
 
 watch(
@@ -73,7 +95,32 @@ onMounted(() => {
         card-title="Application List"
         :summary-text="summaryText"
     >
-        <div v-if="tenantsLoading || applicationsLoading" class="space-y-3 px-6 pb-6">
+        <template #actions>
+            <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                :disabled="
+                    tenantsLoading ||
+                    applicationsLoading ||
+                    !currentTenantId ||
+                    !hasTenants
+                "
+                @click="openCreateDialog"
+            >
+                新增 Application
+            </button>
+        </template>
+
+        <div v-if="createSuccessMessage" class="px-6 pt-6">
+            <div class="alert alert-success alert-soft">
+                <span>{{ createSuccessMessage }}</span>
+            </div>
+        </div>
+
+        <div
+            v-if="tenantsLoading || applicationsLoading"
+            class="space-y-3 px-6 pb-6"
+        >
             <div class="skeleton h-12 w-full"></div>
             <div class="skeleton h-12 w-full"></div>
             <div class="skeleton h-12 w-full"></div>
@@ -106,4 +153,13 @@ onMounted(() => {
             @delete="handleDelete"
         />
     </EntityListPage>
+
+    <CreateApplicationModal
+        :open="isCreateDialogOpen"
+        :tenant-id="currentTenantId || tenantId"
+        :loading="createApplicationLoading"
+        :error="createApplicationError"
+        @close="closeCreateDialog"
+        @submit="handleCreateApplication"
+    />
 </template>
