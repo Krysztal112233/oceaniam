@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use axum::{Router, http::HeaderValue};
 use mimalloc::MiMalloc;
 use oceaniam_common::{
@@ -86,18 +88,42 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
-async fn setup_database(config: &DatabaseConfig) -> Result<DatabaseConnection, Error> {
-    let options = ConnectOptions::from(config.clone());
+async fn setup_database(
+    DatabaseConfig {
+        dsn,
+        slow_statements_logging_threshold,
+        max_connections,
+        min_connections,
+    }: &DatabaseConfig,
+) -> Result<DatabaseConnection, Error> {
+    let options = ConnectOptions::new(dsn)
+        .pipe_borrow_mut(|it| match slow_statements_logging_threshold {
+            Some(milis) => it.sqlx_slow_statements_logging_settings(
+                log::LevelFilter::Warn,
+                Duration::from_micros(*milis),
+            ),
+            _ => it,
+        })
+        .pipe_borrow_mut(|it| match max_connections {
+            Some(c) => it.max_connections(*c),
+            _ => it,
+        })
+        .pipe_borrow_mut(|it| match min_connections {
+            Some(c) => it.min_connections(*c),
+            _ => it,
+        })
+        .pipe_borrow_mut(|it| it.sqlx_logging(false))
+        .to_owned();
 
     let db = Database::connect(options).await.inspect_err(|err| {
         error!(
-            dsn = %redact_dsn(&config.dsn),
+            dsn = %redact_dsn(dsn),
             error = %err,
             "failed to connect to database"
         )
     })?;
 
-    debug!(dsn = %redact_dsn(&config.dsn), "connected to database");
+    debug!(dsn = %redact_dsn(dsn), "connected to database");
 
     if !Tenants::is_exist(consts::SYSTEM_TENANT_UUID, &db).await? {
         warn!(

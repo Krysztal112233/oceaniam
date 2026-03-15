@@ -2278,6 +2278,7 @@ dependencies = [
  "im",
  "itertools",
  "jsonwebtoken",
+ "log",
  "mimalloc",
  "moka",
  "oceaniam-audit",
