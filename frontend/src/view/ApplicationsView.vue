@@ -17,11 +17,15 @@ const {
     createApplicationError,
     createApplicationLoading,
     currentTenantId,
+    deleteApplicationError,
+    deleteApplicationLoading,
     hasTenants,
     tenantsLoading,
 } = storeToRefs(tenantStore);
 const isCreateDialogOpen = ref(false);
 const createSuccessMessage = ref("");
+const deleteSuccessMessage = ref("");
+const deletingApplicationId = ref("");
 
 const tenantId = computed(() => {
     const raw = route.params.tenantId;
@@ -52,11 +56,16 @@ function handleDetail(applicationId: string) {
 }
 
 function handleDelete(applicationId: string) {
-    console.debug("application delete clicked:", applicationId);
+    createSuccessMessage.value = "";
+    deleteSuccessMessage.value = "";
+    deletingApplicationId.value = applicationId;
+
+    void confirmDeleteApplication(applicationId);
 }
 
 function openCreateDialog() {
     createSuccessMessage.value = "";
+    deleteSuccessMessage.value = "";
     isCreateDialogOpen.value = true;
 }
 
@@ -68,15 +77,29 @@ async function handleCreateApplication(comment: string) {
     try {
         await tenantStore.createApplication(comment);
         createSuccessMessage.value = "Application 已创建，列表已刷新。";
+        deleteSuccessMessage.value = "";
         closeCreateDialog();
     } catch {
         // error is stored in tenant store
     }
 }
 
+async function confirmDeleteApplication(applicationId: string) {
+    try {
+        await tenantStore.deleteApplication(applicationId);
+        deleteSuccessMessage.value = "Application 已删除，列表已刷新。";
+        deletingApplicationId.value = "";
+    } catch {
+        deletingApplicationId.value = applicationId;
+    }
+}
+
 watch(
     () => tenantId.value,
     (nextTenantId) => {
+        createSuccessMessage.value = "";
+        deleteSuccessMessage.value = "";
+        deletingApplicationId.value = "";
         tenantStore.syncCurrentTenant(nextTenantId);
         void tenantStore.loadApplications(nextTenantId);
     },
@@ -111,9 +134,12 @@ onMounted(() => {
             </button>
         </template>
 
-        <div v-if="createSuccessMessage" class="px-6 pt-6">
+        <div
+            v-if="createSuccessMessage || deleteSuccessMessage"
+            class="px-6 pt-6"
+        >
             <div class="alert alert-success alert-soft">
-                <span>{{ createSuccessMessage }}</span>
+                <span>{{ createSuccessMessage || deleteSuccessMessage }}</span>
             </div>
         </div>
 
@@ -149,6 +175,9 @@ onMounted(() => {
         <ApplicationTable
             v-else
             :applications="applications"
+            :deleting-application-id="deletingApplicationId"
+            :delete-loading="deleteApplicationLoading"
+            :delete-error="deleteApplicationError"
             @detail="handleDetail"
             @delete="handleDelete"
         />

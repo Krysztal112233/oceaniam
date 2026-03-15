@@ -4,6 +4,9 @@ import ApplicationRowActions from "./ApplicationRowActions.vue";
 
 defineProps<{
     applications: ApplicationVO[];
+    deletingApplicationId: string;
+    deleteLoading: boolean;
+    deleteError: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -56,6 +59,12 @@ function formatComment(comment: ApplicationVO["comment"]): string {
                     <td class="align-top">
                         <ApplicationRowActions
                             :application-id="application.id"
+                            :deleting="deleteLoading && deletingApplicationId === application.id"
+                            :delete-error="
+                                deletingApplicationId === application.id
+                                    ? deleteError
+                                    : null
+                            "
                             @detail="emit('detail', $event)"
                             @delete="emit('delete', $event)"
                         />

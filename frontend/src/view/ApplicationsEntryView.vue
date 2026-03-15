@@ -58,7 +58,9 @@ onMounted(() => {
 <template>
     <section class="flex flex-col gap-6">
         <header class="flex flex-col gap-2">
-            <h1 class="text-2xl font-semibold text-base-content">Applications</h1>
+            <h1 class="text-2xl font-semibold text-base-content">
+                Applications
+            </h1>
             <p class="max-w-2xl text-sm text-base-content/70">
                 从最近使用的 tenant 恢复 application 视图。
             </p>
@@ -68,7 +70,11 @@ onMounted(() => {
             <div class="card-body">
                 <div
                     class="alert"
-                    :class="tenantsError ? 'alert-error alert-soft' : 'alert-info alert-soft'"
+                    :class="
+                        tenantsError
+                            ? 'alert-error alert-soft'
+                            : 'alert-info alert-soft'
+                    "
                 >
                     <span>{{ message }}</span>
                 </div>

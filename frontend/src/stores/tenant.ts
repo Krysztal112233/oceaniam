@@ -30,6 +30,8 @@ export const useTenantStore = defineStore(
         const applicationsError = ref<string | null>(null);
         const createApplicationLoading = ref(false);
         const createApplicationError = ref<string | null>(null);
+        const deleteApplicationLoading = ref(false);
+        const deleteApplicationError = ref<string | null>(null);
 
         const hasTenants = computed(() => tenants.value.length > 0);
         const currentTenant = computed(
@@ -71,6 +73,8 @@ export const useTenantStore = defineStore(
             applicationsError.value = null;
             createApplicationLoading.value = false;
             createApplicationError.value = null;
+            deleteApplicationLoading.value = false;
+            deleteApplicationError.value = null;
         }
 
         function clearTenantState(): void {
@@ -181,6 +185,41 @@ export const useTenantStore = defineStore(
             }
         }
 
+        async function deleteApplication(applicationId: string): Promise<void> {
+            const normalizedTenantId = currentTenantId.value.trim();
+            const normalizedApplicationId = applicationId.trim();
+
+            if (!normalizedTenantId) {
+                deleteApplicationError.value =
+                    "缺少 tenant 标识，无法删除 application。";
+                return;
+            }
+
+            if (!normalizedApplicationId) {
+                deleteApplicationError.value =
+                    "缺少 application 标识，无法删除 application。";
+                return;
+            }
+
+            const client = getClient();
+
+            deleteApplicationLoading.value = true;
+            deleteApplicationError.value = null;
+
+            try {
+                await client.deleteApplication(normalizedApplicationId);
+                await loadApplications(normalizedTenantId);
+            } catch (err) {
+                deleteApplicationError.value =
+                    err instanceof Error
+                        ? err.message
+                        : "删除 application 失败。";
+                throw err;
+            } finally {
+                deleteApplicationLoading.value = false;
+            }
+        }
+
         return {
             tenants,
             tenantsLoading,
@@ -194,6 +233,8 @@ export const useTenantStore = defineStore(
             applicationsError,
             createApplicationLoading,
             createApplicationError,
+            deleteApplicationLoading,
+            deleteApplicationError,
             syncCurrentTenant,
             ensureCurrentTenant,
             clearApplicationsState,
@@ -201,6 +242,7 @@ export const useTenantStore = defineStore(
             loadTenants,
             loadApplications,
             createApplication,
+            deleteApplication,
         };
     },
     {
