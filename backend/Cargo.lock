@@ -2285,10 +2285,10 @@ dependencies = [
  "oceaniam-common",
  "oceaniam-credential",
  "oceaniam-database",
- "oceaniam-filter",
  "oceaniam-keybox",
  "oceaniam-vo",
  "parking_lot",
+ "rapidhash",
  "sea-orm",
  "serde",
  "serde_json",
@@ -2395,19 +2395,6 @@ dependencies = [
  "oceaniam-vo",
  "serde",
  "ts-rs",
-]
-
-[[package]]
-name = "oceaniam-filter"
-version = "0.1.0"
-dependencies = [
- "axum",
- "futures",
- "itertools",
- "oceaniam-common",
- "parking_lot",
- "rapidhash",
- "xorf",
 ]
 
 [[package]]

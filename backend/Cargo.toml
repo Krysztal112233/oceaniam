@@ -7,7 +7,6 @@ members = [
 	"crates/oceaniam-credential",
 	"crates/oceaniam-database",
 	"crates/oceaniam-export",
-	"crates/oceaniam-filter",
 	"crates/oceaniam-keybox",
 	"crates/oceaniam-vo",
 ]
@@ -72,7 +71,6 @@ oceaniam-common = { path = "./crates/oceaniam-common/" }
 oceaniam-credential = { path = "./crates/oceaniam-credential/" }
 oceaniam-database = { path = "./crates/oceaniam-database/" }
 oceaniam-export = { path = "./crates/oceaniam-export/" }
-oceaniam-filter = { path = "./crates/oceaniam-filter/" }
 oceaniam-keybox = { path = "./crates/oceaniam-keybox/" }
 oceaniam-vo = { path = "./crates/oceaniam-vo/" }
 
