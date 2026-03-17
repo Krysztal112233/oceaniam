@@ -3,7 +3,7 @@ defineProps<{
     pageTitle: string;
     pageDescription: string;
     cardTitle: string;
-    summaryText: string;
+    summaryText?: string;
 }>();
 </script>
 
@@ -13,7 +13,7 @@ defineProps<{
             <h1 class="text-2xl font-semibold text-base-content">
                 {{ pageTitle }}
             </h1>
-            <p class="max-w-2xl text-sm text-base-content/70">
+            <p class="text-sm text-base-content/70">
                 {{ pageDescription }}
             </p>
         </header>
@@ -27,7 +27,10 @@ defineProps<{
                         <h2 class="text-lg font-medium text-base-content">
                             {{ cardTitle }}
                         </h2>
-                        <p class="text-sm text-base-content/60">
+                        <p
+                            v-if="summaryText"
+                            class="text-sm text-base-content/60"
+                        >
                             {{ summaryText }}
                         </p>
                     </div>

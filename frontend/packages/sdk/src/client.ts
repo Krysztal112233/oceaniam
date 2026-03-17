@@ -10,6 +10,7 @@ import { type SystemSigninRequest } from "./types/SystemSigninRequest";
 import { type SystemSigninResponse } from "./types/SystemSigninResponse";
 import { type TenantVO } from "./types/TenantVO";
 import { type TokenDispatchMethod } from "./types/TokenDispatchMethod";
+import { type Users } from "./types/Users";
 
 export type TokenGetter = () =>
     | string
@@ -343,6 +344,13 @@ export class OceanIamClient {
         await this.request<unknown>({
             method: "DELETE",
             url: this.endpoints.application(applicationId),
+        });
+    }
+
+    public async getApplicationUsers(applicationId: string): Promise<Users[]> {
+        return this.request<Users[]>({
+            method: "GET",
+            url: this.endpoints.applicationUsers(applicationId),
         });
     }
 
