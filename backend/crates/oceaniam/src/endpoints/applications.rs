@@ -14,13 +14,14 @@ use axum::{
 use axum_extra::extract::cookie::Cookie;
 use axum_valid::Garde;
 use chrono::Utc;
+use itertools::Itertools;
 use oceaniam_audit::types::{
     AuditPayload, CreateApplicationPayload, CreateApplicationSecretPayload,
     CreateApplicationUserPayload, DeleteApplicationPayload, DeleteApplicationSecretPayload,
     RefreshJwtPayload, RevokeJwtPayload, SignJwtPayload,
 };
 use oceaniam_common::{
-    ApiResponse, ApiResponseWithHeader, Empty, ErrorResponse, PageParam, PagedResponse, RestResult,
+    ApiResponse, ApiResponseWithHeader, Empty, ErrorResponse, PagedResponse, RestResult,
     WithHeaderRestResult, consts,
     error::Error,
     jwks::{JwkSet, JwkSetSchema},
@@ -319,7 +320,7 @@ pub async fn get_application_jwks(
 #[tracing::instrument(
     level = "info",
     name = "application_users.list",
-    skip(auth, database, application_id, page),
+    skip(auth, database, application_id),
     fields(operator_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn get_application_users(
@@ -327,7 +328,6 @@ pub async fn get_application_users(
     State(AppState { database, .. }): State<AppState<'_>>,
 
     Path(application_id): Path<Sqid>,
-    Query(page): Query<Option<PageParam>>,
 ) -> RestResult<PagedResponse<ApplicationUserVO>> {
     let operator_id = auth.token.claims.sub;
 
@@ -337,35 +337,21 @@ pub async fn get_application_users(
             .record("application_id", field::display(&application_id));
     });
 
-    let PagedResponse { items, page_info } = match page {
-        Some(page) => Users::get_users(application_id, page, &database)
-            .await
-            .inspect_err(|e| {
-                error!(
-                    operator_id = %operator_id,
-                    application_id = %application_id,
-                    error = %e,
-                    "user list query failed"
-                )
-            })?,
-        None => PagedResponse::with_entire(
-            Users::get_all_users(application_id, &database)
-                .await
-                .inspect_err(|e| {
-                    error!(
-                        operator_id = %operator_id,
-                        application_id = %application_id,
-                        error = %e,
-                        "user list query failed"
-                    )
-                })?,
-        ),
-    };
+    let items = Users::get_all_users(application_id, &database)
+        .await
+        .inspect_err(|e| {
+            error!(
+                operator_id = %operator_id,
+                application_id = %application_id,
+                error = %e,
+                "user list query failed"
+            )
+        })?
+        .into_iter()
+        .map(Into::into)
+        .collect_vec();
 
-    Ok(ApiResponse::new(PagedResponse {
-        items: items.into_iter().map(Into::into).collect(),
-        page_info,
-    }))
+    Ok(ApiResponse::new(PagedResponse::with_entire(items)))
 }
 
 /// Create application user (signup)
