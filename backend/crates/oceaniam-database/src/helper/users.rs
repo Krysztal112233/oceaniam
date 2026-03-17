@@ -12,7 +12,7 @@ use crate::{
     },
     model::{
         self,
-        prelude::{Subjects, Users},
+        prelude::{Applications, Subjects, Users},
         sea_orm_active_enums::SubjectTypeEnum,
     },
 };
@@ -77,7 +77,7 @@ pub trait UserHelper {
             .await
     }
 
-    async fn get_all_users(
+    async fn get_all_users_of_application(
         application_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<model::users::Model>, Error> {
@@ -87,6 +87,22 @@ pub trait UserHelper {
             .filter(ApplicationId.eq(application_id))
             .all(database)
             .await?)
+    }
+
+    async fn get_all_users_of_tenant(
+        tenant_id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<Vec<model::users::Model>, Error> {
+        use crate::model::applications::Column::*;
+
+        Ok(Users::find()
+            .find_also_related(Applications)
+            .filter(TenantId.eq(tenant_id))
+            .all(database)
+            .await?
+            .into_iter()
+            .map(|(user, _)| user)
+            .collect())
     }
 
     async fn find_by_email(

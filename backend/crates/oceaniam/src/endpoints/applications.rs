@@ -337,7 +337,7 @@ pub async fn get_application_users(
             .record("application_id", field::display(&application_id));
     });
 
-    let items = Users::get_all_users(application_id, &database)
+    let items = Users::get_all_users_of_application(application_id, &database)
         .await
         .inspect_err(|e| {
             error!(

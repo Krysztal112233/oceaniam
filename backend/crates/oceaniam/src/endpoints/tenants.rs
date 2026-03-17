@@ -21,10 +21,11 @@ use crate::{middlewares, state::AppState};
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
     router
-        .routes(routes!(get_tenants))
-        .routes(routes!(get_tenant))
         .routes(routes!(create_tenant))
         .routes(routes!(delete_tenant))
+        .routes(routes!(get_tenant))
+        .routes(routes!(get_tenant_users))
+        .routes(routes!(get_tenants))
 }
 
 /// Get tenant list
@@ -247,4 +248,50 @@ pub async fn delete_tenant(
         .await;
 
     Ok(ApiResponse::new(()))
+}
+
+/// Get users of tenant
+#[utoipa::path(
+        get,
+        path = "/tenants/{tenant_id}",
+        tag = "Tenants",
+        params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+        ),
+        responses(
+            (status = 200, body = ApiResponse<PagedResponse<TenantVO>>),
+            (status = 401, description = "Unauthorized"),
+        ),
+    )]
+#[tracing::instrument(
+    level = "info",
+    name = "tenants.list",
+    skip(auth, database),
+    fields(operator_id = field::Empty)
+)]
+pub async fn get_tenant_users(
+    auth: middlewares::auth::RequireAuth<SystemClaim>,
+
+    State(AppState { database, .. }): State<AppState<'_>>,
+) -> RestResult<PagedResponse<TenantVO>> {
+    let operator_id = auth.token.claims.sub;
+    Span::current().tap(|it| {
+        it.record("operator_id", field::display(&operator_id));
+    });
+
+    let PagedResponse { items, page_info } =
+        Tenants::get_all_tenants(&database).await.inspect_err(
+            |e| error!(operator_id = %operator_id, error = %e, "tenant list query failed"),
+        )?;
+
+    warn!(
+        operator_id = %operator_id,
+        count = items.len(),
+        "tenant list queried successfully"
+    );
+
+    Ok(ApiResponse::new(PagedResponse {
+        items: items.into_iter().map(Into::into).collect(),
+        page_info,
+    }))
 }
