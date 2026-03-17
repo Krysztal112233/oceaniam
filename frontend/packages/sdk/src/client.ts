@@ -1,4 +1,5 @@
 import { type ApplicationVO } from "./types/ApplicationVO";
+import { type ApplicationUserVO } from "./types/ApplicationUserVO";
 import { type CreateApplicationRequest } from "./types/CreateApplicationRequest";
 import { type CreateApplicationResponse } from "./types/CreateApplicationResponse";
 import { type CreateTenantRequest } from "./types/CreateTenantRequest";
@@ -183,6 +184,8 @@ export class OceanIamClient {
         tenants: "/tenants",
         tenant: (tenantId: string): string =>
             `/tenants/${encodeURIComponent(tenantId)}`,
+        tenantUsers: (tenantId: string): string =>
+            `/tenants/${encodeURIComponent(tenantId)}/users`,
 
         // Applications (backend: endpoints/applications.rs)
         applications: "/applications",
@@ -241,6 +244,8 @@ export class OceanIamClient {
         tenants: (): string => this.buildUrl(OceanIamClient.PATHS.tenants),
         tenant: (tenantId: string): string =>
             this.buildUrl(OceanIamClient.PATHS.tenant(tenantId)),
+        tenantUsers: (tenantId: string): string =>
+            this.buildUrl(OceanIamClient.PATHS.tenantUsers(tenantId)),
 
         // Applications
         applications: (): string =>
@@ -317,6 +322,15 @@ export class OceanIamClient {
         await this.request<unknown>({
             method: "DELETE",
             url: this.endpoints.tenant(tenantId),
+        });
+    }
+
+    public async getTenantUsers(
+        tenantId: string,
+    ): Promise<ApplicationUserVO[]> {
+        return this.request<ApplicationUserVO[]>({
+            method: "GET",
+            url: this.endpoints.tenantUsers(tenantId),
         });
     }
 

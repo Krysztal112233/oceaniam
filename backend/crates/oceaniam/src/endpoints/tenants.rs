@@ -10,8 +10,14 @@ use oceaniam_audit::types::{AuditPayload, CreateTenantsPayload, DeleteTenantsPay
 use oceaniam_common::{
     ApiResponse, Empty, PagedResponse, RestResult, jwt::SystemClaim, types::sqid::Sqid,
 };
-use oceaniam_database::{helper::tenants::TenantsHelper, model::prelude::*};
-use oceaniam_vo::tenants::{CreateTenantRequest, TenantVO};
+use oceaniam_database::{
+    helper::{tenants::TenantsHelper, users::UserHelper},
+    model::prelude::*,
+};
+use oceaniam_vo::{
+    applications::ApplicationUserVO,
+    tenants::{CreateTenantRequest, TenantVO},
+};
 use tap::Tap;
 use tracing::{Span, error, field, warn};
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -253,45 +259,57 @@ pub async fn delete_tenant(
 /// Get users of tenant
 #[utoipa::path(
         get,
-        path = "/tenants/{tenant_id}",
+        path = "/tenants/{tenant_id}/users",
         tag = "Tenants",
         params(
             ("Authorization" = String, Header, description = "Bearer token"),
+            ("tenant_id", description = "Tenant ID"),
         ),
         responses(
-            (status = 200, body = ApiResponse<PagedResponse<TenantVO>>),
+            (status = 200, body = ApiResponse<PagedResponse<ApplicationUserVO>>),
             (status = 401, description = "Unauthorized"),
         ),
     )]
 #[tracing::instrument(
     level = "info",
-    name = "tenants.list",
-    skip(auth, database),
-    fields(operator_id = field::Empty)
+    name = "tenant_users.list",
+    skip(auth, database, tenant_id),
+    fields(operator_id = field::Empty, tenant_id = field::Empty)
 )]
 pub async fn get_tenant_users(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
+    Path(tenant_id): Path<Sqid>,
 
     State(AppState { database, .. }): State<AppState<'_>>,
-) -> RestResult<PagedResponse<TenantVO>> {
+) -> RestResult<PagedResponse<ApplicationUserVO>> {
     let operator_id = auth.token.claims.sub;
+    let tenant_id = tenant_id.try_into()?;
+
     Span::current().tap(|it| {
-        it.record("operator_id", field::display(&operator_id));
+        it.record("operator_id", field::display(&operator_id))
+            .record("tenant_id", field::display(&tenant_id));
     });
 
-    let PagedResponse { items, page_info } =
-        Tenants::get_all_tenants(&database).await.inspect_err(
-            |e| error!(operator_id = %operator_id, error = %e, "tenant list query failed"),
-        )?;
+    let items: Vec<ApplicationUserVO> = Users::get_all_users_of_tenant(tenant_id, &database)
+        .await
+        .inspect_err(|e| {
+            error!(
+                operator_id = %operator_id,
+                tenant_id = %tenant_id,
+                error = %e,
+                "tenant user list query failed"
+            )
+        })?
+        .into_iter()
+        .map(Into::into)
+        .collect();
 
     warn!(
-        operator_id = %operator_id,
+        %operator_id,
+        %tenant_id,
         count = items.len(),
-        "tenant list queried successfully"
+        "tenant user list queried successfully"
     );
 
-    Ok(ApiResponse::new(PagedResponse {
-        items: items.into_iter().map(Into::into).collect(),
-        page_info,
-    }))
+    Ok(ApiResponse::new(PagedResponse::with_entire(items)))
 }
