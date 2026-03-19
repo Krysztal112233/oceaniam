@@ -1,14 +1,8 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
-import GroupIcon from "@iconify-vue/material-symbols/group-outline-rounded";
-import PersonOffIcon from "@iconify-vue/material-symbols/person-off-outline-rounded";
-import ScheduleIcon from "@iconify-vue/material-symbols/schedule-outline-rounded";
-import VerifiedUserIcon from "@iconify-vue/material-symbols/verified-user-outline-rounded";
 import { computed, ref, watch } from "vue";
 import { OceanIamClient } from "@oceaniam/sdk";
 import EntityListPage from "../components/EntityListPage.vue";
-import MetricsStats from "../components/MetricsStats.vue";
-import MetricsStatsItem from "../components/MetricsStatsItem.vue";
 import { appConfig } from "../config";
 import { useAuthStore } from "../stores/auth";
 import { useTenantStore } from "../stores/tenant";
@@ -36,135 +30,40 @@ const users = ref<
 const usersLoading = ref(false);
 const usersError = ref<string | null>(null);
 const usersRequestId = ref(0);
+const searchKeyword = ref("");
+const appliedKeyword = ref("");
+const filterField = ref<"all" | "id" | "nickname" | "email" | "phone">("all");
 
-const totalUsersValue = computed(() => {
-    if (usersLoading.value) {
-        return "...";
+const totalUsersCount = computed(() => users.value.length);
+const activeUsersCount = computed(() => "--");
+
+const filteredUsers = computed(() => {
+    const keyword = appliedKeyword.value.trim().toLowerCase();
+    if (!keyword) {
+        return users.value;
     }
 
-    if (!authStore.isLoggedIn || !currentTenantId.value || usersError.value) {
-        return "0";
-    }
+    return users.value.filter((user) => {
+        const fields =
+            filterField.value === "all"
+                ? [user.id, user.nickname, user.email || "", user.phone || ""]
+                : [user[filterField.value] || ""];
 
-    return String(users.value.length);
+        return fields.some((value) => value.toLowerCase().includes(keyword));
+    });
 });
 
-const totalUsersDesc = computed(() => {
-    if (usersLoading.value) {
-        return "正在加载当前 tenant 下的用户";
-    }
-
-    if (!authStore.isLoggedIn) {
-        return "登录后查看真实统计";
-    }
-
-    if (tenantsLoading.value && !currentTenantId.value) {
-        return "正在恢复 tenant 上下文";
-    }
-
-    if (!currentTenantId.value) {
-        return hasTenants.value ? "请先选择 tenant" : "当前没有可用 tenant";
-    }
-
-    if (usersError.value) {
-        return "当前统计不可用";
-    }
-
-    return `${currentTenantId.value} 下的真实用户总数`;
-});
-
-const currentTenantValue = computed(() => {
-    if (tenantsLoading.value && !currentTenantId.value) {
-        return "恢复中";
-    }
-
-    return currentTenantId.value || "未选择";
-});
-
-const currentTenantDesc = computed(() => {
-    if (tenantsLoading.value && !currentTenantId.value) {
-        return "正在从持久化状态恢复 tenant 上下文";
-    }
-
-    if (!currentTenantId.value) {
-        return hasTenants.value ? "请先选择 tenant" : "当前没有可用 tenant";
-    }
-
-    return `当前页面展示租户 ${currentTenantId.value} 的用户视图`;
-});
-
-const statusValue = computed(() => {
-    if (usersError.value) {
-        return "异常";
-    }
-
-    if (tenantsLoading.value || usersLoading.value) {
-        return "加载中";
-    }
-
-    if (!authStore.isLoggedIn) {
-        return "未登录";
-    }
-
-    if (!currentTenantId.value) {
-        return hasTenants.value ? "待选择 tenant" : "无 tenant";
-    }
-
-    if (users.value.length === 0) {
-        return "空列表";
-    }
-
-    return "已就绪";
-});
-
-const statusDesc = computed(() => {
-    if (usersError.value) {
-        return usersError.value;
-    }
-
-    if (tenantsLoading.value && !currentTenantId.value) {
-        return "正在恢复 tenant 上下文";
-    }
-
-    if (usersLoading.value) {
-        return "正在加载当前 tenant 下的用户";
-    }
-
-    if (!authStore.isLoggedIn) {
-        return "登录后查看租户用户数据";
-    }
-
-    if (!currentTenantId.value) {
-        return hasTenants.value ? "请先选择 tenant" : "当前没有可用 tenant";
-    }
-
-    if (users.value.length === 0) {
-        return "当前 tenant 下暂无用户";
-    }
-
-    return "租户用户列表可查看，后续操作入口暂未开放";
-});
-
-const statusIcon = computed(() => {
-    if (usersError.value) {
-        return PersonOffIcon;
-    }
-
-    if (tenantsLoading.value || usersLoading.value) {
-        return ScheduleIcon;
-    }
-
-    if (users.value.length === 0) {
-        return PersonOffIcon;
-    }
-
-    return VerifiedUserIcon;
-});
+function applySearch(): void {
+    appliedKeyword.value = searchKeyword.value.trim();
+}
 
 function clearUsersState(): void {
     users.value = [];
     usersLoading.value = false;
     usersError.value = null;
+    searchKeyword.value = "";
+    appliedKeyword.value = "";
+    filterField.value = "all";
 }
 
 function resetPageState(): void {
@@ -253,60 +152,79 @@ watch(
     <EntityListPage
         page-title="Users"
         page-description="按 Tenant 维度展示当前租户下的用户视图。"
-        card-title="Tenant Users"
     >
         <template #actions>
-            <button type="button" class="btn btn-primary btn-sm" disabled>
-                新增用户
-            </button>
+            <div
+                class="flex w-full flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
+            >
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <label
+                        class="rounded-box border border-base-200 bg-base-50 px-3 py-2"
+                    >
+                        <div class="label p-0">
+                            <span
+                                class="label-text text-xs text-base-content/60"
+                            >
+                                用户总量 {{ totalUsersCount }}
+                            </span>
+                        </div>
+                    </label>
+
+                    <label
+                        class="rounded-box border border-base-200 bg-base-50 px-3 py-2"
+                    >
+                        <div class="label p-0">
+                            <span
+                                class="label-text text-xs text-base-content/60"
+                            >
+                                活跃总量 {{ activeUsersCount }}
+                            </span>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
+                    <label class="input input-sm w-full lg:w-64">
+                        <input
+                            v-model="searchKeyword"
+                            type="text"
+                            placeholder="搜索用户"
+                            @keydown.enter.prevent="applySearch"
+                        />
+                    </label>
+
+                    <select
+                        v-model="filterField"
+                        class="select select-bordered select-sm w-full lg:w-40"
+                    >
+                        <option value="all">全部字段</option>
+                        <option value="id">User ID</option>
+                        <option value="nickname">Nickname</option>
+                        <option value="email">Email</option>
+                        <option value="phone">Phone</option>
+                    </select>
+
+                    <button
+                        type="button"
+                        class="btn btn-outline btn-sm"
+                        @click="applySearch"
+                    >
+                        搜索
+                    </button>
+
+                    <button
+                        type="button"
+                        class="btn btn-primary btn-sm"
+                        disabled
+                    >
+                        新增用户
+                    </button>
+                </div>
+            </div>
         </template>
 
         <div class="space-y-6 px-6 py-6">
-            <MetricsStats class="border border-base-200 shadow-none">
-                <MetricsStatsItem
-                    title="总用户数"
-                    :value="totalUsersValue"
-                    :desc="totalUsersDesc"
-                    :icon="GroupIcon"
-                />
-                <MetricsStatsItem
-                    title="当前 Tenant"
-                    :value="currentTenantValue"
-                    :desc="currentTenantDesc"
-                    :icon="VerifiedUserIcon"
-                    figure-class="text-primary"
-                />
-                <MetricsStatsItem
-                    title="当前状态"
-                    :value="statusValue"
-                    :desc="statusDesc"
-                    :icon="statusIcon"
-                    figure-class="text-secondary"
-                />
-            </MetricsStats>
-
             <section class="rounded-box border border-base-200 bg-base-100">
-                <div
-                    class="flex flex-col gap-3 border-b border-base-200 px-5 py-4 lg:flex-row lg:items-center lg:justify-between"
-                >
-                    <div class="space-y-1">
-                        <h3 class="text-base font-medium text-base-content">
-                            {{
-                                currentTenantId
-                                    ? `${currentTenantId} 用户列表`
-                                    : "租户用户列表"
-                            }}
-                        </h3>
-                        <p class="text-sm text-base-content/70">
-                            当前工作区聚焦当前 tenant 下的全部用户。
-                        </p>
-                    </div>
-
-                    <div class="badge badge-neutral badge-outline">
-                        {{ totalUsersValue }} users
-                    </div>
-                </div>
-
                 <div class="p-5">
                     <div
                         v-if="!authStore.isLoggedIn"
@@ -358,6 +276,13 @@ watch(
                     </div>
 
                     <div
+                        v-else-if="filteredUsers.length === 0"
+                        class="alert alert-info alert-soft"
+                    >
+                        <span>没有匹配当前搜索条件的用户。</span>
+                    </div>
+
+                    <div
                         v-else
                         class="overflow-x-auto rounded-box border border-base-200"
                     >
@@ -371,7 +296,10 @@ watch(
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="user in users" :key="user.id">
+                                <tr
+                                    v-for="user in filteredUsers"
+                                    :key="user.id"
+                                >
                                     <td class="whitespace-nowrap font-medium">
                                         {{ user.id }}
                                     </td>

@@ -2,7 +2,7 @@
 defineProps<{
     pageTitle: string;
     pageDescription: string;
-    cardTitle: string;
+    cardTitle?: string;
     summaryText?: string;
 }>();
 </script>
@@ -24,7 +24,10 @@ defineProps<{
                     class="flex items-center justify-between border-b border-base-200 px-6 py-4"
                 >
                     <div class="space-y-1">
-                        <h2 class="text-lg font-medium text-base-content">
+                        <h2
+                            v-if="cardTitle"
+                            class="text-lg font-medium text-base-content"
+                        >
                             {{ cardTitle }}
                         </h2>
                         <p

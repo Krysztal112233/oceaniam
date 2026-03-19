@@ -48,7 +48,7 @@ const filteredTenants = computed(() => {
 });
 const buttonLabel = computed(() => currentTenant.value?.id || "选择 tenant");
 const buttonSubtitle = computed(
-    () => currentTenant.value?.comment?.trim() || "切换当前 tenant",
+    () => currentTenant.value?.comment?.trim() || "切换当前的 Tenant",
 );
 
 async function selectTenant(nextTenantId: string) {
