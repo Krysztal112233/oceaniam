@@ -15,8 +15,6 @@ const tenantStore = useTenantStore();
 const route = useRoute();
 const router = useRouter();
 const {
-    createTenantError,
-    createTenantLoading,
     currentTenant,
     currentTenantId,
     hasTenants,
@@ -77,16 +75,14 @@ function closeCreateTenantModal(): void {
     createTenantModalOpen.value = false;
 }
 
-async function handleCreateTenant(comment: string): Promise<void> {
-    const tenant = await tenantStore.createTenant(comment);
-
+async function handleTenantCreated(tenantId: string): Promise<void> {
     createTenantModalOpen.value = false;
     tenantPopoverRef.value?.hidePopover?.();
     search.value = "";
 
     await router.push({
         name: "applications",
-        params: { tenantId: tenant.id },
+        params: { tenantId },
     });
 }
 
@@ -228,10 +224,8 @@ onMounted(() => {
 
         <CreateTenantModal
             :open="createTenantModalOpen"
-            :loading="createTenantLoading"
-            :error="createTenantError"
             @close="closeCreateTenantModal"
-            @submit="handleCreateTenant"
+            @created="handleTenantCreated"
         />
     </div>
 </template>

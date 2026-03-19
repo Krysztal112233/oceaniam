@@ -2,17 +2,12 @@
 import AddBoxIcon from "@iconify-vue/material-symbols/add-box-outline-rounded";
 import AnalyticsIcon from "@iconify-vue/material-symbols/analytics-outline-rounded";
 import WidgetsIcon from "@iconify-vue/material-symbols/widgets-outline-rounded";
-import { storeToRefs } from "pinia";
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import CreateTenantModal from "../components/CreateTenantModal.vue";
 import HomeActionCard from "../components/HomeActionCard.vue";
-import { useTenantStore } from "../stores/tenant";
 
 const router = useRouter();
-const tenantStore = useTenantStore();
-const { createTenantError, createTenantLoading } = storeToRefs(tenantStore);
-
 const createTenantModalOpen = ref(false);
 
 function openCreateTenantModal(): void {
@@ -23,13 +18,11 @@ function closeCreateTenantModal(): void {
     createTenantModalOpen.value = false;
 }
 
-async function handleCreateTenant(comment: string): Promise<void> {
-    const tenant = await tenantStore.createTenant(comment);
+async function handleTenantCreated(tenantId: string): Promise<void> {
     createTenantModalOpen.value = false;
-
     await router.push({
         name: "applications",
-        params: { tenantId: tenant.id },
+        params: { tenantId },
     });
 }
 </script>
@@ -74,10 +67,8 @@ async function handleCreateTenant(comment: string): Promise<void> {
 
         <CreateTenantModal
             :open="createTenantModalOpen"
-            :loading="createTenantLoading"
-            :error="createTenantError"
             @close="closeCreateTenantModal"
-            @submit="handleCreateTenant"
+            @created="handleTenantCreated"
         />
     </section>
 </template>

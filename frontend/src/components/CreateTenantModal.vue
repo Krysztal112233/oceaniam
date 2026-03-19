@@ -1,20 +1,33 @@
 <script setup lang="ts">
 import CloseIcon from "@iconify-vue/material-symbols/close-rounded";
+import { OceanIamClient } from "@oceaniam/sdk";
 import { ref, watch } from "vue";
+import { appConfig } from "../config";
+import { useAuthStore } from "../stores/auth";
+import { useTenantStore } from "../stores/tenant";
 
 const props = defineProps<{
     open: boolean;
-    loading: boolean;
-    error: string | null;
 }>();
 
 const emit = defineEmits<{
     (event: "close"): void;
-    (event: "submit", comment: string): void;
+    (event: "created", tenantId: string): void;
 }>();
 
+const authStore = useAuthStore();
+const tenantStore = useTenantStore();
 const dialogRef = ref<HTMLDialogElement | null>(null);
 const comment = ref("");
+const loading = ref(false);
+const error = ref<string | null>(null);
+
+function getClient(): OceanIamClient {
+    return new OceanIamClient({
+        baseUrl: appConfig.systemBaseUrl,
+        tokenGetter: () => authStore.jwt,
+    });
+}
 
 watch(
     () => props.open,
@@ -24,6 +37,7 @@ watch(
 
         if (open) {
             comment.value = "";
+            error.value = null;
             try {
                 if (!dialog.open) dialog.showModal();
             } catch {
@@ -43,8 +57,24 @@ function handleDialogClose() {
     if (props.open) emit("close");
 }
 
-function handleSubmit() {
-    emit("submit", comment.value);
+async function handleSubmit() {
+    loading.value = true;
+    error.value = null;
+
+    try {
+        const tenant = await getClient().createTenant({
+            comment: comment.value.trim() || null,
+        });
+
+        await tenantStore.loadTenants();
+        tenantStore.syncCurrentTenant(tenant.id);
+
+        emit("created", tenant.id);
+    } catch (err) {
+        error.value = err instanceof Error ? err.message : "创建 tenant 失败。";
+    } finally {
+        loading.value = false;
+    }
 }
 </script>
 

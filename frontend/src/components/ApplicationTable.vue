@@ -30,7 +30,7 @@ function formatComment(comment: ApplicationVO["comment"]): string {
                 <tr class="text-sm text-base-content/70">
                     <th class="whitespace-nowrap">ApplicationID</th>
                     <th>Comment</th>
-                    <th class="w-44 whitespace-nowrap text-right">Actions</th>
+                    <th class="w-44 whitespace-nowrap text-center">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -39,12 +39,12 @@ function formatComment(comment: ApplicationVO["comment"]): string {
                     :key="application.id"
                     class="hover"
                 >
-                    <td class="align-top">
+                    <td>
                         <div class="font-mono text-sm text-base-content">
                             {{ application.id }}
                         </div>
                     </td>
-                    <td class="align-top">
+                    <td>
                         <span
                             class="text-sm"
                             :class="
@@ -56,10 +56,13 @@ function formatComment(comment: ApplicationVO["comment"]): string {
                             {{ formatComment(application.comment) }}
                         </span>
                     </td>
-                    <td class="align-top">
+                    <td>
                         <ApplicationRowActions
                             :application-id="application.id"
-                            :deleting="deleteLoading && deletingApplicationId === application.id"
+                            :deleting="
+                                deleteLoading &&
+                                deletingApplicationId === application.id
+                            "
                             :delete-error="
                                 deletingApplicationId === application.id
                                     ? deleteError

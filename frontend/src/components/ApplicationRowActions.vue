@@ -38,7 +38,7 @@ function handleConfirmDelete() {
 </script>
 
 <template>
-    <div class="flex justify-end gap-2 whitespace-nowrap">
+    <div class="flex justify-center gap-2 whitespace-nowrap">
         <button
             type="button"
             class="btn btn-sm btn-ghost"
