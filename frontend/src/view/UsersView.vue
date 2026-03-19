@@ -5,9 +5,11 @@ import PersonOffIcon from "@iconify-vue/material-symbols/person-off-outline-roun
 import ScheduleIcon from "@iconify-vue/material-symbols/schedule-outline-rounded";
 import VerifiedUserIcon from "@iconify-vue/material-symbols/verified-user-outline-rounded";
 import { computed, ref, watch } from "vue";
+import { OceanIamClient } from "@oceaniam/sdk";
 import EntityListPage from "../components/EntityListPage.vue";
 import MetricsStats from "../components/MetricsStats.vue";
 import MetricsStatsItem from "../components/MetricsStatsItem.vue";
+import { appConfig } from "../config";
 import { useAuthStore } from "../stores/auth";
 import { useTenantStore } from "../stores/tenant";
 
@@ -15,6 +17,13 @@ const authStore = useAuthStore();
 const tenantStore = useTenantStore();
 const { currentTenantId, hasTenants, tenantsLoading } =
     storeToRefs(tenantStore);
+
+function getClient(): OceanIamClient {
+    return new OceanIamClient({
+        baseUrl: appConfig.systemBaseUrl,
+        tokenGetter: () => authStore.jwt,
+    });
+}
 
 const users = ref<
     Array<{
@@ -26,19 +35,14 @@ const users = ref<
 >([]);
 const usersLoading = ref(false);
 const usersError = ref<string | null>(null);
-const tenantUsersReady = ref(false);
+const usersRequestId = ref(0);
 
 const totalUsersValue = computed(() => {
     if (usersLoading.value) {
         return "...";
     }
 
-    if (
-        !authStore.isLoggedIn ||
-        !currentTenantId.value ||
-        usersError.value ||
-        !tenantUsersReady.value
-    ) {
+    if (!authStore.isLoggedIn || !currentTenantId.value || usersError.value) {
         return "0";
     }
 
@@ -64,10 +68,6 @@ const totalUsersDesc = computed(() => {
 
     if (usersError.value) {
         return "当前统计不可用";
-    }
-
-    if (!tenantUsersReady.value) {
-        return "tenant 用户能力待接入";
     }
 
     return `${currentTenantId.value} 下的真实用户总数`;
@@ -110,10 +110,6 @@ const statusValue = computed(() => {
         return hasTenants.value ? "待选择 tenant" : "无 tenant";
     }
 
-    if (!tenantUsersReady.value) {
-        return "待接入";
-    }
-
     if (users.value.length === 0) {
         return "空列表";
     }
@@ -142,10 +138,6 @@ const statusDesc = computed(() => {
         return hasTenants.value ? "请先选择 tenant" : "当前没有可用 tenant";
     }
 
-    if (!tenantUsersReady.value) {
-        return "当前仅完成 tenant 维度页面重构，待接 tenant 用户接口";
-    }
-
     if (users.value.length === 0) {
         return "当前 tenant 下暂无用户";
     }
@@ -162,7 +154,7 @@ const statusIcon = computed(() => {
         return ScheduleIcon;
     }
 
-    if (!tenantUsersReady.value || users.value.length === 0) {
+    if (users.value.length === 0) {
         return PersonOffIcon;
     }
 
@@ -173,7 +165,6 @@ function clearUsersState(): void {
     users.value = [];
     usersLoading.value = false;
     usersError.value = null;
-    tenantUsersReady.value = false;
 }
 
 function resetPageState(): void {
@@ -190,16 +181,45 @@ async function ensureTenantContext(): Promise<void> {
     }
 }
 
-function prepareTenantUsersView(tenantId: string): void {
+async function prepareTenantUsersView(tenantId: string): Promise<void> {
     clearUsersState();
 
-    if (!tenantId.trim()) {
+    const normalizedTenantId = tenantId.trim();
+    if (!normalizedTenantId) {
         return;
     }
 
-    // The tenant-scoped users capability is not exposed by the SDK yet.
-    // Keep the page tenant-first and surface the pending integration explicitly.
-    tenantUsersReady.value = false;
+    const requestId = usersRequestId.value + 1;
+    usersRequestId.value = requestId;
+    usersLoading.value = true;
+
+    try {
+        const tenantUsers =
+            await getClient().getTenantUsers(normalizedTenantId);
+
+        if (requestId !== usersRequestId.value) {
+            return;
+        }
+
+        users.value = tenantUsers.items.map((user) => ({
+            id: user.id,
+            nickname: user.nickname,
+            email: user.email,
+            phone: user.phone,
+        }));
+    } catch (err) {
+        if (requestId !== usersRequestId.value) {
+            return;
+        }
+
+        users.value = [];
+        usersError.value =
+            err instanceof Error ? err.message : "加载 tenant 用户列表失败。";
+    } finally {
+        if (requestId === usersRequestId.value) {
+            usersLoading.value = false;
+        }
+    }
 }
 
 watch(
@@ -223,7 +243,7 @@ watch(
             return;
         }
 
-        prepareTenantUsersView(tenantId);
+        void prepareTenantUsersView(tenantId);
     },
     { immediate: true },
 );
@@ -242,31 +262,6 @@ watch(
         </template>
 
         <div class="space-y-6 px-6 py-6">
-            <!-- <section -->
-            <!--     class="rounded-box border border-base-200 bg-base-50/60 p-5" -->
-            <!-- > -->
-            <!--     <div -->
-            <!--         class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between" -->
-            <!--     > -->
-            <!--         <div class="w-full max-w-2xl space-y-1"> -->
-            <!--             <p class="text-sm font-medium text-base-content"> -->
-            <!--                 Tenant 上下文 -->
-            <!--             </p> -->
-            <!--             <p class="text-sm text-base-content/70"> -->
-            <!--                 当前页面按租户维度展示用户，不再要求先选择 -->
-            <!--                 application。 -->
-            <!--             </p> -->
-            <!--         </div> -->
-            <!---->
-            <!--         <div -->
-            <!--             class="rounded-box border border-dashed border-base-300 bg-base-100 px-4 py-3 text-sm text-base-content/70 lg:max-w-sm" -->
-            <!--         > -->
-            <!--             用户详情、编辑和删除入口暂未开放；tenant -->
-            <!--             用户接口接入后会直接在此页展示。 -->
-            <!--         </div> -->
-            <!--     </div> -->
-            <!-- </section> -->
-
             <MetricsStats class="border border-base-200 shadow-none">
                 <MetricsStatsItem
                     title="总用户数"
@@ -353,20 +348,6 @@ watch(
                         <div class="skeleton h-12 w-full"></div>
                         <div class="skeleton h-12 w-full"></div>
                         <div class="skeleton h-12 w-full"></div>
-                    </div>
-
-                    <div
-                        v-else-if="!tenantUsersReady"
-                        class="rounded-box border border-dashed border-base-300 bg-base-50/80 px-6 py-10"
-                    >
-                        <p class="text-base font-medium text-base-content">
-                            当前已切换为 tenant 维度页面
-                        </p>
-                        <p class="mt-2 text-sm text-base-content/70">
-                            这个页面不再按 application 选择用户。当前仓库的 SDK
-                            还没有公开 tenant 用户接口，所以这里先保留 tenant
-                            级工作区，并明确等待数据能力接入。
-                        </p>
                     </div>
 
                     <div
