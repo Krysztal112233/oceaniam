@@ -194,14 +194,14 @@ async function prepareTenantUsersView(tenantId: string): Promise<void> {
     usersLoading.value = true;
 
     try {
-        const tenantUsers =
+        const tenantUsersResponse =
             await getClient().getTenantUsers(normalizedTenantId);
 
         if (requestId !== usersRequestId.value) {
             return;
         }
 
-        users.value = tenantUsers.items.map((user) => ({
+        users.value = tenantUsersResponse.items.map((user) => ({
             id: user.id,
             nickname: user.nickname,
             email: user.email,

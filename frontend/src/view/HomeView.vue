@@ -1,7 +1,37 @@
 <script setup lang="ts">
 import AddBoxIcon from "@iconify-vue/material-symbols/add-box-outline-rounded";
 import AnalyticsIcon from "@iconify-vue/material-symbols/analytics-outline-rounded";
+import WidgetsIcon from "@iconify-vue/material-symbols/widgets-outline-rounded";
+import { storeToRefs } from "pinia";
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import CreateTenantModal from "../components/CreateTenantModal.vue";
 import HomeActionCard from "../components/HomeActionCard.vue";
+import { useTenantStore } from "../stores/tenant";
+
+const router = useRouter();
+const tenantStore = useTenantStore();
+const { createTenantError, createTenantLoading } = storeToRefs(tenantStore);
+
+const createTenantModalOpen = ref(false);
+
+function openCreateTenantModal(): void {
+    createTenantModalOpen.value = true;
+}
+
+function closeCreateTenantModal(): void {
+    createTenantModalOpen.value = false;
+}
+
+async function handleCreateTenant(comment: string): Promise<void> {
+    const tenant = await tenantStore.createTenant(comment);
+    createTenantModalOpen.value = false;
+
+    await router.push({
+        name: "applications",
+        params: { tenantId: tenant.id },
+    });
+}
 </script>
 
 <template>
@@ -14,6 +44,15 @@ import HomeActionCard from "../components/HomeActionCard.vue";
         </header>
 
         <div class="grid gap-4 lg:grid-cols-2">
+            <HomeActionCard
+                title="创建新的租户"
+                description="打开创建弹窗，录入 tenant 备注后立即建立新的租户上下文。"
+                cta-label="创建 Tenant"
+                :icon="WidgetsIcon"
+                accent="primary"
+                @click="openCreateTenantModal"
+            />
+
             <HomeActionCard
                 to="/applications"
                 title="创建新的应用"
@@ -32,5 +71,13 @@ import HomeActionCard from "../components/HomeActionCard.vue";
                 accent="secondary"
             />
         </div>
+
+        <CreateTenantModal
+            :open="createTenantModalOpen"
+            :loading="createTenantLoading"
+            :error="createTenantError"
+            @close="closeCreateTenantModal"
+            @submit="handleCreateTenant"
+        />
     </section>
 </template>

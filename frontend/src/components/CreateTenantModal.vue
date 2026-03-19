@@ -4,7 +4,6 @@ import { ref, watch } from "vue";
 
 const props = defineProps<{
     open: boolean;
-    tenantId: string;
     loading: boolean;
     error: string | null;
 }>();
@@ -61,13 +60,10 @@ function handleSubmit() {
                 </button>
             </form>
 
-            <h3 class="text-lg font-bold">新增 Application</h3>
+            <h3 class="text-lg font-bold">创建 Tenant</h3>
             <p class="mt-1 text-sm text-base-content/70">
-                将在当前 tenant
-                <span class="font-medium text-base-content">
-                    {{ tenantId }}
-                </span>
-                下创建一个新的 application。
+                输入 tenant 备注并创建新的 tenant。创建成功后会自动切换到新
+                tenant 并进入 application 视图。
             </p>
 
             <form class="mt-4 space-y-4" @submit.prevent="handleSubmit">
@@ -75,7 +71,7 @@ function handleSubmit() {
                     <textarea
                         v-model="comment"
                         class="textarea textarea-bordered min-h-28 w-full mb-8"
-                        placeholder="可选，输入 application 备注"
+                        placeholder="可选，输入 tenant 备注"
                     ></textarea>
                 </label>
 
@@ -89,7 +85,7 @@ function handleSubmit() {
                     :class="{ loading }"
                     :disabled="loading"
                 >
-                    创建 Application
+                    创建 Tenant
                 </button>
             </form>
         </div>

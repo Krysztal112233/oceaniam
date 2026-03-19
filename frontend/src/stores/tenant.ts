@@ -21,6 +21,8 @@ export const useTenantStore = defineStore(
         const tenants = ref<TenantVO[]>([]);
         const tenantsLoading = ref(false);
         const tenantsError = ref<string | null>(null);
+        const createTenantLoading = ref(false);
+        const createTenantError = ref<string | null>(null);
 
         const currentTenantId = ref("");
 
@@ -81,6 +83,8 @@ export const useTenantStore = defineStore(
             tenants.value = [];
             tenantsLoading.value = false;
             tenantsError.value = null;
+            createTenantLoading.value = false;
+            createTenantError.value = null;
             currentTenantId.value = "";
             clearApplicationsState();
         }
@@ -154,6 +158,32 @@ export const useTenantStore = defineStore(
             }
         }
 
+        async function createTenant(comment: string): Promise<TenantVO> {
+            const client = getClient();
+
+            createTenantLoading.value = true;
+            createTenantError.value = null;
+
+            try {
+                const tenant = await client.createTenant({
+                    comment: comment.trim() || null,
+                });
+
+                await loadTenants();
+                syncCurrentTenant(tenant.id);
+
+                return tenant;
+            } catch (err) {
+                createTenantError.value =
+                    err instanceof Error
+                        ? err.message
+                        : "创建 tenant 失败。";
+                throw err;
+            } finally {
+                createTenantLoading.value = false;
+            }
+        }
+
         async function createApplication(comment: string): Promise<void> {
             const normalizedTenantId = currentTenantId.value.trim();
 
@@ -224,6 +254,8 @@ export const useTenantStore = defineStore(
             tenants,
             tenantsLoading,
             tenantsError,
+            createTenantLoading,
+            createTenantError,
             hasTenants,
             currentTenantId,
             currentTenant,
@@ -240,6 +272,7 @@ export const useTenantStore = defineStore(
             clearApplicationsState,
             clearTenantState,
             loadTenants,
+            createTenant,
             loadApplications,
             createApplication,
             deleteApplication,

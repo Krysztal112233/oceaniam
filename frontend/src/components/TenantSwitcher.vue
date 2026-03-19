@@ -2,6 +2,7 @@
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import CreateTenantModal from "./CreateTenantModal.vue";
 import { useAuthStore } from "../stores/auth";
 import { useTenantStore } from "../stores/tenant";
 
@@ -14,6 +15,8 @@ const tenantStore = useTenantStore();
 const route = useRoute();
 const router = useRouter();
 const {
+    createTenantError,
+    createTenantLoading,
     currentTenant,
     currentTenantId,
     hasTenants,
@@ -25,6 +28,7 @@ const search = ref("");
 const tenantPopoverRef = ref<TenantPopoverElement | null>(null);
 const tenantPopoverId = "tenant-switcher-popover";
 const tenantAnchorName = "--tenant-switcher-anchor";
+const createTenantModalOpen = ref(false);
 
 const isLoggedIn = computed(() => authStore.isLoggedIn);
 const routeTenantId = computed(() => {
@@ -62,6 +66,27 @@ async function selectTenant(nextTenantId: string) {
     await router.push({
         name: "applications",
         params: { tenantId: nextTenantId },
+    });
+}
+
+function openCreateTenantModal(): void {
+    createTenantModalOpen.value = true;
+}
+
+function closeCreateTenantModal(): void {
+    createTenantModalOpen.value = false;
+}
+
+async function handleCreateTenant(comment: string): Promise<void> {
+    const tenant = await tenantStore.createTenant(comment);
+
+    createTenantModalOpen.value = false;
+    tenantPopoverRef.value?.hidePopover?.();
+    search.value = "";
+
+    await router.push({
+        name: "applications",
+        params: { tenantId: tenant.id },
     });
 }
 
@@ -104,7 +129,6 @@ onMounted(() => {
         <button
             type="button"
             class="btn btn-ghost h-auto min-h-0 gap-3 rounded-box border border-base-200 bg-base-100/90 px-3 py-2 text-left"
-            :disabled="tenantsLoading || (!hasTenants && !tenantsError)"
             :popovertarget="tenantPopoverId"
             :style="{ anchorName: tenantAnchorName }"
         >
@@ -148,7 +172,11 @@ onMounted(() => {
                 v-else-if="filteredTenants.length === 0"
                 class="mt-3 rounded-box border border-dashed border-base-300 px-3 py-4 text-sm text-base-content/60"
             >
-                没有匹配的 tenant。
+                {{
+                    hasTenants
+                        ? "没有匹配的 tenant。"
+                        : "当前还没有可用 tenant。"
+                }}
             </div>
 
             <div v-else class="mt-3 max-h-80 overflow-y-auto">
@@ -178,6 +206,16 @@ onMounted(() => {
                     </span>
                 </button>
             </div>
+
+            <div class="mt-3 border-t border-base-200 pt-3">
+                <button
+                    type="button"
+                    class="btn btn-primary btn-sm w-full"
+                    @click="openCreateTenantModal"
+                >
+                    创建租户
+                </button>
+            </div>
         </div>
 
         <span
@@ -187,5 +225,13 @@ onMounted(() => {
         >
             tenant 加载失败
         </span>
+
+        <CreateTenantModal
+            :open="createTenantModalOpen"
+            :loading="createTenantLoading"
+            :error="createTenantError"
+            @close="closeCreateTenantModal"
+            @submit="handleCreateTenant"
+        />
     </div>
 </template>

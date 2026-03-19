@@ -327,8 +327,8 @@ export class OceanIamClient {
 
     public async getTenantUsers(
         tenantId: string,
-    ): Promise<PagedResponse<ApplicationUserVO[]>> {
-        return this.request<PagedResponse<ApplicationUserVO[]>>({
+    ): Promise<PagedResponse<ApplicationUserVO>> {
+        return this.request<PagedResponse<ApplicationUserVO>>({
             method: "GET",
             url: this.endpoints.tenantUsers(tenantId),
         });
