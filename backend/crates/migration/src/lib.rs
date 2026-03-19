@@ -32,6 +32,7 @@ mod m20260311_170219_create_audit_table;
 mod m20260312_135205_alter_audit_type_refresh_jwt;
 mod m20260314_133425_add_index_of_audits;
 mod m20260314_142402_add_index_of_all_application_id;
+mod m20260319_163158_replace_fk_applications;
 
 pub struct Migrator;
 
@@ -70,6 +71,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260312_135205_alter_audit_type_refresh_jwt::Migration),
             Box::new(m20260314_133425_add_index_of_audits::Migration),
             Box::new(m20260314_142402_add_index_of_all_application_id::Migration),
+            Box::new(m20260319_163158_replace_fk_applications::Migration),
         ]
     }
 }
