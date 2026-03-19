@@ -23,8 +23,7 @@ use oceaniam_common::{
 };
 use oceaniam_credential::credential;
 use oceaniam_database::{
-    helper::{administrators::AdministratorsHelper, applications::ApplicationConfiguration},
-    model::prelude::Administrators,
+    helper::administrators::AdministratorsHelper, model::prelude::Administrators,
 };
 use oceaniam_vo::auth::{SigninResponse, SignoutResponse, SignupResponse, SystemSigninRequest};
 use tap::Tap;
@@ -33,10 +32,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::{
     middlewares::{self, auth::TokenDispatchMethod},
-    state::{
-        AppState,
-        keybox::{EncodedJwt, SignJwtOptions},
-    },
+    state::{AppState, keybox::EncodedJwt},
 };
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
@@ -73,7 +69,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
 #[tracing::instrument(
     level = "info",
     name = "auth.signin",
-    skip(token_mtd, credentials, database, keyboxes, applications, auditing, auth),
+    skip(token_mtd, credentials, database, keyboxes, auditing, auth),
     fields(
         application_id = field::Empty,
         admin_id = field::Empty,
@@ -87,7 +83,6 @@ pub async fn create_auth_token(
         credentials,
         database,
         keyboxes,
-        applications,
         auditing,
         ..
     }): State<AppState<'_>>,
@@ -112,10 +107,6 @@ pub async fn create_auth_token(
         .record("token_dispatch", field::debug(&token_mtd));
     });
 
-    let ApplicationConfiguration { authentication, .. } = applications
-        .get_configuration(consts::SYSTEM_APPLICATION_UUID)
-        .await?;
-
     let succeed = {
         let cred = credentials
             .get_credential(id)
@@ -135,14 +126,7 @@ pub async fn create_auth_token(
     }
 
     let EncodedJwt { jwt, claim } = keyboxes
-        .sign_jwt::<SystemClaim>(
-            id,
-            SignJwtOptions {
-                application_id: consts::SYSTEM_APPLICATION_UUID,
-                iss: authentication.issuer,
-                aud: authentication.audience,
-            },
-        )
+        .sign_system_jwt(id)
         .await
         .inspect_err(|e| error!(admin_id = %id, error = %e, "failed to sign jwt"))?;
 
@@ -306,7 +290,7 @@ pub async fn create_auth_user(
 #[tracing::instrument(
     level = "info",
     name = "auth.refresh",
-    skip(auth, token_mtd, revoked_jwt, keyboxes, applications, auditing),
+    skip(auth, token_mtd, revoked_jwt, keyboxes, auditing),
     fields(sub = field::Empty, old_jti = field::Empty, token_dispatch = field::Empty)
 )]
 pub async fn refresh_auth_token(
@@ -316,7 +300,6 @@ pub async fn refresh_auth_token(
     State(AppState {
         revoked_jwt,
         keyboxes,
-        applications,
         auditing,
         ..
     }): State<AppState<'_>>,
@@ -327,10 +310,6 @@ pub async fn refresh_auth_token(
             .record("old_jti", field::display(&jti))
             .record("token_dispatch", field::debug(&token_mtd));
     });
-
-    let ApplicationConfiguration { authentication, .. } = applications
-        .get_configuration(consts::SYSTEM_APPLICATION_UUID)
-        .await?;
 
     if revoked_jwt.is_revoked(jti).await? {
         return Err(Error::with_code(
@@ -349,15 +328,7 @@ pub async fn refresh_auth_token(
     })?;
 
     let EncodedJwt { jwt, claim } = keyboxes
-        .sign_jwt::<SystemClaim>(
-            auth.token.claims.sub,
-            SignJwtOptions {
-                application_id: consts::SYSTEM_APPLICATION_UUID,
-
-                iss: authentication.issuer,
-                aud: authentication.audience,
-            },
-        )
+        .sign_system_jwt(auth.token.claims.sub)
         .await
         .inspect_err(|e| {
             error!(

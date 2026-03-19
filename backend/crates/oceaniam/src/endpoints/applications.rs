@@ -837,7 +837,7 @@ pub async fn legacy_refresh_application_auth_token(
         .sign_jwt::<Claim>(
             user_id,
             SignJwtOptions {
-                application_id: consts::SYSTEM_APPLICATION_UUID,
+                application_id,
                 iss: authentication.issuer,
                 aud: authentication.audience,
             },

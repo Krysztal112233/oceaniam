@@ -173,6 +173,12 @@ impl<T> PagedResponse<T> {
     }
 }
 
+impl<T> Default for PagedResponse<T> {
+    fn default() -> Self {
+        Self::with_entire(vec![])
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Validate, Clone, Copy, ToSchema)]
 pub struct PageParam {
     #[garde(skip)]

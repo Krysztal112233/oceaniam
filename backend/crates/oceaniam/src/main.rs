@@ -125,7 +125,13 @@ async fn setup_database(
 
     debug!(dsn = %redact_dsn(dsn), "connected to database");
 
-    if !Tenants::is_exist(consts::SYSTEM_TENANT_UUID, &db).await? {
+    init_system(&db).await?;
+
+    Ok(db)
+}
+
+async fn init_system(db: &DatabaseConnection) -> Result<(), Error> {
+    if !Tenants::is_system_tenant_exist(db).await? {
         warn!(
             tenant_id = %consts::SYSTEM_TENANT_UUID,
             "system tenant missing; creating builtin tenant"
@@ -134,12 +140,12 @@ async fn setup_database(
         Tenants::create_tenant(
             consts::SYSTEM_TENANT_UUID,
             Some("System builtin tenant"),
-            &db,
+            db,
         )
         .await?;
     }
 
-    if !Applications::is_exist(consts::SYSTEM_APPLICATION_UUID, &db).await? {
+    if !Applications::is_system_application_exist(db).await? {
         warn!(
             tenant_id = %consts::SYSTEM_TENANT_UUID,
             application_id = %consts::SYSTEM_APPLICATION_UUID,
@@ -148,12 +154,12 @@ async fn setup_database(
         Applications::create_application(
             consts::SYSTEM_APPLICATION_UUID,
             consts::SYSTEM_TENANT_UUID,
-            &db,
+            db,
         )
         .await?;
     }
 
-    Ok(db)
+    Ok(())
 }
 
 fn redact_dsn(dsn: &str) -> String {

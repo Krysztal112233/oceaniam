@@ -4,14 +4,18 @@ use axum::http::StatusCode;
 use jsonwebtoken::Header;
 use moka::future::{Cache, CacheBuilder};
 use oceaniam_common::{
+    consts,
     error::Error,
     jwks::JwkSet,
-    jwt::{ClaimHelper, JwtCodec},
+    jwt::{ClaimHelper, JwtCodec, SystemClaim},
 };
 use oceaniam_database::{
-    helper::key_boxes::KeyBoxesHelper,
+    helper::{
+        applications::ApplicationConfiguration, applications::ApplicationHelper,
+        key_boxes::KeyBoxesHelper,
+    },
     model::{
-        prelude::KeyBoxes,
+        prelude::{Applications, KeyBoxes},
         sea_orm_active_enums::{KeyAlg, KeyStatus},
     },
 };
@@ -188,6 +192,23 @@ impl ManagedKeyBoxes {
             )
             .inspect_err(|e| error!("failed to encode jwt: {}", e))
             .map(|it| EncodedJwt { jwt: it, claim })
+    }
+
+    pub async fn sign_system_jwt(self, sub: Uuid) -> Result<EncodedJwt<SystemClaim>, Error> {
+        let config = {
+            let model = Applications::get_system_application(&self.database).await?;
+            serde_json::from_value::<ApplicationConfiguration>(model.configuration)
+        }?;
+
+        self.sign_jwt(
+            sub,
+            SignJwtOptions {
+                application_id: consts::SYSTEM_APPLICATION_UUID,
+                iss: config.authentication.issuer,
+                aud: config.authentication.audience,
+            },
+        )
+        .await
     }
 }
 

@@ -52,13 +52,33 @@ pub trait ApplicationHelper {
         .await?)
     }
 
+    /// NOTE: This helper intentionally treats the system application as not
+    /// visible from the regular application access path.
     async fn is_exist(
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<bool, Error> {
+        if is_system_application(id) {
+            return Ok(false);
+        }
+
         Ok(Applications::find_by_id(id).one(database).await?.is_some())
     }
 
+    /// NOTE: This helper is reserved for internal bootstrap and system-only
+    /// code paths that need the real existence of the reserved system
+    /// application.
+    async fn is_system_application_exist(
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<bool, Error> {
+        Ok(Applications::find_by_id(consts::SYSTEM_APPLICATION_UUID)
+            .one(database)
+            .await?
+            .is_some())
+    }
+
+    /// NOTE: This helper intentionally excludes the system tenant and system
+    /// application from regular application listing.
     async fn get_applications(
         tenant_id: Uuid,
         page: impl Into<PageParam> + Send,
@@ -68,26 +88,40 @@ pub trait ApplicationHelper {
 
         let page = page.into();
 
+        if is_system_tenant(tenant_id) {
+            return Ok(PagedResponse::default());
+        }
+
         Applications::find()
             .filter(TenantId.eq(tenant_id))
+            .filter(Id.ne(consts::SYSTEM_APPLICATION_UUID))
             .paged(page)
             .paginate(database, page.per_page)
             .fetch_paged(page)
             .await
     }
 
+    /// NOTE: This helper intentionally excludes the system tenant and system
+    /// application from regular application listing.
     async fn get_all_applications(
         tenant_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<model::applications::Model>, Error> {
         use crate::model::applications::Column::*;
 
+        if is_system_tenant(tenant_id) {
+            return Ok(Vec::new());
+        }
+
         Ok(Applications::find()
             .filter(TenantId.eq(tenant_id))
+            .filter(Id.ne(consts::SYSTEM_APPLICATION_UUID))
             .all(database)
             .await?)
     }
 
+    /// NOTE: This helper intentionally excludes identifiers that belong to the
+    /// internal system tenant or system application.
     async fn get_all_application_ids(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<Uuid>, Error> {
@@ -96,31 +130,51 @@ pub trait ApplicationHelper {
         Ok(Applications::find()
             .select_only()
             .column(Id)
+            .filter(Id.ne(consts::SYSTEM_APPLICATION_UUID))
+            .filter(TenantId.ne(consts::SYSTEM_TENANT_UUID))
             .distinct()
             .into_tuple::<Uuid>()
             .all(database)
             .await?)
     }
 
+    /// NOTE: This helper intentionally blocks direct reads of the system
+    /// application from the regular application access path.
     async fn get_application(
         application_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::applications::Model, Error> {
+        if is_system_application(application_id) {
+            return Err(application_not_found(application_id));
+        }
+
         Applications::find_by_id(application_id)
             .one(database)
             .await
-            .map(|it| {
-                it.ok_or(Error::with_code(
-                    StatusCode::NOT_FOUND,
-                    format!("application_id={application_id} not found"),
-                ))
-            })?
+            .map(|it| it.ok_or(application_not_found(application_id)))?
     }
 
+    /// NOTE: This is the explicit escape hatch for internal code that still
+    /// needs to access the reserved system application record.
+    async fn get_system_application(
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::applications::Model, Error> {
+        Applications::find_by_id(consts::SYSTEM_APPLICATION_UUID)
+            .one(database)
+            .await
+            .map(|it| it.ok_or(application_not_found(consts::SYSTEM_APPLICATION_UUID)))?
+    }
+
+    /// NOTE: This helper intentionally blocks deletion of the reserved system
+    /// application through the regular application lifecycle path.
     async fn delete_application(
         application_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<(), Error> {
+        if is_system_application(application_id) {
+            return Err(application_not_found(application_id));
+        }
+
         Applications::delete_by_id(application_id)
             .exec(database)
             .await?;
@@ -130,6 +184,21 @@ pub trait ApplicationHelper {
 }
 
 impl ApplicationHelper for Applications {}
+
+fn is_system_application(application_id: Uuid) -> bool {
+    application_id == consts::SYSTEM_APPLICATION_UUID
+}
+
+fn is_system_tenant(tenant_id: Uuid) -> bool {
+    tenant_id == consts::SYSTEM_TENANT_UUID
+}
+
+fn application_not_found(application_id: Uuid) -> Error {
+    Error::with_code(
+        StatusCode::NOT_FOUND,
+        format!("application_id={application_id} not found"),
+    )
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ApplicationConfiguration {
