@@ -4,6 +4,7 @@ import { useRoute, useRouter } from "vue-router";
 import { OceanIamClient } from "@oceaniam/sdk";
 import type { ApplicationVO } from "../../packages/sdk/src/types/ApplicationVO";
 import type { ApplicationConfigurationVO } from "../../packages/sdk/src/types/ApplicationConfigurationVO";
+import ApplicationAuthenticationCard from "../components/ApplicationAuthenticationCard.vue";
 import EntityListPage from "../components/EntityListPage.vue";
 import { appConfig } from "../config";
 import { useAuthStore } from "../stores/auth";
@@ -123,7 +124,11 @@ watch(
         :summary-text="summaryText"
     >
         <template #actions>
-            <button type="button" class="btn btn-outline btn-sm" @click="goBack">
+            <button
+                type="button"
+                class="btn btn-outline btn-sm"
+                @click="goBack"
+            >
                 返回 Applications
             </button>
         </template>
@@ -163,7 +168,9 @@ watch(
                     </p>
                 </div>
 
-                <div class="rounded-box border border-base-200 bg-base-50 p-5 lg:col-span-2">
+                <div
+                    class="rounded-box border border-base-200 bg-base-50 p-5 lg:col-span-2"
+                >
                     <div class="label px-0 pt-0">
                         <span class="label-text text-xs text-base-content/60">
                             Comment
@@ -182,49 +189,7 @@ watch(
                 </div>
             </section>
 
-            <section class="rounded-box border border-base-200 bg-base-100">
-                <div class="border-b border-base-200 px-5 py-4">
-                    <h3 class="text-base font-medium text-base-content">
-                        Authentication Configuration
-                    </h3>
-                </div>
-
-                <div v-if="configuration" class="space-y-4 px-5 py-5">
-                    <div>
-                        <div class="label px-0 pt-0">
-                            <span class="label-text text-xs text-base-content/60">
-                                Issuer
-                            </span>
-                        </div>
-                        <p class="break-all text-sm text-base-content">
-                            {{ configuration.authentication.issuer }}
-                        </p>
-                    </div>
-
-                    <div>
-                        <div class="label px-0 pt-0">
-                            <span class="label-text text-xs text-base-content/60">
-                                Audience
-                            </span>
-                        </div>
-                        <div
-                            v-if="configuration.authentication.audience.length > 0"
-                            class="flex flex-wrap gap-2"
-                        >
-                            <span
-                                v-for="audience in configuration.authentication.audience"
-                                :key="audience"
-                                class="badge badge-outline"
-                            >
-                                {{ audience }}
-                            </span>
-                        </div>
-                        <p v-else class="text-sm text-base-content/50">
-                            暂无 audience 配置
-                        </p>
-                    </div>
-                </div>
-            </section>
+            <ApplicationAuthenticationCard :configuration="configuration" />
         </div>
     </EntityListPage>
 </template>
