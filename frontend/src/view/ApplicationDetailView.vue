@@ -1,0 +1,230 @@
+<script setup lang="ts">
+import { computed, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { OceanIamClient } from "@oceaniam/sdk";
+import type { ApplicationVO } from "../../packages/sdk/src/types/ApplicationVO";
+import type { ApplicationConfigurationVO } from "../../packages/sdk/src/types/ApplicationConfigurationVO";
+import EntityListPage from "../components/EntityListPage.vue";
+import { appConfig } from "../config";
+import { useAuthStore } from "../stores/auth";
+import { useTenantStore } from "../stores/tenant";
+
+const route = useRoute();
+const router = useRouter();
+const authStore = useAuthStore();
+const tenantStore = useTenantStore();
+
+const application = ref<ApplicationVO | null>(null);
+const configuration = ref<ApplicationConfigurationVO | null>(null);
+const loading = ref(false);
+const error = ref<string | null>(null);
+const requestId = ref(0);
+
+const tenantId = computed(() => {
+    const raw = route.params.tenantId;
+    return typeof raw === "string" ? raw : "";
+});
+
+const applicationId = computed(() => {
+    const raw = route.params.applicationId;
+    return typeof raw === "string" ? raw : "";
+});
+
+function getClient(): OceanIamClient {
+    return new OceanIamClient({
+        baseUrl: appConfig.systemBaseUrl,
+        tokenGetter: () => authStore.jwt,
+    });
+}
+
+const summaryText = computed(() => {
+    if (loading.value) {
+        return "正在加载 application 详情...";
+    }
+
+    if (error.value) {
+        return error.value;
+    }
+
+    if (!application.value) {
+        return "未加载到 application 详情。";
+    }
+
+    return `Application ${application.value.id} 隶属于 tenant ${application.value.tenant_id}`;
+});
+
+async function loadApplicationDetail(): Promise<void> {
+    const normalizedTenantId = tenantId.value.trim();
+    const normalizedApplicationId = applicationId.value.trim();
+
+    application.value = null;
+    configuration.value = null;
+    error.value = null;
+
+    if (!normalizedTenantId || !normalizedApplicationId) {
+        error.value = "缺少 tenant 或 application 标识。";
+        return;
+    }
+
+    tenantStore.syncCurrentTenant(normalizedTenantId);
+
+    const currentRequestId = requestId.value + 1;
+    requestId.value = currentRequestId;
+    loading.value = true;
+
+    try {
+        const client = getClient();
+        const [applicationResponse, configurationResponse] = await Promise.all([
+            client.getApplication(normalizedApplicationId),
+            client.getApplicationConfiguration(normalizedApplicationId),
+        ]);
+
+        if (currentRequestId !== requestId.value) {
+            return;
+        }
+
+        application.value = applicationResponse;
+        configuration.value = configurationResponse.configuration;
+    } catch (err) {
+        if (currentRequestId !== requestId.value) {
+            return;
+        }
+
+        error.value =
+            err instanceof Error ? err.message : "加载 application 详情失败。";
+    } finally {
+        if (currentRequestId === requestId.value) {
+            loading.value = false;
+        }
+    }
+}
+
+async function goBack(): Promise<void> {
+    await router.push({
+        name: "applications",
+        params: { tenantId: tenantId.value },
+    });
+}
+
+watch(
+    () => [tenantId.value, applicationId.value],
+    () => {
+        void loadApplicationDetail();
+    },
+    { immediate: true },
+);
+</script>
+
+<template>
+    <EntityListPage
+        page-title="Application Detail"
+        page-description="展示当前 application 的基础信息与认证配置。"
+        card-title="Application Information"
+        :summary-text="summaryText"
+    >
+        <template #actions>
+            <button type="button" class="btn btn-outline btn-sm" @click="goBack">
+                返回 Applications
+            </button>
+        </template>
+
+        <div v-if="loading" class="space-y-3 px-6 py-6">
+            <div class="skeleton h-24 w-full"></div>
+            <div class="skeleton h-24 w-full"></div>
+        </div>
+
+        <div v-else-if="error" class="px-6 py-6">
+            <div class="alert alert-error alert-soft">
+                <span>{{ error }}</span>
+            </div>
+        </div>
+
+        <div v-else-if="application" class="space-y-6 px-6 py-6">
+            <section class="grid gap-4 lg:grid-cols-2">
+                <div class="rounded-box border border-base-200 bg-base-50 p-5">
+                    <div class="label px-0 pt-0">
+                        <span class="label-text text-xs text-base-content/60">
+                            Application ID
+                        </span>
+                    </div>
+                    <p class="break-all font-mono text-sm text-base-content">
+                        {{ application.id }}
+                    </p>
+                </div>
+
+                <div class="rounded-box border border-base-200 bg-base-50 p-5">
+                    <div class="label px-0 pt-0">
+                        <span class="label-text text-xs text-base-content/60">
+                            Tenant ID
+                        </span>
+                    </div>
+                    <p class="break-all font-mono text-sm text-base-content">
+                        {{ application.tenant_id }}
+                    </p>
+                </div>
+
+                <div class="rounded-box border border-base-200 bg-base-50 p-5 lg:col-span-2">
+                    <div class="label px-0 pt-0">
+                        <span class="label-text text-xs text-base-content/60">
+                            Comment
+                        </span>
+                    </div>
+                    <p
+                        class="text-sm"
+                        :class="
+                            application.comment
+                                ? 'text-base-content'
+                                : 'text-base-content/50'
+                        "
+                    >
+                        {{ application.comment || "暂无备注" }}
+                    </p>
+                </div>
+            </section>
+
+            <section class="rounded-box border border-base-200 bg-base-100">
+                <div class="border-b border-base-200 px-5 py-4">
+                    <h3 class="text-base font-medium text-base-content">
+                        Authentication Configuration
+                    </h3>
+                </div>
+
+                <div v-if="configuration" class="space-y-4 px-5 py-5">
+                    <div>
+                        <div class="label px-0 pt-0">
+                            <span class="label-text text-xs text-base-content/60">
+                                Issuer
+                            </span>
+                        </div>
+                        <p class="break-all text-sm text-base-content">
+                            {{ configuration.authentication.issuer }}
+                        </p>
+                    </div>
+
+                    <div>
+                        <div class="label px-0 pt-0">
+                            <span class="label-text text-xs text-base-content/60">
+                                Audience
+                            </span>
+                        </div>
+                        <div
+                            v-if="configuration.authentication.audience.length > 0"
+                            class="flex flex-wrap gap-2"
+                        >
+                            <span
+                                v-for="audience in configuration.authentication.audience"
+                                :key="audience"
+                                class="badge badge-outline"
+                            >
+                                {{ audience }}
+                            </span>
+                        </div>
+                        <p v-else class="text-sm text-base-content/50">
+                            暂无 audience 配置
+                        </p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </EntityListPage>
+</template>

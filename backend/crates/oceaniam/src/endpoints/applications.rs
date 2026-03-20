@@ -39,8 +39,8 @@ use oceaniam_database::{
 use oceaniam_keybox::keybox::KeyOption;
 use oceaniam_vo::{
     applications::{
-        ApplicationConfigurationVO, ApplicationUserVO, ApplicationVO, CreateApplicationRequest,
-        CreateApplicationResponse, CreateApplicationUserRequest,
+        ApplicationConfigurationVO, ApplicationDetailVO, ApplicationUserVO, ApplicationVO,
+        CreateApplicationRequest, CreateApplicationResponse, CreateApplicationUserRequest,
         GetApplicationConfigurationResponse, GetApplicationParam, SecretVO,
     },
     auth::{AuthVO, SigninResponse, SignoutResponse},
@@ -65,6 +65,7 @@ use crate::{
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
     router
         .routes(routes!(create_application))
+        .routes(routes!(get_application))
         .routes(routes!(delete_application))
         .routes(routes!(get_application_configuration))
         .routes(routes!(get_application_jwks))
@@ -211,6 +212,54 @@ pub async fn create_application(
         application_id: id.into(),
         comment,
     }))
+}
+
+/// Get application detail
+#[utoipa::path(
+        get,
+        path = "/applications/{application_id}",
+        tag = "Applications",
+        params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+            ("application_id" = String, Path, description = "Application ID"),
+        ),
+        responses(
+            (status = 200, body = ApiResponse<ApplicationDetailVO>),
+            (status = 400, description = "Invalid application id", body = ApiResponse<ErrorResponse>),
+            (status = 404, description = "Application not found", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
+        ),
+    )]
+#[tracing::instrument(
+    level = "info",
+    name = "applications.get",
+    skip(database, application_id),
+    fields(application_id = field::Empty)
+)]
+pub async fn get_application(
+    _: middlewares::auth::RequireAuth<SystemClaim>,
+
+    Path(application_id): Path<Sqid>,
+    State(AppState { database, .. }): State<AppState<'_>>,
+) -> RestResult<ApplicationDetailVO> {
+    let application_id: Uuid = application_id
+        .try_into()
+        .inspect_err(|e| error!(error = %e, "failed to convert application_id"))?;
+    Span::current().tap(|it| {
+        it.record("application_id", field::display(&application_id));
+    });
+
+    let application = Applications::get_application(application_id, &database)
+        .await
+        .inspect_err(|e| {
+            error!(
+                application_id = %application_id,
+                error = %e,
+                "failed to get application detail"
+            )
+        })?;
+
+    Ok(ApiResponse::new(ApplicationDetailVO::from(application)))
 }
 
 /// Delete application

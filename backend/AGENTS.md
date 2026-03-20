@@ -33,3 +33,4 @@ These instructions apply to work performed inside the `backend` project.
 
 - When helping implement or modify endpoints in `crates/oceaniam/src/endpoints/`, update the corresponding `utoipa` annotations in the same change.
 - If an endpoint's path, method, parameters, request body, response body, tags, or security behavior changes, update the related `#[utoipa::path(...)]` attributes so the OpenAPI description stays accurate.
+- If a newly added or modified endpoint is exposed through the frontend SDK, update `frontend/packages/sdk/src/client.ts` in the same change so the SDK client stays in sync with the backend API surface.

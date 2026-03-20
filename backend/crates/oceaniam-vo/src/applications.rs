@@ -46,6 +46,14 @@ pub struct GetApplicationConfigurationResponse {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs :: TS, ToSchema)]
+pub struct ApplicationDetailVO {
+    pub id: Sqid,
+    pub comment: Option<String>,
+    pub tenant_id: Sqid,
+    pub configuration: ApplicationConfigurationVO,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs :: TS, ToSchema)]
 pub struct ApplicationVO {
     pub id: Sqid,
     pub comment: Option<String>,
@@ -91,6 +99,28 @@ impl From<oceaniam_database::helper::applications::ApplicationConfiguration>
     ) -> Self {
         Self {
             authentication: authentication.into(),
+        }
+    }
+}
+
+impl From<model::applications::Model> for ApplicationDetailVO {
+    fn from(
+        model::applications::Model {
+            id,
+            comment,
+            tenant_id,
+            configuration,
+        }: model::applications::Model,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            comment,
+            tenant_id: tenant_id.into(),
+            configuration: serde_json::from_value::<
+                oceaniam_database::helper::applications::ApplicationConfiguration,
+            >(configuration)
+            .unwrap()
+            .into(),
         }
     }
 }

@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import ApplicationTable from "../components/ApplicationTable.vue";
 import CreateApplicationModal from "../components/CreateApplicationModal.vue";
 import EntityListPage from "../components/EntityListPage.vue";
 import { useTenantStore } from "../stores/tenant";
 
 const route = useRoute();
+const router = useRouter();
 const tenantStore = useTenantStore();
 const {
     applications,
@@ -51,8 +52,14 @@ const summaryText = computed(() => {
     return `租户 ${activeTenantId} 下共 ${count} 个 application`;
 });
 
-function handleDetail(applicationId: string) {
-    console.debug("application detail clicked:", applicationId);
+async function handleDetail(applicationId: string) {
+    await router.push({
+        name: "application-detail",
+        params: {
+            tenantId: tenantId.value || currentTenantId.value,
+            applicationId,
+        },
+    });
 }
 
 function handleDelete(applicationId: string) {

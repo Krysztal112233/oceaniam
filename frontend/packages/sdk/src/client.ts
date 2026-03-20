@@ -1,4 +1,5 @@
 import { type ApplicationVO } from "./types/ApplicationVO";
+import { type ApplicationDetailVO } from "./types/ApplicationDetailVO";
 import { type ApplicationUserVO } from "./types/ApplicationUserVO";
 import { type CreateApplicationRequest } from "./types/CreateApplicationRequest";
 import { type CreateApplicationResponse } from "./types/CreateApplicationResponse";
@@ -348,6 +349,13 @@ export class OceanIamClient {
             method: "GET",
             url: this.endpoints.applications(),
             query,
+        });
+    }
+
+    public async getApplication(applicationId: string): Promise<ApplicationDetailVO> {
+        return this.request<ApplicationDetailVO>({
+            method: "GET",
+            url: this.endpoints.application(applicationId),
         });
     }
 
