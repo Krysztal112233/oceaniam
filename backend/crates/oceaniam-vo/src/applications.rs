@@ -29,6 +29,22 @@ pub struct CreateApplicationResponse {
     pub comment: Option<String>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+pub struct AuthenticationConfigurationVO {
+    pub issuer: String,
+    pub audience: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+pub struct ApplicationConfigurationVO {
+    pub authentication: AuthenticationConfigurationVO,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+pub struct GetApplicationConfigurationResponse {
+    pub configuration: ApplicationConfigurationVO,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs :: TS, ToSchema)]
 pub struct ApplicationVO {
     pub id: Sqid,
@@ -49,6 +65,32 @@ impl From<model::applications::Model> for ApplicationVO {
             id: id.into(),
             comment,
             tenant_id: tenant_id.into(),
+        }
+    }
+}
+
+impl From<oceaniam_database::helper::applications::AuthenticationConfiguration>
+    for AuthenticationConfigurationVO
+{
+    fn from(
+        oceaniam_database::helper::applications::AuthenticationConfiguration {
+            issuer,
+            audience,
+        }: oceaniam_database::helper::applications::AuthenticationConfiguration,
+    ) -> Self {
+        Self { issuer, audience }
+    }
+}
+
+impl From<oceaniam_database::helper::applications::ApplicationConfiguration>
+    for ApplicationConfigurationVO
+{
+    fn from(
+        oceaniam_database::helper::applications::ApplicationConfiguration { authentication }:
+            oceaniam_database::helper::applications::ApplicationConfiguration,
+    ) -> Self {
+        Self {
+            authentication: authentication.into(),
         }
     }
 }

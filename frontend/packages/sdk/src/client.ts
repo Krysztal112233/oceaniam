@@ -2,6 +2,7 @@ import { type ApplicationVO } from "./types/ApplicationVO";
 import { type ApplicationUserVO } from "./types/ApplicationUserVO";
 import { type CreateApplicationRequest } from "./types/CreateApplicationRequest";
 import { type CreateApplicationResponse } from "./types/CreateApplicationResponse";
+import { type GetApplicationConfigurationResponse } from "./types/GetApplicationConfigurationResponse";
 import { type CreateTenantRequest } from "./types/CreateTenantRequest";
 import { type GetTenantsRequest } from "./types/GetTenantsRequest";
 import { type PagedResponse } from "./pagination";
@@ -191,6 +192,8 @@ export class OceanIamClient {
         applications: "/applications",
         application: (applicationId: string): string =>
             `/applications/${encodeURIComponent(applicationId)}`,
+        applicationConfiguration: (applicationId: string): string =>
+            `/applications/${encodeURIComponent(applicationId)}/configuration`,
         applicationJwks: (applicationId: string): string =>
             `/applications/${encodeURIComponent(applicationId)}/.well-known/jwks.json`,
 
@@ -252,6 +255,10 @@ export class OceanIamClient {
             this.buildUrl(OceanIamClient.PATHS.applications),
         application: (applicationId: string): string =>
             this.buildUrl(OceanIamClient.PATHS.application(applicationId)),
+        applicationConfiguration: (applicationId: string): string =>
+            this.buildUrl(
+                OceanIamClient.PATHS.applicationConfiguration(applicationId),
+            ),
         applicationJwks: (applicationId: string): string =>
             this.buildUrl(OceanIamClient.PATHS.applicationJwks(applicationId)),
 
@@ -365,6 +372,15 @@ export class OceanIamClient {
         return this.request<Users[]>({
             method: "GET",
             url: this.endpoints.applicationUsers(applicationId),
+        });
+    }
+
+    public async getApplicationConfiguration(
+        applicationId: string,
+    ): Promise<GetApplicationConfigurationResponse> {
+        return this.request<GetApplicationConfigurationResponse>({
+            method: "GET",
+            url: this.endpoints.applicationConfiguration(applicationId),
         });
     }
 
