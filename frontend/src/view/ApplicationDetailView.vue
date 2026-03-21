@@ -113,6 +113,20 @@ async function goBack(): Promise<void> {
 async function handleConfigurationSubmit(
     nextConfiguration: ApplicationConfigurationVO,
 ): Promise<void> {
+    const normalizedApplicationId = applicationId.value.trim();
+
+    if (!normalizedApplicationId) {
+        throw new Error("缺少 application 标识。");
+    }
+
+    const client = getClient();
+    await client.patchApplicationConfiguration(normalizedApplicationId, {
+        authentication: {
+            issuer: nextConfiguration.authentication.issuer,
+            audience: nextConfiguration.authentication.audience,
+        },
+    });
+
     configuration.value = nextConfiguration;
 }
 

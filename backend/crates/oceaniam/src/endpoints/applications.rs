@@ -255,7 +255,7 @@ pub async fn get_application(
         .await
         .inspect_err(|e| {
             error!(
-                application_id = %application_id,
+                %application_id,
                 error = %e,
                 "failed to get application detail"
             )
@@ -303,9 +303,7 @@ pub async fn delete_application(
     applications
         .delete_application(application_id)
         .await
-        .inspect_err(
-            |e| error!(application_id = %application_id, error = %e, "application deletion failed"),
-        )?;
+        .inspect_err(|e| error!(%application_id, error = %e, "application deletion failed"))?;
 
     auditing
         .write(AuditPayload::from(DeleteApplicationPayload {
@@ -357,7 +355,7 @@ pub async fn get_application_configuration(
         .await
         .inspect_err(|e| {
             error!(
-                application_id = %application_id,
+                %application_id,
                 error = %e,
                 "failed to get application configuration"
             )
@@ -463,9 +461,10 @@ pub async fn get_application_jwks(
     });
 
     Ok(ApiResponse::new(
-        keyboxes.get_jwks(application_id).await.inspect_err(
-            |e| error!(application_id = %application_id, error = %e, "failed to get jwks"),
-        )?,
+        keyboxes
+            .get_jwks(application_id)
+            .await
+            .inspect_err(|e| error!(%application_id, error = %e, "failed to get jwks"))?,
     ))
 }
 
@@ -509,7 +508,7 @@ pub async fn get_application_users(
         .inspect_err(|e| {
             error!(
                 operator_id = %operator_id,
-                application_id = %application_id,
+                %application_id,
                 error = %e,
                 "user list query failed"
             )
@@ -566,7 +565,7 @@ pub async fn create_application_secret(
         .await
         .inspect_err(|e| {
             error!(
-                application_id = %application_id,
+                %application_id,
                 error = %e,
                 "failed to create application secret"
             )
@@ -576,7 +575,7 @@ pub async fn create_application_secret(
     });
 
     info!(
-        application_id = %application_id,
+        %application_id,
         secret_id = %model.id,
         "application secret created successfully"
     );
@@ -634,7 +633,7 @@ pub async fn get_application_secrets(
         it.record("application_id", field::display(&application_id));
     });
 
-    info!(application_id = %application_id, "fetching application secrets");
+    info!(%application_id, "fetching application secrets");
 
     let secrets = applications
         .secrets()
@@ -642,14 +641,14 @@ pub async fn get_application_secrets(
         .await
         .inspect_err(|e| {
             error!(
-                application_id = %application_id,
+                %application_id,
                 error = %e,
                 "failed to fetch application secrets"
             );
         })?;
 
     info!(
-        application_id = %application_id,
+        %application_id,
         count = secrets.len(),
         "application secrets fetched successfully"
     );
@@ -696,9 +695,9 @@ pub async fn get_application_secret(
     let application_id: Uuid = application_id
         .try_into()
         .inspect_err(|e| error!(error = %e, "failed to convert application_id"))?;
-    let secret_id: Uuid = secret_id.try_into().inspect_err(
-        |e| error!(application_id = %application_id, error = %e, "failed to convert secret_id"),
-    )?;
+    let secret_id: Uuid = secret_id
+        .try_into()
+        .inspect_err(|e| error!(%application_id, error = %e, "failed to convert secret_id"))?;
     Span::current().tap(|it| {
         it.record("application_id", field::display(&application_id))
             .record("secret_id", field::display(&secret_id));
@@ -758,9 +757,9 @@ pub async fn delete_application_secret(
     let application_id: Uuid = application_id
         .try_into()
         .inspect_err(|e| error!(error = %e, "failed to convert application_id"))?;
-    let secret_id: Uuid = secret_id.try_into().inspect_err(
-        |e| error!(application_id = %application_id, error = %e, "failed to convert secret_id"),
-    )?;
+    let secret_id: Uuid = secret_id
+        .try_into()
+        .inspect_err(|e| error!(%application_id, error = %e, "failed to convert secret_id"))?;
     Span::current().tap(|it| {
         it.record("application_id", field::display(&application_id))
             .record("secret_id", field::display(&secret_id));
@@ -772,7 +771,7 @@ pub async fn delete_application_secret(
         .await
         .inspect_err(|e| {
             error!(
-                application_id = %application_id,
+                %application_id,
                 secret_id = %secret_id,
                 error = %e,
                 "failed to delete application secret"
@@ -780,7 +779,7 @@ pub async fn delete_application_secret(
         })?;
 
     info!(
-        application_id = %application_id,
+        %application_id,
         secret_id = %secret_id,
         "application secret deleted successfully"
     );
@@ -849,7 +848,7 @@ pub async fn create_application_user(
         .await
         .inspect_err(|e| {
             error!(
-                application_id = %application_id,
+                %application_id,
                 error = %e,
                 "failed to get application users helper"
             )
@@ -866,7 +865,7 @@ pub async fn create_application_user(
         .await
         .inspect_err(|e| {
             error!(
-                application_id = %application_id,
+                %application_id,
                 error = %e,
                 "application user creation failed"
             )
@@ -876,7 +875,7 @@ pub async fn create_application_user(
     });
 
     info!(
-        application_id = %application_id,
+        %application_id,
         user_id = %user.id,
         "application user created successfully"
     );
@@ -964,7 +963,7 @@ pub async fn legacy_create_application_auth_token(
         .await
         .inspect_err(|e| {
             error!(
-                application_id = %application_id,
+                %application_id,
                 error = %e,
                 "failed to get application configuration"
             )
@@ -974,7 +973,7 @@ pub async fn legacy_create_application_auth_token(
         .await
         .inspect_err(|e| {
             error!(
-                application_id = %application_id,
+                %application_id,
                 error = %e,
                 "failed to find application user"
             )
@@ -985,7 +984,7 @@ pub async fn legacy_create_application_auth_token(
 
     let vault = credentials.get_credential(user.id).await.inspect_err(|e| {
         error!(
-            application_id = %application_id,
+            %application_id,
             user_id = %user.id,
             error = %e,
             "failed to get user credential"
@@ -998,7 +997,7 @@ pub async fn legacy_create_application_auth_token(
             .await
             .inspect_err(|e| {
                 error!(
-                    application_id = %application_id,
+                    %application_id,
                     user_id = %user.id,
                     error = %e,
                     "failed to verify password"
@@ -1025,7 +1024,7 @@ pub async fn legacy_create_application_auth_token(
         .await
         .inspect_err(|e| {
             error!(
-                application_id = %application_id,
+                %application_id,
                 user_id = %user.id,
                 error = %e,
                 "failed to sign jwt during legacy signin"
@@ -1033,7 +1032,7 @@ pub async fn legacy_create_application_auth_token(
         })?;
 
     info!(
-        application_id = %application_id,
+        %application_id,
         user_id = %user.id,
         "legacy signin successful"
     );
@@ -1239,7 +1238,7 @@ pub async fn legacy_refresh_application_auth_token(
 
     info!(
         user_id = %user_id,
-        application_id = %application_id,
+        %application_id,
         old_jti = %jti,
         "legacy token refresh requested"
     );
@@ -1247,7 +1246,7 @@ pub async fn legacy_refresh_application_auth_token(
     if revoked_jwt.is_revoked(jti).await? {
         warn!(
             user_id = %user_id,
-            application_id = %application_id,
+            %application_id,
             old_jti = %jti,
             "token refresh rejected: jwt already revoked"
         );
@@ -1260,7 +1259,7 @@ pub async fn legacy_refresh_application_auth_token(
     revoked_jwt.set_revoked(jti).await.inspect_err(|e| {
         error!(
             user_id = %user_id,
-            application_id = %application_id,
+            %application_id,
             old_jti = %jti,
             error = %e,
             "failed to revoke old jwt during refresh"
@@ -1269,7 +1268,7 @@ pub async fn legacy_refresh_application_auth_token(
 
     info!(
         user_id = %user_id,
-        application_id = %application_id,
+        %application_id,
         old_jti = %jti,
         "old jwt revoked successfully during refresh"
     );
@@ -1287,7 +1286,7 @@ pub async fn legacy_refresh_application_auth_token(
         .inspect_err(|e| {
             error!(
                 user_id = %user_id,
-                application_id = %application_id,
+                %application_id,
                 old_jti = %jti,
                 error = %e,
                 "failed to sign new jwt during refresh"
@@ -1296,7 +1295,7 @@ pub async fn legacy_refresh_application_auth_token(
 
     info!(
         user_id = %user_id,
-        application_id = %application_id,
+        %application_id,
         old_jti = %jti,
         "legacy token refresh successful"
     );
