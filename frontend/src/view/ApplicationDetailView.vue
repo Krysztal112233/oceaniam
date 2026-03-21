@@ -22,6 +22,7 @@ const toast = useToast();
 
 const application = ref<ApplicationVO | null>(null);
 const configuration = ref<ApplicationConfigurationVO | null>(null);
+const commentDraft = ref("");
 const loading = ref(false);
 const error = ref<string | null>(null);
 const requestId = ref(0);
@@ -57,6 +58,11 @@ const summaryText = computed(() => {
     }
 
     return `Application ${application.value.id} 隶属于 tenant ${application.value.tenant_id}`;
+});
+
+const commentSaveEnabled = computed(() => {
+    const currentComment = application.value?.comment ?? "";
+    return commentDraft.value !== currentComment;
 });
 
 async function loadApplicationDetail(): Promise<void> {
@@ -142,6 +148,18 @@ async function handleConfigurationSubmit(
     }
 }
 
+function handleCommentSubmit(): void {
+    toast.info("Application comment 更新接口尚未接入。");
+}
+
+watch(
+    () => application.value?.comment,
+    (nextComment) => {
+        commentDraft.value = nextComment ?? "";
+    },
+    { immediate: true },
+);
+
 watch(
     () => [tenantId.value, applicationId.value],
     () => {
@@ -211,16 +229,21 @@ watch(
                             Comment
                         </span>
                     </div>
-                    <p
-                        class="text-sm"
-                        :class="
-                            application.comment
-                                ? 'text-base-content'
-                                : 'text-base-content/50'
-                        "
-                    >
-                        {{ application.comment || "暂无备注" }}
-                    </p>
+                    <div class="flex items-center gap-3">
+                        <input
+                            v-model="commentDraft"
+                            class="input input-bordered flex-1"
+                            placeholder="无"
+                        />
+                        <button
+                            type="button"
+                            class="btn btn-primary"
+                            :disabled="!commentSaveEnabled"
+                            @click="handleCommentSubmit"
+                        >
+                            保存
+                        </button>
+                    </div>
                 </div>
             </section>
 
