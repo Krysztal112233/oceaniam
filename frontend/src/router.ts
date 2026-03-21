@@ -4,7 +4,6 @@ import HomeView from "./view/HomeView.vue";
 import OverviewView from "./view/OverviewView.vue";
 import ApplicationsEntryView from "./view/ApplicationsEntryView.vue";
 import ApplicationsView from "./view/ApplicationsView.vue";
-import ApplicationDetailView from "./view/ApplicationDetailView.vue";
 import AuditsView from "./view/AuditsView.vue";
 import StatisticsView from "./view/StatisticsView.vue";
 import UsersView from "./view/UsersView.vue";
@@ -24,7 +23,7 @@ const routes = [
     },
     {
         path: "/tenants/:tenantId/applications/:applicationId",
-        component: ApplicationDetailView,
+        component: () => import("./view/ApplicationDetailView.vue"),
         name: "application-detail",
     },
     { path: "/users", component: UsersView, name: "users" },

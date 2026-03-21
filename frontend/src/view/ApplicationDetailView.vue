@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, defineAsyncComponent, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { OceanIamClient } from "@oceaniam/sdk";
 import type { ApplicationVO } from "../../packages/sdk/src/types/ApplicationVO";
 import type { ApplicationConfigurationVO } from "../../packages/sdk/src/types/ApplicationConfigurationVO";
-import ApplicationAuthenticationCard from "../components/ApplicationAuthenticationCard.vue";
 import EntityListPage from "../components/EntityListPage.vue";
 import { appConfig } from "../config";
 import { useAuthStore } from "../stores/auth";
 import { useTenantStore } from "../stores/tenant";
+
+const ConfigEditor = defineAsyncComponent(
+    () => import("../components/ConfigEditor.vue"),
+);
 
 const route = useRoute();
 const router = useRouter();
@@ -107,6 +110,12 @@ async function goBack(): Promise<void> {
     });
 }
 
+async function handleConfigurationSubmit(
+    nextConfiguration: ApplicationConfigurationVO,
+): Promise<void> {
+    configuration.value = nextConfiguration;
+}
+
 watch(
     () => [tenantId.value, applicationId.value],
     () => {
@@ -119,7 +128,7 @@ watch(
 <template>
     <EntityListPage
         page-title="Application Detail"
-        page-description="展示当前 application 的基础信息与认证配置。"
+        page-description="展示当前 application 的基础信息与完整配置 JSON。"
         card-title="Application Information"
         :summary-text="summaryText"
     >
@@ -189,7 +198,12 @@ watch(
                 </div>
             </section>
 
-            <ApplicationAuthenticationCard :configuration="configuration" />
+            <ConfigEditor
+                :value="configuration"
+                title="Application Configuration"
+                description="查看并编辑当前 Application 的完整配置 JSON"
+                :on-submit="handleConfigurationSubmit"
+            />
         </div>
     </EntityListPage>
 </template>

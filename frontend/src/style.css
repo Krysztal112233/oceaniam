@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @plugin "daisyui";
+@import "monaco-editor/min/vs/editor/editor.main.css";
 
 body {
     -ms-overflow-style: none;
