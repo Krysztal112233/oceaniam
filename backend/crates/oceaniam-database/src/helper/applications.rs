@@ -1,8 +1,8 @@
 use axum::http::StatusCode;
 use oceaniam_common::{PageParam, PagedResponse, consts, error::Error};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter,
-    QuerySelect,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait,
+    QueryFilter, QuerySelect,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -180,6 +180,19 @@ pub trait ApplicationHelper {
             .await?;
 
         Ok(())
+    }
+
+    async fn replace_configuration(
+        application_id: Uuid,
+        configuration: ApplicationConfiguration,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::applications::Model, Error> {
+        let mut model = Self::get_application(application_id, database)
+            .await?
+            .into_active_model();
+        model.configuration = Set(serde_json::to_value(configuration)?);
+
+        Ok(model.update(database).await?)
     }
 }
 

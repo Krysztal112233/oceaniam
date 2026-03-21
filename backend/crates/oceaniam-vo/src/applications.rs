@@ -40,6 +40,17 @@ pub struct ApplicationConfigurationVO {
     pub authentication: AuthenticationConfigurationVO,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
+pub struct PatchAuthenticationConfigurationVO {
+    pub issuer: Option<String>,
+    pub audience: Option<Vec<String>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
+pub struct PatchApplicationConfigurationRequest {
+    pub authentication: Option<PatchAuthenticationConfigurationVO>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
 pub struct GetApplicationConfigurationResponse {
     pub configuration: ApplicationConfigurationVO,

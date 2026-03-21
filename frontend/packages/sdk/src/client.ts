@@ -4,6 +4,7 @@ import { type ApplicationUserVO } from "./types/ApplicationUserVO";
 import { type CreateApplicationRequest } from "./types/CreateApplicationRequest";
 import { type CreateApplicationResponse } from "./types/CreateApplicationResponse";
 import { type GetApplicationConfigurationResponse } from "./types/GetApplicationConfigurationResponse";
+import { type PatchApplicationConfigurationRequest } from "./types/PatchApplicationConfigurationRequest";
 import { type CreateTenantRequest } from "./types/CreateTenantRequest";
 import { type GetTenantsRequest } from "./types/GetTenantsRequest";
 import { type PagedResponse } from "./pagination";
@@ -352,7 +353,9 @@ export class OceanIamClient {
         });
     }
 
-    public async getApplication(applicationId: string): Promise<ApplicationDetailVO> {
+    public async getApplication(
+        applicationId: string,
+    ): Promise<ApplicationDetailVO> {
         return this.request<ApplicationDetailVO>({
             method: "GET",
             url: this.endpoints.application(applicationId),
@@ -389,6 +392,17 @@ export class OceanIamClient {
         return this.request<GetApplicationConfigurationResponse>({
             method: "GET",
             url: this.endpoints.applicationConfiguration(applicationId),
+        });
+    }
+
+    public async patchApplicationConfiguration(
+        applicationId: string,
+        req: PatchApplicationConfigurationRequest,
+    ): Promise<void> {
+        await this.request<unknown>({
+            method: "PATCH",
+            url: this.endpoints.applicationConfiguration(applicationId),
+            body: req,
         });
     }
 
@@ -430,7 +444,7 @@ export class OceanIamClient {
 
     // NOTE: AI-generated method
     private async request<T>(opts: {
-        method: "GET" | "POST" | "DELETE";
+        method: "GET" | "POST" | "PATCH" | "DELETE";
         url: string;
         query?: Record<string, QueryValue>;
         body?: object;

@@ -25,6 +25,11 @@ pub struct GetApplicationConfigurationResponse;
 
 #[derive(ts_rs::TS)]
 #[ts(export)]
+#[ts(as = "oceaniam_vo::applications::PatchApplicationConfigurationRequest")]
+pub struct PatchApplicationConfigurationRequest;
+
+#[derive(ts_rs::TS)]
+#[ts(export)]
 #[ts(as = "oceaniam_vo::applications::CreateApplicationUserRequest")]
 pub struct CreateApplicationUserRequest;
 

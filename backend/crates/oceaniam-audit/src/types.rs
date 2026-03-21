@@ -13,6 +13,7 @@ pub enum AuditPayload {
     RevokeJwt(RevokeJwtPayload),
     RefreshJwt(RefreshJwtPayload),
     CreateApplication(CreateApplicationPayload),
+    PatchApplicationConfiguration(PatchApplicationConfigurationPayload),
     DeleteApplication(DeleteApplicationPayload),
     CreateTenants(CreateTenantsPayload),
     DeleteTenants(DeleteTenantsPayload),
@@ -29,6 +30,7 @@ impl AuditPayload {
             Self::RevokeJwt(_) => AuditType::RevokeJwt,
             Self::RefreshJwt(_) => AuditType::RefreshJwt,
             Self::CreateApplication(_) => AuditType::CreateApplication,
+            Self::PatchApplicationConfiguration(_) => AuditType::PatchApplicationConfiguration,
             Self::DeleteApplication(_) => AuditType::DeleteApplication,
             Self::CreateTenants(_) => AuditType::CreateTenants,
             Self::DeleteTenants(_) => AuditType::DeleteTenants,
@@ -65,6 +67,12 @@ impl From<RefreshJwtPayload> for AuditPayload {
 impl From<CreateApplicationPayload> for AuditPayload {
     fn from(value: CreateApplicationPayload) -> Self {
         Self::CreateApplication(value)
+    }
+}
+
+impl From<PatchApplicationConfigurationPayload> for AuditPayload {
+    fn from(value: PatchApplicationConfigurationPayload) -> Self {
+        Self::PatchApplicationConfiguration(value)
     }
 }
 
@@ -137,6 +145,11 @@ pub struct CreateApplicationPayload {
     pub application_id: Uuid,
     pub tenant_id: Uuid,
     pub comment: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+pub struct PatchApplicationConfigurationPayload {
+    pub application_id: Uuid,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]

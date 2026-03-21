@@ -29,7 +29,7 @@ pub enum Relation {
         from = "Column::ApplicationId",
         to = "super::applications::Column::Id",
         on_update = "NoAction",
-        on_delete = "NoAction"
+        on_delete = "Cascade"
     )]
     Applications,
 }

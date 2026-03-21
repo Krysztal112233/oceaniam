@@ -18,7 +18,7 @@ use itertools::Itertools;
 use oceaniam_audit::types::{
     AuditPayload, CreateApplicationPayload, CreateApplicationSecretPayload,
     CreateApplicationUserPayload, DeleteApplicationPayload, DeleteApplicationSecretPayload,
-    RefreshJwtPayload, RevokeJwtPayload, SignJwtPayload,
+    PatchApplicationConfigurationPayload, RefreshJwtPayload, RevokeJwtPayload, SignJwtPayload,
 };
 use oceaniam_common::{
     ApiResponse, ApiResponseWithHeader, Empty, ErrorResponse, PagedResponse, RestResult,
@@ -41,7 +41,8 @@ use oceaniam_vo::{
     applications::{
         ApplicationConfigurationVO, ApplicationDetailVO, ApplicationUserVO, ApplicationVO,
         CreateApplicationRequest, CreateApplicationResponse, CreateApplicationUserRequest,
-        GetApplicationConfigurationResponse, GetApplicationParam, SecretVO,
+        GetApplicationConfigurationResponse, GetApplicationParam,
+        PatchApplicationConfigurationRequest, SecretVO,
     },
     auth::{AuthVO, SigninResponse, SignoutResponse},
 };
@@ -68,6 +69,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
         .routes(routes!(get_application))
         .routes(routes!(delete_application))
         .routes(routes!(get_application_configuration))
+        .routes(routes!(patch_application_configuration))
         .routes(routes!(get_application_jwks))
         .routes(routes!(get_applications))
         .routes(routes!(get_application_users))
@@ -364,6 +366,68 @@ pub async fn get_application_configuration(
     Ok(ApiResponse::new(GetApplicationConfigurationResponse {
         configuration: ApplicationConfigurationVO::from(configuration),
     }))
+}
+
+/// Patch application configuration
+#[utoipa::path(
+        patch,
+        path = "/applications/{application_id}/configuration",
+        tag = "Applications",
+        params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+            ("application_id" = String, Path, description = "Application ID"),
+        ),
+        request_body = PatchApplicationConfigurationRequest,
+        responses(
+            (status = 200, body = ApiResponse<Empty>),
+            (status = 400, description = "Invalid application id", body = ApiResponse<ErrorResponse>),
+            (status = 404, description = "Application not found", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
+        ),
+    )]
+#[tracing::instrument(
+    level = "info",
+    name = "applications.configuration.patch",
+    skip(applications, auditing, application_id, patch),
+    fields(application_id = field::Empty)
+)]
+pub async fn patch_application_configuration(
+    _: middlewares::auth::RequireAuth<SystemClaim>,
+
+    State(AppState {
+        applications,
+        auditing,
+        ..
+    }): State<AppState<'_>>,
+
+    Path(application_id): Path<Sqid>,
+    Json(patch): Json<PatchApplicationConfigurationRequest>,
+) -> RestResult<Empty> {
+    let application_id: Uuid = application_id
+        .try_into()
+        .inspect_err(|e| error!(error = %e, "failed to convert application_id"))?;
+    Span::current().tap(|it| {
+        it.record("application_id", field::display(&application_id));
+    });
+
+    applications
+        .patch_configuration(application_id, patch)
+        .await
+        .inspect_err(|e| {
+            error!(
+                %application_id,
+                error = %e,
+                "failed to patch application configuration"
+            )
+        })?;
+
+    auditing
+        .write(AuditPayload::from(PatchApplicationConfigurationPayload {
+            application_id,
+        }))
+        .await;
+
+    Ok(ApiResponse::new(Empty::default()))
 }
 
 /// Get application JWKS

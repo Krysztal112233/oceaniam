@@ -16,8 +16,10 @@ use oceaniam_database::{
         users::Model as UserModel,
     },
 };
+use oceaniam_vo::applications::PatchApplicationConfigurationRequest;
 use oceaniam_vo::auth::AuthVO;
 use sea_orm::prelude::*;
+use tap::Tap;
 use tracing::{error, info};
 use uuid::Uuid;
 
@@ -96,7 +98,6 @@ impl ManagedApplications<'_> {
             .await?)
     }
 
-    /// TODO: Check does [Applications] existed in future
     #[allow(private_bounds)]
     pub async fn find_user_by(
         &self,
@@ -166,6 +167,41 @@ impl ManagedApplications<'_> {
                 )
             })
             .await?)
+    }
+
+    pub async fn patch_configuration(
+        &self,
+        application_id: Uuid,
+        patch: PatchApplicationConfigurationRequest,
+    ) -> Result<ApplicationConfiguration, Error> {
+        self.is_application_exist(application_id).await?;
+
+        let patched_configuration = self.get_configuration(application_id).await?.tap_mut(|it| {
+            if let Some(authentication) = patch.authentication {
+                if let Some(issuer) = authentication.issuer {
+                    it.authentication.issuer = issuer;
+                }
+
+                if let Some(audience) = authentication.audience {
+                    it.authentication.audience = audience;
+                }
+            }
+        });
+
+        let configuration = ApplicationConfiguration::from(
+            Applications::replace_configuration(
+                application_id,
+                patched_configuration,
+                &self.database,
+            )
+            .await?,
+        );
+
+        self.configurations
+            .insert(application_id, configuration.clone())
+            .await;
+
+        Ok(configuration)
     }
 
     async fn is_application_exist(&self, application_id: Uuid) -> Result<(), Error> {
