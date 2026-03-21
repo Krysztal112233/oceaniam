@@ -2,6 +2,7 @@
 import { computed, defineAsyncComponent, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { OceanIamClient } from "@oceaniam/sdk";
+import { useToast } from "vue-toastification";
 import type { ApplicationVO } from "../../packages/sdk/src/types/ApplicationVO";
 import type { ApplicationConfigurationVO } from "../../packages/sdk/src/types/ApplicationConfigurationVO";
 import EntityListPage from "../components/EntityListPage.vue";
@@ -17,6 +18,7 @@ const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const tenantStore = useTenantStore();
+const toast = useToast();
 
 const application = ref<ApplicationVO | null>(null);
 const configuration = ref<ApplicationConfigurationVO | null>(null);
@@ -116,18 +118,28 @@ async function handleConfigurationSubmit(
     const normalizedApplicationId = applicationId.value.trim();
 
     if (!normalizedApplicationId) {
-        throw new Error("缺少 application 标识。");
+        const message = "缺少 application 标识。";
+        toast.error(message);
+        throw new Error(message);
     }
 
-    const client = getClient();
-    await client.patchApplicationConfiguration(normalizedApplicationId, {
-        authentication: {
-            issuer: nextConfiguration.authentication.issuer,
-            audience: nextConfiguration.authentication.audience,
-        },
-    });
+    try {
+        const client = getClient();
+        await client.patchApplicationConfiguration(normalizedApplicationId, {
+            authentication: {
+                issuer: nextConfiguration.authentication.issuer,
+                audience: nextConfiguration.authentication.audience,
+            },
+        });
 
-    configuration.value = nextConfiguration;
+        configuration.value = nextConfiguration;
+        toast.success("Application configuration 已更新。");
+    } catch (err) {
+        const message =
+            err instanceof Error ? err.message : "提交 application 配置失败。";
+        toast.error(message);
+        throw err;
+    }
 }
 
 watch(
