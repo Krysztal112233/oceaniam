@@ -1,12 +1,11 @@
 version: "3.8"
 services:
   postgres:
+    image: docker.io/krysztal112233/oceaniam-database:latest
     build:
       context: ./
       dockerfile: Dockerfile
       target: database
-      labels:
-        - docker.io/krysztal112233/oceaniam-database:latest
     restart: unless-stopped
     command: -c 'max_connections=20480'
     volumes:
@@ -21,12 +20,11 @@ services:
       timeout: 5s
       retries: 5
   backend-migration:
+    image: docker.io/krysztal112233/oceaniam-migration:latest
     build:
       context: ./
       dockerfile: Dockerfile
       target: migration
-      labels:
-        - docker.io/krysztal112233/oceaniam-migration:latest
     restart: "no"
     env_file:
       - .env
@@ -34,12 +32,11 @@ services:
       postgres:
         condition: service_healthy
   backend:
+    image: docker.io/krysztal112233/oceaniam-backend:latest
     build:
       context: ./
       dockerfile: Dockerfile
       target: backend
-      labels:
-        - docker.io/krysztal112233/oceaniam-backend:latest
     restart: unless-stopped
     env_file:
       - .env
@@ -51,12 +48,11 @@ services:
       postgres:
         condition: service_healthy
   frontend:
+    image: docker.io/krysztal112233/oceaniam-frontend:latest
     build:
       context: ./
       dockerfile: Dockerfile
       target: frontend
-      labels:
-        - docker.io/krysztal112233/oceaniam-frontend:latest
     restart: unless-stopped
     ports:
       - 8900:80

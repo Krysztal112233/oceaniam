@@ -33,10 +33,9 @@ COPY ../frontend/ .
 RUN corepack enable pnpm && pnpm install
 RUN pnpm build
 
-FROM docker.io/ferronserver/ferron:2-alpine AS frontend
-WORKDIR /var/www/ferron
-COPY --from=frontend-builder /builder/dist/ .
-CMD ["/usr/sbin/ferron" "--config-adapter" "docker-auto"]
+FROM docker.io/library/nginx:1.29-alpine AS frontend
+COPY docker/nginx/frontend.conf /etc/nginx/conf.d/default.conf
+COPY --from=frontend-builder /builder/dist/ /usr/share/nginx/html/
 
 ####################
 # DATABASE BUILDER #
@@ -58,4 +57,3 @@ RUN apt-get update && \
 		apt-get autoremove -y && \
 		apt-mark unhold locales && \
 		rm -rf /var/lib/apt/lists/*
-
