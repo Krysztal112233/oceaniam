@@ -5,5 +5,5 @@ export interface AppConfig {
 const env = import.meta.env;
 
 export const appConfig: AppConfig = {
-    systemBaseUrl: env.VITE_BASE_URL?.trim() || "http://localhost:8000",
+    systemBaseUrl: env.VITE_BASE_URL?.trim() || "/api",
 };

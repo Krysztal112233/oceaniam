@@ -1,4 +1,5 @@
 version: "3.8"
+
 services:
   postgres:
     image: docker.io/krysztal112233/oceaniam-database:latest
@@ -19,6 +20,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
   backend-migration:
     image: docker.io/krysztal112233/oceaniam-migration:latest
     build:
@@ -31,6 +33,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
   backend:
     image: docker.io/krysztal112233/oceaniam-backend:latest
     build:
@@ -40,13 +43,12 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    ports:
-      - 8000:8000
     depends_on:
       backend-migration:
         condition: service_completed_successfully
       postgres:
         condition: service_healthy
+
   frontend:
     image: docker.io/krysztal112233/oceaniam-frontend:latest
     build:
@@ -54,7 +56,21 @@ services:
       dockerfile: Dockerfile
       target: frontend
     restart: unless-stopped
+
+  nginx:
+    image: docker.io/krysztal112233/oceaniam-nginx:latest
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      target: nginx
+    restart: unless-stopped
     ports:
       - 8900:80
+    depends_on:
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
+
 volumes:
   postgres:

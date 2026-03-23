@@ -38,6 +38,13 @@ COPY docker/nginx/frontend.conf /etc/nginx/conf.d/default.conf
 COPY --from=frontend-builder /builder/dist/ /usr/share/nginx/html/
 
 ####################
+#  GATEWAY BUILDER #
+####################
+
+FROM docker.io/library/nginx:1.29-alpine AS nginx
+COPY docker/nginx/gateway.conf /etc/nginx/conf.d/default.conf
+
+####################
 # DATABASE BUILDER #
 ####################
 
