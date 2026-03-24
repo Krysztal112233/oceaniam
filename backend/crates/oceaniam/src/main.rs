@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use axum::{Router, http::HeaderValue};
+use axum::{
+    Router,
+    http::{HeaderValue, header},
+};
 use mimalloc::MiMalloc;
 use oceaniam_common::{
     config::{BackendConfig, CorsConfig, DatabaseConfig},
@@ -226,7 +229,12 @@ fn redact_dsn(dsn: &str) -> String {
 
 fn to_cors_layer(CorsConfig { allow_origin }: CorsConfig) -> CorsLayer {
     CorsLayer::new()
-        .allow_headers(Any)
+        .allow_headers([
+            header::ACCEPT,
+            header::AUTHORIZATION,
+            header::CONTENT_TYPE,
+            header::HeaderName::from_static("X-OceanIAM-Token-Dispatch"),
+        ])
         .allow_methods(Any)
         .allow_origin(allow_origin.parse::<HeaderValue>().unwrap())
 }
