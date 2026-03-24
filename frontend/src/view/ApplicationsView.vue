@@ -2,6 +2,7 @@
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useToast } from "vue-toastification";
 import ApplicationTable from "../components/ApplicationTable.vue";
 import CreateApplicationModal from "../components/CreateApplicationModal.vue";
 import EntityListPage from "../components/EntityListPage.vue";
@@ -10,6 +11,7 @@ import { useTenantStore } from "../stores/tenant";
 const route = useRoute();
 const router = useRouter();
 const tenantStore = useTenantStore();
+const toast = useToast();
 const {
     applications,
     applicationsError,
@@ -24,8 +26,6 @@ const {
     tenantsLoading,
 } = storeToRefs(tenantStore);
 const isCreateDialogOpen = ref(false);
-const createSuccessMessage = ref("");
-const deleteSuccessMessage = ref("");
 const deletingApplicationId = ref("");
 
 const tenantId = computed(() => {
@@ -63,16 +63,12 @@ async function handleDetail(applicationId: string) {
 }
 
 function handleDelete(applicationId: string) {
-    createSuccessMessage.value = "";
-    deleteSuccessMessage.value = "";
     deletingApplicationId.value = applicationId;
 
     void confirmDeleteApplication(applicationId);
 }
 
 function openCreateDialog() {
-    createSuccessMessage.value = "";
-    deleteSuccessMessage.value = "";
     isCreateDialogOpen.value = true;
 }
 
@@ -83,29 +79,27 @@ function closeCreateDialog() {
 async function handleCreateApplication(comment: string) {
     try {
         await tenantStore.createApplication(comment);
-        createSuccessMessage.value = "Application 已创建，列表已刷新。";
-        deleteSuccessMessage.value = "";
         closeCreateDialog();
+        toast.success("Application 已创建");
     } catch {
-        // error is stored in tenant store
+        toast.error(createApplicationError.value || "创建 Application 失败。");
     }
 }
 
 async function confirmDeleteApplication(applicationId: string) {
     try {
         await tenantStore.deleteApplication(applicationId);
-        deleteSuccessMessage.value = "Application 已删除，列表已刷新。";
         deletingApplicationId.value = "";
+        toast.success("Application 已删除");
     } catch {
         deletingApplicationId.value = applicationId;
+        toast.error(deleteApplicationError.value || "删除 Application 失败。");
     }
 }
 
 watch(
     () => tenantId.value,
     (nextTenantId) => {
-        createSuccessMessage.value = "";
-        deleteSuccessMessage.value = "";
         deletingApplicationId.value = "";
         tenantStore.syncCurrentTenant(nextTenantId);
         void tenantStore.loadApplications(nextTenantId);
@@ -140,15 +134,6 @@ onMounted(() => {
                 新增 Application
             </button>
         </template>
-
-        <div
-            v-if="createSuccessMessage || deleteSuccessMessage"
-            class="px-6 pt-6"
-        >
-            <div class="alert alert-success alert-soft">
-                <span>{{ createSuccessMessage || deleteSuccessMessage }}</span>
-            </div>
-        </div>
 
         <div
             v-if="tenantsLoading || applicationsLoading"

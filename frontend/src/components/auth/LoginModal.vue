@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
+import { useToast } from "vue-toastification";
 import { authState, login } from "../../utils/auth.ts";
 
 const props = defineProps<{
@@ -11,6 +12,7 @@ const emit = defineEmits<{
     (event: "success"): void;
 }>();
 
+const toast = useToast();
 const dialogRef = ref<HTMLDialogElement | null>(null);
 const username = ref("");
 const password = ref("");
@@ -47,9 +49,10 @@ function handleDialogClose() {
 async function handleSubmit() {
     try {
         await login(username.value, password.value);
+        toast.success("登录成功。");
         emit("success");
     } catch {
-        // error is stored in authState.error
+        toast.error(authState.error ?? "登录失败。");
     }
 }
 </script>

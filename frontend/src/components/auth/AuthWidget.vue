@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useToast } from "vue-toastification";
 import { authState, logout } from "../../utils/auth.ts";
 import { useAuthStore } from "../../stores/auth";
 
@@ -21,6 +22,7 @@ const emit = defineEmits<{
 }>();
 
 const authStore = useAuthStore();
+const toast = useToast();
 const authPopoverRef = ref<AuthPopoverElement | null>(null);
 const authPopoverId = "auth-widget-popover";
 const authAnchorName = "--auth-widget-anchor";
@@ -44,6 +46,7 @@ async function handleLogout() {
     try {
         authPopoverRef.value?.hidePopover?.();
         await logout();
+        toast.success("已退出登录。");
     } catch {
         // errors are swallowed inside logout; this is defensive
     }

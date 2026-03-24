@@ -2,6 +2,7 @@
 import CloseIcon from "@iconify-vue/material-symbols/close-rounded";
 import { OceanIamClient } from "@oceaniam/sdk";
 import { ref, watch } from "vue";
+import { useToast } from "vue-toastification";
 import { appConfig } from "../config";
 import { useAuthStore } from "../stores/auth";
 import { useTenantStore } from "../stores/tenant";
@@ -17,6 +18,7 @@ const emit = defineEmits<{
 
 const authStore = useAuthStore();
 const tenantStore = useTenantStore();
+const toast = useToast();
 const dialogRef = ref<HTMLDialogElement | null>(null);
 const comment = ref("");
 const loading = ref(false);
@@ -69,9 +71,11 @@ async function handleSubmit() {
         await tenantStore.loadTenants();
         tenantStore.syncCurrentTenant(tenant.id);
 
+        toast.success("Tenant 已创建");
         emit("created", tenant.id);
     } catch (err) {
         error.value = err instanceof Error ? err.message : "创建 tenant 失败。";
+        toast.error(error.value);
     } finally {
         loading.value = false;
     }
