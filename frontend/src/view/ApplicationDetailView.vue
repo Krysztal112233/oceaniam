@@ -23,6 +23,7 @@ const toast = useToast();
 const application = ref<ApplicationVO | null>(null);
 const configuration = ref<ApplicationConfigurationVO | null>(null);
 const commentDraft = ref("");
+const commentSaving = ref(false);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const requestId = ref(0);
@@ -62,7 +63,7 @@ const summaryText = computed(() => {
 
 const commentSaveEnabled = computed(() => {
     const currentComment = application.value?.comment ?? "";
-    return commentDraft.value !== currentComment;
+    return !commentSaving.value && commentDraft.value !== currentComment;
 });
 
 async function loadApplicationDetail(): Promise<void> {
@@ -148,8 +149,40 @@ async function handleConfigurationSubmit(
     }
 }
 
-function handleCommentSubmit(): void {
-    toast.info("Application comment 更新接口尚未接入。");
+async function handleCommentSubmit(): Promise<void> {
+    const normalizedApplicationId = applicationId.value.trim();
+
+    if (!normalizedApplicationId) {
+        toast.error("缺少 application 标识。");
+        return;
+    }
+
+    commentSaving.value = true;
+
+    try {
+        const client = getClient();
+        const nextComment = commentDraft.value.trim() || null;
+        const updatedApplication = await client.patchApplication(
+            normalizedApplicationId,
+            {
+                comment: nextComment,
+            },
+        );
+
+        application.value = {
+            id: updatedApplication.id,
+            tenant_id: updatedApplication.tenant_id,
+            comment: updatedApplication.comment,
+        };
+        commentDraft.value = updatedApplication.comment ?? "";
+        toast.success("Application comment 已更新。");
+    } catch (err) {
+        const message =
+            err instanceof Error ? err.message : "更新 comment 失败。";
+        toast.error(message);
+    } finally {
+        commentSaving.value = false;
+    }
 }
 
 watch(
@@ -239,6 +272,7 @@ watch(
                             type="button"
                             class="btn btn-primary"
                             :disabled="!commentSaveEnabled"
+                            :class="{ loading: commentSaving }"
                             @click="handleCommentSubmit"
                         >
                             保存
