@@ -49,18 +49,34 @@ COPY docker/nginx/gateway.conf /etc/nginx/conf.d/default.conf
 ####################
 
 FROM docker.io/library/postgres:18 AS database
-ADD https://github.com/citusdata/pg_cron.git#v1.6.7 /tmp/pg_cron
 RUN apt-get update && \
 		apt-mark hold locales && \
-		apt-get install -y --no-install-recommends build-essential postgresql-server-dev-18 && \
-		cd /tmp/pg_cron && \
+		apt-get install -y --no-install-recommends \
+				build-essential postgresql-server-dev-18 libreadline-dev zlib1g-dev flex bison libxml2-dev \
+				libxslt-dev libssl-dev libxml2-utils xsltproc pkg-config libc++-dev \
+				libc++abi-dev libglib2.0-dev libtinfo6 cmake libstdc++-12-dev \
+				liblz4-dev libcurl4-openssl-dev ninja-build git ca-certificates libicu-dev
+ADD https://github.com/citusdata/pg_cron.git#v1.6.7 /tmp/pg_cron
+RUN cd /tmp/pg_cron && \
 		make clean && \
 		make OPTFLAGS="" && \
 		make install && \
 		mkdir /usr/share/doc/pg_corn && \
 		cp LICENSE README.md /usr/share/doc/pg_corn && \
-		rm -r /tmp/pg_cron && \
-		apt-get remove -y build-essential postgresql-server-dev-18 && \
+		rm -r /tmp/pg_cron
+RUN git clone https://github.com/duckdb/pg_duckdb.git /tmp/pg_duckdb && \
+		cd /tmp/pg_duckdb && \
+		git submodule update --init --recursive && \
+		make clean && \
+		make -j$(nproc) && \
+		make install &&\
+		mkdir /usr/share/doc/pg_duckdb && \
+		cp LICENSE README.md /usr/share/doc/pg_duckdb && \
+		rm -r /tmp/pg_duckdb
+RUN apt-get remove -y build-essential postgresql-server-dev-18 libreadline-dev zlib1g-dev flex bison libxml2-dev \
+				libxslt-dev libssl-dev libxml2-utils xsltproc pkg-config libc++-dev \
+				libc++abi-dev libglib2.0-dev cmake libstdc++-12-dev \
+				liblz4-dev libcurl4-openssl-dev ninja-build git libicu-dev  && \
 		apt-get autoremove -y && \
 		apt-mark unhold locales && \
 		rm -rf /var/lib/apt/lists/*
