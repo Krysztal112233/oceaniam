@@ -41,6 +41,8 @@ pub enum AuditType {
     RefreshJwt,
     #[sea_orm(string_value = "patch_application_configuration")]
     PatchApplicationConfiguration,
+    #[sea_orm(string_value = "patch_application")]
+    PatchApplication,
 }
 #[derive(
     Debug,

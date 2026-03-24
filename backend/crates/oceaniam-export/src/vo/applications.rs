@@ -30,6 +30,11 @@ pub struct PatchApplicationConfigurationRequest;
 
 #[derive(ts_rs::TS)]
 #[ts(export)]
+#[ts(type = "{ comment?: string | null }")]
+pub struct PatchApplicationRequest;
+
+#[derive(ts_rs::TS)]
+#[ts(export)]
 #[ts(as = "oceaniam_vo::applications::CreateApplicationUserRequest")]
 pub struct CreateApplicationUserRequest;
 

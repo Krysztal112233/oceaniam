@@ -16,7 +16,9 @@ use oceaniam_database::{
         users::Model as UserModel,
     },
 };
-use oceaniam_vo::applications::PatchApplicationConfigurationRequest;
+use oceaniam_vo::applications::{
+    PatchApplicationConfigurationRequest, PatchApplicationRequest, PatchValue,
+};
 use oceaniam_vo::auth::AuthVO;
 use sea_orm::prelude::*;
 use tap::Tap;
@@ -202,6 +204,26 @@ impl ManagedApplications<'_> {
             .await;
 
         Ok(configuration)
+    }
+
+    pub async fn patch_application(
+        &self,
+        application_id: Uuid,
+        patch: PatchApplicationRequest,
+    ) -> Result<ApplicationModel, Error> {
+        self.is_application_exist(application_id).await?;
+
+        match patch.comment {
+            PatchValue::Missing => {
+                Applications::get_application(application_id, &self.database).await
+            }
+            PatchValue::Null => {
+                Applications::update_comment(application_id, None, &self.database).await
+            }
+            PatchValue::Value(comment) => {
+                Applications::update_comment(application_id, Some(comment), &self.database).await
+            }
+        }
     }
 
     async fn is_application_exist(&self, application_id: Uuid) -> Result<(), Error> {

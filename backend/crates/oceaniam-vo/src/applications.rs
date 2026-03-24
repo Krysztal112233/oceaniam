@@ -3,7 +3,7 @@ use core::str;
 use garde::Validate;
 use oceaniam_common::{PageParam, types::sqid::Sqid};
 use oceaniam_database::model::{self};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use utoipa::ToSchema;
 
 #[derive(Debug, Deserialize, ToSchema, Validate)]
@@ -49,6 +49,36 @@ pub struct PatchAuthenticationConfigurationVO {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
 pub struct PatchApplicationConfigurationRequest {
     pub authentication: Option<PatchAuthenticationConfigurationVO>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub enum PatchValue<T> {
+    #[default]
+    Missing,
+    Null,
+    Value(T),
+}
+
+impl<'de, T> Deserialize<'de> for PatchValue<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(match Option::<T>::deserialize(deserializer)? {
+            Some(value) => Self::Value(value),
+            None => Self::Null,
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, ToSchema)]
+pub struct PatchApplicationRequest {
+    #[serde(default)]
+    #[schema(value_type = Option<String>)]
+    pub comment: PatchValue<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]

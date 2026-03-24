@@ -194,6 +194,19 @@ pub trait ApplicationHelper {
 
         Ok(model.update(database).await?)
     }
+
+    async fn update_comment(
+        application_id: Uuid,
+        comment: Option<String>,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::applications::Model, Error> {
+        let mut model = Self::get_application(application_id, database)
+            .await?
+            .into_active_model();
+        model.comment = Set(comment);
+
+        Ok(model.update(database).await?)
+    }
 }
 
 impl ApplicationHelper for Applications {}

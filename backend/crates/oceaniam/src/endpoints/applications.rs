@@ -18,7 +18,8 @@ use itertools::Itertools;
 use oceaniam_audit::types::{
     AuditPayload, CreateApplicationPayload, CreateApplicationSecretPayload,
     CreateApplicationUserPayload, DeleteApplicationPayload, DeleteApplicationSecretPayload,
-    PatchApplicationConfigurationPayload, RefreshJwtPayload, RevokeJwtPayload, SignJwtPayload,
+    PatchApplicationConfigurationPayload, PatchApplicationPayload, RefreshJwtPayload,
+    RevokeJwtPayload, SignJwtPayload,
 };
 use oceaniam_common::{
     ApiResponse, ApiResponseWithHeader, Empty, ErrorResponse, PagedResponse, RestResult,
@@ -42,7 +43,7 @@ use oceaniam_vo::{
         ApplicationConfigurationVO, ApplicationDetailVO, ApplicationUserVO, ApplicationVO,
         CreateApplicationRequest, CreateApplicationResponse, CreateApplicationUserRequest,
         GetApplicationConfigurationResponse, GetApplicationParam,
-        PatchApplicationConfigurationRequest, SecretVO,
+        PatchApplicationConfigurationRequest, PatchApplicationRequest, SecretVO,
     },
     auth::{AuthVO, SigninResponse, SignoutResponse},
 };
@@ -67,6 +68,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
     router
         .routes(routes!(create_application))
         .routes(routes!(get_application))
+        .routes(routes!(patch_application))
         .routes(routes!(delete_application))
         .routes(routes!(get_application_configuration))
         .routes(routes!(patch_application_configuration))
@@ -260,6 +262,65 @@ pub async fn get_application(
                 "failed to get application detail"
             )
         })?;
+
+    Ok(ApiResponse::new(ApplicationDetailVO::from(application)))
+}
+
+/// Patch application
+///
+/// Partially updates mutable application fields such as `comment`
+#[utoipa::path(
+        patch,
+        path = "/applications/{application_id}",
+        tag = "Applications",
+        params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+            ("application_id" = String, Path, description = "Application ID"),
+        ),
+        request_body = PatchApplicationRequest,
+        responses(
+            (status = 200, body = ApiResponse<ApplicationDetailVO>),
+            (status = 400, description = "Invalid application id", body = ApiResponse<ErrorResponse>),
+            (status = 404, description = "Application not found", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
+        ),
+    )]
+#[tracing::instrument(
+    level = "info",
+    name = "applications.patch",
+    skip(applications, auditing, application_id, patch),
+    fields(application_id = field::Empty)
+)]
+pub async fn patch_application(
+    _: middlewares::auth::RequireAuth<SystemClaim>,
+
+    State(AppState {
+        applications,
+        auditing,
+        ..
+    }): State<AppState<'_>>,
+
+    Path(application_id): Path<Sqid>,
+    Json(patch): Json<PatchApplicationRequest>,
+) -> RestResult<ApplicationDetailVO> {
+    let application_id: Uuid = application_id
+        .try_into()
+        .inspect_err(|e| error!(error = %e, "failed to convert application_id"))?;
+    Span::current().tap(|it| {
+        it.record("application_id", field::display(&application_id));
+    });
+
+    let application = applications
+        .patch_application(application_id, patch)
+        .await
+        .inspect_err(|e| error!(%application_id, error = %e, "application patch failed"))?;
+
+    auditing
+        .write(AuditPayload::from(PatchApplicationPayload {
+            application_id,
+            comment: application.comment.clone(),
+        }))
+        .await;
 
     Ok(ApiResponse::new(ApplicationDetailVO::from(application)))
 }
