@@ -532,7 +532,7 @@ pub async fn get_application_jwks(
 /// Get user list
 #[utoipa::path(
         get,
-        path = "/applications/{application_id}/users/",
+        path = "/applications/{application_id}/users",
         tag = "ApplicationUsers",
         params(
             ("Authorization" = String, Header, description = "Bearer token"),

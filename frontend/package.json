@@ -5,7 +5,7 @@
     "type": "module",
     "scripts": {
         "predev": "pnpm -C packages/sdk build",
-        "dev": "vite --host",
+        "dev": "VITE_BASE_URL=http://127.0.0.1:8000/ vite --host",
         "dev:all": "pnpm -r --parallel dev",
         "prebuild": "pnpm -C packages/sdk build",
         "build": "vue-tsc -p tsconfig.json && vite build",
