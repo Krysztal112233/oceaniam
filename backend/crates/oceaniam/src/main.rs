@@ -233,7 +233,7 @@ fn to_cors_layer(CorsConfig { allow_origin }: CorsConfig) -> CorsLayer {
             header::ACCEPT,
             header::AUTHORIZATION,
             header::CONTENT_TYPE,
-            header::HeaderName::from_static("X-OceanIAM-Token-Dispatch"),
+            header::HeaderName::from_static("x-oceaniam-token-dispatch"),
         ])
         .allow_methods(Any)
         .allow_origin(allow_origin.parse::<HeaderValue>().unwrap())
