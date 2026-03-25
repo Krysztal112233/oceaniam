@@ -16,8 +16,8 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::application_secrets::Entity")]
-    ApplicationSecrets,
+    #[sea_orm(has_many = "super::application_secret_bindings::Entity")]
+    ApplicationSecretBindings,
     #[sea_orm(has_many = "super::key_boxes::Entity")]
     KeyBoxes,
     #[sea_orm(has_many = "super::subjects::Entity")]
@@ -34,9 +34,9 @@ pub enum Relation {
     Users,
 }
 
-impl Related<super::application_secrets::Entity> for Entity {
+impl Related<super::application_secret_bindings::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::ApplicationSecrets.def()
+        Relation::ApplicationSecretBindings.def()
     }
 }
 
@@ -61,6 +61,19 @@ impl Related<super::tenants::Entity> for Entity {
 impl Related<super::users::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Users.def()
+    }
+}
+
+impl Related<super::application_secrets::Entity> for Entity {
+    fn to() -> RelationDef {
+        super::application_secret_bindings::Relation::ApplicationSecrets.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(
+            super::application_secret_bindings::Relation::Applications
+                .def()
+                .rev(),
+        )
     }
 }
 

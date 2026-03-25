@@ -3,6 +3,7 @@
 pub mod prelude;
 
 pub mod administrators;
+pub mod application_secret_bindings;
 pub mod application_secrets;
 pub mod applications;
 pub mod audits;

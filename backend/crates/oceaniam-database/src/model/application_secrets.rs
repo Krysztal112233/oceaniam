@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    pub application_id: Uuid,
     pub secret: String,
     pub created_at: DateTimeWithTimeZone,
     pub revoked_at: Option<DateTimeWithTimeZone>,
@@ -16,19 +15,26 @@ pub struct Model {
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(
-        belongs_to = "super::applications::Entity",
-        from = "Column::ApplicationId",
-        to = "super::applications::Column::Id",
-        on_update = "NoAction",
-        on_delete = "Cascade"
-    )]
-    Applications,
+    #[sea_orm(has_many = "super::application_secret_bindings::Entity")]
+    ApplicationSecretBindings,
+}
+
+impl Related<super::application_secret_bindings::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::ApplicationSecretBindings.def()
+    }
 }
 
 impl Related<super::applications::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Applications.def()
+        super::application_secret_bindings::Relation::Applications.def()
+    }
+    fn via() -> Option<RelationDef> {
+        Some(
+            super::application_secret_bindings::Relation::ApplicationSecrets
+                .def()
+                .rev(),
+        )
     }
 }
 

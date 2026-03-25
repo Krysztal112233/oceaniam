@@ -1,15 +1,14 @@
 use axum::http::StatusCode;
 use chrono::Utc;
 use oceaniam_common::error::Error;
-use oceaniam_common::{PageParam, PagedResponse};
+use oceaniam_common::{PageInfo, PageParam, PagedResponse};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, PaginatorTrait,
-    QueryFilter, QuerySelect,
+    ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, QueryFilter,
+    QuerySelect,
 };
 use uuid::Uuid;
 
-use crate::helper::{PagedExecutor, PagedSelect};
-use crate::model::prelude::ApplicationSecrets;
+use crate::model::prelude::{ApplicationSecretBindings, ApplicationSecrets};
 use crate::{
     helper::SafeTransactionConnectionTrait,
     model::{self},
@@ -23,16 +22,28 @@ pub trait ApplicationSecretsHelper {
         secret: impl Into<String> + Send,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::application_secrets::Model, Error> {
-        Ok(model::application_secrets::Model {
+        let transaction = database.begin().await?;
+
+        let model = model::application_secrets::Model {
             id,
-            application_id,
             secret: secret.into(),
             created_at: Utc::now().into(),
             revoked_at: None,
         }
         .into_active_model()
-        .insert(database)
-        .await?)
+        .insert(&transaction)
+        .await?;
+
+        model::application_secret_bindings::ActiveModel {
+            secret_id: sea_orm::ActiveValue::Set(model.id),
+            application_id: sea_orm::ActiveValue::Set(application_id),
+        }
+        .insert(&transaction)
+        .await?;
+
+        transaction.commit().await?;
+
+        Ok(model)
     }
 
     async fn get_secrets(
@@ -40,22 +51,29 @@ pub trait ApplicationSecretsHelper {
         paged: Option<PageParam>,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<PagedResponse<model::application_secrets::Model>, Error> {
-        use model::application_secrets::Column::*;
+        let all_items = Self::get_all(application_id, database).await?;
 
         match paged {
             Some(paged) => {
-                ApplicationSecrets::find()
-                    .filter(ApplicationId.eq(application_id))
-                    .paged(paged)
-                    .paginate(database, paged.per_page)
-                    .fetch_paged(paged)
-                    .await
+                let start = paged.as_offset() as usize;
+                let end = start
+                    .saturating_add(paged.per_page as usize)
+                    .min(all_items.len());
+                let items = if start >= all_items.len() {
+                    Vec::new()
+                } else {
+                    all_items[start..end].to_vec()
+                };
+
+                Ok(PagedResponse {
+                    page_info: PageInfo {
+                        has_next: end < all_items.len(),
+                        total: all_items.len(),
+                    },
+                    items,
+                })
             }
-            None => Ok(ApplicationSecrets::find()
-                .filter(ApplicationId.eq(application_id))
-                .all(database)
-                .await
-                .map(PagedResponse::with_entire)?),
+            None => Ok(PagedResponse::with_entire(all_items)),
         }
     }
 
@@ -63,33 +81,46 @@ pub trait ApplicationSecretsHelper {
         application_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<model::application_secrets::Model>, Error> {
-        use model::application_secrets::Column::*;
+        use model::application_secret_bindings::Column::*;
 
-        Ok(ApplicationSecrets::find()
+        Ok(ApplicationSecretBindings::find()
             .filter(ApplicationId.eq(application_id))
+            .find_also_related(ApplicationSecrets)
             .all(database)
-            .await?)
+            .await?
+            .into_iter()
+            .filter_map(|(_, secret)| secret)
+            .collect())
     }
 
     async fn find_secret_belong(
         secret: impl Into<String> + Send,
         database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<model::application_secrets::Model, Error> {
+    ) -> Result<Vec<Uuid>, Error> {
         use model::application_secrets::Column::*;
 
         let secret = secret.into();
-
-        ApplicationSecrets::find()
+        let secret_id = ApplicationSecrets::find()
             .filter(Secret.eq(&secret))
             .one(database)
             .await
             .map(|it| match it {
-                Some(it) => Ok(it),
+                Some(it) => Ok(it.id),
                 None => Err(Error::with_code(
                     StatusCode::NOT_FOUND,
                     format!("cannot found application_secret={secret}"),
                 )),
-            })?
+            })??;
+
+        use model::application_secret_bindings::Column::*;
+
+        Ok(ApplicationSecretBindings::find()
+            .filter(SecretId.eq(secret_id))
+            .select_only()
+            .column(ApplicationId)
+            .into_tuple::<Uuid>()
+            .all(database)
+            .await?)
     }
 
     async fn delete_secret(
@@ -97,15 +128,25 @@ pub trait ApplicationSecretsHelper {
         secret_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<(), Error> {
-        use model::application_secrets::Column::*;
+        use model::application_secret_bindings::Column::*;
 
-        ApplicationSecrets::find()
+        let binding = ApplicationSecretBindings::find()
             .filter(
                 Condition::all()
                     .add(ApplicationId.eq(application_id))
-                    .add(Id.eq(secret_id)),
+                    .add(SecretId.eq(secret_id)),
             )
-            .all(database)
+            .one(database)
+            .await?
+            .ok_or_else(|| {
+                Error::with_code(
+                    StatusCode::NOT_FOUND,
+                    format!("cannot found secret with id={secret_id}"),
+                )
+            })?;
+
+        ApplicationSecretBindings::delete(binding.into_active_model())
+            .exec(database)
             .await?;
 
         Ok(())

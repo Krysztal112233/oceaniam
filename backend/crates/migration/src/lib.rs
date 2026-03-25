@@ -36,6 +36,8 @@ mod m20260319_163158_replace_fk_applications;
 mod m20260321_091710_alter_audit_type_application_configuration;
 mod m20260324_101500_alter_audit_type_patch_application;
 mod m20260325_161309_create_application_secret_bindings;
+mod m20260325_164953_drop_application_id_from_application_secrets;
+mod m20260325_170615_create_primary_key_of_application_secret_binding;
 
 pub struct Migrator;
 
@@ -78,6 +80,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260321_091710_alter_audit_type_application_configuration::Migration),
             Box::new(m20260324_101500_alter_audit_type_patch_application::Migration),
             Box::new(m20260325_161309_create_application_secret_bindings::Migration),
+            Box::new(m20260325_164953_drop_application_id_from_application_secrets::Migration),
+            Box::new(m20260325_170615_create_primary_key_of_application_secret_binding::Migration),
         ]
     }
 }

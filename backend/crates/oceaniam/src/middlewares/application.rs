@@ -10,12 +10,12 @@ use crate::state::AppState;
 #[derive(Debug, Clone)]
 pub struct RequireApplicationSecret {
     pub secret: String,
-    pub of_application: Uuid,
+    pub of_applications: Vec<Uuid>,
 }
 
 impl RequireApplicationSecret {
     pub fn is_matched(&self, application_id: Uuid) -> bool {
-        self.of_application == application_id
+        self.of_applications.contains(&application_id)
     }
 }
 
@@ -43,7 +43,7 @@ impl FromRequestParts<AppState<'_>> for RequireApplicationSecret {
             return Err(StatusCode::UNAUTHORIZED);
         };
 
-        let Ok(application_id) = applications
+        let Ok(application_ids) = applications
             .secrets()
             .find_secret_belong_to(secret)
             .await
@@ -54,7 +54,7 @@ impl FromRequestParts<AppState<'_>> for RequireApplicationSecret {
 
         Ok(Self {
             secret: secret.to_owned(),
-            of_application: application_id,
+            of_applications: application_ids,
         })
     }
 }

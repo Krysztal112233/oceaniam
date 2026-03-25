@@ -1441,7 +1441,7 @@ mod spec_middlewares {
             // Verify the secret belongs to the requested application
             if !secret.is_matched(application_id) {
                 warn!(
-                    secret_application_id = %secret.of_application,
+                    secret_application_ids = ?secret.of_applications,
                     requested_application_id = %application_id,
                     "application authorization failed: secret belongs to different application"
                 );

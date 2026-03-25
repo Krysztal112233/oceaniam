@@ -355,7 +355,7 @@ pub struct Secrets<'a> {
 
     secrets: Cache<Uuid, Vec<SecretModel>>,
 
-    belong: Cache<String, Uuid>,
+    belong: Cache<String, Vec<Uuid>>,
 
     filters: ManagedFilters<'a>,
 }
@@ -385,6 +385,7 @@ impl Secrets<'_> {
         .await?;
 
         self.refresh(application_id).await?;
+        self.belong.invalidate_all();
 
         self.filters.secret_filter().mark();
         self.filters.secret_id_filter().mark();
@@ -406,7 +407,10 @@ impl Secrets<'_> {
     }
 
     /// TODO: See [Secrets]
-    pub async fn find_secret_belong_to(&self, secret: impl Into<String>) -> Result<Uuid, Error> {
+    pub async fn find_secret_belong_to(
+        &self,
+        secret: impl Into<String>,
+    ) -> Result<Vec<Uuid>, Error> {
         let secret = secret.into();
 
         self.is_secret_exist(&secret).await?;
@@ -414,11 +418,7 @@ impl Secrets<'_> {
         Ok(self
             .belong
             .try_get_with(secret.clone(), async {
-                Ok(
-                    ApplicationSecrets::find_secret_belong(secret, &self.database)
-                        .await?
-                        .application_id,
-                )
+                ApplicationSecrets::find_secret_belong(secret, &self.database).await
             })
             .await?)
     }
@@ -444,6 +444,7 @@ impl Secrets<'_> {
         ApplicationSecrets::delete_secret(application_id, secret_id, &self.database).await?;
 
         self.refresh(application_id).await?;
+        self.belong.invalidate_all();
 
         self.filters.secret_id_filter().mark();
         self.filters.secret_filter().mark();
