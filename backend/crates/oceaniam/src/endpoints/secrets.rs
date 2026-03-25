@@ -4,7 +4,9 @@ use axum::extract::{Path, State};
 use oceaniam_audit::types::{
     AuditPayload, CreateApplicationSecretPayload, DeleteApplicationSecretPayload,
 };
-use oceaniam_common::{ApiResponse, Empty, ErrorResponse, RestResult, types::sqid::Sqid};
+use oceaniam_common::{
+    ApiResponse, Empty, ErrorResponse, PagedResponse, RestResult, types::sqid::Sqid,
+};
 use oceaniam_vo::applications::SecretVO;
 use tap::Tap;
 use tracing::{Span, error, field, info};
@@ -70,7 +72,7 @@ pub async fn create_secret(
         tag = "Secrets",
         params(("Authorization" = String, Header, description = "Bearer token")),
         responses(
-            (status = 200, body = ApiResponse<Vec<SecretVO>>),
+            (status = 200, body = ApiResponse<PagedResponse<SecretVO>>),
             (status = 203, description = "Missing Authorization header"),
             (status = 400, description = "Invalid token or bad request", body = ApiResponse<ErrorResponse>),
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
@@ -80,7 +82,7 @@ pub async fn create_secret(
 pub async fn get_secrets(
     _: RequireAuth<SystemClaim>,
     State(AppState { applications, .. }): State<AppState<'_>>,
-) -> RestResult<Vec<SecretVO>> {
+) -> RestResult<PagedResponse<SecretVO>> {
     let secrets = applications
         .secrets()
         .get_all_secrets()
@@ -101,7 +103,7 @@ pub async fn get_secrets(
         items.push(SecretVO::with_masked(secret).with_application_ids(application_ids));
     }
 
-    Ok(ApiResponse::new(items))
+    Ok(ApiResponse::new(PagedResponse::with_entire(items)))
 }
 
 #[utoipa::path(

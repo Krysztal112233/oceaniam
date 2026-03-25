@@ -380,8 +380,6 @@ impl Secrets<'_> {
             ApplicationSecrets::create_secret_unbound(Uuid::now_v7(), gen_secret(), &self.database)
                 .await?;
 
-        self.belong.invalidate_all();
-
         self.filters.secret_filter().mark();
         self.filters.secret_id_filter().mark();
 
