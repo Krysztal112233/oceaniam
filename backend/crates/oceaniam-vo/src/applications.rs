@@ -220,6 +220,7 @@ pub struct SecretVO {
     pub secret: String,
     pub created_at: String,
     pub revoked_at: Option<String>,
+    pub application_ids: Vec<Sqid>,
 }
 
 impl SecretVO {
@@ -244,6 +245,15 @@ impl SecretVO {
             secret,
             created_at: created_at.to_rfc2822(),
             revoked_at: revoked_at.map(|it| it.to_rfc2822()),
+            application_ids: Vec::new(),
         }
+    }
+
+    pub fn with_application_ids(
+        mut self,
+        application_ids: impl IntoIterator<Item = uuid::Uuid>,
+    ) -> Self {
+        self.application_ids = application_ids.into_iter().map(Into::into).collect();
+        self
     }
 }

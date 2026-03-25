@@ -16,6 +16,22 @@ use crate::{
 
 #[async_trait::async_trait]
 pub trait ApplicationSecretsHelper {
+    async fn create_secret_unbound(
+        id: Uuid,
+        secret: impl Into<String> + Send,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::application_secrets::Model, Error> {
+        Ok(model::application_secrets::Model {
+            id,
+            secret: secret.into(),
+            created_at: Utc::now().into(),
+            revoked_at: None,
+        }
+        .into_active_model()
+        .insert(database)
+        .await?)
+    }
+
     async fn create_secret(
         application_id: Uuid,
         id: Uuid,
@@ -46,12 +62,12 @@ pub trait ApplicationSecretsHelper {
         Ok(model)
     }
 
-    async fn get_secrets(
+    async fn get_secrets_of(
         application_id: Uuid,
         paged: Option<PageParam>,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<PagedResponse<model::application_secrets::Model>, Error> {
-        let all_items = Self::get_all(application_id, database).await?;
+        let all_items = Self::get_all_secrets_of(application_id, database).await?;
 
         match paged {
             Some(paged) => {
@@ -77,7 +93,7 @@ pub trait ApplicationSecretsHelper {
         }
     }
 
-    async fn get_all(
+    async fn get_all_secrets_of(
         application_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<model::application_secrets::Model>, Error> {
@@ -93,7 +109,37 @@ pub trait ApplicationSecretsHelper {
             .collect())
     }
 
-    async fn find_secret_belong(
+    async fn get_secret(
+        secret_id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::application_secrets::Model, Error> {
+        ApplicationSecrets::find_by_id(secret_id)
+            .one(database)
+            .await?
+            .ok_or_else(|| {
+                Error::with_code(
+                    StatusCode::NOT_FOUND,
+                    format!("cannot found secret with id={secret_id}"),
+                )
+            })
+    }
+
+    async fn get_application_ids_of_secret(
+        secret_id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<Vec<Uuid>, Error> {
+        use model::application_secret_bindings::Column::*;
+
+        Ok(ApplicationSecretBindings::find()
+            .filter(SecretId.eq(secret_id))
+            .select_only()
+            .column(ApplicationId)
+            .into_tuple::<Uuid>()
+            .all(database)
+            .await?)
+    }
+
+    async fn find_secret_can_be_used_for(
         secret: impl Into<String> + Send,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<Uuid>, Error> {
@@ -152,6 +198,19 @@ pub trait ApplicationSecretsHelper {
         Ok(())
     }
 
+    async fn delete_secret_by_id(
+        secret_id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<(), Error> {
+        let secret = Self::get_secret(secret_id, database).await?;
+
+        ApplicationSecrets::delete(secret.into_active_model())
+            .exec(database)
+            .await?;
+
+        Ok(())
+    }
+
     async fn get_all_secret_ids(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<Uuid>, Error> {
@@ -164,6 +223,12 @@ pub trait ApplicationSecretsHelper {
             .into_tuple::<Uuid>()
             .all(database)
             .await?)
+    }
+
+    async fn get_all_secret_models(
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<Vec<model::application_secrets::Model>, Error> {
+        Ok(ApplicationSecrets::find().all(database).await?)
     }
 
     async fn get_all_secrets(

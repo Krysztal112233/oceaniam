@@ -175,13 +175,13 @@ pub struct DeleteApplicationPayload {
 pub struct CreateTenantsPayload {
     pub tenant_id: Uuid,
     pub comment: Option<String>,
-    pub operator_id: Option<Uuid>,
+    pub operator_id: Uuid,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
 pub struct DeleteTenantsPayload {
     pub tenant_id: Uuid,
-    pub operator_id: Option<Uuid>,
+    pub operator_id: Uuid,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
@@ -201,12 +201,12 @@ pub struct DeleteApplicationUserPayload {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
 pub struct CreateApplicationSecretPayload {
-    pub application_id: Uuid,
+    pub operator_id: Uuid,
     pub secret_id: Uuid,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
 pub struct DeleteApplicationSecretPayload {
-    pub application_id: Uuid,
+    pub operator_id: Uuid,
     pub secret_id: Uuid,
 }

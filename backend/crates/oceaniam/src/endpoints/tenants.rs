@@ -188,7 +188,7 @@ pub async fn create_tenant(
         .write(AuditPayload::from(CreateTenantsPayload {
             tenant_id: model.id,
             comment: model.comment.clone(),
-            operator_id: Some(operator_id),
+            operator_id,
         }))
         .await;
 
@@ -249,7 +249,7 @@ pub async fn delete_tenant(
     auditing
         .write(AuditPayload::from(DeleteTenantsPayload {
             tenant_id,
-            operator_id: Some(operator_id),
+            operator_id,
         }))
         .await;
 

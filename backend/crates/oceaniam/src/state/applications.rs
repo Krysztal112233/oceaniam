@@ -375,16 +375,11 @@ impl Secrets<'_> {
         }
     }
 
-    pub async fn create_secret(&self, application_id: Uuid) -> Result<SecretModel, Error> {
-        let model = ApplicationSecrets::create_secret(
-            application_id,
-            Uuid::now_v7(),
-            gen_secret(),
-            &self.database,
-        )
-        .await?;
+    pub async fn create_secret(&self) -> Result<SecretModel, Error> {
+        let model =
+            ApplicationSecrets::create_secret_unbound(Uuid::now_v7(), gen_secret(), &self.database)
+                .await?;
 
-        self.refresh(application_id).await?;
         self.belong.invalidate_all();
 
         self.filters.secret_filter().mark();
@@ -393,13 +388,29 @@ impl Secrets<'_> {
         Ok(model)
     }
 
+    pub async fn get_all_secrets(&self) -> Result<Vec<SecretModel>, Error> {
+        ApplicationSecrets::get_all_secret_models(&self.database).await
+    }
+
+    pub async fn get_secret(&self, secret_id: Uuid) -> Result<SecretModel, Error> {
+        self.is_secret_id_exist(secret_id).await?;
+
+        ApplicationSecrets::get_secret(secret_id, &self.database).await
+    }
+
+    pub async fn get_secret_application_ids(&self, secret_id: Uuid) -> Result<Vec<Uuid>, Error> {
+        self.is_secret_id_exist(secret_id).await?;
+
+        ApplicationSecrets::get_application_ids_of_secret(secret_id, &self.database).await
+    }
+
     async fn refresh(&self, application_id: Uuid) -> Result<(), Error> {
         self.is_application_exist(application_id).await?;
 
         self.secrets
             .insert(
                 application_id,
-                ApplicationSecrets::get_all(application_id, &self.database).await?,
+                ApplicationSecrets::get_all_secrets_of(application_id, &self.database).await?,
             )
             .await;
 
@@ -418,7 +429,7 @@ impl Secrets<'_> {
         Ok(self
             .belong
             .try_get_with(secret.clone(), async {
-                ApplicationSecrets::find_secret_belong(secret, &self.database).await
+                ApplicationSecrets::find_secret_can_be_used_for(secret, &self.database).await
             })
             .await?)
     }
@@ -432,7 +443,7 @@ impl Secrets<'_> {
         Ok(self
             .secrets
             .try_get_with(application_id, async {
-                ApplicationSecrets::get_all(application_id, &self.database).await
+                ApplicationSecrets::get_all_secrets_of(application_id, &self.database).await
             })
             .await?)
     }
@@ -444,6 +455,26 @@ impl Secrets<'_> {
         ApplicationSecrets::delete_secret(application_id, secret_id, &self.database).await?;
 
         self.refresh(application_id).await?;
+        self.belong.invalidate_all();
+
+        self.filters.secret_id_filter().mark();
+        self.filters.secret_filter().mark();
+
+        Ok(())
+    }
+
+    pub async fn delete_secret_by_id(&self, secret_id: Uuid) -> Result<(), Error> {
+        self.is_secret_id_exist(secret_id).await?;
+
+        let application_ids =
+            ApplicationSecrets::get_application_ids_of_secret(secret_id, &self.database).await?;
+
+        ApplicationSecrets::delete_secret_by_id(secret_id, &self.database).await?;
+
+        for application_id in application_ids {
+            self.secrets.invalidate(&application_id).await;
+        }
+
         self.belong.invalidate_all();
 
         self.filters.secret_id_filter().mark();

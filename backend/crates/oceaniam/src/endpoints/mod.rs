@@ -11,6 +11,7 @@ use crate::state::AppState;
 
 mod applications;
 mod authentication;
+mod secrets;
 mod tenants;
 
 #[utoipa::path(
@@ -28,7 +29,8 @@ async fn root(State(_ext): State<AppState<'_>>) -> RestResult<Empty> {
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
     router
         .routes(routes!(root))
-        .pipe(authentication::endpoint)
         .pipe(applications::endpoint)
+        .pipe(authentication::endpoint)
+        .pipe(secrets::endpoint)
         .pipe(tenants::endpoint)
 }
