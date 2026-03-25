@@ -287,6 +287,8 @@ watch(
                 description="查看并编辑当前 Application 的完整配置 JSON"
                 :on-submit="handleConfigurationSubmit"
             />
+
+            <section></section>
         </div>
     </EntityListPage>
 </template>

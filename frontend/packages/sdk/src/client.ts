@@ -420,8 +420,8 @@ export class OceanIamClient {
         });
     }
 
-    public async getSecrets(): Promise<SecretVO[]> {
-        return this.request<SecretVO[]>({
+    public async getSecrets(): Promise<PagedResponse<SecretVO>> {
+        return this.request<PagedResponse<SecretVO>>({
             method: "GET",
             url: this.endpoints.secrets(),
         });

@@ -24,10 +24,13 @@ const loginOpen = ref(false);
         </template>
 
         <DrawerItem tooltip="Home" to="/" :icon="HomeIcon" />
-        <DrawerItem
-            tooltip="Applications"
-            to="/applications"
+        <DrawerGroup
+            label="Applications"
             :icon="WidgetsIcon"
+            :items="[
+                { label: 'Application', to: '/applications' },
+                { label: 'API Secrets', to: '/api-secrets' },
+            ]"
         />
         <DrawerGroup
             label="User Management"
