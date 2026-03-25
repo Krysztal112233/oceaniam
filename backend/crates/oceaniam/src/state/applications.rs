@@ -269,7 +269,9 @@ impl ApplicationUsers {
             Ok(Self {
                 application_id,
                 database,
-                cache: Cache::builder().build(),
+                cache: Cache::builder()
+                    .time_to_idle(Duration::from_secs(30))
+                    .build(),
                 shared_credential_vaults,
             })
         }
@@ -350,13 +352,36 @@ impl ApplicationUsers {
 ///
 /// TODO: In future, using [xorf] to detect does secret existed in database for higher performance.
 #[derive(Debug, Clone)]
+struct SecretCaches {
+    by_application: Cache<Uuid, Vec<SecretModel>>,
+    by_id: Cache<Uuid, SecretModel>,
+    application_ids_by_secret_id: Cache<Uuid, Vec<Uuid>>,
+    application_ids_by_secret: Cache<String, Vec<Uuid>>,
+}
+
+impl SecretCaches {
+    fn new() -> Self {
+        Self {
+            by_application: Cache::builder()
+                .time_to_idle(Duration::from_mins(5))
+                .build(),
+            by_id: Cache::builder()
+                .time_to_idle(Duration::from_mins(5))
+                .build(),
+            application_ids_by_secret_id: Cache::builder()
+                .time_to_idle(Duration::from_mins(5))
+                .build(),
+            application_ids_by_secret: Cache::builder()
+                .time_to_idle(Duration::from_mins(5))
+                .build(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Secrets<'a> {
     database: DatabaseConnection,
-
-    secrets: Cache<Uuid, Vec<SecretModel>>,
-
-    belong: Cache<String, Vec<Uuid>>,
-
+    caches: SecretCaches,
     filters: ManagedFilters<'a>,
 }
 
@@ -364,13 +389,7 @@ impl Secrets<'_> {
     pub fn new<'a>(filters: ManagedFilters<'a>, database: DatabaseConnection) -> Secrets<'a> {
         Secrets {
             database,
-            secrets: Cache::builder()
-                .time_to_live(Duration::from_secs(5))
-                .build(),
-            belong: Cache::builder()
-                .time_to_live(Duration::from_mins(5))
-                .build(),
-
+            caches: SecretCaches::new(),
             filters,
         }
     }
@@ -380,6 +399,10 @@ impl Secrets<'_> {
             ApplicationSecrets::create_secret_unbound(Uuid::now_v7(), gen_secret(), &self.database)
                 .await?;
 
+        self.cache_secret_model(&model).await;
+        self.cache_secret_application_ids(model.id, Vec::new())
+            .await;
+
         self.filters.secret_filter().mark();
         self.filters.secret_id_filter().mark();
 
@@ -387,25 +410,40 @@ impl Secrets<'_> {
     }
 
     pub async fn get_all_secrets(&self) -> Result<Vec<SecretModel>, Error> {
-        ApplicationSecrets::get_all_secret_models(&self.database).await
+        let models = ApplicationSecrets::get_all_secret_models(&self.database).await?;
+
+        for model in &models {
+            self.cache_secret_model(model).await;
+        }
+
+        Ok(models)
     }
 
     pub async fn get_secret(&self, secret_id: Uuid) -> Result<SecretModel, Error> {
-        self.is_secret_id_exist(secret_id).await?;
-
-        ApplicationSecrets::get_secret(secret_id, &self.database).await
+        Ok(self
+            .caches
+            .by_id
+            .try_get_with(secret_id, async {
+                ApplicationSecrets::get_secret(secret_id, &self.database).await
+            })
+            .await?)
     }
 
     pub async fn get_secret_application_ids(&self, secret_id: Uuid) -> Result<Vec<Uuid>, Error> {
-        self.is_secret_id_exist(secret_id).await?;
-
-        ApplicationSecrets::get_application_ids_of_secret(secret_id, &self.database).await
+        Ok(self
+            .caches
+            .application_ids_by_secret_id
+            .try_get_with(secret_id, async {
+                ApplicationSecrets::get_application_ids_of_secret(secret_id, &self.database).await
+            })
+            .await?)
     }
 
     async fn refresh(&self, application_id: Uuid) -> Result<(), Error> {
         self.is_application_exist(application_id).await?;
 
-        self.secrets
+        self.caches
+            .by_application
             .insert(
                 application_id,
                 ApplicationSecrets::get_all_secrets_of(application_id, &self.database).await?,
@@ -425,7 +463,8 @@ impl Secrets<'_> {
         self.is_secret_exist(&secret).await?;
 
         Ok(self
-            .belong
+            .caches
+            .application_ids_by_secret
             .try_get_with(secret.clone(), async {
                 ApplicationSecrets::find_secret_can_be_used_for(secret, &self.database).await
             })
@@ -439,7 +478,8 @@ impl Secrets<'_> {
         self.is_application_exist(application_id).await?;
 
         Ok(self
-            .secrets
+            .caches
+            .by_application
             .try_get_with(application_id, async {
                 ApplicationSecrets::get_all_secrets_of(application_id, &self.database).await
             })
@@ -453,7 +493,7 @@ impl Secrets<'_> {
         ApplicationSecrets::delete_secret(application_id, secret_id, &self.database).await?;
 
         self.refresh(application_id).await?;
-        self.belong.invalidate_all();
+        self.invalidate_secret_bindings(secret_id).await;
 
         self.filters.secret_id_filter().mark();
         self.filters.secret_filter().mark();
@@ -470,10 +510,10 @@ impl Secrets<'_> {
         ApplicationSecrets::delete_secret_by_id(secret_id, &self.database).await?;
 
         for application_id in application_ids {
-            self.secrets.invalidate(&application_id).await;
+            self.invalidate_application_secrets(application_id).await;
         }
 
-        self.belong.invalidate_all();
+        self.invalidate_secret(secret_id).await;
 
         self.filters.secret_id_filter().mark();
         self.filters.secret_filter().mark();
@@ -514,6 +554,34 @@ impl Secrets<'_> {
                 format!("application_id={application_id} doesn't exist"),
             ))
         }
+    }
+
+    async fn cache_secret_model(&self, model: &SecretModel) {
+        self.caches.by_id.insert(model.id, model.clone()).await;
+    }
+
+    async fn cache_secret_application_ids(&self, secret_id: Uuid, application_ids: Vec<Uuid>) {
+        self.caches
+            .application_ids_by_secret_id
+            .insert(secret_id, application_ids)
+            .await;
+    }
+
+    async fn invalidate_secret_bindings(&self, secret_id: Uuid) {
+        self.caches
+            .application_ids_by_secret_id
+            .invalidate(&secret_id)
+            .await;
+        self.caches.application_ids_by_secret.invalidate_all();
+    }
+
+    async fn invalidate_secret(&self, secret_id: Uuid) {
+        self.caches.by_id.invalidate(&secret_id).await;
+        self.invalidate_secret_bindings(secret_id).await;
+    }
+
+    async fn invalidate_application_secrets(&self, application_id: Uuid) {
+        self.caches.by_application.invalidate(&application_id).await;
     }
 }
 
