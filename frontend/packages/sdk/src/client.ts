@@ -16,6 +16,7 @@ import { type SystemSigninResponse } from "./types/SystemSigninResponse";
 import { type TenantVO } from "./types/TenantVO";
 import { type TokenDispatchMethod } from "./types/TokenDispatchMethod";
 import { type Users } from "./types/Users";
+import { type SecretVO } from "./types/SecretVO";
 
 export type TokenGetter = () =>
     | string
@@ -212,11 +213,10 @@ export class OceanIamClient {
         applicationAuthTokensRefresh: (applicationId: string): string =>
             `/applications/${encodeURIComponent(applicationId)}/auth/tokens/refresh`,
 
-        // ApplicationSecrets
-        applicationSecrets: (applicationId: string): string =>
-            `/applications/${encodeURIComponent(applicationId)}/secrets`,
-        applicationSecret: (applicationId: string, secretId: string): string =>
-            `/applications/${encodeURIComponent(applicationId)}/secrets/${encodeURIComponent(secretId)}`,
+        // Secrets (backend: endpoints/secrets.rs)
+        secrets: "/secrets",
+        secret: (secretId: string): string =>
+            `/secrets/${encodeURIComponent(secretId)}`,
     } as const;
 
     private baseUrl: string;
@@ -289,15 +289,10 @@ export class OceanIamClient {
                 ),
             ),
 
-        // ApplicationSecrets
-        applicationSecrets: (applicationId: string): string =>
-            this.buildUrl(
-                OceanIamClient.PATHS.applicationSecrets(applicationId),
-            ),
-        applicationSecret: (applicationId: string, secretId: string): string =>
-            this.buildUrl(
-                OceanIamClient.PATHS.applicationSecret(applicationId, secretId),
-            ),
+        // Secrets
+        secrets: (): string => this.buildUrl(OceanIamClient.PATHS.secrets),
+        secret: (secretId: string): string =>
+            this.buildUrl(OceanIamClient.PATHS.secret(secretId)),
     } as const;
 
     public async getTenants(
@@ -415,6 +410,34 @@ export class OceanIamClient {
             method: "PATCH",
             url: this.endpoints.applicationConfiguration(applicationId),
             body: req,
+        });
+    }
+
+    public async createSecret(): Promise<SecretVO> {
+        return this.request<SecretVO>({
+            method: "POST",
+            url: this.endpoints.secrets(),
+        });
+    }
+
+    public async getSecrets(): Promise<SecretVO[]> {
+        return this.request<SecretVO[]>({
+            method: "GET",
+            url: this.endpoints.secrets(),
+        });
+    }
+
+    public async getSecret(secretId: string): Promise<SecretVO> {
+        return this.request<SecretVO>({
+            method: "GET",
+            url: this.endpoints.secret(secretId),
+        });
+    }
+
+    public async deleteSecret(secretId: string): Promise<void> {
+        await this.request<unknown>({
+            method: "DELETE",
+            url: this.endpoints.secret(secretId),
         });
     }
 
