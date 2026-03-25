@@ -143,6 +143,22 @@ async function handleCreateSecret(): Promise<void> {
     }
 }
 
+async function copyCreatedSecret(): Promise<void> {
+    const secret = createdSecret.value?.secret;
+    if (!secret) {
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(secret);
+        toast.success("Secret 已复制到剪贴板");
+    } catch (err) {
+        const message =
+            err instanceof Error ? err.message : "复制 Secret 失败。";
+        toast.error(message);
+    }
+}
+
 watch(
     tenantId,
     (nextTenantId) => {
@@ -215,9 +231,19 @@ watch(
                 </div>
                 <div class="mt-2 font-mono text-sm text-base-content break-all">
                     {{ createdSecret.secret }}
+
+                    <button
+                        type="button"
+                        class="btn btn-outline btn-xs"
+                        @click="copyCreatedSecret"
+                    >
+                        复制 Secret
+                    </button>
                 </div>
-                <div class="mt-2 text-xs text-base-content/65">
-                    Secret ID: {{ createdSecret.id }}
+                <div class="mt-3 flex flex-wrap items-center gap-3">
+                    <div class="text-xs text-base-content/65">
+                        Secret ID: {{ createdSecret.id }}
+                    </div>
                 </div>
             </div>
 
