@@ -1,7 +1,8 @@
 use axum::http::StatusCode;
 use oceaniam_common::{PageParam, PagedResponse, consts, error::Error};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait,
+    QueryFilter,
 };
 use uuid::Uuid;
 
@@ -76,6 +77,17 @@ pub trait TenantsHelper {
 
         Tenants::delete_by_id(id).exec(database).await?;
         Ok(())
+    }
+
+    async fn update_comment(
+        id: Uuid,
+        comment: Option<String>,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::tenants::Model, Error> {
+        let mut tenant = Self::get_tenant(id, database).await?.into_active_model();
+        tenant.comment = Set(comment);
+
+        Ok(tenant.update(database).await?)
     }
 
     /// NOTE: This helper intentionally excludes the system tenant from regular

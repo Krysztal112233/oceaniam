@@ -18,6 +18,8 @@ pub enum AuditPayload {
     DeleteApplication(DeleteApplicationPayload),
     CreateTenants(CreateTenantsPayload),
     DeleteTenants(DeleteTenantsPayload),
+    PatchTenant(PatchTenantPayload),
+    CreateAdministrator(CreateAdministratorPayload),
     CreateApplicationUser(CreateApplicationUserPayload),
     DeleteApplicationUser(DeleteApplicationUserPayload),
     CreateApplicationSecret(CreateApplicationSecretPayload),
@@ -36,6 +38,8 @@ impl AuditPayload {
             Self::DeleteApplication(_) => AuditType::DeleteApplication,
             Self::CreateTenants(_) => AuditType::CreateTenants,
             Self::DeleteTenants(_) => AuditType::DeleteTenants,
+            Self::PatchTenant(_) => AuditType::PatchTenant,
+            Self::CreateAdministrator(_) => AuditType::CreateAdministrator,
             Self::CreateApplicationUser(_) => AuditType::CreateApplicationUser,
             Self::DeleteApplicationUser(_) => AuditType::DeleteApplicationUser,
             Self::CreateApplicationSecret(_) => AuditType::CreateApplicationSecret,
@@ -99,6 +103,18 @@ impl From<CreateTenantsPayload> for AuditPayload {
 impl From<DeleteTenantsPayload> for AuditPayload {
     fn from(value: DeleteTenantsPayload) -> Self {
         Self::DeleteTenants(value)
+    }
+}
+
+impl From<PatchTenantPayload> for AuditPayload {
+    fn from(value: PatchTenantPayload) -> Self {
+        Self::PatchTenant(value)
+    }
+}
+
+impl From<CreateAdministratorPayload> for AuditPayload {
+    fn from(value: CreateAdministratorPayload) -> Self {
+        Self::CreateAdministrator(value)
     }
 }
 
@@ -182,6 +198,20 @@ pub struct CreateTenantsPayload {
 pub struct DeleteTenantsPayload {
     pub tenant_id: Uuid,
     pub operator_id: Uuid,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+pub struct PatchTenantPayload {
+    pub tenant_id: Uuid,
+    pub operator_id: Uuid,
+    pub comment: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+pub struct CreateAdministratorPayload {
+    pub administrator_id: Uuid,
+    pub operator_id: Uuid,
+    pub name: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
