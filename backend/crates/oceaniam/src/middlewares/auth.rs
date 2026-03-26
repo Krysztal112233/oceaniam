@@ -100,7 +100,7 @@ where
         let jti = token.claims.jti();
         if let Ok(true) = revoked_jwt.is_revoked(jti).await.inspect_err(|e| {
             error!(
-                jti = %jti,
+                %jti,
                 error = %e,
                 "failed to check jwt revocation or database failed"
             )

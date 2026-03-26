@@ -321,7 +321,7 @@ pub async fn refresh_auth_token(
     revoked_jwt.set_revoked(jti).await.inspect_err(|e| {
         error!(
             sub = %auth.token.claims.sub,
-            jti = %jti,
+            %jti,
             error = %e,
             "failed to revoke jwt"
         )

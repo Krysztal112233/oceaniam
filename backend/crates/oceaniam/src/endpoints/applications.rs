@@ -888,8 +888,8 @@ pub async fn legacy_delete_application_auth_token(
     let user_id = auth.token.claims.sub;
     let app_id: Uuid = application_id.try_into().inspect_err(|e| {
         error!(
-            user_id = %user_id,
-            jti = %jti,
+            %user_id,
+            %jti,
             error = %e,
             "failed to convert application_id"
         )
@@ -901,26 +901,26 @@ pub async fn legacy_delete_application_auth_token(
     });
 
     info!(
-        user_id = %user_id,
+        %user_id,
         application_id = %app_id,
-        jti = %jti,
+        %jti,
         "legacy signout requested"
     );
 
     revoked_jwt.set_revoked(jti).await.inspect_err(|e| {
         error!(
-            user_id = %user_id,
+            %user_id,
             application_id = %app_id,
-            jti = %jti,
+            %jti,
             error = %e,
             "failed to revoke jwt during legacy signout"
         )
     })?;
 
     info!(
-        user_id = %user_id,
+        %user_id,
         application_id = %app_id,
-        jti = %jti,
+        %jti,
         "legacy signout successful"
     );
 
@@ -1001,7 +1001,7 @@ pub async fn legacy_refresh_application_auth_token(
     let user_id = auth.token.claims.sub;
     let application_id: Uuid = application_id.try_into().inspect_err(|e| {
         error!(
-            user_id = %user_id,
+            %user_id,
             old_jti = %jti,
             error = %e,
             "failed to convert application_id"
@@ -1019,7 +1019,7 @@ pub async fn legacy_refresh_application_auth_token(
         applications.get_configuration(application_id).await?;
 
     info!(
-        user_id = %user_id,
+        %user_id,
         %application_id,
         old_jti = %jti,
         "legacy token refresh requested"
@@ -1027,7 +1027,7 @@ pub async fn legacy_refresh_application_auth_token(
 
     if revoked_jwt.is_revoked(jti).await? {
         warn!(
-            user_id = %user_id,
+            %user_id,
             %application_id,
             old_jti = %jti,
             "token refresh rejected: jwt already revoked"
@@ -1040,7 +1040,7 @@ pub async fn legacy_refresh_application_auth_token(
 
     revoked_jwt.set_revoked(jti).await.inspect_err(|e| {
         error!(
-            user_id = %user_id,
+            %user_id,
             %application_id,
             old_jti = %jti,
             error = %e,
@@ -1049,7 +1049,7 @@ pub async fn legacy_refresh_application_auth_token(
     })?;
 
     info!(
-        user_id = %user_id,
+        %user_id,
         %application_id,
         old_jti = %jti,
         "old jwt revoked successfully during refresh"
@@ -1067,7 +1067,7 @@ pub async fn legacy_refresh_application_auth_token(
         .await
         .inspect_err(|e| {
             error!(
-                user_id = %user_id,
+                %user_id,
                 %application_id,
                 old_jti = %jti,
                 error = %e,
@@ -1076,7 +1076,7 @@ pub async fn legacy_refresh_application_auth_token(
         })?;
 
     info!(
-        user_id = %user_id,
+        %user_id,
         %application_id,
         old_jti = %jti,
         "legacy token refresh successful"
