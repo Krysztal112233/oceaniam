@@ -22,6 +22,7 @@ mimalloc.workspace = true
 moka.workspace = true
 parking_lot.workspace = true
 rapidhash.workspace = true
+rayon.workspace = true
 sea-orm.workspace = true
 serde.workspace = true
 serde_json.workspace = true

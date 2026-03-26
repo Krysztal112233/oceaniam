@@ -6,6 +6,7 @@ use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, QueryFilter,
     QuerySelect,
 };
+use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::model::prelude::{ApplicationSecretBindings, ApplicationSecrets};
@@ -137,6 +138,27 @@ pub trait ApplicationSecretsHelper {
             .into_tuple::<Uuid>()
             .all(database)
             .await?)
+    }
+
+    async fn get_all_application_ids_grouped_by_secret_id(
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<HashMap<Uuid, Vec<Uuid>>, Error> {
+        use model::application_secret_bindings::Column::*;
+
+        let bindings = ApplicationSecretBindings::find()
+            .select_only()
+            .column(SecretId)
+            .column(ApplicationId)
+            .into_tuple::<(Uuid, Uuid)>()
+            .all(database)
+            .await?;
+
+        let mut grouped = HashMap::<Uuid, Vec<Uuid>>::new();
+        for (secret_id, application_id) in bindings {
+            grouped.entry(secret_id).or_default().push(application_id);
+        }
+
+        Ok(grouped)
     }
 
     async fn find_secret_can_be_used_for(

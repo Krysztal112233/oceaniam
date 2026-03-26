@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
 use axum::http::StatusCode;
 use moka::future::Cache;
@@ -434,6 +434,10 @@ impl Secrets<'_> {
                 ApplicationSecrets::get_application_ids_of_secret(secret_id, &self.database).await
             })
             .await?)
+    }
+
+    pub async fn get_secret_application_ids_batch(&self) -> Result<HashMap<Uuid, Vec<Uuid>>, Error> {
+        ApplicationSecrets::get_all_application_ids_grouped_by_secret_id(&self.database).await
     }
 
     async fn refresh(&self, application_id: Uuid) -> Result<(), Error> {

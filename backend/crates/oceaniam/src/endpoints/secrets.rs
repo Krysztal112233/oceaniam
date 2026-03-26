@@ -8,6 +8,8 @@ use oceaniam_common::{
     ApiResponse, Empty, ErrorResponse, PagedResponse, RestResult, types::sqid::Sqid,
 };
 use oceaniam_vo::applications::SecretVO;
+use rayon::iter::IntoParallelIterator;
+use rayon::iter::ParallelIterator;
 use tap::Tap;
 use tracing::{Span, error, field, info};
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -91,17 +93,23 @@ pub async fn get_secrets(
             error!(error = %e, "failed to fetch secrets");
         })?;
 
-    let mut items = Vec::with_capacity(secrets.len());
-    for secret in secrets {
-        let application_ids = applications
-            .secrets()
-            .get_secret_application_ids(secret.id)
-            .await
-            .inspect_err(|e| {
-                error!(secret_id = %secret.id, error = %e, "failed to fetch secret bindings");
-            })?;
-        items.push(SecretVO::with_masked(secret).with_application_ids(application_ids));
-    }
+    let application_ids_by_secret = applications
+        .secrets()
+        .get_secret_application_ids_batch()
+        .await
+        .inspect_err(|e| {
+            error!(error = %e, "failed to fetch secret bindings in batch");
+        })?;
+    let items: Vec<_> = secrets
+        .into_par_iter()
+        .map(|secret| {
+            let application_ids = application_ids_by_secret
+                .get(&secret.id)
+                .cloned()
+                .unwrap_or_default();
+            SecretVO::with_masked(secret).with_application_ids(application_ids)
+        })
+        .collect();
 
     Ok(ApiResponse::new(PagedResponse::with_entire(items)))
 }
