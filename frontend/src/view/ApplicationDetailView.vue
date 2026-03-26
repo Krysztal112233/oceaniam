@@ -88,8 +88,11 @@ async function loadApplicationDetail(): Promise<void> {
     try {
         const client = getClient();
         const [applicationResponse, configurationResponse] = await Promise.all([
-            client.getApplication(normalizedApplicationId),
-            client.getApplicationConfiguration(normalizedApplicationId),
+            client.getApplication(normalizedTenantId, normalizedApplicationId),
+            client.getApplicationConfiguration(
+                normalizedTenantId,
+                normalizedApplicationId,
+            ),
         ]);
 
         if (currentRequestId !== requestId.value) {
@@ -122,22 +125,27 @@ async function goBack(): Promise<void> {
 async function handleConfigurationSubmit(
     nextConfiguration: ApplicationConfigurationVO,
 ): Promise<void> {
+    const normalizedTenantId = tenantId.value.trim();
     const normalizedApplicationId = applicationId.value.trim();
 
-    if (!normalizedApplicationId) {
-        const message = "缺少 application 标识。";
+    if (!normalizedTenantId || !normalizedApplicationId) {
+        const message = "缺少 tenant 或 application 标识。";
         toast.error(message);
         throw new Error(message);
     }
 
     try {
         const client = getClient();
-        await client.patchApplicationConfiguration(normalizedApplicationId, {
-            authentication: {
-                issuer: nextConfiguration.authentication.issuer,
-                audience: nextConfiguration.authentication.audience,
+        await client.patchApplicationConfiguration(
+            normalizedTenantId,
+            normalizedApplicationId,
+            {
+                authentication: {
+                    issuer: nextConfiguration.authentication.issuer,
+                    audience: nextConfiguration.authentication.audience,
+                },
             },
-        });
+        );
 
         configuration.value = nextConfiguration;
         toast.success("Application configuration 已更新。");
@@ -150,10 +158,11 @@ async function handleConfigurationSubmit(
 }
 
 async function handleCommentSubmit(): Promise<void> {
+    const normalizedTenantId = tenantId.value.trim();
     const normalizedApplicationId = applicationId.value.trim();
 
-    if (!normalizedApplicationId) {
-        toast.error("缺少 application 标识。");
+    if (!normalizedTenantId || !normalizedApplicationId) {
+        toast.error("缺少 tenant 或 application 标识。");
         return;
     }
 
@@ -163,6 +172,7 @@ async function handleCommentSubmit(): Promise<void> {
         const client = getClient();
         const nextComment = commentDraft.value.trim() || null;
         const updatedApplication = await client.patchApplication(
+            normalizedTenantId,
             normalizedApplicationId,
             {
                 comment: nextComment,

@@ -199,8 +199,7 @@ export const useTenantStore = defineStore(
             createApplicationError.value = null;
 
             try {
-                await client.createApplication({
-                    tenant_id: normalizedTenantId,
+                await client.createApplication(normalizedTenantId, {
                     comment: comment.trim() || null,
                 });
                 await loadApplications(normalizedTenantId);
@@ -237,7 +236,10 @@ export const useTenantStore = defineStore(
             deleteApplicationError.value = null;
 
             try {
-                await client.deleteApplication(normalizedApplicationId);
+                await client.deleteApplication(
+                    normalizedTenantId,
+                    normalizedApplicationId,
+                );
                 await loadApplications(normalizedTenantId);
             } catch (err) {
                 deleteApplicationError.value =

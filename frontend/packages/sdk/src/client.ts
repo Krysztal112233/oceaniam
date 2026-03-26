@@ -30,6 +30,11 @@ export type GetApplicationsQuery = {
     per_page?: number | bigint;
 };
 
+type TenantScopedCreateApplicationRequest = Omit<
+    CreateApplicationRequest,
+    "tenant_id"
+>;
+
 type QueryValue = string | number | bigint | boolean | null | undefined;
 
 function toTokenDispatchHeader(
@@ -174,7 +179,7 @@ export class OceanIamClient {
      * API paths extracted from backend `#[utoipa::path(..., path = "...")]` declarations.
      *
      * NOTE: Keep these in sync with backend routes. Do not "normalize" them unless the backend does.
-     * For example, `/applications/{application_id}/users/` intentionally keeps its trailing slash.
+     * For example, tenant-scoped application resources must stay under `/tenants/{tenant_id}/applications/...`.
      */
     // NOTE: AI-generated content
     private static readonly PATHS = {
@@ -193,25 +198,38 @@ export class OceanIamClient {
             `/tenants/${encodeURIComponent(tenantId)}/users`,
 
         // Applications (backend: endpoints/applications.rs)
-        applications: "/applications",
-        application: (applicationId: string): string =>
-            `/applications/${encodeURIComponent(applicationId)}`,
-        applicationConfiguration: (applicationId: string): string =>
-            `/applications/${encodeURIComponent(applicationId)}/configuration`,
+        applications: (tenantId: string): string =>
+            `/tenants/${encodeURIComponent(tenantId)}/applications`,
+        application: (tenantId: string, applicationId: string): string =>
+            `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}`,
+        applicationConfiguration: (
+            tenantId: string,
+            applicationId: string,
+        ): string =>
+            `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/configuration`,
         applicationJwks: (applicationId: string): string =>
             `/applications/${encodeURIComponent(applicationId)}/.well-known/jwks.json`,
 
         // ApplicationUsers
-        applicationUsers: (applicationId: string): string =>
-            `/applications/${encodeURIComponent(applicationId)}/users/`,
-        applicationUsersCreate: (applicationId: string): string =>
-            `/applications/${encodeURIComponent(applicationId)}/users`,
+        applicationUsers: (tenantId: string, applicationId: string): string =>
+            `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/users`,
+        applicationUsersCreate: (
+            tenantId: string,
+            applicationId: string,
+        ): string =>
+            `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/users`,
 
         // ApplicationUserAuthentication
-        applicationAuthTokens: (applicationId: string): string =>
-            `/applications/${encodeURIComponent(applicationId)}/auth/tokens`,
-        applicationAuthTokensRefresh: (applicationId: string): string =>
-            `/applications/${encodeURIComponent(applicationId)}/auth/tokens/refresh`,
+        applicationAuthTokens: (
+            tenantId: string,
+            applicationId: string,
+        ): string =>
+            `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/tokens`,
+        applicationAuthTokensRefresh: (
+            tenantId: string,
+            applicationId: string,
+        ): string =>
+            `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/tokens/refresh`,
 
         // Secrets (backend: endpoints/secrets.rs)
         secrets: "/secrets",
@@ -254,37 +272,69 @@ export class OceanIamClient {
             this.buildUrl(OceanIamClient.PATHS.tenantUsers(tenantId)),
 
         // Applications
-        applications: (): string =>
-            this.buildUrl(OceanIamClient.PATHS.applications),
-        application: (applicationId: string): string =>
-            this.buildUrl(OceanIamClient.PATHS.application(applicationId)),
-        applicationConfiguration: (applicationId: string): string =>
+        applications: (tenantId: string): string =>
+            this.buildUrl(OceanIamClient.PATHS.applications(tenantId)),
+        application: (tenantId: string, applicationId: string): string =>
             this.buildUrl(
-                OceanIamClient.PATHS.applicationConfiguration(applicationId),
+                OceanIamClient.PATHS.application(tenantId, applicationId),
+            ),
+        applicationConfiguration: (
+            tenantId: string,
+            applicationId: string,
+        ): string =>
+            this.buildUrl(
+                OceanIamClient.PATHS.applicationConfiguration(
+                    tenantId,
+                    applicationId,
+                ),
             ),
         applicationJwks: (applicationId: string): string =>
             this.buildUrl(OceanIamClient.PATHS.applicationJwks(applicationId)),
 
         // ApplicationUsers
-        applicationUsers: (applicationId: string): string =>
-            this.buildUrl(OceanIamClient.PATHS.applicationUsers(applicationId)),
-        applicationUsersCreate: (applicationId: string): string =>
+        applicationUsers: (tenantId: string, applicationId: string): string =>
             this.buildUrl(
-                OceanIamClient.PATHS.applicationUsersCreate(applicationId),
+                OceanIamClient.PATHS.applicationUsers(tenantId, applicationId),
+            ),
+        applicationUsersCreate: (
+            tenantId: string,
+            applicationId: string,
+        ): string =>
+            this.buildUrl(
+                OceanIamClient.PATHS.applicationUsersCreate(
+                    tenantId,
+                    applicationId,
+                ),
             ),
 
         // ApplicationUserAuthentication
-        applicationUserSignin: (applicationId: string): string =>
+        applicationUserSignin: (
+            tenantId: string,
+            applicationId: string,
+        ): string =>
             this.buildUrl(
-                OceanIamClient.PATHS.applicationAuthTokens(applicationId),
+                OceanIamClient.PATHS.applicationAuthTokens(
+                    tenantId,
+                    applicationId,
+                ),
             ),
-        applicationUserSignout: (applicationId: string): string =>
+        applicationUserSignout: (
+            tenantId: string,
+            applicationId: string,
+        ): string =>
             this.buildUrl(
-                OceanIamClient.PATHS.applicationAuthTokens(applicationId),
+                OceanIamClient.PATHS.applicationAuthTokens(
+                    tenantId,
+                    applicationId,
+                ),
             ),
-        applicationUserRefreshToken: (applicationId: string): string =>
+        applicationUserRefreshToken: (
+            tenantId: string,
+            applicationId: string,
+        ): string =>
             this.buildUrl(
                 OceanIamClient.PATHS.applicationAuthTokensRefresh(
+                    tenantId,
                     applicationId,
                 ),
             ),
@@ -342,73 +392,91 @@ export class OceanIamClient {
     public async getApplications(
         query: GetApplicationsQuery,
     ): Promise<PagedResponse<ApplicationVO>> {
+        const { tenant_id, page, per_page } = query;
         return this.request<PagedResponse<ApplicationVO>>({
             method: "GET",
-            url: this.endpoints.applications(),
-            query,
+            url: this.endpoints.applications(tenant_id),
+            query: { page, per_page },
         });
     }
 
     public async getApplication(
+        tenantId: string,
         applicationId: string,
     ): Promise<ApplicationDetailVO> {
         return this.request<ApplicationDetailVO>({
             method: "GET",
-            url: this.endpoints.application(applicationId),
+            url: this.endpoints.application(tenantId, applicationId),
         });
     }
 
     public async createApplication(
-        req: CreateApplicationRequest,
+        tenantId: string,
+        req: TenantScopedCreateApplicationRequest,
     ): Promise<CreateApplicationResponse> {
         return this.request<CreateApplicationResponse>({
             method: "POST",
-            url: this.endpoints.applications(),
+            url: this.endpoints.applications(tenantId),
             body: req,
         });
     }
 
     public async patchApplication(
+        tenantId: string,
         applicationId: string,
         req: PatchApplicationRequest,
     ): Promise<ApplicationDetailVO> {
         return this.request<ApplicationDetailVO>({
             method: "PATCH",
-            url: this.endpoints.application(applicationId),
+            url: this.endpoints.application(tenantId, applicationId),
             body: req,
         });
     }
 
-    public async deleteApplication(applicationId: string): Promise<void> {
+    public async deleteApplication(
+        tenantId: string,
+        applicationId: string,
+    ): Promise<void> {
         await this.request<unknown>({
             method: "DELETE",
-            url: this.endpoints.application(applicationId),
+            url: this.endpoints.application(tenantId, applicationId),
         });
     }
 
-    public async getApplicationUsers(applicationId: string): Promise<Users[]> {
+    public async getApplicationUsers(
+        tenantId: string,
+        applicationId: string,
+    ): Promise<Users[]> {
         return this.request<Users[]>({
             method: "GET",
-            url: this.endpoints.applicationUsers(applicationId),
+            url: this.endpoints.applicationUsers(tenantId, applicationId),
         });
     }
 
     public async getApplicationConfiguration(
+        tenantId: string,
         applicationId: string,
     ): Promise<GetApplicationConfigurationResponse> {
         return this.request<GetApplicationConfigurationResponse>({
             method: "GET",
-            url: this.endpoints.applicationConfiguration(applicationId),
+            url: this.endpoints.applicationConfiguration(
+                tenantId,
+                applicationId,
+            ),
         });
     }
 
     public async patchApplicationConfiguration(
+        tenantId: string,
         applicationId: string,
         req: PatchApplicationConfigurationRequest,
     ): Promise<void> {
         await this.request<unknown>({
             method: "PATCH",
-            url: this.endpoints.applicationConfiguration(applicationId),
+            url: this.endpoints.applicationConfiguration(
+                tenantId,
+                applicationId,
+            ),
             body: req,
         });
     }
