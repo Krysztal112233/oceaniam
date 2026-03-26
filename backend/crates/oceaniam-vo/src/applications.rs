@@ -7,10 +7,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use utoipa::ToSchema;
 
 #[derive(Debug, Deserialize, ToSchema, Validate)]
-pub struct GetApplicationParam {
-    #[garde(skip)]
-    pub tenant_id: Sqid,
-
+pub struct ListApplicationsParam {
     #[serde(flatten)]
     #[garde(dive)]
     pub page: Option<PageParam>,
@@ -18,7 +15,6 @@ pub struct GetApplicationParam {
 
 #[derive(Debug, Deserialize, ToSchema, ts_rs::TS)]
 pub struct CreateApplicationRequest {
-    pub tenant_id: Sqid,
     pub comment: Option<String>,
 }
 

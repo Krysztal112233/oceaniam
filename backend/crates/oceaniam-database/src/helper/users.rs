@@ -89,6 +89,29 @@ pub trait UserHelper {
             .await?)
     }
 
+    async fn get_user_of_application(
+        application_id: Uuid,
+        user_id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::users::Model, Error> {
+        use model::users::Column::*;
+
+        Users::find()
+            .filter(
+                Condition::all()
+                    .add(Id.eq(user_id))
+                    .add(ApplicationId.eq(application_id)),
+            )
+            .one(database)
+            .await?
+            .ok_or_else(|| {
+                Error::with_code(
+                    StatusCode::NOT_FOUND,
+                    format!("user_id={user_id} not found under application_id={application_id}"),
+                )
+            })
+    }
+
     async fn get_all_users_of_tenant(
         tenant_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,

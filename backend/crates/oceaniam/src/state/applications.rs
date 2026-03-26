@@ -288,13 +288,10 @@ impl ApplicationUsers {
                     UserIdentifier::Phone(phone) => {
                         Users::find_by_phone(self.application_id, phone, &self.database).await
                     }
-                    UserIdentifier::Id(uuid) => Users::find_by_id(uuid)
-                        .one(&self.database)
-                        .await?
-                        .ok_or(Error::with_code(
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            oceaniam_common::consts::USER_LOGIN_FAILED_MSG,
-                        )),
+                    UserIdentifier::Id(uuid) => {
+                        Users::get_user_of_application(self.application_id, uuid, &self.database)
+                            .await
+                    }
                 }
             })
             .await?)
