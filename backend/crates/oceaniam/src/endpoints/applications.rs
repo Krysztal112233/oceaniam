@@ -563,7 +563,7 @@ pub async fn get_application_users(
         .await
         .inspect_err(|e| {
             error!(
-                operator_id = %operator_id,
+                %operator_id,
                 %application_id,
                 error = %e,
                 "user list query failed"

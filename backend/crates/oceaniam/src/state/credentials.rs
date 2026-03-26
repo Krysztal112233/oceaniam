@@ -4,7 +4,10 @@ use axum::http::StatusCode;
 use moka::future::{Cache, CacheBuilder};
 use oceaniam_common::error::Error;
 use oceaniam_credential::CredentialVault;
-use oceaniam_database::model::{self, prelude::Credentials};
+use oceaniam_database::{
+    helper::SafeTransactionConnectionTrait,
+    model::{self, prelude::Credentials},
+};
 use sea_orm::{DatabaseConnection, EntityTrait};
 use tracing::error;
 use uuid::Uuid;
@@ -28,10 +31,18 @@ impl ManagedCredentialVaults {
     }
 
     pub async fn get_credential(&self, id: Uuid) -> Result<CredentialVault, Arc<Error>> {
+        self.get_credential_in_tx(id, &self.database).await
+    }
+
+    pub async fn get_credential_in_tx(
+        &self,
+        id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<CredentialVault, Arc<Error>> {
         self.credentials
             .try_get_with(id, async {
                 Credentials::find_by_id(id)
-                    .one(&self.database)
+                    .one(database)
                     .await
                     .inspect_err(|e| error!("{e}"))?
                     .ok_or(Error::with_code(
@@ -60,7 +71,15 @@ impl ManagedCredentialVaults {
     ///
     /// Returns an error if the database delete operation fails (e.g., credential not found).
     pub async fn drop_credential(&self, id: Uuid) -> Result<(), Error> {
-        Credentials::delete_by_id(id).exec(&self.database).await?;
+        self.drop_credential_in_tx(id, &self.database).await
+    }
+
+    pub async fn drop_credential_in_tx(
+        &self,
+        id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<(), Error> {
+        Credentials::delete_by_id(id).exec(database).await?;
         self.credentials.remove(&id).await;
 
         Ok(())
@@ -92,9 +111,19 @@ impl ManagedCredentialVaults {
         subject_id: Uuid,
         password: impl AsRef<str> + Send,
     ) -> Result<model::credentials::Model, Error> {
+        self.create_with_password_in_tx(subject_id, password, &self.database)
+            .await
+    }
+
+    pub async fn create_with_password_in_tx(
+        &self,
+        subject_id: Uuid,
+        password: impl AsRef<str> + Send,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::credentials::Model, Error> {
         let vault = CredentialVault::with_password(password)?;
 
-        let model = vault.write_to(subject_id, &self.database).await?;
+        let model = vault.write_to(subject_id, database).await?;
 
         self.credentials.insert(model.id, vault).await;
 

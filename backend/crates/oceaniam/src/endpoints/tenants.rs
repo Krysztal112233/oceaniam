@@ -6,9 +6,12 @@ use axum::{
     Json,
     extract::{Path, State},
 };
-use oceaniam_audit::types::{AuditPayload, CreateTenantsPayload, DeleteTenantsPayload};
+use oceaniam_audit::types::{
+    AuditPayload, CreateTenantsPayload, DeleteTenantsPayload, PatchTenantPayload,
+};
 use oceaniam_common::{
-    ApiResponse, Empty, PagedResponse, RestResult, jwt::SystemClaim, types::sqid::Sqid,
+    ApiResponse, Empty, ErrorResponse, PagedResponse, RestResult, jwt::SystemClaim,
+    types::sqid::Sqid,
 };
 use oceaniam_database::{
     helper::{tenants::TenantsHelper, users::UserHelper},
@@ -16,7 +19,7 @@ use oceaniam_database::{
 };
 use oceaniam_vo::{
     applications::ApplicationUserVO,
-    tenants::{CreateTenantRequest, TenantVO},
+    tenants::{CreateTenantRequest, PatchTenantRequest, TenantVO},
 };
 use tap::Tap;
 use tracing::{Span, error, field, warn};
@@ -31,6 +34,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
         .routes(routes!(delete_tenant))
         .routes(routes!(get_tenant))
         .routes(routes!(get_tenant_users))
+        .routes(routes!(patch_tenant))
         .routes(routes!(get_tenants))
 }
 
@@ -63,13 +67,12 @@ pub async fn get_tenants(
         it.record("operator_id", field::display(&operator_id));
     });
 
-    let PagedResponse { items, page_info } =
-        Tenants::get_all_tenants(&database).await.inspect_err(
-            |e| error!(operator_id = %operator_id, error = %e, "tenant list query failed"),
-        )?;
+    let PagedResponse { items, page_info } = Tenants::get_all_tenants(&database)
+        .await
+        .inspect_err(|e| error!(%operator_id, error = %e, "tenant list query failed"))?;
 
     warn!(
-        operator_id = %operator_id,
+        %operator_id,
         count = items.len(),
         "tenant list queried successfully"
     );
@@ -120,7 +123,7 @@ pub async fn get_tenant(
         .inspect_err(|e| {
             error!(
                 tenant_id = %uuid,
-                operator_id = %operator_id,
+                %operator_id,
                 error = %e,
                 "tenant query failed"
             )
@@ -172,7 +175,7 @@ pub async fn create_tenant(
         .inspect_err(|e| {
             warn!(
                 tenant_id = %tenant_id,
-                operator_id = %operator_id,
+                %operator_id,
                 error = %e,
                 "tenant creation failed"
             )
@@ -180,7 +183,7 @@ pub async fn create_tenant(
 
     warn!(
         tenant_id = %tenant_id,
-        operator_id = %operator_id,
+        %operator_id,
         "tenant created successfully"
     );
 
@@ -193,6 +196,66 @@ pub async fn create_tenant(
         .await;
 
     Ok(ApiResponse::new(model.into()))
+}
+
+/// Update tenant
+#[utoipa::path(
+        patch,
+        path = "/tenants/{tenant_id}",
+        tag = "Tenants",
+        params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+            ("tenant_id", description = "Tenant ID"),
+        ),
+        request_body = PatchTenantRequest,
+        responses(
+            (status = 200, body = ApiResponse<TenantVO>),
+            (status = 400, description = "Bad request", body = ApiResponse<ErrorResponse>),
+            (status = 401, description = "Unauthorized"),
+            (status = 404, description = "Tenant not found", body = ApiResponse<ErrorResponse>),
+        ),
+    )]
+#[tracing::instrument(
+    level = "info",
+    name = "tenants.patch",
+    skip(auth, database, auditing, tenant_id, comment),
+    fields(operator_id = field::Empty, tenant_id = field::Empty)
+)]
+pub async fn patch_tenant(
+    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    Path(tenant_id): Path<Sqid>,
+    State(AppState {
+        database, auditing, ..
+    }): State<AppState<'_>>,
+    Json(PatchTenantRequest { comment }): Json<PatchTenantRequest>,
+) -> RestResult<TenantVO> {
+    let operator_id = auth.token.claims.sub;
+    let tenant_id: Uuid = tenant_id.try_into()?;
+    Span::current().tap(|it| {
+        it.record("operator_id", field::display(&operator_id))
+            .record("tenant_id", field::display(&tenant_id));
+    });
+
+    let tenant = Tenants::update_comment(tenant_id, comment, &database)
+        .await
+        .inspect_err(|e| {
+            error!(
+                %operator_id,
+                %tenant_id,
+                error = %e,
+                "tenant update failed"
+            )
+        })?;
+
+    auditing
+        .write(AuditPayload::from(PatchTenantPayload {
+            tenant_id,
+            operator_id,
+            comment: tenant.comment.clone(),
+        }))
+        .await;
+
+    Ok(ApiResponse::new(tenant.into()))
 }
 
 /// Delete a tenant
@@ -234,7 +297,7 @@ pub async fn delete_tenant(
         .inspect_err(|e| {
             error!(
                 tenant_id = %tenant_id,
-                operator_id = %operator_id,
+                %operator_id,
                 error = %e,
                 "tenant deletion failed"
             )
@@ -242,7 +305,7 @@ pub async fn delete_tenant(
 
     warn!(
         tenant_id = %tenant_id,
-        operator_id = %operator_id,
+        %operator_id,
         "tenant deleted successfully"
     );
 
@@ -294,7 +357,7 @@ pub async fn get_tenant_users(
         .await
         .inspect_err(|e| {
             error!(
-                operator_id = %operator_id,
+                %operator_id,
                 tenant_id = %tenant_id,
                 error = %e,
                 "tenant user list query failed"

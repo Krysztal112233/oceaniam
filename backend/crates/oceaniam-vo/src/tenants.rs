@@ -9,6 +9,11 @@ pub struct CreateTenantRequest {
 }
 
 #[derive(Debug, Deserialize, ToSchema, Serialize, ts_rs::TS)]
+pub struct PatchTenantRequest {
+    pub comment: Option<String>,
+}
+
+#[derive(Debug, Deserialize, ToSchema, Serialize, ts_rs::TS)]
 pub struct TenantVO {
     pub id: Sqid,
     pub comment: Option<String>,
