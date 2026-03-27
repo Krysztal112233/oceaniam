@@ -21,14 +21,16 @@ impl From<model::administrators::Model> for AdministratorVO {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema)]
 pub struct CreateAdministratorRequest {
-    #[garde(length(min = 1))]
+    #[garde(length(min = 3))]
     pub name: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema)]
 pub struct PatchAdministratorRequest {
-    #[garde(length(min = 1))]
+    #[garde(length(min = 3))]
     pub name: Option<String>,
+    #[garde(length(min = 16))]
+    pub password: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]

@@ -31,7 +31,10 @@ use tracing::{Span, error, field, info};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
-use crate::{middlewares::auth::RequireAuth, state::AppState};
+use crate::{
+    middlewares::auth::RequireAuth,
+    state::{AppState, credentials::ManagedCredentialVaults},
+};
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
     router
@@ -206,7 +209,10 @@ pub async fn patch_administrator(
     auth: RequireAuth<SystemClaim>,
     Path(target_id): Path<Sqid>,
     State(AppState {
-        database, auditing, ..
+        database,
+        auditing,
+        credentials,
+        ..
     }): State<AppState<'_>>,
     Garde(Json(payload)): Garde<Json<PatchAdministratorRequest>>,
 ) -> RestResult<AdministratorVO> {
@@ -217,14 +223,25 @@ pub async fn patch_administrator(
             .record("target_id", field::display(&target_id));
     });
 
+    let transaction = database.begin().await?;
+
     // NOTE: Prepare for future.
     //
     // HOLY SHIT WHERE's MY POLICY ENGINE?
     let target_administrator = if operator_id == target_id {
-        patch_administrator_self(operator_id, payload.clone(), &database).await
+        patch_administrator_self(operator_id, payload.clone(), &credentials, &transaction).await
     } else {
-        patch_administrator_other(operator_id, target_id, payload.clone(), &database).await
+        patch_administrator_other(
+            operator_id,
+            target_id,
+            payload.clone(),
+            &credentials,
+            &transaction,
+        )
+        .await
     }?;
+
+    transaction.commit().await?;
 
     info!(
         %operator_id,
@@ -232,13 +249,14 @@ pub async fn patch_administrator(
         "administrator updated successfully"
     );
 
-    let PatchAdministratorRequest { name } = payload;
+    let PatchAdministratorRequest { name, password } = payload;
 
     auditing
         .write(AuditPayload::from(PatchAdministratorPayload {
             target_id,
             operator_id,
             name,
+            password: password.map(|it| "*".repeat(it.len())),
         }))
         .await;
 
@@ -248,38 +266,47 @@ pub async fn patch_administrator(
 #[tracing::instrument(
     level = "info",
     name = "administrators.patch.self",
-    skip(database, name),
+    skip(transaction, name),
     fields(%operator_id)
 )]
 async fn patch_administrator_self(
     operator_id: Uuid,
-    PatchAdministratorRequest { name }: PatchAdministratorRequest,
-    database: &impl SafeTransactionConnectionTrait,
+    PatchAdministratorRequest { name, password }: PatchAdministratorRequest,
+    state_credentials: &ManagedCredentialVaults,
+    transaction: &impl SafeTransactionConnectionTrait,
 ) -> Result<administrators::Model, Error> {
-    Administrators::update_model(operator_id, UpdateAdministratorModel { name }, database)
-        .await
-        .inspect_err(|e| {
-            error!(
-                %operator_id,
-                error = %e,
-                "administrator patch for self failed"
-            )
-        })
+    // TODO: OK WE NEED POLICY ENGINE.
+    patch_administrator_other(
+        operator_id,
+        operator_id,
+        PatchAdministratorRequest { name, password },
+        state_credentials,
+        transaction,
+    )
+    .await
 }
 
 #[tracing::instrument(
     level = "info",
     name = "administrators.patch.other",
-    skip(database, name),
+    skip(transaction, name),
     fields(%operator_id, %target_id)
 )]
 async fn patch_administrator_other(
     operator_id: Uuid,
     target_id: Uuid,
-    PatchAdministratorRequest { name }: PatchAdministratorRequest,
-    database: &impl SafeTransactionConnectionTrait,
+    PatchAdministratorRequest { name, password }: PatchAdministratorRequest,
+    state_credentials: &ManagedCredentialVaults,
+    transaction: &impl SafeTransactionConnectionTrait,
 ) -> Result<administrators::Model, Error> {
-    Administrators::update_model(target_id, UpdateAdministratorModel { name }, database)
+    if let Some(password) = password {
+        // TOO EXPENSIVE.
+        state_credentials
+            .update_password_in_tx(target_id, password, transaction)
+            .await?;
+    }
+
+    Administrators::update_model(target_id, UpdateAdministratorModel { name }, transaction)
         .await
         .inspect_err(|e| {
             error!(

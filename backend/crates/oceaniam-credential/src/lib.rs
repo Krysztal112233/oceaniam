@@ -26,6 +26,13 @@ impl CredentialVault {
         Ok(Self { phc })
     }
 
+    pub fn update_password(self, password: impl AsRef<str>) -> Result<Self, Error> {
+        let phc = Password::with_password(password)?.into_phc();
+
+        #[allow(clippy::needless_update)]
+        Ok(Self { phc, ..self })
+    }
+
     pub async fn write_to(
         &self,
         id: impl Into<Uuid>,

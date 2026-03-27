@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Deserialize, Serialize, Validate, ToSchema, ts_rs::TS)]
+#[derive(Debug, Clone, Deserialize, Serialize, Validate, ToSchema, PartialEq, Eq, ts_rs::TS)]
 #[serde(untagged)]
 pub enum AuthVO {
     /// Login via email

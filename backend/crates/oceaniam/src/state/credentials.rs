@@ -129,4 +129,27 @@ impl ManagedCredentialVaults {
 
         Ok(model)
     }
+
+    pub async fn update_password(
+        &self,
+        subject_id: Uuid,
+        password: impl AsRef<str> + Send,
+    ) -> Result<model::credentials::Model, Error> {
+        self.update_password_in_tx(subject_id, password, &self.database)
+            .await
+    }
+
+    pub async fn update_password_in_tx(
+        &self,
+        subject_id: Uuid,
+        password: impl AsRef<str> + Send,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::credentials::Model, Error> {
+        Ok(self
+            .get_credential_in_tx(subject_id, database)
+            .await?
+            .update_password(password)?
+            .write_to(subject_id, database)
+            .await?)
+    }
 }

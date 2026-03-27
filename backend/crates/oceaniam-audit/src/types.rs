@@ -227,6 +227,7 @@ pub struct PatchAdministratorPayload {
     pub target_id: Uuid,
     pub operator_id: Uuid,
     pub name: Option<String>,
+    pub password: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
