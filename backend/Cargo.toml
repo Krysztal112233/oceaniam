@@ -20,7 +20,7 @@ edition = "2024"
 argon2 = { version = "0.5", features = ["std"] }
 async-trait = "0.1"
 axum = { version = "0.8", features = ["macros"] }
-axum-extra = { version = "0.10", features = ["typed-header"] }
+axum-extra = { version = "0.10", features = ["typed-header", "query"] }
 backon = "1.6"
 bloomfilter = "3"
 chrono = "0.4"

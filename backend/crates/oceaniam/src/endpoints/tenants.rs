@@ -6,11 +6,12 @@ use axum::{
     Json,
     extract::{Path, State},
 };
+use axum_extra::extract::OptionalQuery;
 use oceaniam_audit::types::{
     AuditPayload, CreateTenantsPayload, DeleteTenantsPayload, PatchTenantPayload,
 };
 use oceaniam_common::{
-    ApiResponse, Empty, ErrorResponse, PagedResponse, RestResult, jwt::SystemClaim,
+    ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse, RestResult, jwt::SystemClaim,
     types::sqid::Sqid,
 };
 use oceaniam_database::{
@@ -45,6 +46,8 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
         tag = "Tenants",
         params(
             ("Authorization" = String, Header, description = "Bearer token"),
+            ("page" = Option<u64>, Query, description = "Page number"),
+            ("per_page" = Option<u64>, Query, description = "Items per page"),
         ),
         responses(
             (status = 200, body = ApiResponse<PagedResponse<TenantVO>>),
@@ -55,19 +58,22 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
     level = "info",
     name = "tenants.list",
     skip(auth, database),
-    fields(operator_id = field::Empty)
+    fields(operator_id = field::Empty, page = field::Empty, per_page = field::Empty)
 )]
 pub async fn get_tenants(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
-
+    OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> RestResult<PagedResponse<TenantVO>> {
+    let page = query.unwrap_or_default();
     let operator_id = auth.token.claims.sub;
     Span::current().tap(|it| {
-        it.record("operator_id", field::display(&operator_id));
+        it.record("operator_id", field::display(&operator_id))
+            .record("page", page.page)
+            .record("per_page", page.per_page);
     });
 
-    let PagedResponse { items, page_info } = Tenants::get_all_tenants(&database)
+    let PagedResponse { items, page_info } = Tenants::get_tenants(page, &database)
         .await
         .inspect_err(|e| error!(%operator_id, error = %e, "tenant list query failed"))?;
 
@@ -327,6 +333,8 @@ pub async fn delete_tenant(
         params(
             ("Authorization" = String, Header, description = "Bearer token"),
             ("tenant_id", description = "Tenant ID"),
+            ("page" = Option<u64>, Query, description = "Page number"),
+            ("per_page" = Option<u64>, Query, description = "Items per page"),
         ),
         responses(
             (status = 200, body = ApiResponse<PagedResponse<ApplicationUserVO>>),
@@ -337,23 +345,26 @@ pub async fn delete_tenant(
     level = "info",
     name = "tenant_users.list",
     skip(auth, database, tenant_id),
-    fields(operator_id = field::Empty, tenant_id = field::Empty)
+    fields(operator_id = field::Empty, tenant_id = field::Empty, page = field::Empty, per_page = field::Empty)
 )]
 pub async fn get_tenant_users(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
     Path(tenant_id): Path<Sqid>,
-
+    OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> RestResult<PagedResponse<ApplicationUserVO>> {
+    let page = query.unwrap_or_default();
     let operator_id = auth.token.claims.sub;
     let tenant_id = tenant_id.try_into()?;
 
     Span::current().tap(|it| {
         it.record("operator_id", field::display(&operator_id))
-            .record("tenant_id", field::display(&tenant_id));
+            .record("tenant_id", field::display(&tenant_id))
+            .record("page", page.page)
+            .record("per_page", page.per_page);
     });
 
-    let items: Vec<ApplicationUserVO> = Users::get_all_users_of_tenant(tenant_id, &database)
+    let PagedResponse { items, page_info } = Users::get_users_of_tenant(tenant_id, page, &database)
         .await
         .inspect_err(|e| {
             error!(
@@ -362,10 +373,8 @@ pub async fn get_tenant_users(
                 error = %e,
                 "tenant user list query failed"
             )
-        })?
-        .into_iter()
-        .map(Into::into)
-        .collect();
+        })?;
+    let items: Vec<ApplicationUserVO> = items.into_iter().map(Into::into).collect();
 
     warn!(
         %operator_id,
@@ -374,5 +383,5 @@ pub async fn get_tenant_users(
         "tenant user list queried successfully"
     );
 
-    Ok(ApiResponse::new(PagedResponse::with_entire(items)))
+    Ok(ApiResponse::new(PagedResponse { items, page_info }))
 }

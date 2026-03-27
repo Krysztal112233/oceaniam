@@ -2,7 +2,7 @@ use std::{collections::HashMap, time::Duration};
 
 use axum::http::StatusCode;
 use moka::future::Cache;
-use oceaniam_common::{error::Error, helpers::gen_random_with_charset};
+use oceaniam_common::{PageParam, PagedResponse, error::Error, helpers::gen_random_with_charset};
 use oceaniam_database::helper::applications::{ApplicationConfiguration, CreateApplicationOptions};
 use oceaniam_database::helper::users::{CreateUserOpts, CreateUserResult};
 use oceaniam_database::{
@@ -416,6 +416,19 @@ impl Secrets<'_> {
         Ok(models)
     }
 
+    pub async fn get_secret_models(
+        &self,
+        page: PageParam,
+    ) -> Result<PagedResponse<SecretModel>, Error> {
+        let paged = ApplicationSecrets::get_secret_models(page, &self.database).await?;
+
+        for model in &paged.items {
+            self.cache_secret_model(model).await;
+        }
+
+        Ok(paged)
+    }
+
     pub async fn get_secret(&self, secret_id: Uuid) -> Result<SecretModel, Error> {
         Ok(self
             .caches
@@ -436,8 +449,29 @@ impl Secrets<'_> {
             .await?)
     }
 
-    pub async fn get_secret_application_ids_batch(&self) -> Result<HashMap<Uuid, Vec<Uuid>>, Error> {
+    pub async fn get_secret_application_ids_batch(
+        &self,
+    ) -> Result<HashMap<Uuid, Vec<Uuid>>, Error> {
         ApplicationSecrets::get_all_application_ids_grouped_by_secret_id(&self.database).await
+    }
+
+    pub async fn get_secret_application_ids_batch_by_ids(
+        &self,
+        secret_ids: Vec<Uuid>,
+    ) -> Result<HashMap<Uuid, Vec<Uuid>>, Error> {
+        let application_ids_by_secret =
+            ApplicationSecrets::get_application_ids_grouped_by_secret_ids(
+                secret_ids,
+                &self.database,
+            )
+            .await?;
+
+        for (secret_id, application_ids) in &application_ids_by_secret {
+            self.cache_secret_application_ids(*secret_id, application_ids.clone())
+                .await;
+        }
+
+        Ok(application_ids_by_secret)
     }
 
     async fn refresh(&self, application_id: Uuid) -> Result<(), Error> {

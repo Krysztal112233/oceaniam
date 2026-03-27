@@ -1,10 +1,12 @@
 //! Administrator management-related API endpoints
 
 use axum::{Json, extract::State};
+use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
 use oceaniam_audit::types::{AuditPayload, CreateAdministratorPayload};
 use oceaniam_common::{
-    ApiResponse, ErrorResponse, PagedResponse, RestResult, error::Error, jwt::SystemClaim,
+    ApiResponse, ErrorResponse, PageParam, PagedResponse, RestResult, error::Error,
+    jwt::SystemClaim,
 };
 use oceaniam_database::{helper::administrators::AdministratorsHelper, model::prelude::*};
 use oceaniam_vo::administrators::{
@@ -29,25 +31,39 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
         get,
         path = "/administrators",
         tag = "Administrators",
-        params(("Authorization" = String, Header, description = "Bearer token")),
+        params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+            ("page" = Option<u64>, Query, description = "Page number"),
+            ("per_page" = Option<u64>, Query, description = "Items per page"),
+        ),
         responses(
             (status = 200, body = ApiResponse<PagedResponse<AdministratorVO>>),
             (status = 401, description = "Unauthorized"),
         ),
     )]
-#[tracing::instrument(level = "info", name = "administrators.list", skip(database))]
+#[tracing::instrument(
+    level = "info",
+    name = "administrators.list",
+    skip(database),
+    fields(page = field::Empty, per_page = field::Empty)
+)]
 pub async fn get_administrators(
     _: RequireAuth<SystemClaim>,
+    OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> RestResult<PagedResponse<AdministratorVO>> {
-    let items: Vec<AdministratorVO> = Administrators::get_all(&database)
-        .await
-        .inspect_err(|e| error!(error = %e, "administrator list query failed"))?
-        .into_iter()
-        .map(AdministratorVO::from)
-        .collect();
+    let page = query.unwrap_or_default();
+    Span::current().tap(|it| {
+        it.record("page", page.page)
+            .record("per_page", page.per_page);
+    });
 
-    Ok(ApiResponse::new(PagedResponse::with_entire(items)))
+    let PagedResponse { items, page_info } = Administrators::get_administrators(page, &database)
+        .await
+        .inspect_err(|e| error!(error = %e, "administrator list query failed"))?;
+    let items = items.into_iter().map(AdministratorVO::from).collect();
+
+    Ok(ApiResponse::new(PagedResponse { items, page_info }))
 }
 
 /// Create administrator

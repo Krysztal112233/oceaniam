@@ -2,14 +2,15 @@
 
 use axum::{
     Json,
-    extract::{Path, Query, State},
+    extract::{Path, State},
 };
+use axum_extra::extract::OptionalQuery;
 use chrono::Utc;
 use oceaniam_audit::types::{
     AuditPayload, CreateApplicationPayload, DeleteApplicationPayload, PatchApplicationPayload,
 };
 use oceaniam_common::{
-    ApiResponse, Empty, ErrorResponse, PagedResponse, RestResult, consts,
+    ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse, RestResult, consts,
     error::Error,
     jwks::{JwkSet, JwkSetSchema},
     jwt::SystemClaim,
@@ -21,7 +22,7 @@ use oceaniam_database::{
 use oceaniam_keybox::keybox::KeyOption;
 use oceaniam_vo::applications::{
     ApplicationDetailVO, ApplicationVO, CreateApplicationRequest, CreateApplicationResponse,
-    ListApplicationsParam, PatchApplicationRequest,
+    PatchApplicationRequest,
 };
 use tap::Tap;
 use tracing::{Span, error, field, info};
@@ -68,28 +69,26 @@ pub(crate) struct TenantApplicationPath {
     level = "info",
     name = "tenant_applications.list",
     skip(database),
-    fields(tenant_id = field::Empty, has_pagination = field::Empty)
+    fields(tenant_id = field::Empty, page = field::Empty, per_page = field::Empty)
 )]
 pub async fn get_applications(
     _: middlewares::auth::RequireAuth<SystemClaim>,
     Path(tenant_id): Path<Sqid>,
-    Query(ListApplicationsParam { page }): Query<ListApplicationsParam>,
+    OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> RestResult<PagedResponse<ApplicationVO>> {
+    let page = query.unwrap_or_default();
     let tenant_id: Uuid = tenant_id.try_into()?;
     Span::current().tap(|it| {
         it.record("tenant_id", field::display(&tenant_id))
-            .record("has_pagination", page.is_some());
+            .record("page", page.page)
+            .record("per_page", page.per_page);
     });
 
     info!(tenant_id = %tenant_id, "getting applications");
 
-    let PagedResponse { items, page_info } = match page {
-        Some(page) => Applications::get_applications(tenant_id, page, &database).await?,
-        None => PagedResponse::with_entire(
-            Applications::get_all_applications(tenant_id, &database).await?,
-        ),
-    };
+    let PagedResponse { items, page_info } =
+        Applications::get_applications(tenant_id, page, &database).await?;
 
     Ok(ApiResponse::new(PagedResponse {
         items: items.into_iter().map(ApplicationVO::from).collect(),

@@ -3,15 +3,15 @@ use chrono::Utc;
 use oceaniam_common::error::Error;
 use oceaniam_common::{PageInfo, PageParam, PagedResponse};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, QueryFilter,
-    QuerySelect,
+    ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, PaginatorTrait,
+    QueryFilter, QuerySelect,
 };
 use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::model::prelude::{ApplicationSecretBindings, ApplicationSecrets};
 use crate::{
-    helper::SafeTransactionConnectionTrait,
+    helper::{PagedExecutor, PagedSelect, SafeTransactionConnectionTrait},
     model::{self},
 };
 
@@ -68,10 +68,9 @@ pub trait ApplicationSecretsHelper {
         paged: Option<PageParam>,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<PagedResponse<model::application_secrets::Model>, Error> {
-        let all_items = Self::get_all_secrets_of(application_id, database).await?;
-
         match paged {
             Some(paged) => {
+                let all_items = Self::get_all_secrets_of(application_id, database).await?;
                 let start = paged.as_offset() as usize;
                 let end = start
                     .saturating_add(paged.per_page as usize)
@@ -90,8 +89,21 @@ pub trait ApplicationSecretsHelper {
                     items,
                 })
             }
-            None => Ok(PagedResponse::with_entire(all_items)),
+            None => Ok(PagedResponse::with_entire(
+                Self::get_all_secrets_of(application_id, database).await?,
+            )),
         }
+    }
+
+    async fn get_secret_models(
+        page: PageParam,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<PagedResponse<model::application_secrets::Model>, Error> {
+        ApplicationSecrets::find()
+            .paged(page)
+            .paginate(database, page.per_page)
+            .fetch_paged(page)
+            .await
     }
 
     async fn get_all_secrets_of(
@@ -146,6 +158,33 @@ pub trait ApplicationSecretsHelper {
         use model::application_secret_bindings::Column::*;
 
         let bindings = ApplicationSecretBindings::find()
+            .select_only()
+            .column(SecretId)
+            .column(ApplicationId)
+            .into_tuple::<(Uuid, Uuid)>()
+            .all(database)
+            .await?;
+
+        let mut grouped = HashMap::<Uuid, Vec<Uuid>>::new();
+        for (secret_id, application_id) in bindings {
+            grouped.entry(secret_id).or_default().push(application_id);
+        }
+
+        Ok(grouped)
+    }
+
+    async fn get_application_ids_grouped_by_secret_ids(
+        secret_ids: Vec<Uuid>,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<HashMap<Uuid, Vec<Uuid>>, Error> {
+        use model::application_secret_bindings::Column::*;
+
+        if secret_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let bindings = ApplicationSecretBindings::find()
+            .filter(SecretId.is_in(secret_ids))
             .select_only()
             .column(SecretId)
             .column(ApplicationId)

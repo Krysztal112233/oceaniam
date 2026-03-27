@@ -1,12 +1,13 @@
 use axum::http::StatusCode;
-use oceaniam_common::{consts, error::Error};
+use oceaniam_common::{PageParam, PagedResponse, consts, error::Error};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, QueryOrder,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter,
+    QueryOrder,
 };
 use uuid::Uuid;
 
 use crate::{
-    helper::SafeTransactionConnectionTrait,
+    helper::{PagedExecutor, PagedSelect, SafeTransactionConnectionTrait},
     model::{self, prelude::Administrators},
 };
 
@@ -21,6 +22,22 @@ pub trait AdministratorsHelper {
             .order_by_asc(Name)
             .all(database)
             .await?)
+    }
+
+    async fn get_administrators(
+        page: impl Into<PageParam> + Send,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<PagedResponse<model::administrators::Model>, Error> {
+        use model::administrators::Column::*;
+
+        let page = page.into();
+
+        Administrators::find()
+            .order_by_asc(Name)
+            .paged(page)
+            .paginate(database, page.per_page)
+            .fetch_paged(page)
+            .await
     }
 
     async fn get_by_id(

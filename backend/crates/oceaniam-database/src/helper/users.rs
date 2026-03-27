@@ -1,5 +1,5 @@
 use axum::http::StatusCode;
-use oceaniam_common::{PageParam, PagedResponse, error::Error};
+use oceaniam_common::{PageInfo, PageParam, PagedResponse, error::Error};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, PaginatorTrait,
     QueryFilter,
@@ -126,6 +126,33 @@ pub trait UserHelper {
             .into_iter()
             .map(|(user, _)| user)
             .collect())
+    }
+
+    async fn get_users_of_tenant(
+        tenant_id: Uuid,
+        page: impl Into<PageParam> + Send,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<PagedResponse<model::users::Model>, Error> {
+        use crate::model::applications::Column::*;
+
+        let page = page.into();
+        let paginator = Users::find()
+            .find_also_related(Applications)
+            .filter(TenantId.eq(tenant_id))
+            .paginate(database, page.per_page);
+        let users = paginator
+            .fetch_page(page.page.saturating_sub(1))
+            .await?
+            .into_iter()
+            .map(|(user, _)| user)
+            .collect::<Vec<_>>();
+        let total = paginator.num_items().await? as usize;
+        let has_next = (page.as_offset() + users.len() as u64) < total as u64;
+
+        Ok(PagedResponse {
+            items: users,
+            page_info: PageInfo { has_next, total },
+        })
     }
 
     async fn find_by_email(

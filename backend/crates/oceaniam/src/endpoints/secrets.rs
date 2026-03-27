@@ -1,9 +1,11 @@
 //! Secret management-related API endpoints
 
 use axum::extract::{Path, State};
+use axum_extra::extract::OptionalQuery;
 use oceaniam_audit::types::{
     AuditPayload, CreateApplicationSecretPayload, DeleteApplicationSecretPayload,
 };
+use oceaniam_common::PageParam;
 use oceaniam_common::{
     ApiResponse, Empty, ErrorResponse, PagedResponse, RestResult, types::sqid::Sqid,
 };
@@ -72,7 +74,11 @@ pub async fn create_secret(
         get,
         path = "/secrets",
         tag = "Secrets",
-        params(("Authorization" = String, Header, description = "Bearer token")),
+        params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+            ("page" = Option<u64>, Query, description = "Page number"),
+            ("per_page" = Option<u64>, Query, description = "Items per page"),
+        ),
         responses(
             (status = 200, body = ApiResponse<PagedResponse<SecretVO>>),
             (status = 203, description = "Missing Authorization header"),
@@ -80,22 +86,40 @@ pub async fn create_secret(
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
-#[tracing::instrument(level = "info", name = "secrets.list", skip(applications))]
+#[tracing::instrument(
+    level = "info",
+    name = "secrets.list",
+    skip(applications),
+    fields(page = field::Empty, per_page = field::Empty)
+)]
 pub async fn get_secrets(
     _: RequireAuth<SystemClaim>,
+    OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { applications, .. }): State<AppState<'_>>,
 ) -> RestResult<PagedResponse<SecretVO>> {
-    let secrets = applications
+    let page: oceaniam_common::PageParam = query.unwrap_or_default();
+
+    Span::current().tap(|it| {
+        it.record("page", page.page)
+            .record("per_page", page.per_page);
+    });
+
+    let PagedResponse {
+        items: secrets,
+        page_info,
+    } = applications
         .secrets()
-        .get_all_secrets()
+        .get_secret_models(page)
         .await
         .inspect_err(|e| {
             error!(error = %e, "failed to fetch secrets");
         })?;
 
+    let secret_ids = secrets.iter().map(|secret| secret.id).collect();
+
     let application_ids_by_secret = applications
         .secrets()
-        .get_secret_application_ids_batch()
+        .get_secret_application_ids_batch_by_ids(secret_ids)
         .await
         .inspect_err(|e| {
             error!(error = %e, "failed to fetch secret bindings in batch");
@@ -111,7 +135,7 @@ pub async fn get_secrets(
         })
         .collect();
 
-    Ok(ApiResponse::new(PagedResponse::with_entire(items)))
+    Ok(ApiResponse::new(PagedResponse { items, page_info }))
 }
 
 #[utoipa::path(

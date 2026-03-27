@@ -6,11 +6,21 @@ use oceaniam_database::model::{self};
 use serde::{Deserialize, Deserializer, Serialize};
 use utoipa::ToSchema;
 
-#[derive(Debug, Deserialize, ToSchema, Validate)]
-pub struct ListApplicationsParam {
-    #[serde(flatten)]
-    #[garde(dive)]
-    pub page: Option<PageParam>,
+#[derive(Debug, Default, Deserialize, ToSchema, Validate)]
+pub struct ListSecretsParam {
+    #[garde(skip)]
+    pub page: Option<u64>,
+    #[garde(skip)]
+    pub per_page: Option<u64>,
+}
+
+impl From<ListSecretsParam> for PageParam {
+    fn from(ListSecretsParam { page, per_page }: ListSecretsParam) -> Self {
+        Self {
+            page: page.unwrap_or_default(),
+            per_page: per_page.unwrap_or(PageParam::default().per_page),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, ToSchema, ts_rs::TS)]
