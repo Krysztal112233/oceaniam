@@ -31,6 +31,10 @@ const createSecretError = ref<string | null>(null);
 const isCreateDialogOpen = ref(false);
 const createdSecret = ref<SecretVO | null>(null);
 const requestId = ref(0);
+const currentPage = ref(1);
+const perPage = 25;
+const totalSecrets = ref(0);
+const hasNextPage = ref(false);
 
 const tenantId = computed(() => {
     const rawTenantId = route.params.tenantId;
@@ -45,6 +49,26 @@ const applicationComments = computed(() =>
         ]),
     ),
 );
+
+const totalPages = computed(() =>
+    totalSecrets.value === 0 ? 1 : Math.ceil(totalSecrets.value / perPage),
+);
+
+const canGoToPreviousPage = computed(() => currentPage.value > 1);
+
+const canGoToNextPage = computed(
+    () => hasNextPage.value && currentPage.value < totalPages.value,
+);
+
+const paginationSummary = computed(() => {
+    if (totalSecrets.value === 0 || secrets.value.length === 0) {
+        return "第 0 - 0 条，共 0 条";
+    }
+
+    const start = (currentPage.value - 1) * perPage + 1;
+    const end = start + secrets.value.length - 1;
+    return `第 ${start} - ${end} 条，共 ${totalSecrets.value} 条`;
+});
 
 const summaryText = computed(() => {
     const activeTenantId = tenantId.value || currentTenantId.value;
@@ -61,7 +85,7 @@ const summaryText = computed(() => {
         return `正在加载 ${activeTenantId} 下的 API Secret 列表...`;
     }
 
-    return `当前共 ${secrets.value.length} 个 API Secret`;
+    return `当前共 ${totalSecrets.value} 个 API Secret`;
 });
 
 function getClient(): OceanIamClient {
@@ -75,6 +99,8 @@ function resetSecretsState(): void {
     secrets.value = [];
     secretsLoading.value = false;
     secretsError.value = null;
+    totalSecrets.value = 0;
+    hasNextPage.value = false;
 }
 
 function openCreateDialog(): void {
@@ -102,13 +128,18 @@ async function loadApiSecrets(nextTenantId: string): Promise<void> {
 
     try {
         await tenantStore.loadApplications(normalizedTenantId);
-        const response = await getClient().getSecrets();
+        const response = await getClient().getSecrets({
+            page: currentPage.value,
+            per_page: perPage,
+        });
 
         if (nextRequestId !== requestId.value) {
             return;
         }
 
         secrets.value = response.items;
+        totalSecrets.value = response.page_info.total;
+        hasNextPage.value = response.page_info.has_next;
     } catch (err) {
         if (nextRequestId !== requestId.value) {
             return;
@@ -131,6 +162,7 @@ async function handleCreateSecret(): Promise<void> {
     try {
         const secret = await getClient().createSecret();
         createdSecret.value = secret;
+        currentPage.value = 1;
         await loadApiSecrets(tenantId.value || currentTenantId.value);
         closeCreateDialog();
         toast.success("API Secret 已创建");
@@ -159,9 +191,31 @@ async function copyCreatedSecret(): Promise<void> {
     }
 }
 
+async function goToPreviousPage(): Promise<void> {
+    if (!canGoToPreviousPage.value || secretsLoading.value) {
+        return;
+    }
+
+    currentPage.value -= 1;
+    await loadApiSecrets(tenantId.value || currentTenantId.value);
+}
+
+async function goToNextPage(): Promise<void> {
+    if (!canGoToNextPage.value || secretsLoading.value) {
+        return;
+    }
+
+    currentPage.value += 1;
+    await loadApiSecrets(tenantId.value || currentTenantId.value);
+}
+
 watch(
     tenantId,
-    (nextTenantId) => {
+    (nextTenantId, previousTenantId) => {
+        if (nextTenantId !== previousTenantId) {
+            currentPage.value = 1;
+        }
+
         void loadApiSecrets(nextTenantId);
     },
     { immediate: true },
@@ -222,35 +276,47 @@ watch(
         </div>
 
         <div v-else class="px-6 pb-6">
-            <div
-                v-if="createdSecret"
-                class="mb-4 rounded-box border border-success/20 bg-success/5 p-4"
-            >
-                <div class="text-sm font-medium text-base-content">
-                    最新创建的 Secret
-                </div>
-                <div class="mt-2 font-mono text-sm text-base-content break-all">
-                    {{ createdSecret.secret }}
-
-                    <button
-                        type="button"
-                        class="btn btn-outline btn-xs"
-                        @click="copyCreatedSecret"
+            <div class="space-y-4">
+                <div
+                    v-if="createdSecret"
+                    class="rounded-box border border-success/20 bg-success/5 p-4"
+                >
+                    <div class="text-sm font-medium text-base-content">
+                        最新创建的 Secret
+                    </div>
+                    <div
+                        class="mt-2 font-mono text-sm text-base-content break-all"
                     >
-                        复制 Secret
-                    </button>
-                </div>
-                <div class="mt-3 flex flex-wrap items-center gap-3">
-                    <div class="text-xs text-base-content/65">
-                        Secret ID: {{ createdSecret.id }}
+                        {{ createdSecret.secret }}
+
+                        <button
+                            type="button"
+                            class="btn btn-outline btn-xs"
+                            @click="copyCreatedSecret"
+                        >
+                            复制 Secret
+                        </button>
+                    </div>
+                    <div class="mt-3 flex flex-wrap items-center gap-3">
+                        <div class="text-xs text-base-content/65">
+                            Secret ID: {{ createdSecret.id }}
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <SecretTable
-                :secrets="secrets"
-                :application-comments="applicationComments"
-            />
+                <SecretTable
+                    :secrets="secrets"
+                    :application-comments="applicationComments"
+                    :pagination-summary="paginationSummary"
+                    :current-page="currentPage"
+                    :total-pages="totalPages"
+                    :can-go-to-previous-page="canGoToPreviousPage"
+                    :can-go-to-next-page="canGoToNextPage"
+                    :loading="secretsLoading"
+                    @previous-page="goToPreviousPage"
+                    @next-page="goToNextPage"
+                />
+            </div>
         </div>
     </EntityListPage>
 

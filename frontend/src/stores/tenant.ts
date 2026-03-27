@@ -1,6 +1,10 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { OceanIamClient } from "@oceaniam/sdk";
+import {
+    OceanIamClient,
+    type GetApplicationsQuery,
+    type PagedResponse,
+} from "@oceaniam/sdk";
 import { appConfig } from "../config";
 import { useAuthStore } from "./auth";
 import type { ApplicationVO } from "../../packages/sdk/src/types/ApplicationVO";
@@ -122,7 +126,8 @@ export const useTenantStore = defineStore(
 
         async function loadApplications(
             tenantId = currentTenantId.value,
-        ): Promise<void> {
+            query?: Omit<GetApplicationsQuery, "tenant_id">,
+        ): Promise<PagedResponse<ApplicationVO> | null> {
             const normalizedTenantId = tenantId.trim();
             syncCurrentTenant(normalizedTenantId);
 
@@ -130,10 +135,12 @@ export const useTenantStore = defineStore(
                 clearApplicationsState();
                 applicationsError.value =
                     "缺少 tenant 标识，无法加载 application 列表。";
-                return;
+                return null;
             }
 
             const client = getClient();
+            const page = query?.page ?? 1n;
+            const perPage = query?.per_page ?? 50n;
 
             applicationsLoading.value = true;
             applicationsError.value = null;
@@ -141,11 +148,12 @@ export const useTenantStore = defineStore(
             try {
                 const response = await client.getApplications({
                     tenant_id: normalizedTenantId,
-                    page: 1n,
-                    per_page: 50n,
+                    page,
+                    per_page: perPage,
                 });
                 applications.value = response.items;
                 applicationsTotal.value = response.page_info.total;
+                return response;
             } catch (err) {
                 applications.value = [];
                 applicationsTotal.value = 0;
@@ -153,6 +161,7 @@ export const useTenantStore = defineStore(
                     err instanceof Error
                         ? err.message
                         : "加载 application 列表失败。";
+                return null;
             } finally {
                 applicationsLoading.value = false;
             }
@@ -184,7 +193,10 @@ export const useTenantStore = defineStore(
             }
         }
 
-        async function createApplication(comment: string): Promise<void> {
+        async function createApplication(
+            comment: string,
+            query?: Omit<GetApplicationsQuery, "tenant_id">,
+        ): Promise<void> {
             const normalizedTenantId = currentTenantId.value.trim();
 
             if (!normalizedTenantId) {
@@ -202,7 +214,7 @@ export const useTenantStore = defineStore(
                 await client.createApplication(normalizedTenantId, {
                     comment: comment.trim() || null,
                 });
-                await loadApplications(normalizedTenantId);
+                await loadApplications(normalizedTenantId, query);
             } catch (err) {
                 createApplicationError.value =
                     err instanceof Error
@@ -214,7 +226,10 @@ export const useTenantStore = defineStore(
             }
         }
 
-        async function deleteApplication(applicationId: string): Promise<void> {
+        async function deleteApplication(
+            applicationId: string,
+            query?: Omit<GetApplicationsQuery, "tenant_id">,
+        ): Promise<void> {
             const normalizedTenantId = currentTenantId.value.trim();
             const normalizedApplicationId = applicationId.trim();
 
@@ -240,7 +255,7 @@ export const useTenantStore = defineStore(
                     normalizedTenantId,
                     normalizedApplicationId,
                 );
-                await loadApplications(normalizedTenantId);
+                await loadApplications(normalizedTenantId, query);
             } catch (err) {
                 deleteApplicationError.value =
                     err instanceof Error

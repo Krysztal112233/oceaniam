@@ -27,10 +27,35 @@ const {
 } = storeToRefs(tenantStore);
 const isCreateDialogOpen = ref(false);
 const deletingApplicationId = ref("");
+const currentPage = ref(1);
+const perPage = 25;
+const hasNextPage = ref(false);
 
 const tenantId = computed(() => {
     const raw = route.params.tenantId;
     return typeof raw === "string" ? raw : "";
+});
+
+const totalPages = computed(() =>
+    applicationsTotal.value === 0
+        ? 1
+        : Math.ceil(applicationsTotal.value / perPage),
+);
+
+const canGoToPreviousPage = computed(() => currentPage.value > 1);
+
+const canGoToNextPage = computed(
+    () => hasNextPage.value && currentPage.value < totalPages.value,
+);
+
+const paginationSummary = computed(() => {
+    if (applicationsTotal.value === 0 || applications.value.length === 0) {
+        return "第 0 - 0 条，共 0 条";
+    }
+
+    const start = (currentPage.value - 1) * perPage + 1;
+    const end = start + applications.value.length - 1;
+    return `第 ${start} - ${end} 条，共 ${applicationsTotal.value} 条`;
 });
 
 const summaryText = computed(() => {
@@ -78,7 +103,12 @@ function closeCreateDialog() {
 
 async function handleCreateApplication(comment: string) {
     try {
-        await tenantStore.createApplication(comment);
+        currentPage.value = 1;
+        await tenantStore.createApplication(comment, {
+            page: currentPage.value,
+            per_page: perPage,
+        });
+        hasNextPage.value = applicationsTotal.value > perPage;
         closeCreateDialog();
         toast.success("Application 已创建");
     } catch {
@@ -88,7 +118,12 @@ async function handleCreateApplication(comment: string) {
 
 async function confirmDeleteApplication(applicationId: string) {
     try {
-        await tenantStore.deleteApplication(applicationId);
+        await tenantStore.deleteApplication(applicationId, {
+            page: currentPage.value,
+            per_page: perPage,
+        });
+        hasNextPage.value =
+            currentPage.value * perPage < applicationsTotal.value;
         deletingApplicationId.value = "";
         toast.success("Application 已删除");
     } catch {
@@ -97,18 +132,49 @@ async function confirmDeleteApplication(applicationId: string) {
     }
 }
 
+async function loadApplicationsPage(nextTenantId: string): Promise<void> {
+    const response = await tenantStore.loadApplications(nextTenantId, {
+        page: currentPage.value,
+        per_page: perPage,
+    });
+    hasNextPage.value = response?.page_info.has_next ?? false;
+}
+
+async function goToPreviousPage(): Promise<void> {
+    if (!canGoToPreviousPage.value || applicationsLoading.value) {
+        return;
+    }
+
+    currentPage.value -= 1;
+    await loadApplicationsPage(tenantId.value || currentTenantId.value);
+}
+
+async function goToNextPage(): Promise<void> {
+    if (!canGoToNextPage.value || applicationsLoading.value) {
+        return;
+    }
+
+    currentPage.value += 1;
+    await loadApplicationsPage(tenantId.value || currentTenantId.value);
+}
+
 watch(
     () => tenantId.value,
-    (nextTenantId) => {
+    (nextTenantId, previousTenantId) => {
         deletingApplicationId.value = "";
         tenantStore.syncCurrentTenant(nextTenantId);
-        void tenantStore.loadApplications(nextTenantId);
+
+        if (nextTenantId !== previousTenantId) {
+            currentPage.value = 1;
+        }
+
+        void loadApplicationsPage(nextTenantId);
     },
 );
 
 onMounted(() => {
     tenantStore.syncCurrentTenant(tenantId.value);
-    void tenantStore.loadApplications(tenantId.value);
+    void loadApplicationsPage(tenantId.value);
 });
 </script>
 
@@ -164,15 +230,26 @@ onMounted(() => {
             当前 tenant 下没有可展示的 application。
         </div>
 
-        <ApplicationTable
-            v-else
-            :applications="applications"
-            :deleting-application-id="deletingApplicationId"
-            :delete-loading="deleteApplicationLoading"
-            :delete-error="deleteApplicationError"
-            @detail="handleDetail"
-            @delete="handleDelete"
-        />
+        <div v-else class="px-6 pb-6">
+            <div class="space-y-4">
+                <ApplicationTable
+                    :applications="applications"
+                    :deleting-application-id="deletingApplicationId"
+                    :delete-loading="deleteApplicationLoading"
+                    :delete-error="deleteApplicationError"
+                    :pagination-summary="paginationSummary"
+                    :current-page="currentPage"
+                    :total-pages="totalPages"
+                    :can-go-to-previous-page="canGoToPreviousPage"
+                    :can-go-to-next-page="canGoToNextPage"
+                    :loading="applicationsLoading"
+                    @detail="handleDetail"
+                    @delete="handleDelete"
+                    @previous-page="goToPreviousPage"
+                    @next-page="goToNextPage"
+                />
+            </div>
+        </div>
     </EntityListPage>
 
     <CreateApplicationModal
