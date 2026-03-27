@@ -20,6 +20,7 @@ pub enum AuditPayload {
     DeleteTenants(DeleteTenantsPayload),
     PatchTenant(PatchTenantPayload),
     CreateAdministrator(CreateAdministratorPayload),
+    PatchAdministrator(PatchAdministratorPayload),
     CreateApplicationUser(CreateApplicationUserPayload),
     DeleteApplicationUser(DeleteApplicationUserPayload),
     CreateApplicationSecret(CreateApplicationSecretPayload),
@@ -40,6 +41,7 @@ impl AuditPayload {
             Self::DeleteTenants(_) => AuditType::DeleteTenants,
             Self::PatchTenant(_) => AuditType::PatchTenant,
             Self::CreateAdministrator(_) => AuditType::CreateAdministrator,
+            Self::PatchAdministrator(_) => AuditType::PatchAdministrator,
             Self::CreateApplicationUser(_) => AuditType::CreateApplicationUser,
             Self::DeleteApplicationUser(_) => AuditType::DeleteApplicationUser,
             Self::CreateApplicationSecret(_) => AuditType::CreateApplicationSecret,
@@ -115,6 +117,12 @@ impl From<PatchTenantPayload> for AuditPayload {
 impl From<CreateAdministratorPayload> for AuditPayload {
     fn from(value: CreateAdministratorPayload) -> Self {
         Self::CreateAdministrator(value)
+    }
+}
+
+impl From<PatchAdministratorPayload> for AuditPayload {
+    fn from(value: PatchAdministratorPayload) -> Self {
+        Self::PatchAdministrator(value)
     }
 }
 
@@ -212,6 +220,13 @@ pub struct CreateAdministratorPayload {
     pub administrator_id: Uuid,
     pub operator_id: Uuid,
     pub name: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+pub struct PatchAdministratorPayload {
+    pub target_id: Uuid,
+    pub operator_id: Uuid,
+    pub name: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]

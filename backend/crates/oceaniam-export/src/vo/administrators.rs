@@ -10,5 +10,10 @@ pub struct CreateAdministratorRequest;
 
 #[derive(ts_rs::TS)]
 #[ts(export)]
+#[ts(as = "oceaniam_vo::administrators::PatchAdministratorRequest")]
+pub struct PatchAdministratorRequest;
+
+#[derive(ts_rs::TS)]
+#[ts(export)]
 #[ts(as = "oceaniam_vo::administrators::CreateAdministratorResponse")]
 pub struct CreateAdministratorResponse;

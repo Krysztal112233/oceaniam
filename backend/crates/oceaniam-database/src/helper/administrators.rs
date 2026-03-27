@@ -1,15 +1,20 @@
 use axum::http::StatusCode;
 use oceaniam_common::{PageParam, PagedResponse, consts, error::Error};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter,
-    QueryOrder,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait,
+    QueryFilter, QueryOrder,
 };
+use tap::Tap;
 use uuid::Uuid;
 
 use crate::{
     helper::{PagedExecutor, PagedSelect, SafeTransactionConnectionTrait},
     model::{self, prelude::Administrators},
 };
+
+pub struct UpdateAdministratorModel {
+    pub name: Option<String>,
+}
 
 #[async_trait::async_trait]
 pub trait AdministratorsHelper {
@@ -69,7 +74,7 @@ pub trait AdministratorsHelper {
             })??)
     }
 
-    async fn create(
+    async fn create_administrator(
         id: Uuid,
         name: impl Into<String> + Send,
         database: &impl SafeTransactionConnectionTrait,
@@ -80,6 +85,25 @@ pub trait AdministratorsHelper {
         }
         .insert(database)
         .await?)
+    }
+
+    async fn update_model(
+        id: Uuid,
+
+        UpdateAdministratorModel { name }: UpdateAdministratorModel,
+
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::administrators::Model, Error> {
+        let administrator = Self::get_by_id(id, database)
+            .await?
+            .into_active_model()
+            .tap_mut(|it| {
+                if let Some(name) = name {
+                    it.name = Set(name);
+                }
+            });
+
+        Ok(administrator.update(database).await?)
     }
 }
 

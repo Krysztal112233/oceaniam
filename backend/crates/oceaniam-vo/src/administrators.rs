@@ -25,6 +25,12 @@ pub struct CreateAdministratorRequest {
     pub name: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema)]
+pub struct PatchAdministratorRequest {
+    #[garde(length(min = 1))]
+    pub name: Option<String>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
 pub struct CreateAdministratorResponse {
     pub administrator: AdministratorVO,

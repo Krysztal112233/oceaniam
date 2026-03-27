@@ -1,16 +1,29 @@
 //! Administrator management-related API endpoints
+//!
+//! NOTE: This package is allowed to access the database directly without going through any cache
+//! layer.
 
-use axum::{Json, extract::State};
+use axum::{
+    Json,
+    extract::{Path, State},
+};
 use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
-use oceaniam_audit::types::{AuditPayload, CreateAdministratorPayload};
+use oceaniam_audit::types::{AuditPayload, CreateAdministratorPayload, PatchAdministratorPayload};
 use oceaniam_common::{
     ApiResponse, ErrorResponse, PageParam, PagedResponse, RestResult, error::Error,
-    jwt::SystemClaim,
+    jwt::SystemClaim, types::sqid::Sqid,
 };
-use oceaniam_database::{helper::administrators::AdministratorsHelper, model::prelude::*};
+use oceaniam_database::{
+    helper::{
+        SafeTransactionConnectionTrait,
+        administrators::{AdministratorsHelper, UpdateAdministratorModel},
+    },
+    model::{administrators, prelude::*},
+};
 use oceaniam_vo::administrators::{
     AdministratorVO, CreateAdministratorRequest, CreateAdministratorResponse,
+    PatchAdministratorRequest,
 };
 use sea_orm::TransactionTrait;
 use tap::Tap;
@@ -24,6 +37,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
     router
         .routes(routes!(get_administrators))
         .routes(routes!(create_administrator))
+        .routes(routes!(patch_administrator))
 }
 
 /// Get administrator list
@@ -127,18 +141,19 @@ pub async fn create_administrator(
         return Err(error);
     }
 
-    let administrator = match Administrators::create(administrator_id, &name, &transaction).await {
-        Ok(administrator) => administrator,
-        Err(error) => {
-            error!(
-                %operator_id,
-                %administrator_id,
-                %error,
-                "administrator creation failed"
-            );
-            return Err(error);
-        }
-    };
+    let administrator =
+        match Administrators::create_administrator(administrator_id, &name, &transaction).await {
+            Ok(administrator) => administrator,
+            Err(error) => {
+                error!(
+                    %operator_id,
+                    %administrator_id,
+                    %error,
+                    "administrator creation failed"
+                );
+                return Err(error);
+            }
+        };
 
     transaction.commit().await?;
 
@@ -160,4 +175,117 @@ pub async fn create_administrator(
         administrator: administrator.into(),
         initial_password,
     }))
+}
+
+/// Update administrator
+#[utoipa::path(
+        patch,
+        path = "/administrators/{target_id}",
+        tag = "Administrators",
+        params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+            ("administrator_id", description = "Administrator ID"),
+        ),
+        request_body = PatchAdministratorRequest,
+        responses(
+            (status = 200, body = ApiResponse<AdministratorVO>),
+            (status = 400, description = "Bad request", body = ApiResponse<ErrorResponse>),
+            (status = 401, description = "Unauthorized"),
+            (status = 404, description = "Administrator not found", body = ApiResponse<ErrorResponse>),
+            (status = 409, description = "Administrator already exists", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
+        ),
+    )]
+#[tracing::instrument(
+    level = "info",
+    name = "administrators.patch",
+    skip(auth, database, auditing, target_id, payload),
+    fields(operator_id = field::Empty, administrator_id = field::Empty)
+)]
+pub async fn patch_administrator(
+    auth: RequireAuth<SystemClaim>,
+    Path(target_id): Path<Sqid>,
+    State(AppState {
+        database, auditing, ..
+    }): State<AppState<'_>>,
+    Garde(Json(payload)): Garde<Json<PatchAdministratorRequest>>,
+) -> RestResult<AdministratorVO> {
+    let operator_id = auth.token.claims.sub;
+    let target_id: Uuid = target_id.try_into()?;
+    Span::current().tap(|it| {
+        it.record("operator_id", field::display(&operator_id))
+            .record("target_id", field::display(&target_id));
+    });
+
+    // NOTE: Prepare for future.
+    //
+    // HOLY SHIT WHERE's MY POLICY ENGINE?
+    let target_administrator = if operator_id == target_id {
+        patch_administrator_self(operator_id, payload.clone(), &database).await
+    } else {
+        patch_administrator_other(operator_id, target_id, payload.clone(), &database).await
+    }?;
+
+    info!(
+        %operator_id,
+        %target_id,
+        "administrator updated successfully"
+    );
+
+    let PatchAdministratorRequest { name } = payload;
+
+    auditing
+        .write(AuditPayload::from(PatchAdministratorPayload {
+            target_id,
+            operator_id,
+            name,
+        }))
+        .await;
+
+    Ok(ApiResponse::new(target_administrator.into()))
+}
+
+#[tracing::instrument(
+    level = "info",
+    name = "administrators.patch.self",
+    skip(database, name),
+    fields(%operator_id)
+)]
+async fn patch_administrator_self(
+    operator_id: Uuid,
+    PatchAdministratorRequest { name }: PatchAdministratorRequest,
+    database: &impl SafeTransactionConnectionTrait,
+) -> Result<administrators::Model, Error> {
+    Administrators::update_model(operator_id, UpdateAdministratorModel { name }, database)
+        .await
+        .inspect_err(|e| {
+            error!(
+                %operator_id,
+                error = %e,
+                "administrator patch for self failed"
+            )
+        })
+}
+
+#[tracing::instrument(
+    level = "info",
+    name = "administrators.patch.other",
+    skip(database, name),
+    fields(%operator_id, %target_id)
+)]
+async fn patch_administrator_other(
+    operator_id: Uuid,
+    target_id: Uuid,
+    PatchAdministratorRequest { name }: PatchAdministratorRequest,
+    database: &impl SafeTransactionConnectionTrait,
+) -> Result<administrators::Model, Error> {
+    Administrators::update_model(target_id, UpdateAdministratorModel { name }, database)
+        .await
+        .inspect_err(|e| {
+            error!(
+                %target_id,
+                error = %e,
+                "administrator patch for other administrators failed"
+            )
+        })
 }
