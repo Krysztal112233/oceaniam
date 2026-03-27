@@ -7,7 +7,6 @@ import { type GetApplicationConfigurationResponse } from "./types/GetApplication
 import { type PatchApplicationRequest } from "./types/PatchApplicationRequest";
 import { type PatchApplicationConfigurationRequest } from "./types/PatchApplicationConfigurationRequest";
 import { type CreateTenantRequest } from "./types/CreateTenantRequest";
-import { type GetTenantsRequest } from "./types/GetTenantsRequest";
 import { type PagedResponse } from "./pagination";
 import { type Sqid } from "./types/Sqid";
 import { type SignoutResponse } from "./types/SignoutResponse";
@@ -15,7 +14,6 @@ import { type SystemSigninRequest } from "./types/SystemSigninRequest";
 import { type SystemSigninResponse } from "./types/SystemSigninResponse";
 import { type TenantVO } from "./types/TenantVO";
 import { type TokenDispatchMethod } from "./types/TokenDispatchMethod";
-import { type Users } from "./types/Users";
 import { type SecretVO } from "./types/SecretVO";
 
 export type TokenGetter = () =>
@@ -26,9 +24,22 @@ export type TokenGetter = () =>
 
 export type GetApplicationsQuery = {
     tenant_id: Sqid;
-    page?: number | bigint;
-    per_page?: number | bigint;
-};
+} & PaginationQuery;
+
+export type PaginationQuery =
+    | {
+          page: number | bigint;
+          per_page: number | bigint;
+      }
+    | {
+          page?: undefined;
+          per_page?: undefined;
+      };
+
+export type GetTenantsQuery = PaginationQuery;
+export type GetTenantUsersQuery = PaginationQuery;
+export type GetApplicationUsersQuery = PaginationQuery;
+export type GetSecretsQuery = PaginationQuery;
 
 type TenantScopedCreateApplicationRequest = Omit<
     CreateApplicationRequest,
@@ -346,15 +357,13 @@ export class OceanIamClient {
     } as const;
 
     public async getTenants(
-        req: GetTenantsRequest,
+        query?: GetTenantsQuery,
     ): Promise<PagedResponse<TenantVO>> {
+        const { page, per_page } = query ?? {};
         return this.request<PagedResponse<TenantVO>>({
             method: "GET",
             url: this.endpoints.tenants(),
-            query: {
-                page: req.page,
-                per_page: req.per_page,
-            },
+            query: { page, per_page },
         });
     }
 
@@ -382,10 +391,13 @@ export class OceanIamClient {
 
     public async getTenantUsers(
         tenantId: string,
+        query?: GetTenantUsersQuery,
     ): Promise<PagedResponse<ApplicationUserVO>> {
+        const { page, per_page } = query ?? {};
         return this.request<PagedResponse<ApplicationUserVO>>({
             method: "GET",
             url: this.endpoints.tenantUsers(tenantId),
+            query: { page, per_page },
         });
     }
 
@@ -446,10 +458,13 @@ export class OceanIamClient {
     public async getApplicationUsers(
         tenantId: string,
         applicationId: string,
-    ): Promise<Users[]> {
-        return this.request<Users[]>({
+        query?: GetApplicationUsersQuery,
+    ): Promise<PagedResponse<ApplicationUserVO>> {
+        const { page, per_page } = query ?? {};
+        return this.request<PagedResponse<ApplicationUserVO>>({
             method: "GET",
             url: this.endpoints.applicationUsers(tenantId, applicationId),
+            query: { page, per_page },
         });
     }
 
@@ -488,10 +503,14 @@ export class OceanIamClient {
         });
     }
 
-    public async getSecrets(): Promise<PagedResponse<SecretVO>> {
+    public async getSecrets(
+        query?: GetSecretsQuery,
+    ): Promise<PagedResponse<SecretVO>> {
+        const { page, per_page } = query ?? {};
         return this.request<PagedResponse<SecretVO>>({
             method: "GET",
             url: this.endpoints.secrets(),
+            query: { page, per_page },
         });
     }
 
