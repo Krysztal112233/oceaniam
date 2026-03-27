@@ -138,13 +138,11 @@ async fn setup_database(
 
     let db = Database::connect(options).await.inspect_err(|err| {
         error!(
-            dsn = %redact_dsn(dsn),
+            %dsn,
             error = %err,
             "failed to connect to database"
         )
     })?;
-
-    debug!(dsn = %redact_dsn(dsn), "connected to database");
 
     init_system(&db).await?;
 
@@ -181,50 +179,6 @@ async fn init_system(db: &DatabaseConnection) -> Result<(), Error> {
     }
 
     Ok(())
-}
-
-fn redact_dsn(dsn: &str) -> String {
-    let mut out = dsn.to_string();
-
-    // Redact URL userinfo passwords (e.g. `postgres://user:pass@host/db`).
-    if let Some(scheme_end) = out.find("://") {
-        let userinfo_start = scheme_end + 3;
-        if let Some(at_offset) = out[userinfo_start..].find('@') {
-            let at_pos = userinfo_start + at_offset;
-            if let Some(colon_offset) = out[userinfo_start..at_pos].find(':') {
-                let colon_pos = userinfo_start + colon_offset;
-                out.replace_range(colon_pos + 1..at_pos, "***");
-            }
-        }
-    }
-
-    // Redact `password=` key/value segments (e.g. `... password=pass ...` or `...?password=pass&...`).
-    let lower = out.to_ascii_lowercase();
-    let key = "password=";
-
-    let mut redacted = String::with_capacity(out.len());
-    let mut start = 0usize;
-
-    while let Some(pos) = lower[start..].find(key) {
-        let abs_pos = start + pos;
-        let key_end = abs_pos + key.len();
-
-        redacted.push_str(&out[start..key_end]);
-
-        let mut value_end = key_end;
-        while value_end < out.len() {
-            match out.as_bytes()[value_end] {
-                b'&' | b' ' | b';' | b'\t' | b'\n' | b'\r' | b'#' => break,
-                _ => value_end += 1,
-            }
-        }
-
-        redacted.push_str("***");
-        start = value_end;
-    }
-
-    redacted.push_str(&out[start..]);
-    redacted
 }
 
 fn to_cors_layer(CorsConfig { allow_origin }: CorsConfig) -> CorsLayer {
