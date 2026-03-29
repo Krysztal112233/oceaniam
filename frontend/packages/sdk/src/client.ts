@@ -3,6 +3,7 @@ import { type ApplicationDetailVO } from "./types/ApplicationDetailVO";
 import { type ApplicationUserVO } from "./types/ApplicationUserVO";
 import { type CreateApplicationRequest } from "./types/CreateApplicationRequest";
 import { type CreateApplicationResponse } from "./types/CreateApplicationResponse";
+import { type CreateApplicationUserRequest } from "./types/CreateApplicationUserRequest";
 import { type GetApplicationConfigurationResponse } from "./types/GetApplicationConfigurationResponse";
 import { type PatchApplicationRequest } from "./types/PatchApplicationRequest";
 import { type PatchApplicationConfigurationRequest } from "./types/PatchApplicationConfigurationRequest";
@@ -465,6 +466,21 @@ export class OceanIamClient {
             method: "GET",
             url: this.endpoints.applicationUsers(tenantId, applicationId),
             query: { page, per_page },
+        });
+    }
+
+    public async createApplicationUser(
+        tenantId: string,
+        applicationId: string,
+        req: CreateApplicationUserRequest,
+    ): Promise<ApplicationUserVO> {
+        return this.request<ApplicationUserVO>({
+            method: "POST",
+            url: this.endpoints.applicationUsersCreate(
+                tenantId,
+                applicationId,
+            ),
+            body: req,
         });
     }
 
