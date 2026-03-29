@@ -6,7 +6,8 @@ use oceaniam_common::{PageParam, PagedResponse, error::Error, helpers::gen_rando
 use oceaniam_database::helper::applications::{ApplicationConfiguration, CreateApplicationOptions};
 use oceaniam_database::helper::users::{CreateUserOpts, CreateUserResult};
 use oceaniam_database::{
-    helper::users::UserHelper, model::application_secrets::Model as SecretModel,
+    helper::{SafeTransactionConnectionTrait, users::UserHelper},
+    model::application_secrets::Model as SecretModel,
     model::applications::Model as ApplicationModel,
 };
 use oceaniam_database::{
@@ -232,13 +233,18 @@ impl ManagedApplications<'_> {
 
     async fn is_application_exist(&self, application_id: Uuid) -> Result<(), Error> {
         if self.filters.application_id_filter().exists(&application_id) {
-            Ok(())
-        } else {
-            Err(Error::with_code(
-                StatusCode::NOT_FOUND,
-                format!("application_id={application_id} doesn't exist"),
-            ))
+            return Ok(());
         }
+
+        if Applications::is_exist(application_id, &self.database).await? {
+            self.filters.application_id_filter().mark();
+            return Ok(());
+        }
+
+        Err(Error::with_code(
+            StatusCode::NOT_FOUND,
+            format!("application_id={application_id} doesn't exist"),
+        ))
     }
 }
 
@@ -265,11 +271,6 @@ impl ApplicationUsers {
         database: DatabaseConnection,
     ) -> Result<Self, Error> {
         if Applications::is_exist(application_id, &database).await? {
-            Err(Error::with_code(
-                StatusCode::NOT_FOUND,
-                format!("application_id={application_id} not found"),
-            ))
-        } else {
             Ok(Self {
                 application_id,
                 database,
@@ -278,6 +279,11 @@ impl ApplicationUsers {
                     .build(),
                 shared_credential_vaults,
             })
+        } else {
+            Err(Error::with_code(
+                StatusCode::NOT_FOUND,
+                format!("application_id={application_id} not found"),
+            ))
         }
     }
 
@@ -307,6 +313,20 @@ impl ApplicationUsers {
         opts: CreateUserOpts,
         password: impl Into<String>,
     ) -> Result<UserModel, Error> {
+        let user = self
+            .create_user_in_tx(application_id, opts, password, &self.database)
+            .await?;
+
+        Ok(user)
+    }
+
+    pub async fn create_user_in_tx(
+        &self,
+        application_id: Uuid,
+        opts: CreateUserOpts,
+        password: impl Into<String>,
+        transaction: &impl SafeTransactionConnectionTrait,
+    ) -> Result<UserModel, Error> {
         let user_id = Uuid::now_v7();
         let password = password.into();
 
@@ -315,8 +335,18 @@ impl ApplicationUsers {
             user_id, application_id
         );
 
+        self.shared_credential_vaults
+            .create_with_password_in_tx(user_id, password, transaction)
+            .await
+            .inspect_err(|e| {
+                error!(
+                    "failed to create credential for user: user_id={}, subject_id={}, error={}",
+                    user_id, user_id, e
+                );
+            })?;
+
         let CreateUserResult { user, subject } =
-            Users::create_user(user_id, application_id, opts, &self.database)
+            Users::create_user(user_id, application_id, opts, transaction)
                 .await
                 .inspect_err(|e| {
                     error!(
@@ -324,21 +354,6 @@ impl ApplicationUsers {
                         user_id, application_id, e
                     );
                 })?;
-
-        self.shared_credential_vaults
-            .create_with_password(subject.id, password)
-            .await
-            .inspect_err(|e| {
-                error!(
-                    "failed to create credential for user: user_id={}, subject_id={}, error={}",
-                    user.id, subject.id, e
-                );
-            })?;
-
-        info!(
-            "credential created successfully for user: user_id={}, subject_id={}",
-            user.id, subject.id
-        );
 
         info!(
             "user created successfully: user_id={}, subject_id={}, application_id={}",

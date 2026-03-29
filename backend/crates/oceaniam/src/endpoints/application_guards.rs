@@ -1,12 +1,15 @@
 use axum::{
     extract::FromRequestParts,
-    http::{StatusCode, request::Parts},
+    http::{StatusCode, header, request::Parts},
 };
-use oceaniam_common::types::sqid::Sqid;
-use tracing::warn;
+use oceaniam_common::{jwt::SystemClaim, types::sqid::Sqid};
+use tracing::{debug, warn};
 use uuid::Uuid;
 
-use crate::{middlewares::application::RequireApplicationSecret, state::AppState};
+use crate::{
+    middlewares::{application::RequireApplicationSecret, auth::RequireAuth},
+    state::AppState,
+};
 
 /// Ensures the provided application secret matches the application identifier in the path.
 #[derive(Debug, Clone)]
@@ -51,5 +54,34 @@ impl FromRequestParts<AppState<'_>> for RequireMatchedApplicationSecret {
         }
 
         Ok(Self)
+    }
+}
+
+/// Ensures the request is authenticated either by a system administrator JWT
+/// or by an application secret that matches the application identifier in the path.
+#[derive(Debug, Clone)]
+pub struct RequireAdminJwtOrMatchedApplicationSecret;
+
+impl FromRequestParts<AppState<'_>> for RequireAdminJwtOrMatchedApplicationSecret {
+    type Rejection = StatusCode;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState<'_>,
+    ) -> Result<Self, Self::Rejection> {
+        if parts.headers.contains_key(header::AUTHORIZATION) {
+            RequireAuth::<SystemClaim>::from_request_parts(parts, state).await?;
+            return Ok(Self);
+        }
+
+        if parts.headers.contains_key("X-OceanIAM-Application-Secret") {
+            RequireMatchedApplicationSecret::from_request_parts(parts, state).await?;
+            return Ok(Self);
+        }
+
+        debug!(
+            "application authorization failed: missing both authorization and application secret headers"
+        );
+        Err(StatusCode::NON_AUTHORITATIVE_INFORMATION)
     }
 }

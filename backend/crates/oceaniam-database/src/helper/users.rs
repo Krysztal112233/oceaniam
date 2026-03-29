@@ -32,6 +32,16 @@ pub struct CreateUserResult {
 
 #[async_trait::async_trait]
 pub trait UserHelper {
+    /// Creates the `subjects` and `users` rows for an application user.
+    ///
+    /// Ordering matters here. The caller must create the matching credential
+    /// row first, using the same UUID, before calling this helper.
+    ///
+    /// That requirement exists because `subjects.id` is linked to
+    /// `credentials.id` by a foreign key in the current schema. This helper
+    /// therefore only creates the subject and user records, and assumes the
+    /// credential already exists inside the same transaction when atomicity is
+    /// required.
     async fn create_user(
         id: Uuid,
         application_id: Uuid,
@@ -42,8 +52,11 @@ pub trait UserHelper {
         }: CreateUserOpts,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<CreateUserResult, Error> {
+        let subject =
+            Subjects::create_subjects(id, application_id, SubjectTypeEnum::User, database).await?;
+
         let user = model::users::Model {
-            id,
+            id: subject.id,
             application_id,
             email,
             phone,
@@ -52,10 +65,6 @@ pub trait UserHelper {
         .into_active_model()
         .insert(database)
         .await?;
-
-        let subject =
-            Subjects::create_subjects(user.id, application_id, SubjectTypeEnum::User, database)
-                .await?;
 
         Ok(CreateUserResult { user, subject })
     }

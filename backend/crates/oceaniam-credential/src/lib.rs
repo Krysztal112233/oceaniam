@@ -2,7 +2,7 @@ use oceaniam_database::{
     helper::SafeTransactionConnectionTrait,
     model::{self, prelude::Credentials},
 };
-use sea_orm::{EntityTrait, IntoActiveModel};
+use sea_orm::{ActiveModelTrait, EntityTrait, IntoActiveModel};
 use serde::{Deserialize, Serialize};
 use tracing::error;
 use uuid::Uuid;
@@ -39,17 +39,28 @@ impl CredentialVault {
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::credentials::Model, Error> {
         let Self { phc } = self;
+        let id = id.into();
+        let active_model = model::credentials::Model {
+            id,
+            phc: phc.clone(),
+        }
+        .into_active_model();
 
-        Ok(Credentials::update(
-            model::credentials::Model {
-                id: id.into(),
-                phc: phc.clone(),
-            }
-            .into_active_model(),
-        )
-        .exec(database)
-        .await
-        .inspect_err(|e| error!("{e}"))?)
+        let existing = Credentials::find_by_id(id)
+            .one(database)
+            .await
+            .inspect_err(|e| error!("{e}"))?;
+
+        Ok(match existing {
+            Some(_) => Credentials::update(active_model)
+                .exec(database)
+                .await
+                .inspect_err(|e| error!("{e}"))?,
+            None => active_model
+                .insert(database)
+                .await
+                .inspect_err(|e| error!("{e}"))?,
+        })
     }
 }
 

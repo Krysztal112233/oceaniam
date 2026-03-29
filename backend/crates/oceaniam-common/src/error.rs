@@ -83,6 +83,13 @@ impl From<DbErr> for Error {
 
 impl From<Arc<Error>> for Error {
     fn from(value: Arc<Error>) -> Self {
-        Arc::try_unwrap(value).unwrap_or_else(|arc| Error::Internal(format!("{}", arc)))
+        match Arc::try_unwrap(value) {
+            Ok(error) => error,
+            Err(arc) => match arc.as_ref() {
+                Error::CustomMessage(code, msg) => Error::CustomMessage(*code, msg.clone()),
+                Error::Internal(msg) => Error::Internal(msg.clone()),
+                _ => Error::Internal(format!("{}", arc)),
+            },
+        }
     }
 }

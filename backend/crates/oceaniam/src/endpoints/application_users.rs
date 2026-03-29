@@ -14,13 +14,14 @@ use oceaniam_common::{
 use oceaniam_database::helper::users::{CreateUserOpts, UserHelper};
 use oceaniam_database::model::prelude::Users;
 use oceaniam_vo::applications::{ApplicationUserVO, CreateApplicationUserRequest};
+use sea_orm::TransactionTrait;
 use tap::Tap;
 use tracing::{Span, error, field, info};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
 use crate::{
-    endpoints::application_guards::RequireMatchedApplicationSecret,
+    endpoints::application_guards::RequireAdminJwtOrMatchedApplicationSecret,
     endpoints::applications::{TenantApplicationPath, get_tenant_application},
     middlewares,
     state::{AppState, applications::UserIdentifier},
@@ -177,6 +178,7 @@ pub async fn get_application_user(
         path = "/tenants/{tenant_id}/applications/{application_id}/users",
         tag = "ApplicationUsers",
         params(
+            ("Authorization" = String, Header, description = "Bearer token for backend administrator"),
             ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("tenant_id" = String, Path, description = "Tenant ID"),
             ("application_id" = String, Path, description = "Application ID"),
@@ -184,6 +186,7 @@ pub async fn get_application_user(
         request_body = CreateApplicationUserRequest,
         responses(
             (status = 200, body = ApiResponse<ApplicationUserVO>),
+            (status = 203, description = "Missing Authorization header and application secret header"),
             (status = 400, description = "Bad request"),
             (status = 401, description = "Unauthorized"),
             (status = 403, description = "Forbidden - secret does not belong to this application"),
@@ -198,7 +201,7 @@ pub async fn get_application_user(
     fields(tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
 )]
 pub async fn create_application_user(
-    _: RequireMatchedApplicationSecret,
+    _: RequireAdminJwtOrMatchedApplicationSecret,
     State(AppState {
         applications,
         auditing,
@@ -220,6 +223,7 @@ pub async fn create_application_user(
             .record("application_id", field::display(&application_id));
     });
 
+    let transaction = database.begin().await?;
     let user = applications
         .get_application_users(application_id)
         .await
@@ -230,7 +234,7 @@ pub async fn create_application_user(
                 "failed to get application users helper"
             )
         })?
-        .create_user(
+        .create_user_in_tx(
             application_id,
             CreateUserOpts {
                 nickname,
@@ -238,6 +242,7 @@ pub async fn create_application_user(
                 phone,
             },
             password,
+            &transaction,
         )
         .await
         .inspect_err(|e| {
@@ -247,6 +252,8 @@ pub async fn create_application_user(
                 "application user creation failed"
             )
         })?;
+    transaction.commit().await?;
+
     Span::current().tap(|it| {
         it.record("user_id", field::display(&user.id));
     });
