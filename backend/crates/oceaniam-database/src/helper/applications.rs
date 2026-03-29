@@ -229,6 +229,7 @@ fn application_not_found(application_id: Uuid) -> Error {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ApplicationConfiguration {
     pub authentication: AuthenticationConfiguration,
+    pub enable_registration: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

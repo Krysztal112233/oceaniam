@@ -316,7 +316,7 @@ pub async fn refresh_application_token(
             .record("token_dispatch", field::debug(&token_mtd));
     });
 
-    let ApplicationConfiguration { authentication } =
+    let ApplicationConfiguration { authentication, .. } =
         applications.get_configuration(application_id).await?;
 
     info!(%user_id, %application_id, old_jti = %jti, "token refresh requested");

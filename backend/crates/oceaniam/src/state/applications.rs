@@ -188,6 +188,10 @@ impl ManagedApplications<'_> {
                     it.authentication.audience = audience;
                 }
             }
+
+            if let Some(enable_registration) = patch.enable_registration {
+                it.enable_registration = enable_registration;
+            }
         });
 
         let configuration = ApplicationConfiguration::from(

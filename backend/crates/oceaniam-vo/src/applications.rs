@@ -27,6 +27,7 @@ pub struct AuthenticationConfigurationVO {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
 pub struct ApplicationConfigurationVO {
     pub authentication: AuthenticationConfigurationVO,
+    pub enable_registration: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
@@ -38,6 +39,7 @@ pub struct PatchAuthenticationConfigurationVO {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
 pub struct PatchApplicationConfigurationRequest {
     pub authentication: Option<PatchAuthenticationConfigurationVO>,
+    pub enable_registration: Option<bool>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
@@ -124,11 +126,14 @@ impl From<oceaniam_database::helper::applications::ApplicationConfiguration>
     for ApplicationConfigurationVO
 {
     fn from(
-        oceaniam_database::helper::applications::ApplicationConfiguration { authentication }:
-            oceaniam_database::helper::applications::ApplicationConfiguration,
+        oceaniam_database::helper::applications::ApplicationConfiguration {
+            authentication,
+            enable_registration: allow_registration,
+        }: oceaniam_database::helper::applications::ApplicationConfiguration,
     ) -> Self {
         Self {
             authentication: authentication.into(),
+            enable_registration: allow_registration,
         }
     }
 }
