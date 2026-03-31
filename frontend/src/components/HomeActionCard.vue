@@ -57,9 +57,7 @@ function handleClick(): void {
                 <span
                     class="btn btn-sm"
                     :class="
-                        accent === 'primary'
-                            ? 'btn-primary'
-                            : 'btn-secondary'
+                        accent === 'primary' ? 'btn-primary' : 'btn-secondary'
                     "
                 >
                     {{ ctaLabel }}
@@ -104,9 +102,7 @@ function handleClick(): void {
                 <span
                     class="btn btn-sm"
                     :class="
-                        accent === 'primary'
-                            ? 'btn-primary'
-                            : 'btn-secondary'
+                        accent === 'primary' ? 'btn-primary' : 'btn-secondary'
                     "
                 >
                     {{ ctaLabel }}

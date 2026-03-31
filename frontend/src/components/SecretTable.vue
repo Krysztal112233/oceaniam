@@ -56,9 +56,7 @@ function formatApplicationIds(applicationIds: string[]): string[] {
 
     return applicationIds.map((applicationId) => {
         const comment = props.applicationComments[applicationId];
-        return comment
-            ? `${applicationId} (${comment})`
-            : applicationId;
+        return comment ? `${applicationId} (${comment})` : applicationId;
     });
 }
 </script>
@@ -103,7 +101,7 @@ function formatApplicationIds(applicationIds: string[]): string[] {
                                         : 'badge-success badge-soft'
                                 "
                             >
-                                {{ row.revoked_at ? '已撤销' : '有效' }}
+                                {{ row.revoked_at ? "已撤销" : "有效" }}
                             </span>
                             <div
                                 v-if="row.revoked_at"

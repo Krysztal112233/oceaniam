@@ -184,9 +184,7 @@ export const useTenantStore = defineStore(
                 return tenant;
             } catch (err) {
                 createTenantError.value =
-                    err instanceof Error
-                        ? err.message
-                        : "创建 tenant 失败。";
+                    err instanceof Error ? err.message : "创建 tenant 失败。";
                 throw err;
             } finally {
                 createTenantLoading.value = false;

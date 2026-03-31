@@ -9,6 +9,7 @@
         "dev:all": "pnpm -r --parallel dev",
         "prebuild": "pnpm -C packages/sdk build",
         "build": "vue-tsc -p tsconfig.json && vite build",
+        "fmt": "pnpm dlx oxfmt .",
         "preview": "vite preview",
         "refresh-types": "node scripts/refresh-types.mjs"
     },

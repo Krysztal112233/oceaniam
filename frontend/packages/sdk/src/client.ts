@@ -476,10 +476,7 @@ export class OceanIamClient {
     ): Promise<ApplicationUserVO> {
         return this.request<ApplicationUserVO>({
             method: "POST",
-            url: this.endpoints.applicationUsersCreate(
-                tenantId,
-                applicationId,
-            ),
+            url: this.endpoints.applicationUsersCreate(tenantId, applicationId),
             body: req,
         });
     }

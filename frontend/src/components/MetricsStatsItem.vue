@@ -34,4 +34,3 @@ withDefaults(
         <div v-if="desc" class="stat-desc">{{ desc }}</div>
     </div>
 </template>
-

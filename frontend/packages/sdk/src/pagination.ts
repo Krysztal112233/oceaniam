@@ -7,4 +7,3 @@ export type PagedResponse<T> = {
     items: T[];
     page_info: PageInfo;
 };
-

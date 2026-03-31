@@ -2,4 +2,9 @@
 import type { ApplicationConfigurationVO } from "./ApplicationConfigurationVO";
 import type { Sqid } from "./Sqid";
 
-export type ApplicationDetailVO = { id: Sqid, comment: string | null, tenant_id: Sqid, configuration: ApplicationConfigurationVO, };
+export type ApplicationDetailVO = {
+    id: Sqid;
+    comment: string | null;
+    tenant_id: Sqid;
+    configuration: ApplicationConfigurationVO;
+};

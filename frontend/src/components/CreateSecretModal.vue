@@ -70,7 +70,8 @@ function handleSubmit() {
 
             <div class="mt-4 rounded-box border border-base-200 bg-base-50 p-4">
                 <p class="text-sm text-base-content/75">
-                    创建完成后，页面会展示本次返回的完整 Secret 值。后续列表中仅显示脱敏内容。
+                    创建完成后，页面会展示本次返回的完整 Secret
+                    值。后续列表中仅显示脱敏内容。
                 </p>
             </div>
 

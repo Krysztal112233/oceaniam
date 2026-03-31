@@ -2,9 +2,7 @@
     "extends": "@vue/tsconfig/tsconfig.dom.json",
     "compilerOptions": {
         "target": "ES2023",
-        "types": [
-            "vite/client"
-        ],
+        "types": ["vite/client"],
         /* Linting */
         "strict": true,
         "noUnusedLocals": true,
@@ -13,10 +11,5 @@
         "noFallthroughCasesInSwitch": true,
         "noUncheckedSideEffectImports": true
     },
-    "include": [
-        "src/**/*.ts",
-        "src/**/*.tsx",
-        "src/**/*.vue",
-        "vite.config.ts"
-    ]
+    "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "vite.config.ts"]
 }
