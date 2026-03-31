@@ -8,8 +8,8 @@ use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
 use oceaniam_audit::types::{AuditPayload, CreateApplicationUserPayload};
 use oceaniam_common::{
-    ApiResponse, ErrorResponse, PageParam, PagedResponse, RestResult, jwt::SystemClaim,
-    types::sqid::Sqid,
+    ApiResponse, ErrorResponse, PageParam, PagedResponse, RestResult, helpers::gen_random_name,
+    jwt::SystemClaim, types::sqid::Sqid,
 };
 use oceaniam_database::helper::users::{CreateUserOpts, UserHelper};
 use oceaniam_database::model::prelude::Users;
@@ -218,6 +218,13 @@ pub async fn create_application_user(
 ) -> RestResult<ApplicationUserVO> {
     let application = get_tenant_application(path, &database).await?;
     let application_id = application.id;
+
+    // NOTE: This field required more than 4 char if [Some] or [None].
+    //
+    // If less than 4 char, system will reject request.
+    //
+    // If [None], it will be filled with [gen_random_name]
+    let nickname = nickname.unwrap_or_else(gen_random_name);
     Span::current().tap(|it| {
         it.record("tenant_id", field::display(&application.tenant_id))
             .record("application_id", field::display(&application_id));

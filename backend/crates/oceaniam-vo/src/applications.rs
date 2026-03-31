@@ -172,10 +172,9 @@ pub struct CreateApplicationUserRequest {
     #[garde(phone_number)]
     pub phone: Option<String>,
 
-    /// User nickname (optional, if not provided, two random words will be generated)
-    #[serde(default = "oceaniam_common::helpers::gen_random_name")]
-    #[garde(skip)]
-    pub nickname: String,
+    /// User nickname (optional, if not provided, a random name will be generated)
+    #[garde(length(min = 4))]
+    pub nickname: Option<String>,
 
     #[garde(skip)]
     pub password: String,
