@@ -1,13 +1,17 @@
 use crate::state::{
     applications::ManagedApplications, audit::Auditing, credentials::ManagedCredentialVaults,
     filters::ManagedFilters, keybox::ManagedKeyBoxes, revoked::RevokedJwt,
-    roller::BuiltinScheduledJwkSetRoller,
 };
 
 use axum::extract::FromRef;
 use im::HashMap;
 use jsonwebtoken::{Algorithm, Validation};
-use oceaniam_common::{consts, error::Error, jwks::ManagedJwkSet, jwt::JwtValidator};
+use oceaniam_common::{
+    consts,
+    error::Error,
+    jwks::{JwkSet, ManagedJwkSet},
+    jwt::JwtValidator,
+};
 use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, key_boxes::KeyBoxesHelper},
     model::prelude::KeyBoxes,
@@ -24,7 +28,6 @@ pub mod credentials;
 pub mod filters;
 pub mod keybox;
 pub mod revoked;
-pub mod roller;
 
 #[derive(Debug, Clone)]
 pub struct AppState<'a> {
@@ -97,8 +100,15 @@ impl AppState<'static> {
 }
 
 async fn initial_system_jwks(database: DatabaseConnection) -> Result<ManagedJwkSet, Error> {
-    let roller = BuiltinScheduledJwkSetRoller::new(database);
-    let system_jwks = ManagedJwkSet::with_roller(roller).await?;
+    let keys = KeyBoxes::get_system_keys(&database)
+        .await?
+        .into_iter()
+        .map(|it| (it.id, it))
+        .collect();
+    let system_jwks = ManagedJwkSet::new(JwkSet::from(KeyBox::with_keys(
+        consts::SYSTEM_APPLICATION_UUID,
+        keys,
+    )));
 
     if system_jwks.jwks().keys.is_empty() {
         warn!("could not find any jwks, the system may not be functioning correctly.")

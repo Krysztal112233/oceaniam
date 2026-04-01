@@ -87,7 +87,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20260325_170615_create_primary_key_of_application_secret_binding::Migration),
             Box::new(m20260326_112803_alter_audit_type_tenant_admin_management::Migration),
             Box::new(m20260327_202624_alter_audit_type_patch_administrator::Migration),
-            Box::new(m20260329_154808_alter_application_configuration_enable_registration::Migration),
+            Box::new(
+                m20260329_154808_alter_application_configuration_enable_registration::Migration,
+            ),
         ]
     }
 }

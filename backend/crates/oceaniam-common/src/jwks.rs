@@ -5,8 +5,6 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::error::Error;
-
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct Jwk {
     pub kty: String,
@@ -71,97 +69,74 @@ pub struct ManagedJwkSet {
 }
 
 impl ManagedJwkSet {
-    pub async fn with_roller(roller: impl roller::ManagedJwkSetRoller) -> Result<Self, Error> {
-        let jwks = Self::default();
-        roller.roll(jwks.clone()).await?;
-        Ok(jwks)
+    pub fn new(jwks: JwkSet) -> Self {
+        Self {
+            jwks: Arc::new(RwLock::new(jwks)),
+        }
     }
 
     pub fn jwks(&self) -> JwkSet {
         self.jwks.read().clone()
     }
 
-    pub fn set_jwks(&mut self, jwks: JwkSet) {
+    pub fn set_jwks(&self, jwks: JwkSet) {
         *self.jwks.write() = jwks;
     }
 }
 
-pub mod roller {
-    use std::time::Duration;
+impl From<JwkSet> for ManagedJwkSet {
+    fn from(value: JwkSet) -> Self {
+        Self::new(value)
+    }
+}
 
-    use reqwest::{Client, StatusCode};
-    use tracing::error;
+#[cfg(test)]
+mod tests {
+    use super::{Jwk, JwkSet, ManagedJwkSet};
+    use im::vector;
 
-    use crate::{
-        error::Error,
-        jwks::{JwkSet, ManagedJwkSet},
-    };
+    // NOTE: AI-generated test
+    #[test]
+    fn managed_jwk_set_can_be_constructed_from_jwk_set() {
+        let jwks = JwkSet {
+            keys: vector![Jwk {
+                kty: "RSA".to_string(),
+                kid: Some("key-1".to_string()),
+                use_: Some("sig".to_string()),
+                alg: Some("PS512".to_string()),
+                n: Some("modulus".to_string()),
+                e: Some("AQAB".to_string()),
+            }],
+        };
 
-    #[async_trait::async_trait]
-    pub trait ManagedJwkSetRoller {
-        async fn roll(&self, copy: ManagedJwkSet) -> Result<(), Error>;
+        let managed = ManagedJwkSet::new(jwks.clone());
+        let keys = managed.jwks().keys;
+
+        assert_eq!(keys.len(), 1);
+        assert_eq!(keys[0].kid.as_deref(), Some("key-1"));
+        assert_eq!(keys[0].alg.as_deref(), Some("PS512"));
     }
 
-    pub struct OneShotRoller {
-        url: String,
-    }
+    // NOTE: AI-generated test
+    #[test]
+    fn managed_jwk_set_can_be_updated_directly() {
+        let managed = ManagedJwkSet::default();
+        let jwks = JwkSet {
+            keys: vector![Jwk {
+                kty: "RSA".to_string(),
+                kid: Some("key-2".to_string()),
+                use_: Some("sig".to_string()),
+                alg: Some("PS256".to_string()),
+                n: Some("next-modulus".to_string()),
+                e: Some("AQAB".to_string()),
+            }],
+        };
 
-    impl OneShotRoller {
-        pub fn new(url: impl Into<String>) -> Self {
-            Self { url: url.into() }
-        }
+        managed.set_jwks(jwks.clone());
+        let keys = managed.jwks().keys;
 
-        pub async fn pull(&self) -> Result<JwkSet, Error> {
-            Client::new()
-                .get(self.url.clone())
-                .send()
-                .await
-                .inspect_err(|e| error!("{e}"))
-                .map_err(|e| Error::with_code(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-                .json()
-                .await
-                .inspect_err(|e| error!("{e}"))
-                .map_err(|e| Error::with_code(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
-        }
-    }
-
-    #[async_trait::async_trait]
-    impl ManagedJwkSetRoller for OneShotRoller {
-        async fn roll(&self, copy: ManagedJwkSet) -> Result<(), Error> {
-            let jwks = self.pull().await?;
-            *copy.jwks.write() = jwks;
-
-            Ok(())
-        }
-    }
-
-    pub struct ScheduledRoller {
-        url: String,
-    }
-
-    impl ScheduledRoller {
-        pub fn new(url: impl Into<String>) -> Self {
-            Self { url: url.into() }
-        }
-    }
-
-    #[async_trait::async_trait]
-    impl ManagedJwkSetRoller for ScheduledRoller {
-        async fn roll(&self, copy: ManagedJwkSet) -> Result<(), Error> {
-            let copy = copy.clone();
-            let clond = copy.clone();
-            let url = self.url.clone();
-
-            tokio::spawn(async move {
-                loop {
-                    // TODO: make this behavior configurable
-                    tokio::time::sleep(Duration::from_mins(60)).await;
-
-                    let _ = OneShotRoller::new(url.clone()).roll(clond.clone()).await;
-                }
-            });
-
-            OneShotRoller::new(&self.url).roll(copy.clone()).await
-        }
+        assert_eq!(keys.len(), 1);
+        assert_eq!(keys[0].kid.as_deref(), Some("key-2"));
+        assert_eq!(keys[0].alg.as_deref(), Some("PS256"));
     }
 }
