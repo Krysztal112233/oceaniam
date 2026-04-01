@@ -1,12 +1,8 @@
 use std::time::Duration;
 
-use axum::{
-    Router,
-    http::{HeaderValue, header},
-};
 use mimalloc::MiMalloc;
 use oceaniam_common::{
-    config::{BackendConfig, CorsConfig, DatabaseConfig},
+    config::{BackendConfig, DatabaseConfig},
     consts,
     error::Error,
 };
@@ -16,21 +12,15 @@ use oceaniam_database::{
 };
 use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use tap::Pipe;
-use tower_http::{
-    cors::{Any, CorsLayer},
-    trace::TraceLayer,
-};
 use tracing::{debug, error, warn};
 use tracing_subscriber::EnvFilter;
-use utoipa::openapi::Contact;
-use utoipa_axum::router::OpenApiRouter;
-use utoipa_scalar::{Scalar, Servable};
 
-use crate::state::AppState;
+use crate::app::{app, build_state};
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
+mod app;
 mod endpoints;
 mod middlewares;
 mod state;
@@ -52,34 +42,11 @@ async fn main() -> Result<(), Error> {
     let config = BackendConfig::new()
         .inspect_err(|e| error!(error = %e, "failed to load backend config"))?;
 
-    let states = {
-        let database = setup_database(&config.database)
-            .await
-            .inspect_err(|e| error!(error = %e, "failed to setup database"))?;
+    let states = build_state(&config)
+        .await
+        .inspect_err(|e| error!(error = %e, "failed to build application state"))?;
 
-        AppState::new(database).await?
-    };
-
-    let (router, mut openapi) = OpenApiRouter::new()
-        .pipe(endpoints::endpoint)
-        .split_for_parts();
-
-    {
-        openapi.info.title = "OceanIAM".to_string();
-        openapi.info.description = Some("Pretty simple IAM implemented in Rust".to_string());
-        openapi.info.contact = Some(
-            Contact::builder()
-                .email(Some("krysztal.huang@outlook.com"))
-                .name(Some("Krysztal Huang"))
-                .build(),
-        );
-    }
-
-    let router: Router = router
-        .merge(Scalar::with_url("/docs", openapi))
-        .layer(to_cors_layer(config.cors.clone()))
-        .layer(TraceLayer::new_for_http())
-        .with_state(states);
+    let router = app(states, config.cors.clone());
 
     let addr = config.addr.clone();
     let listener = tokio::net::TcpListener::bind(addr.clone())
@@ -179,16 +146,4 @@ async fn init_system(db: &DatabaseConnection) -> Result<(), Error> {
     }
 
     Ok(())
-}
-
-fn to_cors_layer(CorsConfig { allow_origin }: CorsConfig) -> CorsLayer {
-    CorsLayer::new()
-        .allow_headers([
-            header::ACCEPT,
-            header::AUTHORIZATION,
-            header::CONTENT_TYPE,
-            header::HeaderName::from_static("x-oceaniam-token-dispatch"),
-        ])
-        .allow_methods(Any)
-        .allow_origin(allow_origin.parse::<HeaderValue>().unwrap())
 }
