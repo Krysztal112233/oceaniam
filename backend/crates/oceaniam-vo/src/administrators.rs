@@ -1,5 +1,6 @@
 use garde::Validate;
 use oceaniam_common::types::sqid::Sqid;
+#[cfg(feature = "database")]
 use oceaniam_database::model;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -10,6 +11,7 @@ pub struct AdministratorVO {
     pub name: String,
 }
 
+#[cfg(feature = "database")]
 impl From<model::administrators::Model> for AdministratorVO {
     fn from(model::administrators::Model { id, name }: model::administrators::Model) -> Self {
         Self {

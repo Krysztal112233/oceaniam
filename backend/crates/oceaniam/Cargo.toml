@@ -42,4 +42,4 @@ oceaniam-common.workspace = true
 oceaniam-credential.workspace = true
 oceaniam-database.workspace = true
 oceaniam-keybox.workspace = true
-oceaniam-vo.workspace = true
+oceaniam-vo = { workspace = true, features = ["database"] }

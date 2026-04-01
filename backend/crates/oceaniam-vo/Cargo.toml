@@ -3,6 +3,10 @@ name = "oceaniam-vo"
 version.workspace = true
 edition.workspace = true
 
+[features]
+default = []
+database = ["dep:oceaniam-database"]
+
 [dependencies]
 garde.workspace = true
 jsonwebtoken.workspace = true
@@ -14,4 +18,4 @@ utoipa.workspace = true
 uuid.workspace = true
 
 oceaniam-common.workspace = true
-oceaniam-database.workspace = true
+oceaniam-database = { workspace = true, optional = true }

@@ -2,6 +2,7 @@ use core::str;
 
 use garde::Validate;
 use oceaniam_common::types::sqid::Sqid;
+#[cfg(feature = "database")]
 use oceaniam_database::model::{self};
 use serde::{Deserialize, Deserializer, Serialize};
 use utoipa::ToSchema;
@@ -92,6 +93,7 @@ pub struct ApplicationVO {
     pub tenant_id: Sqid,
 }
 
+#[cfg(feature = "database")]
 impl From<model::applications::Model> for ApplicationVO {
     fn from(
         model::applications::Model {
@@ -109,6 +111,7 @@ impl From<model::applications::Model> for ApplicationVO {
     }
 }
 
+#[cfg(feature = "database")]
 impl From<oceaniam_database::helper::applications::AuthenticationConfiguration>
     for AuthenticationConfigurationVO
 {
@@ -122,6 +125,7 @@ impl From<oceaniam_database::helper::applications::AuthenticationConfiguration>
     }
 }
 
+#[cfg(feature = "database")]
 impl From<oceaniam_database::helper::applications::ApplicationConfiguration>
     for ApplicationConfigurationVO
 {
@@ -138,6 +142,7 @@ impl From<oceaniam_database::helper::applications::ApplicationConfiguration>
     }
 }
 
+#[cfg(feature = "database")]
 impl From<model::applications::Model> for ApplicationDetailVO {
     fn from(
         model::applications::Model {
@@ -188,6 +193,7 @@ pub struct ApplicationUserVO {
     pub nickname: String,
 }
 
+#[cfg(feature = "database")]
 impl From<oceaniam_database::model::users::Model> for ApplicationUserVO {
     fn from(
         oceaniam_database::model::users::Model {
@@ -217,6 +223,7 @@ pub struct SecretVO {
 }
 
 impl SecretVO {
+    #[cfg(feature = "database")]
     pub fn with_masked(model: model::application_secrets::Model) -> Self {
         Self {
             secret: format!("{}...", model.secret.clone().split_at(8).0),
@@ -224,6 +231,7 @@ impl SecretVO {
         }
     }
 
+    #[cfg(feature = "database")]
     pub fn with_unmasked(
         model::application_secrets::Model {
             id,
