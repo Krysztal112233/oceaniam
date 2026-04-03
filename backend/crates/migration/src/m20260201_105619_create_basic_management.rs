@@ -7,6 +7,8 @@ use uuid::Uuid;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
+const DEFAULT_ROOT_PASSWORD_ENV: &str = "MIGRATION_DEFAULT_ROOT_PASSWORD";
+
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
@@ -22,7 +24,7 @@ impl MigrationTrait for Migration {
             .await?;
 
         let (password, phc) = {
-            let password = gen_password();
+            let password = initial_root_password();
             let salt = SaltString::generate(&mut OsRng);
 
             (
@@ -56,6 +58,13 @@ impl MigrationTrait for Migration {
             .drop_table(Table::drop().table(Administrators::Table).to_owned())
             .await?;
         Ok(())
+    }
+}
+
+fn initial_root_password() -> String {
+    match std::env::var(DEFAULT_ROOT_PASSWORD_ENV) {
+        Ok(password) if password.len() > 6 => password,
+        _ => gen_password(),
     }
 }
 

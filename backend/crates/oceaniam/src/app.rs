@@ -17,7 +17,7 @@ use utoipa_scalar::{Scalar, Servable};
 
 use crate::{endpoints, state::AppState};
 
-pub(crate) async fn build_state(config: &BackendConfig) -> Result<AppState<'static>, Error> {
+pub async fn build_state(config: &BackendConfig) -> Result<AppState<'static>, Error> {
     let database = crate::setup_database(&config.database).await?;
     AppState::new(database).await
 }

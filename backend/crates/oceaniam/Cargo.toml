@@ -43,3 +43,9 @@ oceaniam-credential.workspace = true
 oceaniam-database.workspace = true
 oceaniam-keybox.workspace = true
 oceaniam-vo = { workspace = true, features = ["database"] }
+
+[dev-dependencies]
+reqwest.workspace = true
+migration.workspace = true
+sea-orm.workspace = true
+rand.workspace = true
