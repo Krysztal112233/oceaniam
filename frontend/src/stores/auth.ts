@@ -3,6 +3,33 @@ import { ref } from "vue";
 
 const AUTH_TOKEN_COOKIE_NAME = "auth_token";
 
+function decodeJwtExp(token: string): number | null {
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+
+    try {
+        const payload = parts[1]!;
+        const padded = payload.replace(/-/g, "+").replace(/_/g, "/");
+        const json = atob(padded);
+        const claims = JSON.parse(json) as { exp?: unknown };
+        if (typeof claims.exp === "number") return claims.exp;
+        if (typeof claims.exp === "string") {
+            const n = Number(claims.exp);
+            return Number.isFinite(n) ? n : null;
+        }
+        return null;
+    } catch {
+        return null;
+    }
+}
+
+function isJwtExpired(token: string): boolean {
+    const exp = decodeJwtExp(token);
+    if (exp === null) return false;
+    const now = Math.floor(Date.now() / 1000);
+    return now >= exp;
+}
+
 // NOTE: AI-generated function
 function readCookie(name: string): string | null {
     if (typeof document === "undefined") return null;
@@ -41,10 +68,22 @@ export const useAuthStore = defineStore("auth", {
     state: () => {
         const initialJwt = readCookie(AUTH_TOKEN_COOKIE_NAME);
 
-        const isLoggedIn = ref(Boolean(initialJwt));
+        let validJwt: string | null = null;
+        let initialExpiresAt: number | null = null;
+
+        if (initialJwt) {
+            if (isJwtExpired(initialJwt)) {
+                writeAuthCookie(null);
+            } else {
+                validJwt = initialJwt;
+                initialExpiresAt = decodeJwtExp(initialJwt);
+            }
+        }
+
+        const isLoggedIn = ref(Boolean(validJwt));
         const username = ref<string | null>(null);
-        const jwt = ref<string | null>(initialJwt);
-        const expiresAt = ref<number | null>(null);
+        const jwt = ref<string | null>(validJwt);
+        const expiresAt = ref<number | null>(initialExpiresAt);
 
         function syncFromCookie(): void {
             const token = readCookie(AUTH_TOKEN_COOKIE_NAME);
@@ -53,6 +92,8 @@ export const useAuthStore = defineStore("auth", {
             if (!token) {
                 username.value = null;
                 expiresAt.value = null;
+            } else {
+                expiresAt.value = decodeJwtExp(token);
             }
         }
 
