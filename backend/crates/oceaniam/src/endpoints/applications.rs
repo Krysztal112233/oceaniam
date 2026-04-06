@@ -294,6 +294,8 @@ pub async fn patch_application(
     fields(tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn delete_application(
+    _: middlewares::auth::RequireAuth<SystemClaim>,
+
     Path(path): Path<TenantApplicationPath>,
     State(AppState {
         database,
