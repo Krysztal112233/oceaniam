@@ -1,9 +1,11 @@
 //! Application token-related API endpoints
 
 use crate::{
-    endpoints::application_guards::RequireMatchedApplicationSecret,
     endpoints::applications::{TenantApplicationPath, get_tenant_application},
-    middlewares::auth::{RequireAuth, TokenDispatchMethod},
+    middlewares::{
+        application::RequireMatchedApplicationSecret,
+        auth::{RequireAuth, TokenDispatchMethod},
+    },
     state::{
         AppState,
         keybox::{EncodedJwt, SignJwtOptions},

@@ -11,7 +11,6 @@ use crate::state::AppState;
 
 mod administrators;
 mod application_configuration;
-mod application_guards;
 mod application_tokens;
 mod application_users;
 mod applications;

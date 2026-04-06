@@ -1,10 +1,6 @@
 use std::time::Duration;
 
-use oceaniam_common::{
-    config::DatabaseConfig,
-    consts,
-    error::Error,
-};
+use oceaniam_common::{config::DatabaseConfig, consts, error::Error};
 use oceaniam_database::{
     helper::{applications::ApplicationHelper, tenants::TenantsHelper},
     model::prelude::*,

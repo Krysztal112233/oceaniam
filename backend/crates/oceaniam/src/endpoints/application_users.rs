@@ -21,9 +21,8 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
 use crate::{
-    endpoints::application_guards::RequireAdminJwtOrMatchedApplicationSecret,
     endpoints::applications::{TenantApplicationPath, get_tenant_application},
-    middlewares,
+    middlewares::{self, application::RequireAdminJwtOrMatchedApplicationSecret},
     state::{AppState, applications::UserIdentifier},
 };
 
