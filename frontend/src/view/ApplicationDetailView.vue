@@ -144,6 +144,7 @@ async function handleConfigurationSubmit(
                     issuer: nextConfiguration.authentication.issuer,
                     audience: nextConfiguration.authentication.audience,
                 },
+                enable_registration: nextConfiguration.enable_registration,
             },
         );
 
