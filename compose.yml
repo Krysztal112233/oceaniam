@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile
       target: database
     restart: unless-stopped
-    command: -c 'max_connections=20480'
+    command: -c 'max_connections=20480' -c 'shared_preload_libraries=pg_cron,pg_duckdb'
     volumes:
       - postgres:/var/lib/postgresql/18/docker
     env_file:

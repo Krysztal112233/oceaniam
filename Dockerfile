@@ -55,7 +55,7 @@ RUN apt-get update && \
 				build-essential postgresql-server-dev-18 libreadline-dev zlib1g-dev flex bison libxml2-dev \
 				libxslt-dev libssl-dev libxml2-utils xsltproc pkg-config libc++-dev \
 				libc++abi-dev libglib2.0-dev libtinfo6 cmake libstdc++-12-dev \
-				liblz4-dev libcurl4-openssl-dev ninja-build git ca-certificates libicu-dev
+				liblz4-dev libcurl4-openssl-dev ninja-build git ca-certificates libicu-dev libcurl4t64
 ADD https://github.com/citusdata/pg_cron.git#v1.6.7 /tmp/pg_cron
 RUN cd /tmp/pg_cron && \
 		make clean && \
@@ -76,7 +76,7 @@ RUN git clone https://github.com/duckdb/pg_duckdb.git /tmp/pg_duckdb && \
 RUN apt-get remove -y build-essential postgresql-server-dev-18 libreadline-dev zlib1g-dev flex bison libxml2-dev \
 				libxslt-dev libssl-dev libxml2-utils xsltproc pkg-config libc++-dev \
 				libc++abi-dev libglib2.0-dev cmake libstdc++-12-dev \
-				liblz4-dev libcurl4-openssl-dev ninja-build git libicu-dev  && \
+				liblz4-dev ninja-build git libicu-dev  && \
 		apt-get autoremove -y && \
 		apt-mark unhold locales && \
 		rm -rf /var/lib/apt/lists/*
