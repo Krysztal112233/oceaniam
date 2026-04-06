@@ -42,3 +42,45 @@ jobs:
       - uses: actions/checkout@v5
       - name: Build docker compose
         run: docker compose build
+
+  test:
+    name: Run `cargo test --workspace`
+    runs-on: ubuntu-latest
+    # Sync fron `.env`
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      OCEANIAM_DATABASE__DSN: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build database image
+        run: docker build --target database -t oceaniam-database .
+      - name: Start database
+        run: |
+          docker run -d --name oceaniam-test-db \
+            -e POSTGRES_USER \
+            -e POSTGRES_PASSWORD \
+            -e POSTGRES_DB \
+            -p 5432:5432 \
+            oceaniam-database \
+            -c 'max_connections=20480'
+      - name: Wait for database
+        run: |
+          for i in $(seq 1 30); do
+            if docker exec oceaniam-test-db pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"; then
+              echo "Database is ready"
+              exit 0
+            fi
+            echo "Waiting for database... ($i/30)"
+            sleep 1
+          done
+          echo "Database did not become ready in time"
+          exit 1
+      - name: Install `rust` toolchain
+        run: |
+          rustup toolchain install stable --no-self-update --profile minimal
+          rustup default stable
+      - name: Run `cargo test`
+        run: |
+          cd ./backend && cargo test --workspace
