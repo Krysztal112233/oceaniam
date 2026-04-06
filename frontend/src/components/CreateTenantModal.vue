@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import CloseIcon from "@iconify-vue/material-symbols/close-rounded";
-import { OceanIamClient } from "@oceaniam/sdk";
 import { ref, watch } from "vue";
 import { useToast } from "vue-toastification";
-import { appConfig } from "../config";
-import { useAuthStore } from "../stores/auth";
 import { useTenantStore } from "../stores/tenant";
+import { getClient } from "../utils/api-client";
 
 const props = defineProps<{
     open: boolean;
@@ -16,20 +14,12 @@ const emit = defineEmits<{
     (event: "created", tenantId: string): void;
 }>();
 
-const authStore = useAuthStore();
 const tenantStore = useTenantStore();
 const toast = useToast();
 const dialogRef = ref<HTMLDialogElement | null>(null);
 const comment = ref("");
 const loading = ref(false);
 const error = ref<string | null>(null);
-
-function getClient(): OceanIamClient {
-    return new OceanIamClient({
-        baseUrl: appConfig.systemBaseUrl,
-        tokenGetter: () => authStore.jwt,
-    });
-}
 
 watch(
     () => props.open,

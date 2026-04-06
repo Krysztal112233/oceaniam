@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { OceanIamClient } from "@oceaniam/sdk";
 import { useToast } from "vue-toastification";
 import type { ApplicationVO } from "../../packages/sdk/src/types/ApplicationVO";
 import type { ApplicationConfigurationVO } from "../../packages/sdk/src/types/ApplicationConfigurationVO";
 import EntityListPage from "../components/EntityListPage.vue";
-import { appConfig } from "../config";
-import { useAuthStore } from "../stores/auth";
 import { useTenantStore } from "../stores/tenant";
+import { getClient } from "../utils/api-client";
 
 const ConfigEditor = defineAsyncComponent(
     () => import("../components/ConfigEditor.vue"),
@@ -16,7 +14,6 @@ const ConfigEditor = defineAsyncComponent(
 
 const route = useRoute();
 const router = useRouter();
-const authStore = useAuthStore();
 const tenantStore = useTenantStore();
 const toast = useToast();
 
@@ -37,13 +34,6 @@ const applicationId = computed(() => {
     const raw = route.params.applicationId;
     return typeof raw === "string" ? raw : "";
 });
-
-function getClient(): OceanIamClient {
-    return new OceanIamClient({
-        baseUrl: appConfig.systemBaseUrl,
-        tokenGetter: () => authStore.jwt,
-    });
-}
 
 const summaryText = computed(() => {
     if (loading.value) {

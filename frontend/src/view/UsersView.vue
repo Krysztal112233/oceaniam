@@ -1,29 +1,19 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
-import {
-    OceanIamClient,
-    type CreateApplicationUserRequest,
-} from "@oceaniam/sdk";
+import { type CreateApplicationUserRequest } from "@oceaniam/sdk";
 import { useToast } from "vue-toastification";
 import CreateUserModal from "../components/CreateUserModal.vue";
 import EntityListPage from "../components/EntityListPage.vue";
-import { appConfig } from "../config";
 import { useAuthStore } from "../stores/auth";
 import { useTenantStore } from "../stores/tenant";
+import { getClient } from "../utils/api-client";
 
 const authStore = useAuthStore();
 const tenantStore = useTenantStore();
 const toast = useToast();
 const { currentTenantId, hasTenants, tenantsLoading } =
     storeToRefs(tenantStore);
-
-function getClient(): OceanIamClient {
-    return new OceanIamClient({
-        baseUrl: appConfig.systemBaseUrl,
-        tokenGetter: () => authStore.jwt,
-    });
-}
 
 const users = ref<
     Array<{

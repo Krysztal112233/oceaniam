@@ -2,18 +2,15 @@
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import { OceanIamClient } from "@oceaniam/sdk";
 import type { SecretVO } from "../../packages/sdk/src/types/SecretVO";
 import { useToast } from "vue-toastification";
 import CreateSecretModal from "../components/CreateSecretModal.vue";
 import SecretTable from "../components/SecretTable.vue";
 import EntityListPage from "../components/EntityListPage.vue";
-import { appConfig } from "../config";
-import { useAuthStore } from "../stores/auth";
 import { useTenantStore } from "../stores/tenant";
+import { getClient } from "../utils/api-client";
 
 const route = useRoute();
-const authStore = useAuthStore();
 const tenantStore = useTenantStore();
 const toast = useToast();
 const {
@@ -87,13 +84,6 @@ const summaryText = computed(() => {
 
     return `当前共 ${totalSecrets.value} 个 API Secret`;
 });
-
-function getClient(): OceanIamClient {
-    return new OceanIamClient({
-        baseUrl: appConfig.systemBaseUrl,
-        tokenGetter: () => authStore.jwt,
-    });
-}
 
 function resetSecretsState(): void {
     secrets.value = [];

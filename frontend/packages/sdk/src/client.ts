@@ -29,13 +29,13 @@ export type GetApplicationsQuery = {
 
 export type PaginationQuery =
     | {
-          page: number | bigint;
-          per_page: number | bigint;
-      }
+        page: number | bigint;
+        per_page: number | bigint;
+    }
     | {
-          page?: undefined;
-          per_page?: undefined;
-      };
+        page?: undefined;
+        per_page?: undefined;
+    };
 
 export type GetTenantsQuery = PaginationQuery;
 export type GetTenantUsersQuery = PaginationQuery;
@@ -181,9 +181,65 @@ export async function doSystemSignout(
     throw new Error(`HTTP ${res.status} ${res.statusText}: ${msg}`);
 }
 
+export async function doSystemRefreshToken(
+    jwt: string,
+    baseUrl?: string,
+    dispatch?: TokenDispatchMethod,
+): Promise<SystemSigninResponse> {
+    if (!jwt.trim()) {
+        throw new Error("JWT is required for system token refresh.");
+    }
+    if (typeof fetch !== "function") {
+        throw new Error(
+            "Global fetch is not available in this runtime. Use Node.js 18+ or provide a fetch polyfill.",
+        );
+    }
+
+    const headers: Record<string, string> = {
+        Accept: "application/json",
+        Authorization: `Bearer ${jwt.trim()}`,
+    };
+    const tokenDispatch = toTokenDispatchHeader(dispatch);
+    if (tokenDispatch) headers["X-OceanIAM-Token-Dispatch"] = tokenDispatch;
+
+    const res = await fetch(resolveSystemUrl("/auth/tokens/refresh", baseUrl), {
+        method: "POST",
+        headers,
+    });
+
+    const text = await res.text();
+    if (res.ok) {
+        try {
+            return JSON.parse(text) as SystemSigninResponse;
+        } catch {
+            throw new Error(
+                "System token refresh succeeded but response JSON is invalid.",
+            );
+        }
+    }
+
+    let msg = text || `${res.status} ${res.statusText}`;
+    try {
+        const json = JSON.parse(text) as unknown;
+        if (
+            json &&
+            typeof json === "object" &&
+            "msg" in json &&
+            typeof (json as { msg?: unknown }).msg === "string"
+        ) {
+            msg = (json as { msg: string }).msg;
+        }
+    } catch {
+        // ignore parse errors
+    }
+
+    throw new Error(`HTTP ${res.status} ${res.statusText}: ${msg}`);
+}
+
 export interface OceanIamClientConfig {
     baseUrl?: string;
     tokenGetter?: TokenGetter;
+    onUnauthorized?: () => Promise<string | null | undefined>;
 }
 
 export class OceanIamClient {
@@ -251,10 +307,16 @@ export class OceanIamClient {
 
     private baseUrl: string;
     private tokenGetter?: TokenGetter;
+    private onUnauthorized?: () => Promise<string | null | undefined>;
 
-    constructor({ baseUrl, tokenGetter }: OceanIamClientConfig) {
+    constructor({
+        baseUrl,
+        tokenGetter,
+        onUnauthorized,
+    }: OceanIamClientConfig) {
         this.baseUrl = baseUrl?.trim() ?? "";
         this.tokenGetter = tokenGetter;
+        this.onUnauthorized = onUnauthorized;
     }
 
     /**
@@ -577,7 +639,6 @@ export class OceanIamClient {
         return url.includes("?") ? `${url}&${qs}` : `${url}?${qs}`;
     }
 
-    // NOTE: AI-generated method
     private async request<T>(opts: {
         method: "GET" | "POST" | "PATCH" | "DELETE";
         url: string;
@@ -586,6 +647,38 @@ export class OceanIamClient {
         auth?: "required" | "none";
         headers?: Record<string, string>;
     }): Promise<T> {
+        const result = await this._doRequest<T>(opts);
+
+        if (
+            result.status === "unauthorized" &&
+            this.onUnauthorized &&
+            opts.auth !== "none"
+        ) {
+            const newToken = await this.onUnauthorized();
+            if (newToken?.trim()) {
+                return this._doRequestWithToken<T>(opts, newToken.trim());
+            }
+        }
+
+        if (result.status === "unauthorized" || result.status === "error") {
+            throw result.error!;
+        }
+
+        return result.value as T;
+    }
+
+    private async _doRequest<T>(opts: {
+        method: "GET" | "POST" | "PATCH" | "DELETE";
+        url: string;
+        query?: Record<string, QueryValue>;
+        body?: object;
+        auth?: "required" | "none";
+        headers?: Record<string, string>;
+    }): Promise<
+        | { status: "ok"; value: T; error?: undefined }
+        | { status: "unauthorized"; value?: undefined; error: Error }
+        | { status: "error"; value?: undefined; error: Error }
+    > {
         const {
             method,
             url,
@@ -605,16 +698,16 @@ export class OceanIamClient {
         if (auth !== "none") {
             const token = (await this.tokenGetter?.())?.trim();
             if (!token) {
-                throw new Error(
-                    "Missing auth token. Provide OceanIamClientConfig.tokenGetter that returns a non-empty token string.",
-                );
+                return {
+                    status: "error",
+                    error: new Error(
+                        "Missing auth token. Provide OceanIamClientConfig.tokenGetter that returns a non-empty token string.",
+                    ),
+                };
             }
             headers.Authorization = `Bearer ${token}`;
         }
 
-        // `body` is the payload of `POST`
-        //
-        // So if body === undefined, we should add "application/json" or not.
         const hasBody = body !== undefined;
         if (hasBody) {
             headers["Content-Type"] = "application/json";
@@ -626,7 +719,85 @@ export class OceanIamClient {
             body: hasBody ? JSON.stringify(body) : undefined,
         });
 
-        // Backend uses 203 for "missing authorization header" in some routes.
+        if (res.status === 401 || res.status === 203) {
+            return {
+                status: "unauthorized",
+                error: new Error(`HTTP ${res.status}`),
+            };
+        }
+
+        if (res.ok) {
+            const text = await res.text();
+            if (!text) return { status: "ok", value: undefined as T };
+
+            try {
+                return { status: "ok", value: JSON.parse(text) as T };
+            } catch (e) {
+                return {
+                    status: "error",
+                    error: new Error(
+                        `Failed to parse JSON response from ${method} ${finalUrl}: ${String(e)}`,
+                    ),
+                };
+            }
+        }
+
+        const errorText = await res.text();
+        const msg = (() => {
+            try {
+                const json = JSON.parse(errorText) as unknown;
+                if (
+                    json &&
+                    typeof json === "object" &&
+                    "msg" in json &&
+                    typeof (json as { msg?: unknown }).msg === "string"
+                ) {
+                    return (json as { msg: string }).msg;
+                }
+            } catch {
+                // ignore JSON parse errors
+            }
+            return errorText || `${res.status} ${res.statusText}`;
+        })();
+
+        return {
+            status: "error",
+            error: new Error(`HTTP ${res.status} ${res.statusText}: ${msg}`),
+        };
+    }
+
+    private async _doRequestWithToken<T>(
+        opts: {
+            method: "GET" | "POST" | "PATCH" | "DELETE";
+            url: string;
+            query?: Record<string, QueryValue>;
+            body?: object;
+            auth?: "required" | "none";
+            headers?: Record<string, string>;
+        },
+        token: string,
+    ): Promise<T> {
+        const { method, url, query, body, headers: extraHeaders } = opts;
+
+        const finalUrl = this.buildUrlWithQuery(url, query);
+
+        const headers: Record<string, string> = {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+            ...extraHeaders,
+        };
+
+        const hasBody = body !== undefined;
+        if (hasBody) {
+            headers["Content-Type"] = "application/json";
+        }
+
+        const res = await fetch(finalUrl, {
+            method,
+            headers,
+            body: hasBody ? JSON.stringify(body) : undefined,
+        });
+
         if (res.ok && res.status !== 203) {
             const text = await res.text();
             if (!text) return undefined as T;
@@ -641,7 +812,6 @@ export class OceanIamClient {
         }
 
         const errorText = await res.text();
-        // Oh SHIT.
         const msg = (() => {
             try {
                 const json = JSON.parse(errorText) as unknown;

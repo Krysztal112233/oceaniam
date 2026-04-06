@@ -1,23 +1,10 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import {
-    OceanIamClient,
-    type GetApplicationsQuery,
-    type PagedResponse,
-} from "@oceaniam/sdk";
-import { appConfig } from "../config";
-import { useAuthStore } from "./auth";
+import { type GetApplicationsQuery, type PagedResponse } from "@oceaniam/sdk";
 import type { ApplicationVO } from "../../packages/sdk/src/types/ApplicationVO";
 import type { TenantVO } from "../../packages/sdk/src/types/TenantVO";
-
-function getClient(): OceanIamClient {
-    const authStore = useAuthStore();
-
-    return new OceanIamClient({
-        baseUrl: appConfig.systemBaseUrl,
-        tokenGetter: () => authStore.jwt,
-    });
-}
+import { getClient } from "../utils/api-client";
+import { useAuthStore } from "./auth";
 
 export const useTenantStore = defineStore(
     "tenant",
