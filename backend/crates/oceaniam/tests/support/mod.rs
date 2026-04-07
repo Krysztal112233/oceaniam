@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use migration::{Migrator, MigratorTrait};
 use oceaniam::app::{app, build_state};
-use oceaniam_common::config::BackendConfig;
+use oceaniam_common::config::{BackendConfig, CorsConfig, DatabaseConfig};
 use rand::Rng;
 use reqwest::Client;
 use sea_orm::{ConnectionTrait, Database, Statement};
@@ -54,11 +54,20 @@ impl Drop for TestApp {
     }
 }
 
+// NOTE: !!!HARD CODED CONFIGURATION!!!
 pub fn test_config() -> BackendConfig {
-    let mut config =
-        BackendConfig::new().expect("failed to load backend config for integration tests");
-    config.addr = "127.0.0.1:0".to_string();
-    config
+    BackendConfig {
+        addr: "0.0.0.0:0".to_owned(),
+        database: DatabaseConfig {
+            dsn: "postgresql://postgres:postgres@localhost:5432/postgres".to_string(),
+            slow_statements_logging_threshold: None,
+            max_connections: None,
+            min_connections: None,
+        },
+        cors: CorsConfig {
+            allow_origin: "*".to_string(),
+        },
+    }
 }
 
 /// Creates a test application instance with an isolated database schema.
@@ -204,17 +213,10 @@ mod tests {
     use super::*;
     use sea_orm::Database;
 
-    fn init_env() {
-        // Load environment variables from the .env file
-        dotenvy::dotenv().ok();
-    }
-
     // NOTE: AI-generated test
     /// Verifies that the schema created by spawn_app_with_isolated_schema is properly cleaned up when TestApp is dropped.
     #[tokio::test]
     async fn test_isolated_schema_is_dropped_after_test_app_drop() {
-        init_env();
-
         // 1. Create a test app with an isolated schema
         let app = spawn_app_with_isolated_schema(test_config()).await;
 
@@ -273,8 +275,6 @@ mod tests {
     /// Verifies that spawn_app_with_isolated_schema produces different schema names.
     #[tokio::test]
     async fn test_isolated_schemas_have_unique_names() {
-        init_env();
-
         let app1 = spawn_app_with_isolated_schema(test_config()).await;
         let app2 = spawn_app_with_isolated_schema(test_config()).await;
 

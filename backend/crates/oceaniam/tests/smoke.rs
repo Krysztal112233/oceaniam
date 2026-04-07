@@ -5,7 +5,7 @@ use crate::support::{spawn_app_with_isolated_schema, test_config};
 // NOTE: AI-generated test
 #[tokio::test]
 async fn root_endpoint_returns_ok() {
-    let app = spawn_app_with_isolated_schema(test_config()).await;
+    let app = spawn_app_with_isolated_schema(dbg!(test_config())).await;
 
     let response = app
         .client
