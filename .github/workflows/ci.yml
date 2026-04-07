@@ -64,7 +64,9 @@ jobs:
             -e POSTGRES_DB \
             -p 5432:5432 \
             oceaniam-database \
-            -c 'max_connections=20480'
+            -c 'max_connections=20480' \
+            -c 'shared_preload_libraries=pg_cron,pg_duckdb'
+
       - name: Wait for database
         run: |
           for i in $(seq 1 30); do
