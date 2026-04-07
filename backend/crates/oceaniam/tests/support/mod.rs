@@ -1,15 +1,17 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::OnceLock};
 
 use migration::{Migrator, MigratorTrait};
 use oceaniam::app::{app, build_state};
 use oceaniam_common::config::{BackendConfig, CorsConfig, DatabaseConfig};
 use rand::Rng;
 use reqwest::Client;
-use sea_orm::{ConnectionTrait, Database, Statement};
+use sea_orm::{ConnectOptions, ConnectionTrait, Database, Statement, TransactionTrait};
+use sea_orm_migration::SchemaManager;
 use tokio::task::JoinHandle;
 use uuid::Uuid;
 
 const DEFAULT_ROOT_PASSWORD_ENV: &str = "MIGRATION_DEFAULT_ROOT_PASSWORD";
+static TEST_ROOT_PASSWORD: OnceLock<String> = OnceLock::new();
 
 #[allow(unused)]
 pub struct TestApp {
@@ -21,7 +23,7 @@ pub struct TestApp {
     pub schema_name: String,
 
     /// Base DSN (without schema parameter), used for cleaning up the schema.
-    pub base_dsn: Option<String>,
+    pub base_dsn: String,
 
     /// The root password for the test application.
     /// Populated from `MIGRATION_DEFAULT_ROOT_PASSWORD` env var or auto-generated.
@@ -39,10 +41,17 @@ impl Drop for TestApp {
         // Abort the server
         self.server.abort();
 
-        // Clean up the isolated schema in the background if used
-        if let Some(base_dsn) = self.base_dsn.take() {
-            let schema_name = self.schema_name.clone();
-            tokio::task::spawn(async move {
+        // Run cleanup on a dedicated thread so it does not depend on the test runtime
+        // still being alive after `Drop` returns.
+        let schema_name = self.schema_name.clone();
+        let base_dsn = self.base_dsn.clone();
+        std::thread::spawn(move || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("failed to build schema cleanup runtime");
+
+            runtime.block_on(async move {
                 if let Err(e) = drop_schema(&base_dsn, &schema_name).await {
                     eprintln!(
                         "Warning: failed to drop test schema '{}': {}",
@@ -50,7 +59,9 @@ impl Drop for TestApp {
                     );
                 }
             });
-        }
+        })
+        .join()
+        .unwrap();
     }
 }
 
@@ -82,27 +93,59 @@ fn test_config() -> BackendConfig {
 /// A `TestApp` instance that automatically cleans up its schema when dropped.
 pub async fn spawn_app_with_isolated_schema() -> TestApp {
     let mut test_config = test_config();
-
-    // Generate or retrieve the root password for this test instance
-    let root_password = generate_root_password();
-
-    // Set the environment variable so migrations will use this password
-    // SAFETY: This is only called in tests, and each test has its own isolated schema.
-    // The environment variable is scoped to the test process.
-    unsafe { std::env::set_var(DEFAULT_ROOT_PASSWORD_ENV, &root_password) };
+    let base_dsn = test_config.database.dsn.clone();
 
     // Build the DSN with schema
     let schema_name = prepare_isolation_schema(&test_config).await;
     test_config.database.dsn = add_schema_to_dsn(&test_config.database.dsn, &schema_name);
 
+    let root_password = TEST_ROOT_PASSWORD
+        .get_or_init(|| {
+            match std::env::var(DEFAULT_ROOT_PASSWORD_ENV).ok() {
+                Some(password) => password,
+                None => {
+                    // Generate or retrieve the root password for this test instance
+                    let root_password = generate_root_password();
+
+                    // SAFETY: guarded by `TEST_ROOT_PASSWORD`, so concurrent tests cannot race on
+                    // this process-wide environment variable while migrations read it.
+                    unsafe { std::env::set_var(DEFAULT_ROOT_PASSWORD_ENV, &root_password) };
+
+                    root_password
+                }
+            }
+        })
+        .clone();
+
     // Run migrations in the new schema
-    let migrate_db = Database::connect(&test_config.database.dsn)
+    {
+        let migrate_db = Database::connect(
+            ConnectOptions::new(&test_config.database.dsn)
+                .set_schema_search_path(format!("{schema_name},public"))
+                .to_owned(),
+        )
         .await
         .expect("failed to connect to schema for migration");
-    Migrator::up(&migrate_db, None)
-        .await
-        .expect("failed to run migrations on test schema");
-    migrate_db.close().await.ok();
+
+        // NOTE: This manual migration loop works around a sea-orm-migration bug in isolated
+        // PostgreSQL schemas where `Migrator::up` can fail to persist into `seaql_migrations` even
+        // after applying the migrations successfully. See:
+        // https://github.com/SeaQL/sea-orm/issues/2702
+        let txn = migrate_db
+            .begin()
+            .await
+            .expect("failed to open migration transaction");
+        let manager = SchemaManager::new(&txn);
+        for migration in Migrator::migrations() {
+            migration.up(&manager).await.unwrap_or_else(|err| {
+                panic!("failed to run test migration '{}': {err}", migration.name())
+            });
+        }
+        txn.commit()
+            .await
+            .expect("failed to commit test schema migrations");
+        migrate_db.close().await.ok();
+    }
 
     // Start the application
     let (server, address) = {
@@ -133,13 +176,13 @@ pub async fn spawn_app_with_isolated_schema() -> TestApp {
         client: Client::new(),
         server,
         schema_name,
-        base_dsn: Some(test_config.database.dsn),
+        base_dsn,
         root_password,
     }
 }
 
-/// Generates a random password for the root account.
-fn gen_password() -> String {
+/// Gets the root password from environment variable or generates a new one.
+fn generate_root_password() -> String {
     const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
                             abcdefghijklmnopqrstuvwxyz\
                             0123456789)(*&^%$#@!~";
@@ -152,11 +195,6 @@ fn gen_password() -> String {
             CHARSET[idx] as char
         })
         .collect()
-}
-
-/// Gets the root password from environment variable or generates a new one.
-fn generate_root_password() -> String {
-    gen_password()
 }
 
 async fn prepare_isolation_schema(test_config: &BackendConfig) -> String {
@@ -214,11 +252,17 @@ async fn prepare_isolation_schema(test_config: &BackendConfig) -> String {
     schema_name
 }
 
-/// Appends the currentSchema parameter to the DSN
+/// Appends a PostgreSQL search_path override to the DSN.
+///
+/// `currentSchema` is not honored by the sqlx Postgres connection stack used here,
+/// so tests must use the standard libpq `options=-csearch_path=...` form instead.
 fn add_schema_to_dsn(dsn: &str, schema_name: &str) -> String {
     // Simple string manipulation without using the url crate
     let separator = if dsn.contains('?') { '&' } else { '?' };
-    format!("{}{}currentSchema={}", dsn, separator, schema_name)
+    format!(
+        "{}{}options=-csearch_path%3D{}",
+        dsn, separator, schema_name
+    )
 }
 
 /// Drops the specified schema
@@ -258,7 +302,7 @@ mod tests {
 
         // 2. Record the schema name
         let schema_name = app.schema_name.clone();
-        let base_dsn = app.base_dsn.clone().expect("base_dsn should exist");
+        let base_dsn = app.base_dsn.clone();
 
         // 3. Verify the schema exists by connecting to it
         let check_dsn = add_schema_to_dsn(&base_dsn, &schema_name);

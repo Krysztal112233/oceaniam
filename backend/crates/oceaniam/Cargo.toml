@@ -48,4 +48,5 @@ oceaniam-vo = { workspace = true, features = ["database"] }
 reqwest.workspace = true
 migration.workspace = true
 sea-orm.workspace = true
+sea-orm-migration.workspace = true
 rand.workspace = true
