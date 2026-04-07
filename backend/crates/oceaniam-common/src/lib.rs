@@ -20,7 +20,6 @@ pub mod error;
 pub mod helpers;
 pub mod jwks;
 pub mod jwt;
-pub mod test;
 pub mod types;
 
 #[derive(Debug, Deserialize, Serialize, Default, ToSchema)]
