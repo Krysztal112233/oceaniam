@@ -41,7 +41,7 @@ mod m20260325_170615_create_primary_key_of_application_secret_binding;
 mod m20260326_112803_alter_audit_type_tenant_admin_management;
 mod m20260327_202624_alter_audit_type_patch_administrator;
 mod m20260329_154808_alter_application_configuration_enable_registration;
-mod m20260406_151322_create_audit_summary_by_application;
+mod m20260406_151322_create_duckdb_cron_extension;
 
 pub struct Migrator;
 
@@ -91,7 +91,7 @@ impl MigratorTrait for Migrator {
             Box::new(
                 m20260329_154808_alter_application_configuration_enable_registration::Migration,
             ),
-            Box::new(m20260406_151322_create_audit_summary_by_application::Migration),
+            Box::new(m20260406_151322_create_duckdb_cron_extension::Migration),
         ]
     }
 }

@@ -10,7 +10,7 @@ impl MigrationTrait for Migration {
         manager
             .get_connection()
             .execute_unprepared(include_str!(
-                "./m20260406_151322_create_audit_summary_by_application/up.sql"
+                "./m20260406_151322_create_duckdb_cron_extension/up.sql"
             ))
             .await?;
 
@@ -21,7 +21,7 @@ impl MigrationTrait for Migration {
         manager
             .get_connection()
             .execute_unprepared(include_str!(
-                "./m20260406_151322_create_audit_summary_by_application/down.sql"
+                "./m20260406_151322_create_duckdb_cron_extension/down.sql"
             ))
             .await?;
 
