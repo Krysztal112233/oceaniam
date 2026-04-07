@@ -85,4 +85,4 @@ jobs:
           rustup default stable
       - name: Run `cargo test`
         run: |
-          cd ./backend && cargo test --workspace
+          cd ./backend && cargo test --workspace -r
