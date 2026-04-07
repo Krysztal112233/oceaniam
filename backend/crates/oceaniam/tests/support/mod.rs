@@ -11,13 +11,14 @@ use uuid::Uuid;
 
 const DEFAULT_ROOT_PASSWORD_ENV: &str = "MIGRATION_DEFAULT_ROOT_PASSWORD";
 
+#[allow(unused)]
 pub struct TestApp {
     pub address: String,
     pub client: Client,
     server: JoinHandle<()>,
 
     /// The isolated schema name. If None, the default schema is used (non-isolated mode).
-    pub schema_name: Option<String>,
+    pub schema_name: String,
 
     /// Base DSN (without schema parameter), used for cleaning up the schema.
     pub base_dsn: Option<String>,
@@ -39,9 +40,8 @@ impl Drop for TestApp {
         self.server.abort();
 
         // Clean up the isolated schema in the background if used
-        if let (Some(schema_name), Some(base_dsn)) = (self.schema_name.take(), self.base_dsn.take())
-        {
-            let schema_name = schema_name.clone();
+        if let Some(base_dsn) = self.base_dsn.take() {
+            let schema_name = self.schema_name.clone();
             tokio::task::spawn(async move {
                 if let Err(e) = drop_schema(&base_dsn, &schema_name).await {
                     eprintln!(
@@ -55,7 +55,7 @@ impl Drop for TestApp {
 }
 
 // NOTE: !!!HARD CODED CONFIGURATION!!!
-pub fn test_config() -> BackendConfig {
+fn test_config() -> BackendConfig {
     BackendConfig {
         addr: "0.0.0.0:0".to_owned(),
         database: DatabaseConfig {
@@ -80,44 +80,23 @@ pub fn test_config() -> BackendConfig {
 ///
 /// # Returns
 /// A `TestApp` instance that automatically cleans up its schema when dropped.
-pub async fn spawn_app_with_isolated_schema(mut base_config: BackendConfig) -> TestApp {
+pub async fn spawn_app_with_isolated_schema() -> TestApp {
+    let mut test_config = test_config();
+
     // Generate or retrieve the root password for this test instance
-    let root_password = get_or_generate_root_password();
+    let root_password = generate_root_password();
 
     // Set the environment variable so migrations will use this password
     // SAFETY: This is only called in tests, and each test has its own isolated schema.
     // The environment variable is scoped to the test process.
     unsafe { std::env::set_var(DEFAULT_ROOT_PASSWORD_ENV, &root_password) };
 
-    // Generate a unique schema name
-    let schema_name = format!("test_schema_{}", Uuid::new_v4().simple());
-
-    // Save the base DSN (without currentSchema parameter) for cleanup
-    let base_dsn = base_config.database.dsn.clone();
-
-    // Connect to the default database (usually public schema) to create a new schema
-    let admin_db = Database::connect(&base_dsn)
-        .await
-        .expect("failed to connect to database for schema creation");
-
-    // Create the schema
-    admin_db
-        .execute(Statement::from_string(
-            sea_orm::DatabaseBackend::Postgres,
-            format!("CREATE SCHEMA IF NOT EXISTS {}", schema_name),
-        ))
-        .await
-        .expect("failed to create test schema");
-
-    // Close the admin connection
-    admin_db.close().await.ok();
-
     // Build the DSN with schema
-    let schema_dsn = add_schema_to_dsn(&base_dsn, &schema_name);
-    base_config.database.dsn = schema_dsn;
+    let schema_name = prepare_isolation_schema(&test_config).await;
+    test_config.database.dsn = add_schema_to_dsn(&test_config.database.dsn, &schema_name);
 
     // Run migrations in the new schema
-    let migrate_db = Database::connect(&base_config.database.dsn)
+    let migrate_db = Database::connect(&test_config.database.dsn)
         .await
         .expect("failed to connect to schema for migration");
     Migrator::up(&migrate_db, None)
@@ -126,30 +105,35 @@ pub async fn spawn_app_with_isolated_schema(mut base_config: BackendConfig) -> T
     migrate_db.close().await.ok();
 
     // Start the application
-    let state = build_state(&base_config)
-        .await
-        .expect("failed to build integration test app state");
-    let router = app(state, base_config.cors.clone());
-
-    let listener = tokio::net::TcpListener::bind(&base_config.addr)
-        .await
-        .expect("failed to bind integration test listener");
-    let address = listener
-        .local_addr()
-        .expect("failed to read integration test listener address");
-
-    let server = tokio::spawn(async move {
-        axum::serve(listener, router)
+    let (server, address) = {
+        let state = build_state(&test_config)
             .await
-            .expect("integration test server exited unexpectedly");
-    });
+            .expect("failed to build integration test app state");
+        let router = app(state, test_config.cors.clone());
+
+        let listener = tokio::net::TcpListener::bind(&test_config.addr)
+            .await
+            .expect("failed to bind integration test listener");
+        let address = listener
+            .local_addr()
+            .expect("failed to read integration test listener address");
+
+        (
+            tokio::spawn(async move {
+                axum::serve(listener, router)
+                    .await
+                    .expect("integration test server exited unexpectedly");
+            }),
+            address,
+        )
+    };
 
     TestApp {
         address: format_address(address),
         client: Client::new(),
         server,
-        schema_name: Some(schema_name),
-        base_dsn: Some(base_dsn),
+        schema_name,
+        base_dsn: Some(test_config.database.dsn),
         root_password,
     }
 }
@@ -171,18 +155,70 @@ fn gen_password() -> String {
 }
 
 /// Gets the root password from environment variable or generates a new one.
-fn get_or_generate_root_password() -> String {
-    match std::env::var(DEFAULT_ROOT_PASSWORD_ENV) {
-        Ok(password) if password.len() > 6 => password,
-        _ => gen_password(),
-    }
+fn generate_root_password() -> String {
+    gen_password()
+}
+
+async fn prepare_isolation_schema(test_config: &BackendConfig) -> String {
+    // Generate a unique schema name
+    let schema_name = format!("test_schema_{}", Uuid::new_v4().simple());
+
+    // Save the base DSN (without currentSchema parameter) for cleanup
+    let base_dsn = test_config.database.dsn.clone();
+
+    // Connect to the default database (usually public schema) to create a new schema
+    let root_database = Database::connect(&base_dsn)
+        .await
+        .expect("failed to connect to database for schema creation");
+
+    // Create the schema
+    root_database
+        .execute(Statement::from_string(
+            sea_orm::DatabaseBackend::Postgres,
+            format!("CREATE SCHEMA IF NOT EXISTS {}", schema_name),
+        ))
+        .await
+        .expect("failed to create test schema");
+
+    // PostgreSQL may acknowledge CREATE SCHEMA before other sessions observe it.
+    // Wait until the schema is visible before handing it to the test app.
+    let schema_ready = tokio::time::timeout(tokio::time::Duration::from_secs(5), async {
+        loop {
+            let result = root_database
+                .query_one(Statement::from_string(
+                    sea_orm::DatabaseBackend::Postgres,
+                    format!(
+                        "SELECT 1 FROM information_schema.schemata WHERE schema_name = '{}'",
+                        schema_name
+                    ),
+                ))
+                .await
+                .expect("failed to verify test schema visibility");
+
+            if result.is_some() {
+                break;
+            }
+
+            tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        }
+    })
+    .await;
+    assert!(
+        schema_ready.is_ok(),
+        "timed out waiting for test schema to be ready"
+    );
+
+    // Close the admin connection
+    root_database.close().await.ok();
+
+    schema_name
 }
 
 /// Appends the currentSchema parameter to the DSN
-fn add_schema_to_dsn(dsn: &str, schema: &str) -> String {
+fn add_schema_to_dsn(dsn: &str, schema_name: &str) -> String {
     // Simple string manipulation without using the url crate
     let separator = if dsn.contains('?') { '&' } else { '?' };
-    format!("{}{}currentSchema={}", dsn, separator, schema)
+    format!("{}{}currentSchema={}", dsn, separator, schema_name)
 }
 
 /// Drops the specified schema
@@ -218,10 +254,10 @@ mod tests {
     #[tokio::test]
     async fn test_isolated_schema_is_dropped_after_test_app_drop() {
         // 1. Create a test app with an isolated schema
-        let app = spawn_app_with_isolated_schema(test_config()).await;
+        let app = spawn_app_with_isolated_schema().await;
 
         // 2. Record the schema name
-        let schema_name = app.schema_name.clone().expect("schema_name should exist");
+        let schema_name = app.schema_name.clone();
         let base_dsn = app.base_dsn.clone().expect("base_dsn should exist");
 
         // 3. Verify the schema exists by connecting to it
@@ -275,11 +311,11 @@ mod tests {
     /// Verifies that spawn_app_with_isolated_schema produces different schema names.
     #[tokio::test]
     async fn test_isolated_schemas_have_unique_names() {
-        let app1 = spawn_app_with_isolated_schema(test_config()).await;
-        let app2 = spawn_app_with_isolated_schema(test_config()).await;
+        let app1 = spawn_app_with_isolated_schema().await;
+        let app2 = spawn_app_with_isolated_schema().await;
 
-        let schema1 = app1.schema_name.as_ref().unwrap();
-        let schema2 = app2.schema_name.as_ref().unwrap();
+        let schema1 = app1.schema_name.clone();
+        let schema2 = app2.schema_name.clone();
 
         assert_ne!(
             schema1, schema2,
