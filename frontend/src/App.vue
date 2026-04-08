@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import HomeIcon from "@iconify-vue/material-symbols/home-outline-rounded";
-import ManageAccountsIcon from "@iconify-vue/material-symbols/manage-accounts-outline-rounded";
 import MonitorHeartIcon from "@iconify-vue/material-symbols/monitor-heart-outline-rounded";
 import WidgetsIcon from "@iconify-vue/material-symbols/widgets-outline-rounded";
 import { ref } from "vue";
@@ -29,13 +28,9 @@ const loginOpen = ref(false);
             :icon="WidgetsIcon"
             :items="[
                 { label: 'Application', to: '/applications' },
+                { label: 'User Management', to: '/users' },
                 { label: 'API Secrets', to: '/api-secrets' },
             ]"
-        />
-        <DrawerGroup
-            label="User Management"
-            :icon="ManageAccountsIcon"
-            :items="[{ label: 'Users', to: '/users' }]"
         />
         <DrawerGroup
             label="Monitoring"

@@ -204,20 +204,15 @@ watch(
 </script>
 
 <template>
-    <EntityListPage
-        page-title="Application Detail"
-        page-description="展示当前 application 的基础信息与完整配置 JSON。"
-        card-title="Application Information"
-        :summary-text="summaryText"
-    >
+    <EntityListPage page-title="Application Detail" page-description="展示当前 application 的基础信息与完整配置 JSON。"
+        card-title="Application Information" :summary-text="summaryText">
         <template #actions>
-            <button
-                type="button"
-                class="btn btn-outline btn-sm"
-                @click="goBack"
-            >
-                返回 Applications
-            </button>
+            <div class="flex flex-wrap items-center justify-end gap-2">
+
+                <button type="button" class="btn btn-outline btn-sm" @click="goBack">
+                    返回 Applications
+                </button>
+            </div>
         </template>
 
         <div v-if="loading" class="space-y-3 px-6 py-6">
@@ -255,39 +250,24 @@ watch(
                     </p>
                 </div>
 
-                <div
-                    class="rounded-box border border-base-200 bg-base-50 p-5 lg:col-span-2"
-                >
+                <div class="rounded-box border border-base-200 bg-base-50 p-5 lg:col-span-2">
                     <div class="label px-0 pt-0">
                         <span class="label-text text-xs text-base-content/60">
                             Comment
                         </span>
                     </div>
                     <div class="flex items-center gap-3">
-                        <input
-                            v-model="commentDraft"
-                            class="input input-bordered flex-1"
-                            placeholder="无"
-                        />
-                        <button
-                            type="button"
-                            class="btn btn-primary"
-                            :disabled="!commentSaveEnabled"
-                            :class="{ loading: commentSaving }"
-                            @click="handleCommentSubmit"
-                        >
+                        <input v-model="commentDraft" class="input input-bordered flex-1" placeholder="无" />
+                        <button type="button" class="btn btn-primary" :disabled="!commentSaveEnabled"
+                            :class="{ loading: commentSaving }" @click="handleCommentSubmit">
                             保存
                         </button>
                     </div>
                 </div>
             </section>
 
-            <ConfigEditor
-                :value="configuration"
-                title="Application Configuration"
-                description="查看并编辑当前 Application 的完整配置 JSON"
-                :on-submit="handleConfigurationSubmit"
-            />
+            <ConfigEditor :value="configuration" title="Application Configuration"
+                description="查看并编辑当前 Application 的完整配置 JSON" :on-submit="handleConfigurationSubmit" />
 
             <section></section>
         </div>

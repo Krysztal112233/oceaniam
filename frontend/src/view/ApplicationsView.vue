@@ -87,6 +87,16 @@ async function handleDetail(applicationId: string) {
     });
 }
 
+async function handleUsers(applicationId: string) {
+    await router.push({
+        name: "application-users",
+        params: {
+            tenantId: tenantId.value || currentTenantId.value,
+            applicationId,
+        },
+    });
+}
+
 function handleDelete(applicationId: string) {
     deletingApplicationId.value = applicationId;
 
@@ -244,6 +254,7 @@ onMounted(() => {
                     :can-go-to-next-page="canGoToNextPage"
                     :loading="applicationsLoading"
                     @detail="handleDetail"
+                    @users="handleUsers"
                     @delete="handleDelete"
                     @previous-page="goToPreviousPage"
                     @next-page="goToNextPage"

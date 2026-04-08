@@ -4,6 +4,7 @@ import HomeView from "./view/HomeView.vue";
 import OverviewView from "./view/OverviewView.vue";
 import ApplicationsEntryView from "./view/ApplicationsEntryView.vue";
 import ApplicationsView from "./view/ApplicationsView.vue";
+import UsersEntryView from "./view/UsersEntryView.vue";
 import ApiSecretsEntryView from "./view/ApiSecretsEntryView.vue";
 import ApiSecretsView from "./view/ApiSecretsView.vue";
 import AuditsView from "./view/AuditsView.vue";
@@ -29,6 +30,16 @@ const routes = [
         name: "application-detail",
     },
     {
+        path: "/tenants/:tenantId/applications/:applicationId/users",
+        component: UsersView,
+        name: "application-users",
+    },
+    {
+        path: "/users",
+        component: UsersEntryView,
+        name: "users-entry",
+    },
+    {
         path: "/api-secrets",
         component: ApiSecretsEntryView,
         name: "api-secrets-entry",
@@ -38,7 +49,6 @@ const routes = [
         component: ApiSecretsView,
         name: "api-secrets",
     },
-    { path: "/users", component: UsersView, name: "users" },
     { path: "/audits", component: AuditsView, name: "audits" },
     { path: "/statistics", component: StatisticsView, name: "statistics" },
 ];

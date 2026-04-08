@@ -17,6 +17,7 @@ defineProps<{
 
 const emit = defineEmits<{
     (event: "detail", applicationId: string): void;
+    (event: "users", applicationId: string): void;
     (event: "delete", applicationId: string): void;
     (event: "previousPage"): void;
     (event: "nextPage"): void;
@@ -39,7 +40,7 @@ function formatComment(comment: ApplicationVO["comment"]): string {
                     <tr class="text-sm text-base-content/70">
                         <th class="whitespace-nowrap">ApplicationID</th>
                         <th>Comment</th>
-                        <th class="w-44 whitespace-nowrap text-center">
+                        <th class="w-72 whitespace-nowrap text-center">
                             Actions
                         </th>
                     </tr>
@@ -80,6 +81,7 @@ function formatComment(comment: ApplicationVO["comment"]): string {
                                         : null
                                 "
                                 @detail="emit('detail', $event)"
+                                @users="emit('users', $event)"
                                 @delete="emit('delete', $event)"
                             />
                         </td>
