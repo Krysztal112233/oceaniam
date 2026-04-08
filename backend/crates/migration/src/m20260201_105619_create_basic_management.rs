@@ -36,7 +36,6 @@ impl MigrationTrait for Migration {
             )
         };
 
-        println!("Initialling basic root account");
         generated::ActiveModel {
             id: Set(Uuid::now_v7()),
             name: Set("root".into()),

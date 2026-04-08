@@ -118,6 +118,9 @@ pub async fn spawn_app_with_isolated_schema() -> TestApp {
         .clone();
 
     // Run migrations in the new schema
+    // NOTE: This manual migration loop works around a sea-orm-migration bug in isolated PostgreSQL
+    // schemas where `Migrator::up` can fail to persist into `seaql_migrations` even after applying
+    // the migrations successfully. See: https://github.com/SeaQL/sea-orm/issues/2702
     {
         let migrate_db = Database::connect(
             ConnectOptions::new(&test_config.database.dsn)
@@ -127,10 +130,6 @@ pub async fn spawn_app_with_isolated_schema() -> TestApp {
         .await
         .expect("failed to connect to schema for migration");
 
-        // NOTE: This manual migration loop works around a sea-orm-migration bug in isolated
-        // PostgreSQL schemas where `Migrator::up` can fail to persist into `seaql_migrations` even
-        // after applying the migrations successfully. See:
-        // https://github.com/SeaQL/sea-orm/issues/2702
         let txn = migrate_db
             .begin()
             .await
