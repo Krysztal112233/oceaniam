@@ -258,21 +258,34 @@ watch(
 </script>
 
 <template>
-    <EntityListPage page-title="User Management" page-description="管理当前 application 下的用户列表，并在相同 application 上下文中创建新用户。">
+    <EntityListPage
+        page-title="User Management"
+        page-description="管理当前 application 下的用户列表，并在相同 application 上下文中创建新用户。"
+    >
         <template #actions>
-            <div class="flex w-full flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div
+                class="flex w-full flex-col gap-4 xl:flex-row xl:items-center xl:justify-between"
+            >
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-                    <label class="rounded-box border border-base-200 bg-base-50 px-3 py-2">
+                    <label
+                        class="rounded-box border border-base-200 bg-base-50 px-3 py-2"
+                    >
                         <div class="label p-0">
-                            <span class="label-text text-xs text-base-content/60">
+                            <span
+                                class="label-text text-xs text-base-content/60"
+                            >
                                 用户总量 {{ totalUsersCount }}
                             </span>
                         </div>
                     </label>
 
-                    <label class="rounded-box border border-base-200 bg-base-50 px-3 py-2">
+                    <label
+                        class="rounded-box border border-base-200 bg-base-50 px-3 py-2"
+                    >
                         <div class="label p-0">
-                            <span class="label-text text-xs text-base-content/60">
+                            <span
+                                class="label-text text-xs text-base-content/60"
+                            >
                                 活跃总量 {{ activeUsersCount }}
                             </span>
                         </div>
@@ -280,25 +293,40 @@ watch(
                 </div>
 
                 <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
-                    <div class="join ">
-                        <label class="input input-sm w-full lg:w-64 ">
-                            <input v-model="searchKeyword" type="text" placeholder="搜索用户"
-                                @keydown.enter.prevent="applySearch" />
+                    <div class="join">
+                        <label class="input input-sm w-full lg:w-64">
+                            <input
+                                v-model="searchKeyword"
+                                type="text"
+                                placeholder="搜索用户"
+                                @keydown.enter.prevent="applySearch"
+                            />
                         </label>
 
-                        <select v-model="filterField" class="select select-bordered select-sm w-full lg:w-40">
+                        <select
+                            v-model="filterField"
+                            class="select select-bordered select-sm w-full lg:w-40"
+                        >
                             <option value="id">User ID</option>
                             <option value="nickname">Nickname</option>
                             <option value="email">Email</option>
                             <option value="phone">Phone</option>
                         </select>
                     </div>
-                    <button type="button" class="btn btn-outline btn-sm" @click="applySearch">
+                    <button
+                        type="button"
+                        class="btn btn-outline btn-sm"
+                        @click="applySearch"
+                    >
                         搜索
                     </button>
 
-                    <button type="button" class="btn btn-primary btn-sm" :disabled="!canOpenCreateDialog"
-                        @click="openCreateDialog">
+                    <button
+                        type="button"
+                        class="btn btn-primary btn-sm"
+                        :disabled="!canOpenCreateDialog"
+                        @click="openCreateDialog"
+                    >
                         新增用户
                     </button>
                 </div>
@@ -308,21 +336,33 @@ watch(
         <div class="space-y-6 px-6 py-6">
             <section class="rounded-box border border-base-200 bg-base-100">
                 <div class="p-5">
-                    <div v-if="!authStore.isLoggedIn" class="alert alert-info alert-soft">
+                    <div
+                        v-if="!authStore.isLoggedIn"
+                        class="alert alert-info alert-soft"
+                    >
                         <span>请先登录后再查看 application 用户列表。</span>
                     </div>
 
-                    <div v-else-if="tenantsLoading && !tenantId" class="space-y-3">
+                    <div
+                        v-else-if="tenantsLoading && !tenantId"
+                        class="space-y-3"
+                    >
                         <div class="skeleton h-12 w-full"></div>
                         <div class="skeleton h-12 w-full"></div>
                         <div class="skeleton h-12 w-full"></div>
                     </div>
 
-                    <div v-else-if="!tenantId || !applicationId" class="alert alert-info alert-soft">
+                    <div
+                        v-else-if="!tenantId || !applicationId"
+                        class="alert alert-info alert-soft"
+                    >
                         <span>缺少 tenant 或 application 上下文。</span>
                     </div>
 
-                    <div v-else-if="usersError" class="alert alert-error alert-soft">
+                    <div
+                        v-else-if="usersError"
+                        class="alert alert-error alert-soft"
+                    >
                         <span>{{ usersError }}</span>
                     </div>
 
@@ -332,15 +372,24 @@ watch(
                         <div class="skeleton h-12 w-full"></div>
                     </div>
 
-                    <div v-else-if="users.length === 0" class="alert alert-info alert-soft">
+                    <div
+                        v-else-if="users.length === 0"
+                        class="alert alert-info alert-soft"
+                    >
                         <span>当前 application 下暂无用户。</span>
                     </div>
 
-                    <div v-else-if="filteredUsers.length === 0" class="alert alert-info alert-soft">
+                    <div
+                        v-else-if="filteredUsers.length === 0"
+                        class="alert alert-info alert-soft"
+                    >
                         <span>没有匹配当前搜索条件的用户。</span>
                     </div>
 
-                    <div v-else class="overflow-x-auto rounded-box border border-base-200">
+                    <div
+                        v-else
+                        class="overflow-x-auto rounded-box border border-base-200"
+                    >
                         <table class="table min-w-180">
                             <thead>
                                 <tr class="text-sm text-base-content/70">
@@ -351,7 +400,10 @@ watch(
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr v-for="user in filteredUsers" :key="user.id">
+                                <tr
+                                    v-for="user in filteredUsers"
+                                    :key="user.id"
+                                >
                                     <td class="whitespace-nowrap font-medium">
                                         {{ user.id }}
                                     </td>
@@ -379,7 +431,13 @@ watch(
         </div>
     </EntityListPage>
 
-    <CreateUserModal :open="isCreateDialogOpen" :tenant-id="tenantId" :loading="createUserLoading"
-        :error="createUserError" :applications="[{ id: applicationId, label: applicationId }]"
-        @close="closeCreateDialog" @submit="handleCreateUser" />
+    <CreateUserModal
+        :open="isCreateDialogOpen"
+        :tenant-id="tenantId"
+        :loading="createUserLoading"
+        :error="createUserError"
+        :applications="[{ id: applicationId, label: applicationId }]"
+        @close="closeCreateDialog"
+        @submit="handleCreateUser"
+    />
 </template>

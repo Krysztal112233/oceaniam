@@ -40,17 +40,36 @@ function handleConfirmDelete() {
 
 <template>
     <div class="flex justify-center gap-2 whitespace-nowrap">
-        <button type="button" class="btn btn-sm btn-ghost" @click="emit('detail', props.applicationId)">
+        <button
+            type="button"
+            class="btn btn-sm btn-ghost"
+            @click="emit('detail', props.applicationId)"
+        >
             详情
         </button>
-        <button type="button" class="btn btn-sm btn-ghost" @click="emit('users', props.applicationId)">
+        <button
+            type="button"
+            class="btn btn-sm btn-ghost"
+            @click="emit('users', props.applicationId)"
+        >
             用户
         </button>
-        <button type="button" class="btn btn-sm btn-error btn-soft" :disabled="deleting" @click="openDeleteDialog">
+        <button
+            type="button"
+            class="btn btn-sm btn-error btn-soft"
+            :disabled="deleting"
+            @click="openDeleteDialog"
+        >
             删除
         </button>
     </div>
 
-    <DeleteApplicationModal :open="isDialogOpen" :application-id="props.applicationId" :loading="Boolean(deleting)"
-        :error="deleteError || null" @close="closeDeleteDialog" @confirm="handleConfirmDelete" />
+    <DeleteApplicationModal
+        :open="isDialogOpen"
+        :application-id="props.applicationId"
+        :loading="Boolean(deleting)"
+        :error="deleteError || null"
+        @close="closeDeleteDialog"
+        @confirm="handleConfirmDelete"
+    />
 </template>

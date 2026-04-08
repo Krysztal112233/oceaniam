@@ -29,17 +29,21 @@ export type GetApplicationsQuery = {
 
 export type PaginationQuery =
     | {
-        page: number | bigint;
-        per_page: number | bigint;
-    }
+          page: number | bigint;
+          per_page: number | bigint;
+      }
     | {
-        page?: undefined;
-        per_page?: undefined;
-    };
+          page?: undefined;
+          per_page?: undefined;
+      };
 
 export type GetTenantsQuery = PaginationQuery;
 export type GetTenantUsersQuery = PaginationQuery;
 export type GetApplicationUsersQuery = PaginationQuery;
+export type SearchApplicationUsersQuery = {
+    by_nickname?: string;
+    by_email?: string;
+};
 export type GetSecretsQuery = PaginationQuery;
 
 type TenantScopedCreateApplicationRequest = Omit<
@@ -286,6 +290,11 @@ export class OceanIamClient {
             applicationId: string,
         ): string =>
             `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/users`,
+        applicationUsersSearch: (
+            tenantId: string,
+            applicationId: string,
+        ): string =>
+            `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/users/search`,
 
         // ApplicationUserAuthentication
         applicationAuthTokens: (
@@ -376,6 +385,16 @@ export class OceanIamClient {
         ): string =>
             this.buildUrl(
                 OceanIamClient.PATHS.applicationUsersCreate(
+                    tenantId,
+                    applicationId,
+                ),
+            ),
+        applicationUsersSearch: (
+            tenantId: string,
+            applicationId: string,
+        ): string =>
+            this.buildUrl(
+                OceanIamClient.PATHS.applicationUsersSearch(
                     tenantId,
                     applicationId,
                 ),
@@ -540,6 +559,19 @@ export class OceanIamClient {
             method: "POST",
             url: this.endpoints.applicationUsersCreate(tenantId, applicationId),
             body: req,
+        });
+    }
+
+    public async searchApplicationUsers(
+        tenantId: string,
+        applicationId: string,
+        query: SearchApplicationUsersQuery,
+    ): Promise<ApplicationUserVO[]> {
+        const { by_nickname, by_email } = query;
+        return this.request<ApplicationUserVO[]>({
+            method: "GET",
+            url: this.endpoints.applicationUsersSearch(tenantId, applicationId),
+            query: { by_nickname, by_email },
         });
     }
 
