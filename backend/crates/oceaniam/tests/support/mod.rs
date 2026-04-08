@@ -6,7 +6,6 @@ use oceaniam_common::config::{BackendConfig, CorsConfig, DatabaseConfig};
 use rand::Rng;
 use reqwest::Client;
 use sea_orm::{ConnectOptions, ConnectionTrait, Database, Statement, TransactionTrait};
-use sea_orm_migration::SchemaManager;
 use tokio::task::JoinHandle;
 use uuid::Uuid;
 
@@ -118,9 +117,6 @@ pub async fn spawn_app_with_isolated_schema() -> TestApp {
         .clone();
 
     // Run migrations in the new schema
-    // NOTE: This manual migration loop works around a sea-orm-migration bug in isolated PostgreSQL
-    // schemas where `Migrator::up` can fail to persist into `seaql_migrations` even after applying
-    // the migrations successfully. See: https://github.com/SeaQL/sea-orm/issues/2702
     {
         let migrate_db = Database::connect(
             ConnectOptions::new(&test_config.database.dsn)
@@ -134,12 +130,9 @@ pub async fn spawn_app_with_isolated_schema() -> TestApp {
             .begin()
             .await
             .expect("failed to open migration transaction");
-        let manager = SchemaManager::new(&txn);
-        for migration in Migrator::migrations() {
-            migration.up(&manager).await.unwrap_or_else(|err| {
-                panic!("failed to run test migration '{}': {err}", migration.name())
-            });
-        }
+        Migrator::up(&txn, None)
+            .await
+            .expect("failed to run migration");
         txn.commit()
             .await
             .expect("failed to commit test schema migrations");

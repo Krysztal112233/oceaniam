@@ -15,8 +15,7 @@ pub trait AuditSummaryByApplicationHelper {
         database
             .execute(Statement::from_string(
                 database.get_database_backend(),
-                "REFRESH MATERIALIZED VIEW CONCURRENTLY audit_summary_by_application"
-                    .to_owned(),
+                "REFRESH MATERIALIZED VIEW CONCURRENTLY audit_summary_by_application".to_owned(),
             ))
             .await?;
 
