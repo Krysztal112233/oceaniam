@@ -2,7 +2,8 @@
 
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::{Path, Query, State},
+    http::StatusCode,
 };
 use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
@@ -13,7 +14,9 @@ use oceaniam_common::{
 };
 use oceaniam_database::helper::users::{CreateUserOpts, UserHelper};
 use oceaniam_database::model::prelude::Users;
-use oceaniam_vo::applications::{ApplicationUserVO, CreateApplicationUserRequest};
+use oceaniam_vo::applications::{
+    ApplicationUserVO, CreateApplicationUserRequest, SearchApplicationUsersQuery,
+};
 use sea_orm::TransactionTrait;
 use tap::Tap;
 use tracing::{Span, error, field, info};
@@ -23,12 +26,16 @@ use uuid::Uuid;
 use crate::{
     endpoints::applications::{TenantApplicationPath, get_tenant_application},
     middlewares::{self, application::RequireAdminJwtOrMatchedApplicationSecret},
-    state::{AppState, applications::UserIdentifier},
+    state::{
+        AppState,
+        applications::{UserIdentifier, UserSearchOptions},
+    },
 };
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
     router
         .routes(routes!(get_application_users))
+        .routes(routes!(search_application_users))
         .routes(routes!(create_application_user))
         .routes(routes!(get_application_user))
 }
@@ -89,6 +96,96 @@ pub async fn get_application_users(
     let items = items.into_iter().map(ApplicationUserVO::from).collect();
 
     Ok(ApiResponse::new(PagedResponse { items, page_info }))
+}
+
+/// Search application users
+#[utoipa::path(
+        get,
+        path = "/tenants/{tenant_id}/applications/{application_id}/users/search",
+        tag = "ApplicationUsers",
+        params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+            ("tenant_id" = String, Path, description = "Tenant ID"),
+            ("application_id" = String, Path, description = "Application ID"),
+            ("by_nickname" = Option<String>, Query, description = "Search users by nickname with fuzzy matching"),
+            ("by_email" = Option<String>, Query, description = "Search users by email with fuzzy matching"),
+        ),
+        responses(
+            (status = 200, body = ApiResponse<Vec<ApplicationUserVO>>),
+            (status = 203, description = "Missing Authorization header"),
+            (status = 400, description = "Invalid token or bad request", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
+        ),
+    )]
+#[tracing::instrument(
+    level = "info",
+    name = "tenant_application_users.search",
+    skip(auth, applications, database, path, search_options),
+    fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, by_nickname = field::Empty, by_email = field::Empty)
+)]
+pub async fn search_application_users(
+    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    State(AppState {
+        applications,
+        database,
+        ..
+    }): State<AppState<'_>>,
+    Path(path): Path<TenantApplicationPath>,
+    Garde(Query(search_options)): Garde<Query<SearchApplicationUsersQuery>>,
+) -> RestResult<Vec<ApplicationUserVO>> {
+    let operator_id = auth.token.claims.sub;
+    let application = get_tenant_application(path, &database).await?;
+    let application_id = application.id;
+
+    if !search_options.has_search_term() {
+        return Err(oceaniam_common::error::Error::with_code(
+            StatusCode::BAD_REQUEST,
+            "at least one of by_nickname or by_email must be provided",
+        ));
+    }
+
+    Span::current().tap(|it| {
+        it.record("operator_id", field::display(&operator_id))
+            .record("tenant_id", field::display(&application.tenant_id))
+            .record("application_id", field::display(&application_id))
+            .record(
+                "by_nickname",
+                field::display(search_options.by_nickname.as_deref().unwrap_or("")),
+            )
+            .record(
+                "by_email",
+                field::display(search_options.by_email.as_deref().unwrap_or("")),
+            );
+    });
+
+    let users = applications
+        .get_application_users(application_id)
+        .await
+        .inspect_err(|e| {
+            error!(
+                %operator_id,
+                %application_id,
+                error = %e,
+                "failed to get application users helper"
+            )
+        })?
+        .search_user(UserSearchOptions {
+            by_nickname: search_options.by_nickname,
+            by_email: search_options.by_email,
+        })
+        .await
+        .inspect_err(|e| {
+            error!(
+                %operator_id,
+                %application_id,
+                error = %e,
+                "application user search failed"
+            )
+        })?;
+
+    Ok(ApiResponse::new(
+        users.iter().cloned().map(ApplicationUserVO::from).collect(),
+    ))
 }
 
 /// Get application user detail

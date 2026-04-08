@@ -185,6 +185,42 @@ pub struct CreateApplicationUserRequest {
     pub password: String,
 }
 
+fn forbid_search_wildcards(value: &Option<String>, _: &()) -> garde::Result {
+    if let Some(value) = value.as_deref()
+        && (value.contains('%') || value.contains('_') || value.contains('\\'))
+    {
+        return Err(garde::Error::new(
+            "must not contain expressions that expand `LIKE/ILIKE` search scope",
+        ));
+    }
+
+    Ok(())
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema)]
+pub struct SearchApplicationUsersQuery {
+    #[garde(custom(forbid_search_wildcards))]
+    pub by_nickname: Option<String>,
+    #[garde(custom(forbid_search_wildcards))]
+    pub by_email: Option<String>,
+}
+
+impl SearchApplicationUsersQuery {
+    pub fn has_search_term(&self) -> bool {
+        self.by_nickname
+            .as_deref()
+            .map(str::trim)
+            .filter(|it| !it.is_empty())
+            .is_some()
+            || self
+                .by_email
+                .as_deref()
+                .map(str::trim)
+                .filter(|it| !it.is_empty())
+                .is_some()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
 pub struct ApplicationUserVO {
     pub id: Sqid,

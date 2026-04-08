@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::{collections::HashMap, time::Duration};
 
 use axum::http::StatusCode;
@@ -264,6 +265,12 @@ pub struct ApplicationUsers {
     shared_credential_vaults: ManagedCredentialVaults,
 }
 
+#[derive(Debug)]
+pub struct UserSearchOptions {
+    pub by_nickname: Option<String>,
+    pub by_email: Option<String>,
+}
+
 impl ApplicationUsers {
     async fn new(
         application_id: Uuid,
@@ -361,6 +368,31 @@ impl ApplicationUsers {
         );
 
         Ok(user)
+    }
+
+    /// NOTE: A single search returns at most 64 results.
+    pub async fn search_user(
+        &self,
+        search_options: UserSearchOptions,
+    ) -> Result<Arc<Vec<UserModel>>, Error> {
+        Users::search_user(
+            self.application_id,
+            search_options.by_nickname,
+            search_options.by_email,
+            &self.database,
+        )
+        .await
+        .map(Arc::new)
+        .inspect(|users| {
+            // BUT WHY?
+            let users = users.clone();
+            let cache = self.cache.clone();
+            tokio::spawn(async move {
+                for ele in users.iter() {
+                    cache.insert(UserIdentifier::Id(ele.id), ele.clone()).await;
+                }
+            });
+        })
     }
 }
 

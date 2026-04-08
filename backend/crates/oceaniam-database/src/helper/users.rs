@@ -2,8 +2,10 @@ use axum::http::StatusCode;
 use oceaniam_common::{PageInfo, PageParam, PagedResponse, error::Error};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, PaginatorTrait,
-    QueryFilter,
+    QueryFilter, QuerySelect,
+    sea_query::{Expr, extension::postgres::PgExpr},
 };
+use tap::Pipe;
 use uuid::Uuid;
 
 use crate::{
@@ -162,6 +164,43 @@ pub trait UserHelper {
             items: users,
             page_info: PageInfo { has_next, total },
         })
+    }
+
+    /// NOTE: Caller must escape user input for LIKE/ILIKE wildcard semantics before calling.
+    async fn search_user(
+        application_id: Uuid,
+        by_nickname: Option<String>,
+        by_email: Option<String>,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<Vec<model::users::Model>, Error> {
+        use model::users::Column::*;
+
+        let by_nickname = by_nickname
+            .as_deref()
+            .map(str::trim)
+            .filter(|it| !it.is_empty());
+
+        let by_email = by_email
+            .as_deref()
+            .map(str::trim)
+            .filter(|it| !it.is_empty());
+
+        let condition = Condition::all()
+            .add(ApplicationId.eq(application_id))
+            .pipe(|it| match by_nickname {
+                Some(by_nickname) => it.add(Expr::col(Nickname).ilike(format!("%{by_nickname}%"))),
+                _ => it,
+            })
+            .pipe(|it| match by_email {
+                Some(by_email) => it.add(Expr::col(Email).ilike(format!("%{by_email}%"))),
+                _ => it,
+            });
+
+        Ok(Users::find()
+            .filter(condition)
+            .limit(64)
+            .all(database)
+            .await?)
     }
 
     async fn find_by_email(
