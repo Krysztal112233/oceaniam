@@ -197,7 +197,9 @@ fn forbid_search_wildcards(value: &Option<String>, _: &()) -> garde::Result {
     Ok(())
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema,
+)]
 #[serde(default)]
 pub struct SearchApplicationUsersQuery {
     #[garde(custom(forbid_search_wildcards))]
