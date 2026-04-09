@@ -269,6 +269,7 @@ pub struct ApplicationUsers {
 pub struct UserSearchOptions {
     pub by_nickname: Option<String>,
     pub by_email: Option<String>,
+    pub by_phone: Option<String>,
 }
 
 impl ApplicationUsers {
@@ -379,6 +380,7 @@ impl ApplicationUsers {
             self.application_id,
             search_options.by_nickname,
             search_options.by_email,
+            search_options.by_phone,
             &self.database,
         )
         .await

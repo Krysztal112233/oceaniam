@@ -10,6 +10,13 @@ import { useAuthStore } from "../stores/auth";
 import { useTenantStore } from "../stores/tenant";
 import { getClient } from "../utils/api-client";
 
+type UserItem = {
+    id: string;
+    nickname: string;
+    email: string | null;
+    phone: string | null;
+};
+
 const authStore = useAuthStore();
 const route = useRoute();
 const tenantStore = useTenantStore();
@@ -27,14 +34,7 @@ const applicationId = computed(() => {
     return typeof raw === "string" ? raw : "";
 });
 
-const users = ref<
-    Array<{
-        id: string;
-        nickname: string;
-        email: string | null;
-        phone: string | null;
-    }>
->([]);
+const users = ref<UserItem[]>([]);
 const usersLoading = ref(false);
 const usersError = ref<string | null>(null);
 const usersRequestId = ref(0);
@@ -42,7 +42,6 @@ const isCreateDialogOpen = ref(false);
 const createUserLoading = ref(false);
 const createUserError = ref<string | null>(null);
 const searchKeyword = ref("");
-const appliedKeyword = ref("");
 const filterField = ref<"id" | "nickname" | "email" | "phone">("nickname");
 
 const canOpenCreateDialog = computed(
@@ -57,22 +56,50 @@ const canOpenCreateDialog = computed(
 
 const totalUsersCount = computed(() => users.value.length);
 const activeUsersCount = computed(() => "--");
+const hasActiveSearch = computed(() => searchKeyword.value.trim().length > 0);
 
-const filteredUsers = computed(() => {
-    const keyword = appliedKeyword.value.trim().toLowerCase();
-    if (!keyword) {
-        return users.value;
+function mapUsers(
+    items: Array<{
+        id: string;
+        nickname: string;
+        email: string | null;
+        phone: string | null;
+    }>,
+): UserItem[] {
+    return items.map((user) => ({
+        id: user.id,
+        nickname: user.nickname,
+        email: user.email,
+        phone: user.phone,
+    }));
+}
+
+function buildUserSearchQuery(
+    keyword: string,
+    field: "id" | "nickname" | "email" | "phone",
+): {
+    by_id?: string;
+    by_nickname?: string;
+    by_email?: string;
+    by_phone?: string;
+} {
+    if (field === "id") {
+        return { by_id: keyword };
     }
 
-    return users.value.filter((user) => {
-        const fields = [user[filterField.value] || ""];
+    if (field === "email") {
+        return { by_email: keyword };
+    }
 
-        return fields.some((value) => value.toLowerCase().includes(keyword));
-    });
-});
+    if (field === "phone") {
+        return { by_phone: keyword };
+    }
 
-function applySearch(): void {
-    appliedKeyword.value = searchKeyword.value.trim();
+    return { by_nickname: keyword };
+}
+
+async function applySearch(): Promise<void> {
+    await loadUsers(tenantId.value, applicationId.value);
 }
 
 function clearUsersState(): void {
@@ -83,7 +110,6 @@ function clearUsersState(): void {
     createUserLoading.value = false;
     isCreateDialogOpen.value = false;
     searchKeyword.value = "";
-    appliedKeyword.value = "";
     filterField.value = "nickname";
 }
 
@@ -101,12 +127,13 @@ async function ensureTenantContext(): Promise<void> {
     }
 }
 
-async function loadApplicationUsers(
+async function loadUsers(
     tenantId: string,
     applicationId: string,
 ): Promise<void> {
     const normalizedTenantId = tenantId.trim();
     const normalizedApplicationId = applicationId.trim();
+    const keyword = searchKeyword.value.trim();
 
     if (!normalizedTenantId || !normalizedApplicationId) {
         clearUsersState();
@@ -122,21 +149,28 @@ async function loadApplicationUsers(
     usersError.value = null;
 
     try {
-        const applicationUsersResponse = await getClient().getApplicationUsers(
-            normalizedTenantId,
-            normalizedApplicationId,
-        );
+        const loadedUsers = keyword
+            ? mapUsers(
+                  await getClient().searchApplicationUsers(
+                      normalizedTenantId,
+                      normalizedApplicationId,
+                      buildUserSearchQuery(keyword, filterField.value),
+                  ),
+              )
+            : mapUsers(
+                  (
+                      await getClient().getApplicationUsers(
+                          normalizedTenantId,
+                          normalizedApplicationId,
+                      )
+                  ).items,
+              );
 
         if (requestId !== usersRequestId.value) {
             return;
         }
 
-        users.value = applicationUsersResponse.items.map((user) => ({
-            id: user.id,
-            nickname: user.nickname,
-            email: user.email,
-            phone: user.phone,
-        }));
+        users.value = loadedUsers;
     } catch (err) {
         if (requestId !== usersRequestId.value) {
             return;
@@ -146,7 +180,9 @@ async function loadApplicationUsers(
         usersError.value =
             err instanceof Error
                 ? err.message
-                : "加载 application 用户列表失败。";
+                : keyword
+                  ? "搜索 application 用户失败。"
+                  : "加载 application 用户列表失败。";
     } finally {
         if (requestId === usersRequestId.value) {
             usersLoading.value = false;
@@ -200,7 +236,7 @@ async function handleCreateUser(
 
         isCreateDialogOpen.value = false;
         toast.success("用户已创建");
-        await loadApplicationUsers(normalizedTenantId, normalizedApplicationId);
+        await loadUsers(normalizedTenantId, normalizedApplicationId);
     } catch (err) {
         createUserError.value =
             err instanceof Error ? err.message : "创建用户失败。";
@@ -236,7 +272,7 @@ watch(
             return;
         }
 
-        void loadApplicationUsers(tenantId.value, applicationId.value);
+        void loadUsers(tenantId.value, applicationId.value);
     },
     { immediate: true },
 );
@@ -251,7 +287,7 @@ watch(
 
         const nextTenantId = nextParams[0] ?? "";
         const nextApplicationId = nextParams[1] ?? "";
-        void loadApplicationUsers(nextTenantId, nextApplicationId);
+        void loadUsers(nextTenantId, nextApplicationId);
     },
     { immediate: true },
 );
@@ -373,17 +409,17 @@ watch(
                     </div>
 
                     <div
+                        v-else-if="users.length === 0 && hasActiveSearch"
+                        class="alert alert-info alert-soft"
+                    >
+                        <span>没有匹配当前搜索条件的用户。</span>
+                    </div>
+
+                    <div
                         v-else-if="users.length === 0"
                         class="alert alert-info alert-soft"
                     >
                         <span>当前 application 下暂无用户。</span>
-                    </div>
-
-                    <div
-                        v-else-if="filteredUsers.length === 0"
-                        class="alert alert-info alert-soft"
-                    >
-                        <span>没有匹配当前搜索条件的用户。</span>
                     </div>
 
                     <div
@@ -400,10 +436,7 @@ watch(
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr
-                                    v-for="user in filteredUsers"
-                                    :key="user.id"
-                                >
+                                <tr v-for="user in users" :key="user.id">
                                     <td class="whitespace-nowrap font-medium">
                                         {{ user.id }}
                                     </td>

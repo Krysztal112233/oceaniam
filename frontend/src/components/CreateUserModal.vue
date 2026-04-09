@@ -180,7 +180,7 @@ function handleSubmit(): void {
                     <div class="join w-full">
                         <input v-model="nickname" type="text" class="input input-bordered join-item w-full"
                             placeholder="可选，不填写则由后端自动生成" :disabled="loading" />
-                        <button type="button" class="btn  join-item" :disabled="loading" aria-label="重新随机生成昵称"
+                        <button type="button" class="btn join-item" :disabled="loading" aria-label="重新随机生成昵称"
                             title="重新随机" @click="nickname = generateNickname()">
                             <CasinoIcon class="h-5 w-5" />
                         </button>

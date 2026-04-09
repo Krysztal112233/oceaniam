@@ -197,12 +197,15 @@ fn forbid_search_wildcards(value: &Option<String>, _: &()) -> garde::Result {
     Ok(())
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema)]
+#[serde(default)]
 pub struct SearchApplicationUsersQuery {
     #[garde(custom(forbid_search_wildcards))]
     pub by_nickname: Option<String>,
     #[garde(custom(forbid_search_wildcards))]
     pub by_email: Option<String>,
+    #[garde(custom(forbid_search_wildcards))]
+    pub by_phone: Option<String>,
     #[garde(skip)]
     pub by_id: Option<Sqid>,
 }
@@ -216,6 +219,12 @@ impl SearchApplicationUsersQuery {
             .is_some()
             || self
                 .by_email
+                .as_deref()
+                .map(str::trim)
+                .filter(|it| !it.is_empty())
+                .is_some()
+            || self
+                .by_phone
                 .as_deref()
                 .map(str::trim)
                 .filter(|it| !it.is_empty())

@@ -171,6 +171,7 @@ pub trait UserHelper {
         application_id: Uuid,
         by_nickname: Option<String>,
         by_email: Option<String>,
+        by_phone: Option<String>,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<model::users::Model>, Error> {
         use model::users::Column::*;
@@ -185,6 +186,11 @@ pub trait UserHelper {
             .map(str::trim)
             .filter(|it| !it.is_empty());
 
+        let by_phone = by_phone
+            .as_deref()
+            .map(str::trim)
+            .filter(|it| !it.is_empty());
+
         let condition = Condition::all()
             .add(ApplicationId.eq(application_id))
             .pipe(|it| match by_nickname {
@@ -193,6 +199,10 @@ pub trait UserHelper {
             })
             .pipe(|it| match by_email {
                 Some(by_email) => it.add(Expr::col(Email).ilike(format!("%{by_email}%"))),
+                _ => it,
+            })
+            .pipe(|it| match by_phone {
+                Some(by_phone) => it.add(Expr::col(Phone).ilike(format!("%{by_phone}%"))),
                 _ => it,
             });
 

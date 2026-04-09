@@ -43,6 +43,8 @@ export type GetApplicationUsersQuery = PaginationQuery;
 export type SearchApplicationUsersQuery = {
     by_nickname?: string;
     by_email?: string;
+    by_id?: string;
+    by_phone?: string;
 };
 export type GetSecretsQuery = PaginationQuery;
 
@@ -567,11 +569,11 @@ export class OceanIamClient {
         applicationId: string,
         query: SearchApplicationUsersQuery,
     ): Promise<ApplicationUserVO[]> {
-        const { by_nickname, by_email } = query;
+        const { by_nickname, by_email, by_id, by_phone } = query;
         return this.request<ApplicationUserVO[]>({
             method: "GET",
             url: this.endpoints.applicationUsersSearch(tenantId, applicationId),
-            query: { by_nickname, by_email },
+            query: { by_nickname, by_email, by_id, by_phone },
         });
     }
 
