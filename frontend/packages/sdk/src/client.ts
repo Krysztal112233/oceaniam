@@ -568,9 +568,9 @@ export class OceanIamClient {
         tenantId: string,
         applicationId: string,
         query: SearchApplicationUsersQuery,
-    ): Promise<ApplicationUserVO[]> {
+    ): Promise<PagedResponse<ApplicationUserVO>> {
         const { by_nickname, by_email, by_id, by_phone } = query;
-        return this.request<ApplicationUserVO[]>({
+        return this.request<PagedResponse<ApplicationUserVO>>({
             method: "GET",
             url: this.endpoints.applicationUsersSearch(tenantId, applicationId),
             query: { by_nickname, by_email, by_id, by_phone },

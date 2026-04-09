@@ -2,7 +2,10 @@
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import { type CreateApplicationUserRequest } from "@oceaniam/sdk";
+import {
+    type CreateApplicationUserRequest,
+    type SearchApplicationUsersQuery,
+} from "@oceaniam/sdk";
 import { useToast } from "vue-toastification";
 import CreateUserModal from "../components/CreateUserModal.vue";
 import EntityListPage from "../components/EntityListPage.vue";
@@ -77,12 +80,7 @@ function mapUsers(
 function buildUserSearchQuery(
     keyword: string,
     field: "id" | "nickname" | "email" | "phone",
-): {
-    by_id?: string;
-    by_nickname?: string;
-    by_email?: string;
-    by_phone?: string;
-} {
+): SearchApplicationUsersQuery {
     if (field === "id") {
         return { by_id: keyword };
     }
@@ -151,11 +149,13 @@ async function loadUsers(
     try {
         const loadedUsers = keyword
             ? mapUsers(
-                  await getClient().searchApplicationUsers(
-                      normalizedTenantId,
-                      normalizedApplicationId,
-                      buildUserSearchQuery(keyword, filterField.value),
-                  ),
+                  (
+                      await getClient().searchApplicationUsers(
+                          normalizedTenantId,
+                          normalizedApplicationId,
+                          buildUserSearchQuery(keyword, filterField.value),
+                      )
+                  ).items,
               )
             : mapUsers(
                   (
