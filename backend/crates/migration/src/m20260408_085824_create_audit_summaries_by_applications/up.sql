@@ -14,10 +14,3 @@ GROUP BY
   audit_type;
 
 CREATE UNIQUE INDEX idx_audit_summary_by_application_primary ON audit_summary_by_application (application_id, day, audit_type);
-
-SELECT
-  cron.schedule (
-    'refresh_audit_summary_by_application_every_10_minutes',
-    '*/10 * * * *',
-    'REFRESH MATERIALIZED VIEW CONCURRENTLY audit_summary_by_application'
-  );

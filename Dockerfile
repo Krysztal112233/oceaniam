@@ -56,14 +56,6 @@ RUN apt-get update && \
 				libxslt-dev libssl-dev libxml2-utils xsltproc pkg-config libc++-dev \
 				libc++abi-dev libglib2.0-dev libtinfo6 cmake libstdc++-12-dev \
 				liblz4-dev libcurl4-openssl-dev ninja-build git ca-certificates libicu-dev libcurl4t64
-ADD https://github.com/citusdata/pg_cron.git#v1.6.7 /tmp/pg_cron
-RUN cd /tmp/pg_cron && \
-		make clean && \
-		make OPTFLAGS="" && \
-		make install && \
-		mkdir /usr/share/doc/pg_corn && \
-		cp LICENSE README.md /usr/share/doc/pg_corn && \
-		rm -r /tmp/pg_cron
 RUN git clone https://github.com/duckdb/pg_duckdb.git /tmp/pg_duckdb && \
 		cd /tmp/pg_duckdb && \
 		git submodule update --init --recursive && \

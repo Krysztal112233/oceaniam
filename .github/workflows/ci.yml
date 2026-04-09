@@ -65,7 +65,7 @@ jobs:
             -p 5432:5432 \
             oceaniam-database \
             -c 'max_connections=20480' \
-            -c 'shared_preload_libraries=pg_cron,pg_duckdb'
+            -c 'shared_preload_libraries=pg_duckdb'
 
       - name: Wait for database
         run: |
