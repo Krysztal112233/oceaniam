@@ -1,5 +1,7 @@
 //! Application user-related API endpoints
 
+use std::sync::Arc;
+
 use axum::{
     Json,
     extract::{Path, Query, State},
@@ -99,6 +101,10 @@ pub async fn get_application_users(
 }
 
 /// Search application users
+///
+/// NOTE: Due to system constraints, searching by `by_id` is always an exact match because the value
+/// must be converted into a `Uuid` before lookup. Once `by_id` is provided, all other search
+/// conditions are ignored because this condition is unique by itself.
 #[utoipa::path(
         get,
         path = "/tenants/{tenant_id}/applications/{application_id}/users/search",
@@ -150,38 +156,73 @@ pub async fn search_application_users(
             .record("application_id", field::display(&application_id))
             .record(
                 "by_nickname",
-                field::display(search_options.by_nickname.as_deref().unwrap_or("")),
+                field::display(search_options.by_nickname.as_deref().unwrap_or_default()),
+            )
+            .record(
+                "by_id",
+                field::display(
+                    search_options
+                        .by_id
+                        .clone()
+                        .map(|it| it.to_string())
+                        .unwrap_or_default(),
+                ),
             )
             .record(
                 "by_email",
-                field::display(search_options.by_email.as_deref().unwrap_or("")),
+                field::display(search_options.by_email.as_deref().unwrap_or_default()),
             );
     });
 
-    let users = applications
-        .get_application_users(application_id)
-        .await
-        .inspect_err(|e| {
-            error!(
-                %operator_id,
-                %application_id,
-                error = %e,
-                "failed to get application users helper"
-            )
-        })?
-        .search_user(UserSearchOptions {
-            by_nickname: search_options.by_nickname,
-            by_email: search_options.by_email,
-        })
-        .await
-        .inspect_err(|e| {
-            error!(
-                %operator_id,
-                %application_id,
-                error = %e,
-                "application user search failed"
-            )
-        })?;
+    let users = match search_options.by_id {
+        Some(by_id) => applications
+            .get_application_users(application_id)
+            .await
+            .inspect_err(|e| {
+                error!(
+                    %operator_id,
+                    %application_id,
+                    error = %e,
+                    "failed to get application users helper"
+                )
+            })?
+            .find_user_by(UserIdentifier::Id(by_id.try_into()?))
+            .await
+            .inspect_err(|e| {
+                error!(
+                    %operator_id,
+                    %application_id,
+                    error = %e,
+                    "application user search failed"
+                )
+            })
+            .map(|it| Arc::new(vec![it]))?,
+
+        None => applications
+            .get_application_users(application_id)
+            .await
+            .inspect_err(|e| {
+                error!(
+                    %operator_id,
+                    %application_id,
+                    error = %e,
+                    "failed to get application users helper"
+                )
+            })?
+            .search_user(UserSearchOptions {
+                by_nickname: search_options.by_nickname,
+                by_email: search_options.by_email,
+            })
+            .await
+            .inspect_err(|e| {
+                error!(
+                    %operator_id,
+                    %application_id,
+                    error = %e,
+                    "application user search failed"
+                )
+            })?,
+    };
 
     Ok(ApiResponse::new(
         users.iter().cloned().map(ApplicationUserVO::from).collect(),

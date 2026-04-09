@@ -203,6 +203,8 @@ pub struct SearchApplicationUsersQuery {
     pub by_nickname: Option<String>,
     #[garde(custom(forbid_search_wildcards))]
     pub by_email: Option<String>,
+    #[garde(skip)]
+    pub by_id: Option<Sqid>,
 }
 
 impl SearchApplicationUsersQuery {
@@ -218,6 +220,7 @@ impl SearchApplicationUsersQuery {
                 .map(str::trim)
                 .filter(|it| !it.is_empty())
                 .is_some()
+            || self.by_id.is_some()
     }
 }
 
