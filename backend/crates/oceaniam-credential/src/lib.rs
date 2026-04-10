@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::{credential::Password, error::Error};
 
-pub mod credential;
+pub(crate) mod credential;
 pub mod error;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -61,6 +61,14 @@ impl CredentialVault {
                 .await
                 .inspect_err(|e| error!("{e}"))?,
         })
+    }
+}
+
+impl CredentialVault {
+    pub async fn verify_password(&self, password: impl AsRef<str>) -> Result<bool, Error> {
+        Password::from_phc(self.phc.clone())
+            .verify(password.as_ref())
+            .await
     }
 }
 

@@ -22,7 +22,6 @@ use oceaniam_common::{
     ApiResponse, ApiResponseWithHeader, ErrorResponse, WithHeaderRestResult, consts, error::Error,
     jwt::Claim,
 };
-use oceaniam_credential::credential::Password;
 use oceaniam_database::helper::applications::ApplicationConfiguration;
 use oceaniam_vo::auth::{AuthVO, SigninResponse, SignoutResponse};
 use tap::Tap;
@@ -124,17 +123,16 @@ pub async fn create_application_token(
     })?;
 
     let verify_result = match auth {
-        AuthVO::Email { password, .. } | AuthVO::Phone { password, .. } => Password::from(vault)
-            .verify(&password)
-            .await
-            .inspect_err(|e| {
+        AuthVO::Email { password, .. } | AuthVO::Phone { password, .. } => {
+            vault.verify_password(&password).await.inspect_err(|e| {
                 error!(
                     %application_id,
                     user_id = %user.id,
                     error = %e,
                     "failed to verify password"
                 )
-            })?,
+            })?
+        }
     };
 
     if !verify_result {

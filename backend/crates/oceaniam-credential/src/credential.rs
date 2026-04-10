@@ -6,7 +6,7 @@ use argon2::{
 };
 use oceaniam_common::consts;
 
-use crate::{CredentialVault, error::Error};
+use crate::error::Error;
 
 #[derive(Debug)]
 pub struct Password(String);
@@ -20,7 +20,7 @@ static DEFAULT_ARGON_CFG: LazyLock<Argon2> = LazyLock::new(|| {
 });
 
 impl Password {
-    pub fn with_password(password: impl AsRef<str>) -> Result<Password, Error> {
+    pub(crate) fn with_password(password: impl AsRef<str>) -> Result<Password, Error> {
         // Generate salt and hash in one expression to avoid lifetime issues
         let hash_string = {
             let salt = SaltString::generate(&mut OsRng);
@@ -35,18 +35,22 @@ impl Password {
         Ok(Password(phc))
     }
 
-    pub fn with_phc(phc: impl Into<String>) -> Self {
+    pub(crate) fn from_phc(phc: impl Into<String>) -> Self {
         Self(phc.into())
     }
 
-    pub async fn verify(&self, password: impl Into<String>) -> Result<bool, Error> {
-        let password = password.into();
+    pub async fn verify(&self, password: &str) -> Result<bool, Error> {
+        // Semaphore acquisition stays async; only the CPU-bound hash verification runs on the
+        // blocking pool.
+        let _permit = consts::MAX_CPU_BOUND_SEMAPHORE
+            .acquire()
+            .await
+            .expect("cpu-bound semaphore should not be closed");
+
+        let password = password.to_owned();
         let phc = self.0.clone();
 
-        tokio::task::spawn_blocking(move || async move {
-            // NOTE: The consts::MAX_CPU_BOUND_SEMAPHORE will not be closed forever
-            let _ = consts::MAX_CPU_BOUND_SEMAPHORE.acquire().await;
-
+        tokio::task::spawn_blocking(move || {
             let password_hash = PasswordHash::new(&phc)?;
 
             match DEFAULT_ARGON_CFG.verify_password(password.as_bytes(), &password_hash) {
@@ -58,16 +62,9 @@ impl Password {
             }
         })
         .await?
-        .await
     }
 
     pub fn into_phc(self) -> String {
         self.0.to_string()
-    }
-}
-
-impl From<CredentialVault> for Password {
-    fn from(value: CredentialVault) -> Self {
-        Self::with_phc(value.phc)
     }
 }

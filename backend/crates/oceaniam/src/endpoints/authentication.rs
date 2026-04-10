@@ -21,7 +21,6 @@ use oceaniam_common::{
     ApiResponse, ApiResponseWithHeader, ErrorResponse, RestResult, WithHeaderRestResult, consts,
     error::Error, jwt::SystemClaim,
 };
-use oceaniam_credential::credential;
 use oceaniam_database::{
     helper::administrators::AdministratorsHelper, model::prelude::Administrators,
 };
@@ -108,12 +107,11 @@ pub async fn create_auth_token(
     });
 
     let succeed = {
-        let cred = credentials
+        credentials
             .get_credential(id)
             .await
-            .inspect_err(|e| error!(admin_id = %id, error = %e, "failed to get credential"))?;
-        credential::Password::from(cred)
-            .verify(password)
+            .inspect_err(|e| error!(admin_id = %id, error = %e, "failed to get credential"))?
+            .verify_password(&password)
             .await
             .inspect_err(|e| error!(admin_id = %id, error = %e, "failed to verify password"))?
     };
