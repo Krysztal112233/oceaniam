@@ -25,10 +25,18 @@ pub struct AuthenticationConfigurationVO {
     pub audience: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, ts_rs::TS, ToSchema)]
+pub struct Argon2Configuration {
+    pub m_cost: u32,
+    pub t_cost: u32,
+    pub p_cost: u32,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
 pub struct ApplicationConfigurationVO {
     pub authentication: AuthenticationConfigurationVO,
     pub enable_registration: bool,
+    pub argon2: Argon2Configuration,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
@@ -126,6 +134,23 @@ impl From<oceaniam_database::helper::applications::AuthenticationConfiguration>
 }
 
 #[cfg(feature = "database")]
+impl From<oceaniam_database::helper::applications::Argon2Configuration> for Argon2Configuration {
+    fn from(
+        oceaniam_database::helper::applications::Argon2Configuration {
+            m_cost,
+            t_cost,
+            p_cost,
+        }: oceaniam_database::helper::applications::Argon2Configuration,
+    ) -> Self {
+        Self {
+            m_cost,
+            t_cost,
+            p_cost,
+        }
+    }
+}
+
+#[cfg(feature = "database")]
 impl From<oceaniam_database::helper::applications::ApplicationConfiguration>
     for ApplicationConfigurationVO
 {
@@ -133,11 +158,13 @@ impl From<oceaniam_database::helper::applications::ApplicationConfiguration>
         oceaniam_database::helper::applications::ApplicationConfiguration {
             authentication,
             enable_registration: allow_registration,
+            argon2,
         }: oceaniam_database::helper::applications::ApplicationConfiguration,
     ) -> Self {
         Self {
             authentication: authentication.into(),
             enable_registration: allow_registration,
+            argon2: argon2.into(),
         }
     }
 }

@@ -230,6 +230,24 @@ fn application_not_found(application_id: Uuid) -> Error {
 pub struct ApplicationConfiguration {
     pub authentication: AuthenticationConfiguration,
     pub enable_registration: bool,
+    pub argon2: Argon2Configuration,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Argon2Configuration {
+    pub m_cost: u32,
+    pub t_cost: u32,
+    pub p_cost: u32,
+}
+
+impl Default for Argon2Configuration {
+    fn default() -> Self {
+        Self {
+            m_cost: 12288,
+            t_cost: 3,
+            p_cost: 1,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
