@@ -11,6 +11,7 @@ pub struct Model {
     pub id: Uuid,
     pub r#type: SubjectTypeEnum,
     pub application_id: Uuid,
+    pub created_at: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

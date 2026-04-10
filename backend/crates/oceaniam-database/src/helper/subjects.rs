@@ -1,3 +1,4 @@
+use chrono::Utc;
 use oceaniam_common::error::Error;
 use sea_orm::{ActiveModelTrait, IntoActiveModel};
 use uuid::Uuid;
@@ -20,6 +21,7 @@ pub trait SubjectsHelper {
                 id,
                 r#type: typ,
                 application_id,
+                created_at: Utc::now().into(),
             }
             .into_active_model()
             .insert(database)
