@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
+use argon2::Argon2;
 use axum::http::StatusCode;
 use moka::future::{Cache, CacheBuilder};
 use oceaniam_common::error::Error;
@@ -110,8 +111,9 @@ impl ManagedCredentialVaults {
         &self,
         subject_id: Uuid,
         password: impl AsRef<str> + Send,
+        argon2: &Argon2<'_>,
     ) -> Result<model::credentials::Model, Error> {
-        self.create_with_password_in_tx(subject_id, password, &self.database)
+        self.create_with_password_in_tx(subject_id, password, argon2, &self.database)
             .await
     }
 
@@ -119,9 +121,10 @@ impl ManagedCredentialVaults {
         &self,
         subject_id: Uuid,
         password: impl AsRef<str> + Send,
+        argon2: &Argon2<'_>,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::credentials::Model, Error> {
-        let vault = CredentialVault::with_password(password)?;
+        let vault = CredentialVault::with_password(password, argon2)?;
 
         let model = vault.write_to(subject_id, database).await?;
 
@@ -134,8 +137,9 @@ impl ManagedCredentialVaults {
         &self,
         subject_id: Uuid,
         password: impl AsRef<str> + Send,
+        argon2: &Argon2<'_>,
     ) -> Result<model::credentials::Model, Error> {
-        self.update_password_in_tx(subject_id, password, &self.database)
+        self.update_password_in_tx(subject_id, password, argon2, &self.database)
             .await
     }
 
@@ -143,12 +147,13 @@ impl ManagedCredentialVaults {
         &self,
         subject_id: Uuid,
         password: impl AsRef<str> + Send,
+        argon2: &Argon2<'_>,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::credentials::Model, Error> {
         Ok(self
             .get_credential_in_tx(subject_id, database)
             .await?
-            .update_password(password)?
+            .update_password(password, argon2)?
             .write_to(subject_id, database)
             .await?)
     }

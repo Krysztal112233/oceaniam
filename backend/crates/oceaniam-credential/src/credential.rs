@@ -1,7 +1,5 @@
-use std::sync::LazyLock;
-
 use argon2::{
-    Argon2, Params, PasswordHash, PasswordHasher, PasswordVerifier,
+    Argon2, PasswordHash, PasswordHasher, PasswordVerifier,
     password_hash::{SaltString, rand_core::OsRng},
 };
 use oceaniam_common::consts;
@@ -11,21 +9,15 @@ use crate::error::Error;
 #[derive(Debug)]
 pub struct Password(String);
 
-static DEFAULT_ARGON_CFG: LazyLock<Argon2> = LazyLock::new(|| {
-    Argon2::new(
-        argon2::Algorithm::Argon2id,
-        argon2::Version::V0x13,
-        Params::new(12288, 3, 1, Some(Params::DEFAULT_OUTPUT_LEN)).unwrap(),
-    )
-});
-
 impl Password {
-    pub(crate) fn with_password(password: impl AsRef<str>) -> Result<Password, Error> {
+    pub(crate) fn with_password(
+        password: impl AsRef<str>,
+        argon2: &Argon2<'_>,
+    ) -> Result<Password, Error> {
         // Generate salt and hash in one expression to avoid lifetime issues
         let hash_string = {
             let salt = SaltString::generate(&mut OsRng);
-            DEFAULT_ARGON_CFG
-                .clone()
+            argon2
                 .hash_password(password.as_ref().as_bytes(), &salt)?
                 .to_string()
         };
@@ -53,7 +45,7 @@ impl Password {
         tokio::task::spawn_blocking(move || {
             let password_hash = PasswordHash::new(&phc)?;
 
-            match DEFAULT_ARGON_CFG.verify_password(password.as_bytes(), &password_hash) {
+            match Argon2::default().verify_password(password.as_bytes(), &password_hash) {
                 Ok(()) => Ok(true),
                 Err(argon2::password_hash::Error::Password) => {
                     Err(Error::Password(argon2::password_hash::Error::Password))

@@ -1,3 +1,4 @@
+use argon2::Argon2;
 use oceaniam_database::{
     helper::SafeTransactionConnectionTrait,
     model::{self, prelude::Credentials},
@@ -20,14 +21,18 @@ pub struct CredentialVault {
 
 impl CredentialVault {
     /// User must have at least password login method enabled.
-    pub fn with_password(password: impl AsRef<str>) -> Result<Self, Error> {
-        let phc = Password::with_password(password)?.into_phc();
+    pub fn with_password(password: impl AsRef<str>, argon2: &Argon2<'_>) -> Result<Self, Error> {
+        let phc = Password::with_password(password, argon2)?.into_phc();
 
         Ok(Self { phc })
     }
 
-    pub fn update_password(self, password: impl AsRef<str>) -> Result<Self, Error> {
-        let phc = Password::with_password(password)?.into_phc();
+    pub fn update_password(
+        self,
+        password: impl AsRef<str>,
+        argon2: &Argon2<'_>,
+    ) -> Result<Self, Error> {
+        let phc = Password::with_password(password, argon2)?.into_phc();
 
         #[allow(clippy::needless_update)]
         Ok(Self { phc, ..self })

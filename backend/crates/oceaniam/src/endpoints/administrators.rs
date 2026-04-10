@@ -3,6 +3,7 @@
 //! NOTE: This package is allowed to access the database directly without going through any cache
 //! layer.
 
+use argon2::Argon2;
 use axum::{
     Json,
     extract::{Path, State},
@@ -129,10 +130,11 @@ pub async fn create_administrator(
     }
 
     let initial_password = oceaniam_common::helpers::gen_random(24);
+    let argon2 = Argon2::default();
     let transaction = database.begin().await?;
 
     if let Err(error) = credentials
-        .create_with_password_in_tx(administrator_id, &initial_password, &transaction)
+        .create_with_password_in_tx(administrator_id, &initial_password, &argon2, &transaction)
         .await
     {
         error!(
@@ -300,9 +302,11 @@ async fn patch_administrator_other(
     transaction: &impl SafeTransactionConnectionTrait,
 ) -> Result<administrators::Model, Error> {
     if let Some(password) = password {
+        let argon2 = Argon2::default();
+
         // TOO EXPENSIVE.
         state_credentials
-            .update_password_in_tx(target_id, password, transaction)
+            .update_password_in_tx(target_id, password, &argon2, transaction)
             .await?;
     }
 

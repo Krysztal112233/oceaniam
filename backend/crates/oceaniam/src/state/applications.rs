@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::{collections::HashMap, time::Duration};
 
+use argon2::{Argon2, Params};
 use axum::http::StatusCode;
 use moka::future::Cache;
 use oceaniam_common::{PageParam, PagedResponse, error::Error, helpers::gen_random_with_charset};
@@ -29,6 +30,22 @@ use uuid::Uuid;
 
 use crate::state::credentials::ManagedCredentialVaults;
 use crate::state::filters::ManagedFilters;
+
+fn build_argon2(configuration: &ApplicationConfiguration) -> Result<Argon2<'static>, Error> {
+    let params = Params::new(
+        configuration.argon2.m_cost,
+        configuration.argon2.t_cost,
+        configuration.argon2.p_cost,
+        Some(Params::DEFAULT_OUTPUT_LEN),
+    )
+    .map_err(|error| Error::with_code(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
+
+    Ok(Argon2::new(
+        argon2::Algorithm::Argon2id,
+        argon2::Version::V0x13,
+        params,
+    ))
+}
 
 /// TODO: In future, using [xorf] to detect does [Applications] existed in database for higher performance.
 #[derive(Debug, Clone)]
@@ -337,6 +354,9 @@ impl ApplicationUsers {
     ) -> Result<UserModel, Error> {
         let user_id = Uuid::now_v7();
         let password = password.into();
+        let argon2 = build_argon2(&ApplicationConfiguration::from(
+            Applications::get_application(application_id, transaction).await?,
+        ))?;
 
         info!(
             "creating new user: user_id={}, application_id={}",
@@ -344,7 +364,7 @@ impl ApplicationUsers {
         );
 
         self.shared_credential_vaults
-            .create_with_password_in_tx(user_id, password, transaction)
+            .create_with_password_in_tx(user_id, password, &argon2, transaction)
             .await
             .inspect_err(|e| {
                 error!(
