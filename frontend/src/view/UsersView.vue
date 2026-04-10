@@ -46,6 +46,10 @@ const createUserLoading = ref(false);
 const createUserError = ref<string | null>(null);
 const searchKeyword = ref("");
 const filterField = ref<"id" | "nickname" | "email" | "phone">("nickname");
+const currentPage = ref(1);
+const perPage = 25;
+const totalUsers = ref(0);
+const hasNextPage = ref(false);
 
 const canOpenCreateDialog = computed(
     () =>
@@ -57,9 +61,25 @@ const canOpenCreateDialog = computed(
         !usersLoading.value,
 );
 
-const totalUsersCount = computed(() => users.value.length);
+const totalUsersCount = computed(() => totalUsers.value);
 const activeUsersCount = computed(() => "--");
 const hasActiveSearch = computed(() => searchKeyword.value.trim().length > 0);
+const totalPages = computed(() =>
+    totalUsers.value === 0 ? 1 : Math.ceil(totalUsers.value / perPage),
+);
+const canGoToPreviousPage = computed(() => currentPage.value > 1);
+const canGoToNextPage = computed(
+    () => hasNextPage.value && currentPage.value < totalPages.value,
+);
+const paginationSummary = computed(() => {
+    if (totalUsers.value === 0 || users.value.length === 0) {
+        return "第 0 - 0 条，共 0 条";
+    }
+
+    const start = (currentPage.value - 1) * perPage + 1;
+    const end = start + users.value.length - 1;
+    return `第 ${start} - ${end} 条，共 ${totalUsers.value} 条`;
+});
 
 function mapUsers(
     items: Array<{
@@ -97,6 +117,7 @@ function buildUserSearchQuery(
 }
 
 async function applySearch(): Promise<void> {
+    currentPage.value = 1;
     await loadUsers(tenantId.value, applicationId.value);
 }
 
@@ -109,6 +130,9 @@ function clearUsersState(): void {
     isCreateDialogOpen.value = false;
     searchKeyword.value = "";
     filterField.value = "nickname";
+    currentPage.value = 1;
+    totalUsers.value = 0;
+    hasNextPage.value = false;
 }
 
 function resetPageState(): void {
@@ -147,36 +171,40 @@ async function loadUsers(
     usersError.value = null;
 
     try {
-        const loadedUsers = keyword
-            ? mapUsers(
-                  (
-                      await getClient().searchApplicationUsers(
-                          normalizedTenantId,
-                          normalizedApplicationId,
-                          buildUserSearchQuery(keyword, filterField.value),
-                      )
-                  ).items,
+        const response = keyword
+            ? await getClient().searchApplicationUsers(
+                  normalizedTenantId,
+                  normalizedApplicationId,
+                  {
+                      ...buildUserSearchQuery(keyword, filterField.value),
+                      page: currentPage.value,
+                      per_page: perPage,
+                  },
               )
-            : mapUsers(
-                  (
-                      await getClient().getApplicationUsers(
-                          normalizedTenantId,
-                          normalizedApplicationId,
-                      )
-                  ).items,
+            : await getClient().getApplicationUsers(
+                  normalizedTenantId,
+                  normalizedApplicationId,
+                  {
+                      page: currentPage.value,
+                      per_page: perPage,
+                  },
               );
 
         if (requestId !== usersRequestId.value) {
             return;
         }
 
-        users.value = loadedUsers;
+        users.value = mapUsers(response.items);
+        totalUsers.value = response.page_info.total;
+        hasNextPage.value = response.page_info.has_next;
     } catch (err) {
         if (requestId !== usersRequestId.value) {
             return;
         }
 
         users.value = [];
+        totalUsers.value = 0;
+        hasNextPage.value = false;
         usersError.value =
             err instanceof Error
                 ? err.message
@@ -235,6 +263,7 @@ async function handleCreateUser(
         );
 
         isCreateDialogOpen.value = false;
+        currentPage.value = 1;
         toast.success("用户已创建");
         await loadUsers(normalizedTenantId, normalizedApplicationId);
     } catch (err) {
@@ -244,6 +273,24 @@ async function handleCreateUser(
     } finally {
         createUserLoading.value = false;
     }
+}
+
+async function goToPreviousPage(): Promise<void> {
+    if (!canGoToPreviousPage.value || usersLoading.value) {
+        return;
+    }
+
+    currentPage.value -= 1;
+    await loadUsers(tenantId.value, applicationId.value);
+}
+
+async function goToNextPage(): Promise<void> {
+    if (!canGoToNextPage.value || usersLoading.value) {
+        return;
+    }
+
+    currentPage.value += 1;
+    await loadUsers(tenantId.value, applicationId.value);
 }
 
 watch(
@@ -279,7 +326,7 @@ watch(
 
 watch(
     () => [tenantId.value, applicationId.value],
-    (nextParams) => {
+    (nextParams, previousParams) => {
         if (!authStore.isLoggedIn) {
             resetPageState();
             return;
@@ -287,6 +334,16 @@ watch(
 
         const nextTenantId = nextParams[0] ?? "";
         const nextApplicationId = nextParams[1] ?? "";
+        const previousTenantId = previousParams?.[0] ?? "";
+        const previousApplicationId = previousParams?.[1] ?? "";
+
+        if (
+            nextTenantId !== previousTenantId ||
+            nextApplicationId !== previousApplicationId
+        ) {
+            currentPage.value = 1;
+        }
+
         void loadUsers(nextTenantId, nextApplicationId);
     },
     { immediate: true },
@@ -422,36 +479,75 @@ watch(
                         <span>当前 application 下暂无用户。</span>
                     </div>
 
-                    <div
-                        v-else
-                        class="overflow-x-auto rounded-box border border-base-200"
-                    >
-                        <table class="table min-w-180">
-                            <thead>
-                                <tr class="text-sm text-base-content/70">
-                                    <th class="whitespace-nowrap">User ID</th>
-                                    <th class="whitespace-nowrap">Nickname</th>
-                                    <th class="whitespace-nowrap">Email</th>
-                                    <th class="whitespace-nowrap">Phone</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr v-for="user in users" :key="user.id">
-                                    <td class="whitespace-nowrap font-medium">
-                                        {{ user.id }}
-                                    </td>
-                                    <td class="whitespace-nowrap">
-                                        {{ user.nickname }}
-                                    </td>
-                                    <td class="whitespace-nowrap">
-                                        {{ user.email || "-" }}
-                                    </td>
-                                    <td class="whitespace-nowrap">
-                                        {{ user.phone || "-" }}
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div v-else class="rounded-box border border-base-200">
+                        <div class="overflow-x-auto">
+                            <table class="table min-w-180">
+                                <thead>
+                                    <tr class="text-sm text-base-content/70">
+                                        <th class="whitespace-nowrap">
+                                            User ID
+                                        </th>
+                                        <th class="whitespace-nowrap">
+                                            Nickname
+                                        </th>
+                                        <th class="whitespace-nowrap">Email</th>
+                                        <th class="whitespace-nowrap">Phone</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="user in users" :key="user.id">
+                                        <td
+                                            class="whitespace-nowrap font-medium"
+                                        >
+                                            {{ user.id }}
+                                        </td>
+                                        <td class="whitespace-nowrap">
+                                            {{ user.nickname }}
+                                        </td>
+                                        <td class="whitespace-nowrap">
+                                            {{ user.email || "-" }}
+                                        </td>
+                                        <td class="whitespace-nowrap">
+                                            {{ user.phone || "-" }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div
+                            class="flex flex-col gap-3 border-t border-base-200 px-4 py-4 text-sm text-base-content/70 md:flex-row md:items-center md:justify-between"
+                        >
+                            <div>{{ paginationSummary }}</div>
+
+                            <div class="join">
+                                <button
+                                    type="button"
+                                    class="btn btn-sm join-item"
+                                    :disabled="
+                                        !canGoToPreviousPage || usersLoading
+                                    "
+                                    @click="goToPreviousPage"
+                                >
+                                    上一页
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn btn-sm join-item"
+                                    disabled
+                                >
+                                    第 {{ currentPage }} / {{ totalPages }} 页
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn btn-sm join-item"
+                                    :disabled="!canGoToNextPage || usersLoading"
+                                    @click="goToNextPage"
+                                >
+                                    下一页
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="mt-4 alert alert-warning alert-soft">

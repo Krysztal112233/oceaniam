@@ -28,6 +28,8 @@ export type GetApplicationsQuery = {
     tenant_id: Sqid;
 } & PaginationQuery;
 
+export type ApplicationUsersSortOrder = "asc" | "desc";
+
 export type PaginationQuery =
     | {
           page: number | bigint;
@@ -40,8 +42,10 @@ export type PaginationQuery =
 
 export type GetTenantsQuery = PaginationQuery;
 export type GetTenantUsersQuery = PaginationQuery;
-export type GetApplicationUsersQuery = PaginationQuery;
-export type SearchApplicationUsersQuery = {
+export type GetApplicationUsersQuery = PaginationQuery & {
+    sort_order?: ApplicationUsersSortOrder;
+};
+export type SearchApplicationUsersQuery = PaginationQuery & {
     by_nickname?: string;
     by_email?: string;
     by_id?: string;
@@ -563,11 +567,11 @@ export class OceanIamClient {
         applicationId: string,
         query?: GetApplicationUsersQuery,
     ): Promise<PagedResponse<ApplicationUserVO>> {
-        const { page, per_page } = query ?? {};
+        const { page, per_page, sort_order } = query ?? {};
         return this.request<PagedResponse<ApplicationUserVO>>({
             method: "GET",
             url: this.endpoints.applicationUsers(tenantId, applicationId),
-            query: { page, per_page },
+            query: { page, per_page, sort_order },
         });
     }
 
@@ -588,11 +592,27 @@ export class OceanIamClient {
         applicationId: string,
         query: SearchApplicationUsersQuery,
     ): Promise<PagedResponse<ApplicationUserVO>> {
-        const { by_nickname, by_email, by_id, by_phone } = query;
+        const {
+            by_nickname,
+            by_email,
+            by_id,
+            by_phone,
+            page,
+            per_page,
+            sort_order,
+        } = query;
         return this.request<PagedResponse<ApplicationUserVO>>({
             method: "GET",
             url: this.endpoints.applicationUsersSearch(tenantId, applicationId),
-            query: { by_nickname, by_email, by_id, by_phone },
+            query: {
+                by_nickname,
+                by_email,
+                by_id,
+                by_phone,
+                page,
+                per_page,
+                sort_order,
+            },
         });
     }
 
