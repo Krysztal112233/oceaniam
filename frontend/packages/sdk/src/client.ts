@@ -7,6 +7,7 @@ import { type CreateApplicationUserRequest } from "./types/CreateApplicationUser
 import { type GetApplicationConfigurationResponse } from "./types/GetApplicationConfigurationResponse";
 import { type PatchApplicationRequest } from "./types/PatchApplicationRequest";
 import { type PatchApplicationConfigurationRequest } from "./types/PatchApplicationConfigurationRequest";
+import { type PatchApplicationUserCredentialsRequest } from "./types/PatchApplicationUserCredentialsRequest";
 import { type CreateTenantRequest } from "./types/CreateTenantRequest";
 import { type PagedResponse } from "./pagination";
 import { type Sqid } from "./types/Sqid";
@@ -297,6 +298,12 @@ export class OceanIamClient {
             applicationId: string,
         ): string =>
             `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/users/search`,
+        applicationUserCredentials: (
+            tenantId: string,
+            applicationId: string,
+            userId: string,
+        ): string =>
+            `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/users/${encodeURIComponent(userId)}/credentials`,
 
         // ApplicationUserAuthentication
         applicationAuthTokens: (
@@ -399,6 +406,18 @@ export class OceanIamClient {
                 OceanIamClient.PATHS.applicationUsersSearch(
                     tenantId,
                     applicationId,
+                ),
+            ),
+        applicationUserCredentials: (
+            tenantId: string,
+            applicationId: string,
+            userId: string,
+        ): string =>
+            this.buildUrl(
+                OceanIamClient.PATHS.applicationUserCredentials(
+                    tenantId,
+                    applicationId,
+                    userId,
                 ),
             ),
 
@@ -574,6 +593,23 @@ export class OceanIamClient {
             method: "GET",
             url: this.endpoints.applicationUsersSearch(tenantId, applicationId),
             query: { by_nickname, by_email, by_id, by_phone },
+        });
+    }
+
+    public async patchApplicationUserCredentials(
+        tenantId: string,
+        applicationId: string,
+        userId: string,
+        req: PatchApplicationUserCredentialsRequest,
+    ): Promise<ApplicationUserVO> {
+        return this.request<ApplicationUserVO>({
+            method: "PATCH",
+            url: this.endpoints.applicationUserCredentials(
+                tenantId,
+                applicationId,
+                userId,
+            ),
+            body: req,
         });
     }
 

@@ -212,6 +212,12 @@ pub struct CreateApplicationUserRequest {
     pub password: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema)]
+pub struct PatchApplicationUserCredentialsRequest {
+    #[garde(length(min = 12))]
+    pub password: Option<String>,
+}
+
 fn forbid_search_wildcards(value: &Option<String>, _: &()) -> garde::Result {
     if let Some(value) = value.as_deref()
         && (value.contains('%') || value.contains('_') || value.contains('\\'))

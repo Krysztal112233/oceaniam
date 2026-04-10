@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use argon2::Argon2;
 use axum::{
     Json,
     extract::{Path, Query, State},
@@ -17,7 +18,8 @@ use oceaniam_common::{
 use oceaniam_database::helper::users::{CreateUserOpts, UserHelper};
 use oceaniam_database::model::prelude::Users;
 use oceaniam_vo::applications::{
-    ApplicationUserVO, CreateApplicationUserRequest, SearchApplicationUsersQuery,
+    ApplicationUserVO, CreateApplicationUserRequest, PatchApplicationUserCredentialsRequest,
+    SearchApplicationUsersQuery,
 };
 use sea_orm::TransactionTrait;
 use tap::Tap;
@@ -40,6 +42,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
         .routes(routes!(search_application_users))
         .routes(routes!(create_application_user))
         .routes(routes!(get_application_user))
+        .routes(routes!(patch_application_user_credentials))
 }
 
 /// Get application user list
@@ -425,6 +428,114 @@ pub async fn create_application_user(
             nickname: user.nickname.clone(),
         }))
         .await;
+
+    Ok(ApiResponse::new(user.into()))
+}
+
+/// Patch application user credentials
+/// NOTE: `password`, when provided, must be at least 12 characters long.
+#[utoipa::path(
+        patch,
+        path = "/tenants/{tenant_id}/applications/{application_id}/users/{user_id}/credentials",
+        tag = "ApplicationUsers",
+        params(
+            ("Authorization" = String, Header, description = "Bearer token for backend administrator"),
+            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
+            ("tenant_id" = String, Path, description = "Tenant ID"),
+            ("application_id" = String, Path, description = "Application ID"),
+            ("user_id" = String, Path, description = "User ID"),
+        ),
+        request_body = PatchApplicationUserCredentialsRequest,
+        responses(
+            (status = 200, body = ApiResponse<ApplicationUserVO>),
+            (status = 203, description = "Missing Authorization header and application secret header"),
+            (status = 400, description = "Bad request", body = ApiResponse<ErrorResponse>),
+            (status = 401, description = "Unauthorized"),
+            (status = 403, description = "Forbidden - secret does not belong to this application"),
+            (status = 404, description = "Application or user not found", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
+        ),
+    )]
+#[tracing::instrument(
+    level = "info",
+    name = "tenant_application_users.patch_credentials",
+    skip(applications, credentials, database, password),
+    fields(tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
+)]
+pub async fn patch_application_user_credentials(
+    _: RequireAdminJwtOrMatchedApplicationSecret,
+    State(AppState {
+        applications,
+        credentials,
+        database,
+        ..
+    }): State<AppState<'_>>,
+    Path((tenant_id, application_id, user_id)): Path<(Sqid, Sqid, Sqid)>,
+    Garde(Json(PatchApplicationUserCredentialsRequest { password })): Garde<
+        Json<PatchApplicationUserCredentialsRequest>,
+    >,
+) -> RestResult<ApplicationUserVO> {
+    let application = get_tenant_application(
+        TenantApplicationPath {
+            tenant_id,
+            application_id,
+        },
+        &database,
+    )
+    .await?;
+    let application_id = application.id;
+    let user_id: Uuid = user_id.try_into()?;
+
+    Span::current().tap(|it| {
+        it.record("tenant_id", field::display(&application.tenant_id))
+            .record("application_id", field::display(&application_id))
+            .record("user_id", field::display(&user_id));
+    });
+
+    let transaction = database.begin().await?;
+    let user = applications
+        .get_application_users(application_id)
+        .await
+        .inspect_err(|e| {
+            error!(
+                %application_id,
+                %user_id,
+                error = %e,
+                "failed to get application users helper"
+            )
+        })?
+        .find_user_by(UserIdentifier::Id(user_id))
+        .await
+        .inspect_err(|e| {
+            error!(
+                %application_id,
+                %user_id,
+                error = %e,
+                "failed to get application user before credential patch"
+            )
+        })?;
+
+    if let Some(password) = password {
+        let argon2 = Argon2::default();
+        credentials
+            .update_password_in_tx(user_id, password, &argon2, &transaction)
+            .await
+            .inspect_err(|e| {
+                error!(
+                    %application_id,
+                    %user_id,
+                    error = %e,
+                    "failed to update application user password"
+                )
+            })?;
+    }
+    transaction.commit().await?;
+
+    info!(
+        %application_id,
+        %user_id,
+        "application user credentials updated successfully"
+    );
 
     Ok(ApiResponse::new(user.into()))
 }

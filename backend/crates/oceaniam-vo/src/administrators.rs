@@ -31,7 +31,7 @@ pub struct CreateAdministratorRequest {
 pub struct PatchAdministratorRequest {
     #[garde(length(min = 3))]
     pub name: Option<String>,
-    #[garde(length(min = 16))]
+    #[garde(length(min = 12))]
     pub password: Option<String>,
 }
 
