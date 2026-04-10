@@ -2,16 +2,14 @@ use axum::http::StatusCode;
 use oceaniam_common::{PageInfo, PageParam, PagedResponse, error::Error};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, PaginatorTrait,
-    QueryFilter, QuerySelect,
+    QueryFilter, QueryOrder,
     sea_query::{Expr, extension::postgres::PgExpr},
 };
 use tap::Pipe;
 use uuid::Uuid;
 
 use crate::{
-    helper::{
-        PagedExecutor, PagedSelect, SafeTransactionConnectionTrait, subjects::SubjectsHelper,
-    },
+    helper::{SafeTransactionConnectionTrait, subjects::SubjectsHelper},
     model::{
         self,
         prelude::{Applications, Subjects, Users},
@@ -74,18 +72,27 @@ pub trait UserHelper {
     async fn get_users(
         application_id: Uuid,
         page: impl Into<PageParam> + Send,
+        sort_desc: bool,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<PagedResponse<model::users::Model>, Error> {
-        use crate::model::users::Column::*;
+        use crate::model::users::Column::ApplicationId;
 
         let page = page.into();
+        let paginator = Self::order_users_by_created_at(
+            Users::find()
+                .inner_join(Subjects)
+                .filter(ApplicationId.eq(application_id)),
+            sort_desc,
+        )
+        .paginate(database, page.per_page);
+        let users = paginator.fetch_page(page.page.saturating_sub(1)).await?;
+        let total = paginator.num_items().await? as usize;
+        let has_next = (page.as_offset() + users.len() as u64) < total as u64;
 
-        Users::find()
-            .filter(ApplicationId.eq(application_id))
-            .paged(page)
-            .paginate(database, page.per_page)
-            .fetch_paged(page)
-            .await
+        Ok(PagedResponse {
+            items: users,
+            page_info: PageInfo { has_next, total },
+        })
     }
 
     async fn get_all_users_of_application(
@@ -172,9 +179,13 @@ pub trait UserHelper {
         by_nickname: Option<String>,
         by_email: Option<String>,
         by_phone: Option<String>,
+        page: impl Into<PageParam> + Send,
+        sort_desc: bool,
         database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<Vec<model::users::Model>, Error> {
-        use model::users::Column::*;
+    ) -> Result<PagedResponse<model::users::Model>, Error> {
+        use crate::model::users::Column::{ApplicationId, Email, Nickname, Phone};
+
+        let page = page.into();
 
         let by_nickname = by_nickname
             .as_deref()
@@ -206,11 +217,19 @@ pub trait UserHelper {
                 _ => it,
             });
 
-        Ok(Users::find()
-            .filter(condition)
-            .limit(64)
-            .all(database)
-            .await?)
+        let paginator = Self::order_users_by_created_at(
+            Users::find().inner_join(Subjects).filter(condition),
+            sort_desc,
+        )
+        .paginate(database, page.per_page);
+        let users = paginator.fetch_page(page.page.saturating_sub(1)).await?;
+        let total = paginator.num_items().await? as usize;
+        let has_next = (page.as_offset() + users.len() as u64) < total as u64;
+
+        Ok(PagedResponse {
+            items: users,
+            page_info: PageInfo { has_next, total },
+        })
     }
 
     async fn find_by_email(
@@ -260,6 +279,23 @@ pub trait UserHelper {
                 oceaniam_common::consts::USER_LOGIN_FAILED_MSG,
             )),
             Err(e) => Err(Error::Db(e)),
+        }
+    }
+
+    fn order_users_by_created_at<S>(select: S, sort_desc: bool) -> S
+    where
+        S: QueryOrder,
+    {
+        use crate::model::subjects::Column::CreatedAt;
+
+        if sort_desc {
+            select
+                .order_by_desc(CreatedAt)
+                .order_by_desc(crate::model::users::Column::Id)
+        } else {
+            select
+                .order_by_asc(CreatedAt)
+                .order_by_asc(crate::model::users::Column::Id)
         }
     }
 }

@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::{collections::HashMap, time::Duration};
 
 use argon2::{Argon2, Params};
@@ -389,32 +388,6 @@ impl ApplicationUsers {
         );
 
         Ok(user)
-    }
-
-    /// NOTE: A single search returns at most 64 results.
-    pub async fn search_user(
-        &self,
-        search_options: UserSearchOptions,
-    ) -> Result<Arc<Vec<UserModel>>, Error> {
-        Users::search_user(
-            self.application_id,
-            search_options.by_nickname,
-            search_options.by_email,
-            search_options.by_phone,
-            &self.database,
-        )
-        .await
-        .map(Arc::new)
-        .inspect(|users| {
-            // BUT WHY?
-            let users = users.clone();
-            let cache = self.cache.clone();
-            tokio::spawn(async move {
-                for ele in users.iter() {
-                    cache.insert(UserIdentifier::Id(ele.id), ele.clone()).await;
-                }
-            });
-        })
     }
 }
 

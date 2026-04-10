@@ -1,7 +1,5 @@
 //! Application user-related API endpoints
 
-use std::sync::Arc;
-
 use argon2::Argon2;
 use axum::{
     Json,
@@ -12,13 +10,14 @@ use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
 use oceaniam_audit::types::{AuditPayload, CreateApplicationUserPayload};
 use oceaniam_common::{
-    ApiResponse, ErrorResponse, PageParam, PagedResponse, RestResult, helpers::gen_random_name,
+    ApiResponse, ErrorResponse, PagedResponse, RestResult, helpers::gen_random_name,
     jwt::SystemClaim, types::sqid::Sqid,
 };
 use oceaniam_database::helper::users::{CreateUserOpts, UserHelper};
 use oceaniam_database::model::prelude::Users;
 use oceaniam_vo::applications::{
-    ApplicationUserVO, CreateApplicationUserRequest, PatchApplicationUserCredentialsRequest,
+    ApplicationUserVO, ApplicationUsersListQuery, ApplicationUsersSortOrder,
+    CreateApplicationUserRequest, PatchApplicationUserCredentialsRequest,
     SearchApplicationUsersQuery,
 };
 use sea_orm::TransactionTrait;
@@ -30,10 +29,7 @@ use uuid::Uuid;
 use crate::{
     endpoints::applications::{TenantApplicationPath, get_tenant_application},
     middlewares::{self, application::RequireAdminJwtOrMatchedApplicationSecret},
-    state::{
-        AppState,
-        applications::{UserIdentifier, UserSearchOptions},
-    },
+    state::{AppState, applications::UserIdentifier},
 };
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
@@ -56,6 +52,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
             ("application_id" = String, Path, description = "Application ID"),
             ("page" = Option<u64>, Query, description = "Page number"),
             ("per_page" = Option<u64>, Query, description = "Items per page"),
+            ("sort_order" = Option<ApplicationUsersSortOrder>, Query, description = "Sort order by created_at"),
         ),
         responses(
             (status = 200, body = ApiResponse<PagedResponse<ApplicationUserVO>>),
@@ -68,15 +65,16 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
     level = "info",
     name = "tenant_application_users.list",
     skip(auth, database, path),
-    fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, page = field::Empty, per_page = field::Empty)
+    fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, page = field::Empty, per_page = field::Empty, sort_order = field::Empty)
 )]
 pub async fn get_application_users(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
     State(AppState { database, .. }): State<AppState<'_>>,
     Path(path): Path<TenantApplicationPath>,
-    OptionalQuery(query): OptionalQuery<PageParam>,
+    OptionalQuery(query): OptionalQuery<ApplicationUsersListQuery>,
 ) -> RestResult<PagedResponse<ApplicationUserVO>> {
-    let page = query.unwrap_or_default();
+    let query = query.unwrap_or_default();
+    let page = query.page_param();
     let operator_id = auth.token.claims.sub;
     let application = get_tenant_application(path, &database).await?;
     let application_id = application.id;
@@ -85,19 +83,27 @@ pub async fn get_application_users(
             .record("tenant_id", field::display(&application.tenant_id))
             .record("application_id", field::display(&application_id))
             .record("page", page.page)
-            .record("per_page", page.per_page);
+            .record("per_page", page.per_page)
+            .record(
+                "sort_order",
+                field::display(match query.sort_order {
+                    ApplicationUsersSortOrder::Asc => "asc",
+                    ApplicationUsersSortOrder::Desc => "desc",
+                }),
+            );
     });
 
-    let PagedResponse { items, page_info } = Users::get_users(application_id, page, &database)
-        .await
-        .inspect_err(|e| {
-            error!(
-                %operator_id,
-                %application_id,
-                error = %e,
-                "user list query failed"
-            )
-        })?;
+    let PagedResponse { items, page_info } =
+        Users::get_users(application_id, page, query.is_desc(), &database)
+            .await
+            .inspect_err(|e| {
+                error!(
+                    %operator_id,
+                    %application_id,
+                    error = %e,
+                    "user list query failed"
+                )
+            })?;
     let items = items.into_iter().map(ApplicationUserVO::from).collect();
 
     Ok(ApiResponse::new(PagedResponse { items, page_info }))
@@ -120,6 +126,9 @@ pub async fn get_application_users(
             ("by_email" = Option<String>, Query, description = "Search users by email with fuzzy matching"),
             ("by_phone" = Option<String>, Query, description = "Search users by phone with fuzzy matching"),
             ("by_id" = Option<String>, Query, description = "Search users by id with exact matching; ignores other search conditions once provided"),
+            ("page" = Option<u64>, Query, description = "Page number"),
+            ("per_page" = Option<u64>, Query, description = "Items per page"),
+            ("sort_order" = Option<ApplicationUsersSortOrder>, Query, description = "Sort order by created_at"),
         ),
         responses(
             (status = 200, body = ApiResponse<PagedResponse<ApplicationUserVO>>),
@@ -132,7 +141,7 @@ pub async fn get_application_users(
     level = "info",
     name = "tenant_application_users.search",
     skip(auth, applications, database, path, search_options),
-    fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, by_nickname = field::Empty, by_id = field::Empty, by_email = field::Empty, by_phone = field::Empty)
+    fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, page = field::Empty, per_page = field::Empty, sort_order = field::Empty, by_nickname = field::Empty, by_id = field::Empty, by_email = field::Empty, by_phone = field::Empty)
 )]
 pub async fn search_application_users(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
@@ -145,6 +154,8 @@ pub async fn search_application_users(
     Path(path): Path<TenantApplicationPath>,
     Garde(Query(search_options)): Garde<Query<SearchApplicationUsersQuery>>,
 ) -> RestResult<PagedResponse<ApplicationUserVO>> {
+    let page = search_options.page_param();
+    let sort_desc = search_options.is_desc();
     let operator_id = auth.token.claims.sub;
     let application = get_tenant_application(path, &database).await?;
     let application_id = application.id;
@@ -160,6 +171,15 @@ pub async fn search_application_users(
         it.record("operator_id", field::display(&operator_id))
             .record("tenant_id", field::display(&application.tenant_id))
             .record("application_id", field::display(&application_id))
+            .record("page", page.page)
+            .record("per_page", page.per_page)
+            .record(
+                "sort_order",
+                field::display(match search_options.sort_order {
+                    ApplicationUsersSortOrder::Asc => "asc",
+                    ApplicationUsersSortOrder::Desc => "desc",
+                }),
+            )
             .record(
                 "by_nickname",
                 field::display(search_options.by_nickname.as_deref().unwrap_or_default()),
@@ -185,45 +205,54 @@ pub async fn search_application_users(
     });
 
     let users = match search_options.by_id {
-        Some(by_id) => applications
-            .get_application_users(application_id)
-            .await
-            .inspect_err(|e| {
-                error!(
-                    %operator_id,
-                    %application_id,
-                    error = %e,
-                    "failed to get application users helper"
-                )
-            })?
-            .find_user_by(UserIdentifier::Id(by_id.try_into()?))
-            .await
-            .inspect_err(|e| {
-                error!(
-                    %operator_id,
-                    %application_id,
-                    error = %e,
-                    "application user search failed"
-                )
-            })
-            .map(|it| Arc::new(vec![it]))?,
+        Some(by_id) => {
+            let user = applications
+                .get_application_users(application_id)
+                .await
+                .inspect_err(|e| {
+                    error!(
+                        %operator_id,
+                        %application_id,
+                        error = %e,
+                        "failed to get application users helper"
+                    )
+                })?
+                .find_user_by(UserIdentifier::Id(by_id.try_into()?))
+                .await
+                .inspect_err(|e| {
+                    error!(
+                        %operator_id,
+                        %application_id,
+                        error = %e,
+                        "application user search failed"
+                    )
+                })?;
 
-        None => applications
-            .get_application_users(application_id)
-            .await
-            .inspect_err(|e| {
-                error!(
-                    %operator_id,
-                    %application_id,
-                    error = %e,
-                    "failed to get application users helper"
-                )
-            })?
-            .search_user(UserSearchOptions {
-                by_nickname: search_options.by_nickname,
-                by_email: search_options.by_email,
-                by_phone: search_options.by_phone,
-            })
+            let items = if page.as_offset() == 0 && page.per_page > 0 {
+                vec![ApplicationUserVO::from(user)]
+            } else {
+                Vec::new()
+            };
+
+            PagedResponse {
+                items,
+                page_info: oceaniam_common::PageInfo {
+                    has_next: false,
+                    total: 1,
+                },
+            }
+        }
+
+        None => {
+            let PagedResponse { items, page_info } = Users::search_user(
+                application_id,
+                search_options.by_nickname,
+                search_options.by_email,
+                search_options.by_phone,
+                page,
+                sort_desc,
+                &database,
+            )
             .await
             .inspect_err(|e| {
                 error!(
@@ -232,12 +261,16 @@ pub async fn search_application_users(
                     error = %e,
                     "application user search failed"
                 )
-            })?,
+            })?;
+
+            PagedResponse {
+                items: items.into_iter().map(ApplicationUserVO::from).collect(),
+                page_info,
+            }
+        }
     };
 
-    Ok(ApiResponse::new(PagedResponse::with_entire(
-        users.iter().cloned().map(ApplicationUserVO::from),
-    )))
+    Ok(ApiResponse::new(users))
 }
 
 /// Get application user detail

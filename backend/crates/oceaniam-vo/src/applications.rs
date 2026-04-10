@@ -1,6 +1,7 @@
 use core::str;
 
 use garde::Validate;
+use oceaniam_common::PageParam;
 use oceaniam_common::types::sqid::Sqid;
 #[cfg(feature = "database")]
 use oceaniam_database::model::{self};
@@ -231,10 +232,84 @@ fn forbid_search_wildcards(value: &Option<String>, _: &()) -> garde::Result {
 }
 
 #[derive(
-    Clone, Debug, Default, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema,
+    Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema,
+)]
+#[serde(rename_all = "lowercase")]
+pub enum ApplicationUsersSortOrder {
+    Asc,
+
+    #[default]
+    Desc,
+}
+
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema,
 )]
 #[serde(default)]
+pub struct ApplicationUsersListQuery {
+    #[garde(skip)]
+    pub page: u64,
+
+    #[garde(range(min = 0, max = 1024))]
+    pub per_page: u64,
+
+    #[garde(skip)]
+    pub sort_order: ApplicationUsersSortOrder,
+}
+
+impl Default for ApplicationUsersListQuery {
+    fn default() -> Self {
+        let page = PageParam::default();
+
+        Self {
+            page: page.page,
+            per_page: page.per_page,
+            sort_order: ApplicationUsersSortOrder::default(),
+        }
+    }
+}
+
+impl ApplicationUsersListQuery {
+    pub fn page_param(&self) -> PageParam {
+        PageParam {
+            page: self.page,
+            per_page: self.per_page,
+        }
+    }
+
+    pub fn is_desc(&self) -> bool {
+        matches!(self.sort_order, ApplicationUsersSortOrder::Desc)
+    }
+}
+
+impl From<ApplicationUsersListQuery> for PageParam {
+    fn from(value: ApplicationUsersListQuery) -> Self {
+        value.page_param()
+    }
+}
+
+impl From<PageParam> for ApplicationUsersListQuery {
+    fn from(value: PageParam) -> Self {
+        Self {
+            page: value.page,
+            per_page: value.per_page,
+            sort_order: ApplicationUsersSortOrder::default(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema)]
+#[serde(default)]
 pub struct SearchApplicationUsersQuery {
+    #[garde(skip)]
+    pub page: u64,
+
+    #[garde(range(min = 0, max = 1024))]
+    pub per_page: u64,
+
+    #[garde(skip)]
+    pub sort_order: ApplicationUsersSortOrder,
+
     #[garde(custom(forbid_search_wildcards))]
     pub by_nickname: Option<String>,
     #[garde(custom(forbid_search_wildcards))]
@@ -245,7 +320,34 @@ pub struct SearchApplicationUsersQuery {
     pub by_id: Option<Sqid>,
 }
 
+impl Default for SearchApplicationUsersQuery {
+    fn default() -> Self {
+        let page = PageParam::default();
+
+        Self {
+            page: page.page,
+            per_page: page.per_page,
+            sort_order: ApplicationUsersSortOrder::default(),
+            by_nickname: None,
+            by_email: None,
+            by_phone: None,
+            by_id: None,
+        }
+    }
+}
+
 impl SearchApplicationUsersQuery {
+    pub fn page_param(&self) -> PageParam {
+        PageParam {
+            page: self.page,
+            per_page: self.per_page,
+        }
+    }
+
+    pub fn is_desc(&self) -> bool {
+        matches!(self.sort_order, ApplicationUsersSortOrder::Desc)
+    }
+
     pub fn has_search_term(&self) -> bool {
         self.by_nickname
             .as_deref()

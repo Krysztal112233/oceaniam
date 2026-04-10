@@ -5,4 +5,5 @@ export type Subjects = {
     id: string;
     type: SubjectTypeEnum;
     application_id: string;
+    created_at: string;
 };
