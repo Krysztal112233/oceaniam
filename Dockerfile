@@ -49,6 +49,7 @@ COPY docker/nginx/gateway.conf /etc/nginx/conf.d/default.conf
 ####################
 
 FROM docker.io/library/postgres:18 AS database
+COPY docker/postgres/initdb/ /docker-entrypoint-initdb.d/
 RUN apt-get update && \
 		apt-mark hold locales && \
 		apt-get install -y --no-install-recommends \
