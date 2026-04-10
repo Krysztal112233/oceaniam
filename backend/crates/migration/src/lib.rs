@@ -42,6 +42,7 @@ mod m20260326_112803_alter_audit_type_tenant_admin_management;
 mod m20260327_202624_alter_audit_type_patch_administrator;
 mod m20260329_154808_alter_application_configuration_enable_registration;
 mod m20260408_085824_create_audit_summaries_by_applications;
+mod m20260410_030629_create_idx_users_app_lower_nickname;
 
 pub struct Migrator;
 
@@ -92,6 +93,7 @@ impl MigratorTrait for Migrator {
                 m20260329_154808_alter_application_configuration_enable_registration::Migration,
             ),
             Box::new(m20260408_085824_create_audit_summaries_by_applications::Migration),
+            Box::new(m20260410_030629_create_idx_users_app_lower_nickname::Migration),
         ]
     }
 }
