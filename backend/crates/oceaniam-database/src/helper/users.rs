@@ -1,8 +1,8 @@
 use axum::http::StatusCode;
 use oceaniam_common::{PageInfo, PageParam, PagedResponse, error::Error};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, PaginatorTrait,
-    QueryFilter, QueryOrder,
+    ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, Iterable,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
     sea_query::{Expr, extension::postgres::PgExpr},
 };
 use tap::Pipe;
@@ -75,15 +75,18 @@ pub trait UserHelper {
         sort_desc: bool,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<PagedResponse<model::users::Model>, Error> {
-        use crate::model::users::Column::ApplicationId;
+        use crate::model::{subjects::Column::ApplicationId, users};
 
         let page = page.into();
         let paginator = Self::order_users_by_created_at(
-            Users::find()
-                .inner_join(Subjects)
+            Subjects::find()
+                .reverse_join(Users)
+                .select_only()
+                .columns(users::Column::iter())
                 .filter(ApplicationId.eq(application_id)),
             sort_desc,
         )
+        .into_model::<model::users::Model>()
         .paginate(database, page.per_page);
         let users = paginator.fetch_page(page.page.saturating_sub(1)).await?;
         let total = paginator.num_items().await? as usize;
@@ -291,11 +294,11 @@ pub trait UserHelper {
         if sort_desc {
             select
                 .order_by_desc(CreatedAt)
-                .order_by_desc(crate::model::users::Column::Id)
+                .order_by_desc(crate::model::subjects::Column::Id)
         } else {
             select
                 .order_by_asc(CreatedAt)
-                .order_by_asc(crate::model::users::Column::Id)
+                .order_by_asc(crate::model::subjects::Column::Id)
         }
     }
 }

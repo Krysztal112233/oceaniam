@@ -45,6 +45,7 @@ mod m20260408_085824_create_audit_summaries_by_applications;
 mod m20260410_030629_create_idx_users_app_lower_nickname;
 mod m20260410_035003_alter_application_argon2;
 mod m20260410_113844_alter_subjects_clumn_created_at;
+mod m20260410_133833_create_idx_subjects_application_id_created_at_id_desc;
 
 pub struct Migrator;
 
@@ -98,6 +99,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20260410_030629_create_idx_users_app_lower_nickname::Migration),
             Box::new(m20260410_035003_alter_application_argon2::Migration),
             Box::new(m20260410_113844_alter_subjects_clumn_created_at::Migration),
+            Box::new(
+                m20260410_133833_create_idx_subjects_application_id_created_at_id_desc::Migration,
+            ),
         ]
     }
 }
