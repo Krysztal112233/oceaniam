@@ -10,10 +10,8 @@ use oceaniam_common::{
     jwt::{ClaimHelper, JwtCodec, SystemClaim},
 };
 use oceaniam_database::{
-    helper::{
-        applications::ApplicationConfiguration, applications::ApplicationHelper,
-        key_boxes::KeyBoxesHelper,
-    },
+    config::application::ApplicationConfiguration,
+    helper::{applications::ApplicationHelper, key_boxes::KeyBoxesHelper},
     model::{
         prelude::{Applications, KeyBoxes},
         sea_orm_active_enums::{KeyAlg, KeyStatus},

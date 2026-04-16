@@ -22,7 +22,7 @@ use oceaniam_common::{
     ApiResponse, ApiResponseWithHeader, ErrorResponse, WithHeaderRestResult, consts, error::Error,
     jwt::Claim,
 };
-use oceaniam_database::helper::applications::ApplicationConfiguration;
+use oceaniam_database::config::application::ApplicationConfiguration;
 use oceaniam_vo::auth::{AuthVO, SigninResponse, SignoutResponse};
 use tap::Tap;
 use tracing::{Span, error, field, info, warn};

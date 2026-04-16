@@ -4,7 +4,8 @@ use argon2::{Argon2, Params};
 use axum::http::StatusCode;
 use moka::future::Cache;
 use oceaniam_common::{PageParam, PagedResponse, error::Error, helpers::gen_random_with_charset};
-use oceaniam_database::helper::applications::{ApplicationConfiguration, CreateApplicationOptions};
+use oceaniam_database::config::application::ApplicationConfiguration;
+use oceaniam_database::helper::applications::CreateApplicationOptions;
 use oceaniam_database::helper::users::{CreateUserOpts, CreateUserResult};
 use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, users::UserHelper},

@@ -146,25 +146,25 @@ impl From<model::applications::Model> for ApplicationVO {
 }
 
 #[cfg(feature = "database")]
-impl From<oceaniam_database::helper::applications::TokenConfiguration> for TokenConfigurationVO {
+impl From<oceaniam_database::config::application::TokenConfiguration> for TokenConfigurationVO {
     fn from(
-        oceaniam_database::helper::applications::TokenConfiguration {
+        oceaniam_database::config::application::TokenConfiguration {
             issuer,
             audience,
-        }: oceaniam_database::helper::applications::TokenConfiguration,
+        }: oceaniam_database::config::application::TokenConfiguration,
     ) -> Self {
         Self { issuer, audience }
     }
 }
 
 #[cfg(feature = "database")]
-impl From<oceaniam_database::helper::applications::Argon2Configuration> for Argon2Configuration {
+impl From<oceaniam_database::config::application::Argon2Configuration> for Argon2Configuration {
     fn from(
-        oceaniam_database::helper::applications::Argon2Configuration {
+        oceaniam_database::config::application::Argon2Configuration {
             m_cost,
             t_cost,
             p_cost,
-        }: oceaniam_database::helper::applications::Argon2Configuration,
+        }: oceaniam_database::config::application::Argon2Configuration,
     ) -> Self {
         Self {
             m_cost,
@@ -175,12 +175,12 @@ impl From<oceaniam_database::helper::applications::Argon2Configuration> for Argo
 }
 
 #[cfg(feature = "database")]
-impl From<oceaniam_database::helper::applications::PasswordConfiguration>
+impl From<oceaniam_database::config::application::PasswordConfiguration>
     for PasswordConfigurationVO
 {
     fn from(
-        oceaniam_database::helper::applications::PasswordConfiguration { argon2 }:
-            oceaniam_database::helper::applications::PasswordConfiguration,
+        oceaniam_database::config::application::PasswordConfiguration { argon2 }:
+            oceaniam_database::config::application::PasswordConfiguration,
     ) -> Self {
         Self {
             argon2: argon2.into(),
@@ -189,10 +189,10 @@ impl From<oceaniam_database::helper::applications::PasswordConfiguration>
 }
 
 #[cfg(feature = "database")]
-impl From<oceaniam_database::helper::applications::AuthConfiguration> for AuthConfigurationVO {
+impl From<oceaniam_database::config::application::AuthConfiguration> for AuthConfigurationVO {
     fn from(
-        oceaniam_database::helper::applications::AuthConfiguration { token, password }:
-            oceaniam_database::helper::applications::AuthConfiguration,
+        oceaniam_database::config::application::AuthConfiguration { token, password }:
+            oceaniam_database::config::application::AuthConfiguration,
     ) -> Self {
         Self {
             token: token.into(),
@@ -202,26 +202,26 @@ impl From<oceaniam_database::helper::applications::AuthConfiguration> for AuthCo
 }
 
 #[cfg(feature = "database")]
-impl From<oceaniam_database::helper::applications::RegistrationConfiguration>
+impl From<oceaniam_database::config::application::RegistrationConfiguration>
     for RegistrationConfigurationVO
 {
     fn from(
-        oceaniam_database::helper::applications::RegistrationConfiguration { enabled }:
-            oceaniam_database::helper::applications::RegistrationConfiguration,
+        oceaniam_database::config::application::RegistrationConfiguration { enabled }:
+            oceaniam_database::config::application::RegistrationConfiguration,
     ) -> Self {
         Self { enabled }
     }
 }
 
 #[cfg(feature = "database")]
-impl From<oceaniam_database::helper::applications::ApplicationConfiguration>
+impl From<oceaniam_database::config::application::ApplicationConfiguration>
     for ApplicationConfigurationVO
 {
     fn from(
-        oceaniam_database::helper::applications::ApplicationConfiguration {
+        oceaniam_database::config::application::ApplicationConfiguration {
             auth,
             registration,
-        }: oceaniam_database::helper::applications::ApplicationConfiguration,
+        }: oceaniam_database::config::application::ApplicationConfiguration,
     ) -> Self {
         Self {
             auth: auth.into(),
@@ -245,7 +245,7 @@ impl From<model::applications::Model> for ApplicationDetailVO {
             comment,
             tenant_id: tenant_id.into(),
             configuration: serde_json::from_value::<
-                oceaniam_database::helper::applications::ApplicationConfiguration,
+                oceaniam_database::config::application::ApplicationConfiguration,
             >(configuration)
             .unwrap()
             .into(),
