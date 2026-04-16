@@ -204,8 +204,8 @@ impl ManagedKeyBoxes {
             sub,
             SignJwtOptions {
                 application_id: consts::SYSTEM_APPLICATION_UUID,
-                iss: config.authentication.issuer,
-                aud: config.authentication.audience,
+                iss: config.auth.token.issuer,
+                aud: config.auth.token.audience,
             },
         )
         .await

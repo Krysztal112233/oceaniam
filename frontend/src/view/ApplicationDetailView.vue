@@ -130,11 +130,15 @@ async function handleConfigurationSubmit(
             normalizedTenantId,
             normalizedApplicationId,
             {
-                authentication: {
-                    issuer: nextConfiguration.authentication.issuer,
-                    audience: nextConfiguration.authentication.audience,
+                auth: {
+                    token: {
+                        issuer: nextConfiguration.auth.token.issuer,
+                        audience: nextConfiguration.auth.token.audience,
+                    },
                 },
-                enable_registration: nextConfiguration.enable_registration,
+                registration: {
+                    enabled: nextConfiguration.registration.enabled,
+                },
             },
         );
 

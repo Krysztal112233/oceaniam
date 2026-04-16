@@ -89,7 +89,10 @@ pub async fn create_application_token(
             .record("token_dispatch", field::debug(&token_mtd));
     });
 
-    let ApplicationConfiguration { authentication, .. } = applications
+    let ApplicationConfiguration {
+        auth: authentication,
+        ..
+    } = applications
         .get_configuration(application_id)
         .await
         .inspect_err(|e| {
@@ -147,8 +150,8 @@ pub async fn create_application_token(
             user.id,
             SignJwtOptions {
                 application_id: user.application_id,
-                iss: authentication.issuer,
-                aud: authentication.audience,
+                iss: authentication.token.issuer,
+                aud: authentication.token.audience,
             },
         )
         .await
@@ -316,8 +319,10 @@ pub async fn refresh_application_token(
             .record("token_dispatch", field::debug(&token_mtd));
     });
 
-    let ApplicationConfiguration { authentication, .. } =
-        applications.get_configuration(application_id).await?;
+    let ApplicationConfiguration {
+        auth: authentication,
+        ..
+    } = applications.get_configuration(application_id).await?;
 
     info!(%user_id, %application_id, old_jti = %jti, "token refresh requested");
 
@@ -349,8 +354,8 @@ pub async fn refresh_application_token(
             user_id,
             SignJwtOptions {
                 application_id,
-                iss: authentication.issuer,
-                aud: authentication.audience,
+                iss: authentication.token.issuer,
+                aud: authentication.token.audience,
             },
         )
         .await

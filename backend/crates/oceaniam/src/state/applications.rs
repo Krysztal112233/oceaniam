@@ -32,9 +32,9 @@ use crate::state::filters::ManagedFilters;
 
 fn build_argon2(configuration: &ApplicationConfiguration) -> Result<Argon2<'static>, Error> {
     let params = Params::new(
-        configuration.argon2.m_cost,
-        configuration.argon2.t_cost,
-        configuration.argon2.p_cost,
+        configuration.auth.password.argon2.m_cost,
+        configuration.auth.password.argon2.t_cost,
+        configuration.auth.password.argon2.p_cost,
         Some(Params::DEFAULT_OUTPUT_LEN),
     )
     .map_err(|error| Error::with_code(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
@@ -197,18 +197,22 @@ impl ManagedApplications<'_> {
         self.is_application_exist(application_id).await?;
 
         let patched_configuration = self.get_configuration(application_id).await?.tap_mut(|it| {
-            if let Some(authentication) = patch.authentication {
-                if let Some(issuer) = authentication.issuer {
-                    it.authentication.issuer = issuer;
+            if let Some(auth) = patch.auth
+                && let Some(token) = auth.token
+            {
+                if let Some(issuer) = token.issuer {
+                    it.auth.token.issuer = issuer;
                 }
 
-                if let Some(audience) = authentication.audience {
-                    it.authentication.audience = audience;
+                if let Some(audience) = token.audience {
+                    it.auth.token.audience = audience;
                 }
             }
 
-            if let Some(enable_registration) = patch.enable_registration {
-                it.enable_registration = enable_registration;
+            if let Some(registration) = patch.registration
+                && let Some(enabled) = registration.enabled
+            {
+                it.registration.enabled = enabled;
             }
         });
 

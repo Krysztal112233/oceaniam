@@ -21,7 +21,7 @@ pub struct CreateApplicationResponse {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
-pub struct AuthenticationConfigurationVO {
+pub struct TokenConfigurationVO {
     pub issuer: String,
     pub audience: Vec<String>,
 }
@@ -34,22 +34,47 @@ pub struct Argon2Configuration {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
-pub struct ApplicationConfigurationVO {
-    pub authentication: AuthenticationConfigurationVO,
-    pub enable_registration: bool,
+pub struct PasswordConfigurationVO {
     pub argon2: Argon2Configuration,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+pub struct AuthConfigurationVO {
+    pub token: TokenConfigurationVO,
+    pub password: PasswordConfigurationVO,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+pub struct RegistrationConfigurationVO {
+    pub enabled: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+pub struct ApplicationConfigurationVO {
+    pub auth: AuthConfigurationVO,
+    pub registration: RegistrationConfigurationVO,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
-pub struct PatchAuthenticationConfigurationVO {
+pub struct PatchTokenConfigurationVO {
     pub issuer: Option<String>,
     pub audience: Option<Vec<String>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
+pub struct PatchAuthConfigurationVO {
+    pub token: Option<PatchTokenConfigurationVO>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
+pub struct PatchRegistrationConfigurationVO {
+    pub enabled: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
 pub struct PatchApplicationConfigurationRequest {
-    pub authentication: Option<PatchAuthenticationConfigurationVO>,
-    pub enable_registration: Option<bool>,
+    pub auth: Option<PatchAuthConfigurationVO>,
+    pub registration: Option<PatchRegistrationConfigurationVO>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
@@ -121,14 +146,12 @@ impl From<model::applications::Model> for ApplicationVO {
 }
 
 #[cfg(feature = "database")]
-impl From<oceaniam_database::helper::applications::AuthenticationConfiguration>
-    for AuthenticationConfigurationVO
-{
+impl From<oceaniam_database::helper::applications::TokenConfiguration> for TokenConfigurationVO {
     fn from(
-        oceaniam_database::helper::applications::AuthenticationConfiguration {
+        oceaniam_database::helper::applications::TokenConfiguration {
             issuer,
             audience,
-        }: oceaniam_database::helper::applications::AuthenticationConfiguration,
+        }: oceaniam_database::helper::applications::TokenConfiguration,
     ) -> Self {
         Self { issuer, audience }
     }
@@ -152,20 +175,57 @@ impl From<oceaniam_database::helper::applications::Argon2Configuration> for Argo
 }
 
 #[cfg(feature = "database")]
+impl From<oceaniam_database::helper::applications::PasswordConfiguration>
+    for PasswordConfigurationVO
+{
+    fn from(
+        oceaniam_database::helper::applications::PasswordConfiguration { argon2 }:
+            oceaniam_database::helper::applications::PasswordConfiguration,
+    ) -> Self {
+        Self {
+            argon2: argon2.into(),
+        }
+    }
+}
+
+#[cfg(feature = "database")]
+impl From<oceaniam_database::helper::applications::AuthConfiguration> for AuthConfigurationVO {
+    fn from(
+        oceaniam_database::helper::applications::AuthConfiguration { token, password }:
+            oceaniam_database::helper::applications::AuthConfiguration,
+    ) -> Self {
+        Self {
+            token: token.into(),
+            password: password.into(),
+        }
+    }
+}
+
+#[cfg(feature = "database")]
+impl From<oceaniam_database::helper::applications::RegistrationConfiguration>
+    for RegistrationConfigurationVO
+{
+    fn from(
+        oceaniam_database::helper::applications::RegistrationConfiguration { enabled }:
+            oceaniam_database::helper::applications::RegistrationConfiguration,
+    ) -> Self {
+        Self { enabled }
+    }
+}
+
+#[cfg(feature = "database")]
 impl From<oceaniam_database::helper::applications::ApplicationConfiguration>
     for ApplicationConfigurationVO
 {
     fn from(
         oceaniam_database::helper::applications::ApplicationConfiguration {
-            authentication,
-            enable_registration: allow_registration,
-            argon2,
+            auth,
+            registration,
         }: oceaniam_database::helper::applications::ApplicationConfiguration,
     ) -> Self {
         Self {
-            authentication: authentication.into(),
-            enable_registration: allow_registration,
-            argon2: argon2.into(),
+            auth: auth.into(),
+            registration: registration.into(),
         }
     }
 }

@@ -228,9 +228,30 @@ fn application_not_found(application_id: Uuid) -> Error {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ApplicationConfiguration {
-    pub authentication: AuthenticationConfiguration,
-    pub enable_registration: bool,
+    pub auth: AuthConfiguration,
+    pub registration: RegistrationConfiguration,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AuthConfiguration {
+    pub token: TokenConfiguration,
+    pub password: PasswordConfiguration,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TokenConfiguration {
+    pub issuer: String,
+    pub audience: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct PasswordConfiguration {
     pub argon2: Argon2Configuration,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct RegistrationConfiguration {
+    pub enabled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -250,13 +271,7 @@ impl Default for Argon2Configuration {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuthenticationConfiguration {
-    pub issuer: String,
-    pub audience: Vec<String>,
-}
-
-impl Default for AuthenticationConfiguration {
+impl Default for TokenConfiguration {
     fn default() -> Self {
         Self {
             issuer: consts::DEFAULT_JWT_ISSUER.to_owned(),
