@@ -9,12 +9,14 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::{
-    credential::{Password, Totp, TotpVerifyResult},
+    credential::{Password, Totp},
     error::Error,
 };
 
 pub(crate) mod credential;
 pub mod error;
+
+pub use credential::TotpVerifyResult;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct CredentialVault {

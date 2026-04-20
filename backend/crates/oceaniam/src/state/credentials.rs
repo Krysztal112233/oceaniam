@@ -13,11 +13,15 @@ use sea_orm::{DatabaseConnection, EntityTrait};
 use tracing::error;
 use uuid::Uuid;
 
+use crate::state::credentials::replay::TotpAntiReplay;
+
 #[derive(Debug, Clone)]
 pub struct ManagedCredentialVaults {
     database: DatabaseConnection,
 
     credentials: Cache<Uuid, CredentialVault>,
+
+    totp_anti_replay: TotpAntiReplay,
 }
 
 impl ManagedCredentialVaults {
@@ -28,6 +32,7 @@ impl ManagedCredentialVaults {
                 .max_capacity(102400)
                 .time_to_live(Duration::from_mins(30))
                 .build(),
+            totp_anti_replay: TotpAntiReplay::default(),
         }
     }
 
@@ -156,5 +161,102 @@ impl ManagedCredentialVaults {
             .update_password(password, argon2)?
             .write_to(subject_id, database)
             .await?)
+    }
+
+    pub async fn verify_totp(
+        &self,
+        subject_id: Uuid,
+        token: impl AsRef<str>,
+        key: &str,
+    ) -> Result<bool, Error> {
+        let verification = self
+            .get_credential(subject_id)
+            .await?
+            .verify_totp(token, key)
+            .map_err(Error::from)?;
+
+        // Failed to match token
+        if !verification.success {
+            return Ok(false);
+        }
+
+        // If success == true, we can get matched_step safely.
+        if !self
+            .totp_anti_replay
+            .consume(subject_id, verification.matched_step.unwrap())
+            .await
+        {
+            return Ok(false);
+        }
+
+        Ok(true)
+    }
+}
+
+mod replay {
+    use std::time::Duration;
+
+    use moka::{
+        future::Cache,
+        ops::compute::{CompResult, Op},
+    };
+    use uuid::Uuid;
+
+    #[derive(Debug, Hash, PartialEq, PartialOrd, Eq)]
+    struct TotpStepRecord {
+        id: Uuid,
+        matched_step: u64,
+    }
+
+    #[derive(Debug, Clone)]
+    pub struct TotpAntiReplay {
+        cache: Cache<TotpStepRecord, ()>,
+    }
+
+    impl TotpAntiReplay {
+        pub async fn consume(&self, id: Uuid, matched_step: u64) -> bool {
+            let key = TotpStepRecord { id, matched_step };
+
+            matches!(
+                self.cache
+                    .entry(key)
+                    .and_compute_with(|entry| async move {
+                        if entry.is_some() {
+                            Op::Nop
+                        } else {
+                            Op::Put(())
+                        }
+                    })
+                    .await,
+                CompResult::Inserted(_)
+            )
+        }
+    }
+
+    impl Default for TotpAntiReplay {
+        fn default() -> Self {
+            Self {
+                cache: Cache::builder()
+                    .time_to_live(Duration::from_secs(30))
+                    .build(),
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::replay::TotpAntiReplay;
+    use uuid::Uuid;
+
+    // NOTE: AI-generated test
+    #[tokio::test]
+    async fn totp_anti_replay_consume_rejects_same_step_twice() {
+        let anti_replay = TotpAntiReplay::default();
+        let subject_id = Uuid::now_v7();
+
+        assert!(anti_replay.consume(subject_id, 42).await);
+        assert!(!anti_replay.consume(subject_id, 42).await);
+        assert!(anti_replay.consume(subject_id, 43).await);
     }
 }
