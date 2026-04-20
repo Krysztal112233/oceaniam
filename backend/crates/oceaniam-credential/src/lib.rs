@@ -9,7 +9,7 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::{
-    credential::{Password, Totp},
+    credential::{Password, Totp, TotpVerifyResult},
     error::Error,
 };
 
@@ -88,9 +88,16 @@ impl CredentialVault {
             .await
     }
 
-    pub fn verify_totp(&self, token: impl AsRef<str>, key: &str) -> Result<bool, Error> {
+    pub fn verify_totp(
+        &self,
+        token: impl AsRef<str>,
+        key: &str,
+    ) -> Result<TotpVerifyResult, Error> {
         let Some(totp) = self.totp.clone() else {
-            return Ok(false);
+            return Ok(TotpVerifyResult {
+                success: false,
+                matched_step: None,
+            });
         };
 
         Totp::from_encrypted(totp, key)?.verify(token.as_ref())
@@ -130,7 +137,8 @@ mod tests {
             .verify_totp(&token, TEST_KEY)
             .expect("verification should succeed");
 
-        assert!(verified);
+        assert!(verified.success);
+        assert!(verified.matched_step.is_some());
     }
 
     // NOTE: AI-generated test
@@ -145,6 +153,7 @@ mod tests {
             .verify_totp("123456", TEST_KEY)
             .expect("missing TOTP should not error");
 
-        assert!(!verified);
+        assert!(!verified.success);
+        assert_eq!(verified.matched_step, None);
     }
 }

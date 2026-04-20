@@ -6,6 +6,7 @@ use base64::{Engine, engine::general_purpose::STANDARD};
 use chacha20poly1305::{AeadCore, KeyInit, XChaCha20Poly1305, XNonce, aead::Aead};
 use oceaniam_common::consts;
 use serde::{Deserialize, Serialize};
+use std::time::{SystemTime, UNIX_EPOCH};
 use totp_rs::qrcodegen_image::image::EncodableLayout;
 
 use crate::error::Error;
@@ -68,6 +69,12 @@ impl Password {
 #[derive(Debug)]
 pub struct Totp(totp_rs::TOTP);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TotpVerifyResult {
+    pub success: bool,
+    pub matched_step: Option<u64>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TotpStorage {
     nonce: String,
@@ -120,8 +127,30 @@ impl Totp {
         Ok(STANDARD.encode(serde_json::to_vec(&totp_storage)?))
     }
 
-    pub fn verify(&self, token: &str) -> Result<bool, Error> {
-        Ok(self.0.check_current(token)?)
+    /// Verifies the provided TOTP token within the current skew window.
+    ///
+    /// Returns whether verification succeeded and, when it did, which time step
+    /// matched the provided token.
+    pub fn verify(&self, token: &str) -> Result<TotpVerifyResult, Error> {
+        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+        let current_step = now / self.0.step;
+        let base_step = current_step.saturating_sub(self.0.skew as u64);
+        let window = (self.0.skew as u64) * 2 + 1;
+
+        for offset in 0..window {
+            let step = base_step + offset;
+            if self.0.generate(step * self.0.step) == token {
+                return Ok(TotpVerifyResult {
+                    success: true,
+                    matched_step: Some(step),
+                });
+            }
+        }
+
+        Ok(TotpVerifyResult {
+            success: false,
+            matched_step: None,
+        })
     }
 }
 
@@ -159,5 +188,26 @@ mod tests {
         let result = Totp::from_encrypted(encrypted, "fedcba9876543210fedcba9876543210");
 
         assert!(matches!(result, Err(Error::Aead)));
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn totp_verify_returns_success_and_matched_step_for_current_token() {
+        let inner = test_totp();
+        let token = inner
+            .generate_current()
+            .expect("current TOTP token should be generated");
+        let current_step = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time should be after unix epoch")
+            .as_secs()
+            / inner.step;
+
+        let result = Totp::new(inner)
+            .verify(&token)
+            .expect("verification should succeed");
+
+        assert!(result.success);
+        assert_eq!(result.matched_step, Some(current_step));
     }
 }
