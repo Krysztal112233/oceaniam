@@ -8,7 +8,10 @@ use serde::{Deserialize, Serialize};
 use tracing::error;
 use uuid::Uuid;
 
-use crate::{credential::Password, error::Error};
+use crate::{
+    credential::{Password, Totp},
+    error::Error,
+};
 
 pub(crate) mod credential;
 pub mod error;
@@ -17,6 +20,14 @@ pub mod error;
 pub struct CredentialVault {
     /// This field used to store [PHC](argon2::PasswordHash) string.
     pub phc: String,
+
+    /// This field is optional. Its value is produced by serializing the TOTP struct provided by the
+    /// [totp_rs] crate to JSON and encrypting it with [chacha20poly1305::XChaCha20Poly1305].
+    ///
+    /// It must be decrypted before each use.
+    ///
+    /// If decryption fails, the TOTP function cannot continue to be used and must be regenerated.
+    pub totp: Option<String>,
 }
 
 impl CredentialVault {
@@ -24,7 +35,7 @@ impl CredentialVault {
     pub fn with_password(password: impl AsRef<str>, argon2: &Argon2<'_>) -> Result<Self, Error> {
         let phc = Password::with_password(password, argon2)?.into_phc();
 
-        Ok(Self { phc })
+        Ok(Self { phc, totp: None })
     }
 
     pub fn update_password(
@@ -43,11 +54,12 @@ impl CredentialVault {
         id: impl Into<Uuid>,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::credentials::Model, Error> {
-        let Self { phc } = self;
+        let Self { phc, totp } = self;
         let id = id.into();
         let active_model = model::credentials::Model {
             id,
             phc: phc.clone(),
+            totp: totp.clone(),
         }
         .into_active_model();
 
@@ -75,12 +87,64 @@ impl CredentialVault {
             .verify(password.as_ref())
             .await
     }
+
+    pub fn verify_totp(&self, token: impl AsRef<str>, key: &str) -> Result<bool, Error> {
+        let Some(totp) = self.totp.clone() else {
+            return Ok(false);
+        };
+
+        Totp::from_encrypted(totp, key)?.verify(token.as_ref())
+    }
 }
 
 impl From<model::credentials::Model> for CredentialVault {
     fn from(value: model::credentials::Model) -> Self {
-        let model::credentials::Model { phc, .. } = value;
+        let model::credentials::Model { phc, totp, .. } = value;
 
-        Self { phc }
+        Self { phc, totp }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const TEST_KEY: &str = "0123456789abcdef0123456789abcdef";
+
+    // NOTE: AI-generated test
+    #[test]
+    fn verify_totp_accepts_current_token() {
+        let inner = totp_rs::TOTP::default();
+        let token = inner
+            .generate_current()
+            .expect("current TOTP token should be generated");
+        let totp = crate::credential::Totp::new(inner)
+            .to_encrypted(TEST_KEY)
+            .expect("TOTP should be encrypted");
+        let vault = CredentialVault {
+            phc: "unused".to_string(),
+            totp: Some(totp),
+        };
+
+        let verified = vault
+            .verify_totp(&token, TEST_KEY)
+            .expect("verification should succeed");
+
+        assert!(verified);
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn verify_totp_returns_false_when_totp_is_missing() {
+        let vault = CredentialVault {
+            phc: "unused".to_string(),
+            totp: None,
+        };
+
+        let verified = vault
+            .verify_totp("123456", TEST_KEY)
+            .expect("missing TOTP should not error");
+
+        assert!(!verified);
     }
 }

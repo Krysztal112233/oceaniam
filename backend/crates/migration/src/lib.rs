@@ -47,6 +47,7 @@ mod m20260410_035003_alter_application_argon2;
 mod m20260410_113844_alter_subjects_clumn_created_at;
 mod m20260410_133833_create_idx_subjects_application_id_created_at_id_desc;
 mod m20260416_051432_refactor_application_configuration;
+mod m20260416_094439_alter_credentials_totp;
 
 pub struct Migrator;
 
@@ -104,6 +105,7 @@ impl MigratorTrait for Migrator {
                 m20260410_133833_create_idx_subjects_application_id_created_at_id_desc::Migration,
             ),
             Box::new(m20260416_051432_refactor_application_configuration::Migration),
+            Box::new(m20260416_094439_alter_credentials_totp::Migration),
         ]
     }
 }
