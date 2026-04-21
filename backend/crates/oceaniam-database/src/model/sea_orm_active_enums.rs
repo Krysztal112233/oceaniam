@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
     DeriveActiveEnum,
     Serialize,
     Deserialize,
-    ts_rs :: TS,
     strum :: Display,
 )]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "audit_type")]
@@ -59,7 +58,6 @@ pub enum AuditType {
     DeriveActiveEnum,
     Serialize,
     Deserialize,
-    ts_rs :: TS,
     strum :: Display,
 )]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "key_alg")]
@@ -86,7 +84,6 @@ pub enum KeyAlg {
     DeriveActiveEnum,
     Serialize,
     Deserialize,
-    ts_rs :: TS,
     strum :: Display,
 )]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "key_status")]
@@ -109,7 +106,6 @@ pub enum KeyStatus {
     DeriveActiveEnum,
     Serialize,
     Deserialize,
-    ts_rs :: TS,
     strum :: Display,
 )]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "subject_type_enum")]

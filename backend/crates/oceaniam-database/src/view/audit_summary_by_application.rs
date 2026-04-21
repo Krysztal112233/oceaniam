@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::model::sea_orm_active_enums::AuditType;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, DeriveEntityModel)]
 #[sea_orm(table_name = "audit_summary_by_application")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]

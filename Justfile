@@ -2,7 +2,7 @@ default:
     just --list
 
 gen-entities:
-    cd ./backend && sea-orm-cli generate entity -o ./crates/oceaniam-database/src/model --with-serde both --enum-extra-derives ts_rs::TS --enum-extra-derives strum::Display --model-extra-derives ts_rs::TS
+    cd ./backend && sea-orm-cli generate entity -o ./crates/oceaniam-database/src/model --with-serde both --enum-extra-derives strum::Display 
 
 watch-backend:
     cd ./backend && watchexec -e rs -r cargo run -p oceaniam
