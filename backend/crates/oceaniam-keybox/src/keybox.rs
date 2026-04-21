@@ -223,7 +223,7 @@ impl KeyBox {
     }
 }
 
-impl From<KeyBox> for oceaniam_common::jwks::JwkSet {
+impl From<KeyBox> for oceaniam_auth::jwks::JwkSet {
     /// Converts a KeyBox into a JWK Set (JSON Web Key Set)
     ///
     /// Only includes non-revoked RSA keys. Other key types are ignored.
@@ -261,7 +261,7 @@ mod tests {
 
     use chrono::{Duration, Utc};
     use jsonwebtoken::{Algorithm, Header, TokenData, Validation};
-    use oceaniam_common::{
+    use oceaniam_auth::{
         jwks::JwkSet,
         jwt::{ClaimHelper, JwtCodec, SystemClaim},
     };

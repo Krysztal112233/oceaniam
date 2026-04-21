@@ -1,5 +1,6 @@
 use axum::http::StatusCode;
-use oceaniam_common::{PageInfo, PageParam, PagedResponse, error::Error};
+use oceaniam_api::{PageInfo, PageParam, PagedResponse};
+use oceaniam_common::error::Error;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, Iterable,
     PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,

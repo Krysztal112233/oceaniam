@@ -8,11 +8,10 @@ use axum::{
 };
 use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
+use oceaniam_api::{ApiResponse, ErrorResponse, PagedResponse, RestResult};
 use oceaniam_audit::types::{AuditPayload, CreateApplicationUserPayload};
-use oceaniam_common::{
-    ApiResponse, ErrorResponse, PagedResponse, RestResult, helpers::gen_random_name,
-    jwt::SystemClaim, types::sqid::Sqid,
-};
+use oceaniam_auth::jwt::SystemClaim;
+use oceaniam_common::helpers::gen_random_name;
 use oceaniam_database::helper::users::{CreateUserOpts, UserHelper};
 use oceaniam_database::model::prelude::Users;
 use oceaniam_vo::applications::{
@@ -20,6 +19,7 @@ use oceaniam_vo::applications::{
     CreateApplicationUserRequest, PatchApplicationUserCredentialsRequest,
     SearchApplicationUsersQuery,
 };
+use oceaniam_vo::sqid::Sqid;
 use sea_orm::TransactionTrait;
 use tap::Tap;
 use tracing::{Span, error, field, info};
@@ -236,7 +236,7 @@ pub async fn search_application_users(
 
             PagedResponse {
                 items,
-                page_info: oceaniam_common::PageInfo {
+                page_info: oceaniam_api::PageInfo {
                     has_next: false,
                     total: 1,
                 },

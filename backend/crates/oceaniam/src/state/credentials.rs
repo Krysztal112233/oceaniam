@@ -60,18 +60,6 @@ impl ManagedCredentialVaults {
             .await
     }
 
-    pub async fn verify_password(
-        &self,
-        subject_id: Uuid,
-        password: impl AsRef<str>,
-    ) -> Result<bool, Error> {
-        self.get_credential(subject_id)
-            .await?
-            .verify_password(password)
-            .await
-            .map_err(Error::from)
-    }
-
     /// Permanently deletes a credential by its ID.
     ///
     /// This method removes the credential from both the database and the in-memory cache.
@@ -174,7 +162,9 @@ impl ManagedCredentialVaults {
             .write_to(subject_id, database)
             .await?)
     }
+}
 
+impl ManagedCredentialVaults {
     pub async fn verify_totp(
         &self,
         subject_id: Uuid,
@@ -202,6 +192,18 @@ impl ManagedCredentialVaults {
         }
 
         Ok(true)
+    }
+
+    pub async fn verify_password(
+        &self,
+        subject_id: Uuid,
+        password: impl AsRef<str>,
+    ) -> Result<bool, Error> {
+        self.get_credential(subject_id)
+            .await?
+            .verify_password(password)
+            .await
+            .map_err(Error::from)
     }
 }
 
@@ -254,21 +256,22 @@ mod replay {
             }
         }
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::replay::TotpAntiReplay;
-    use uuid::Uuid;
+    #[cfg(test)]
+    mod tests {
+        use uuid::Uuid;
 
-    // NOTE: AI-generated test
-    #[tokio::test]
-    async fn totp_anti_replay_consume_rejects_same_step_twice() {
-        let anti_replay = TotpAntiReplay::default();
-        let subject_id = Uuid::now_v7();
+        use super::TotpAntiReplay;
 
-        assert!(anti_replay.consume(subject_id, 42).await);
-        assert!(!anti_replay.consume(subject_id, 42).await);
-        assert!(anti_replay.consume(subject_id, 43).await);
+        // NOTE: AI-generated test
+        #[tokio::test]
+        async fn totp_anti_replay_consume_rejects_same_step_twice() {
+            let anti_replay = TotpAntiReplay::default();
+            let subject_id = Uuid::now_v7();
+
+            assert!(anti_replay.consume(subject_id, 42).await);
+            assert!(!anti_replay.consume(subject_id, 42).await);
+            assert!(anti_replay.consume(subject_id, 43).await);
+        }
     }
 }

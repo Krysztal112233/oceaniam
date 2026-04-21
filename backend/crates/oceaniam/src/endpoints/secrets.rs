@@ -2,14 +2,13 @@
 
 use axum::extract::{Path, State};
 use axum_extra::extract::OptionalQuery;
+use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse, RestResult};
 use oceaniam_audit::types::{
     AuditPayload, CreateApplicationSecretPayload, DeleteApplicationSecretPayload,
 };
-use oceaniam_common::PageParam;
-use oceaniam_common::{
-    ApiResponse, Empty, ErrorResponse, PagedResponse, RestResult, types::sqid::Sqid,
-};
+use oceaniam_auth::jwt::SystemClaim;
 use oceaniam_vo::applications::SecretVO;
+use oceaniam_vo::sqid::Sqid;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 use tap::Tap;
@@ -18,7 +17,6 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
 use crate::{middlewares::auth::RequireAuth, state::AppState};
-use oceaniam_common::jwt::SystemClaim;
 
 #[utoipa::path(
         post,
@@ -97,7 +95,7 @@ pub async fn get_secrets(
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { applications, .. }): State<AppState<'_>>,
 ) -> RestResult<PagedResponse<SecretVO>> {
-    let page: oceaniam_common::PageParam = query.unwrap_or_default();
+    let page: PageParam = query.unwrap_or_default();
 
     Span::current().tap(|it| {
         it.record("page", page.page)

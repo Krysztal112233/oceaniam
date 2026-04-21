@@ -39,6 +39,8 @@ uuid.workspace = true
 xorf.workspace = true
 
 oceaniam-audit.workspace = true
+oceaniam-api.workspace = true
+oceaniam-auth.workspace = true
 oceaniam-common.workspace = true
 oceaniam-credential.workspace = true
 oceaniam-database.workspace = true

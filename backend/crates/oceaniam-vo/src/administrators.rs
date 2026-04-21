@@ -1,5 +1,5 @@
+use crate::sqid::Sqid;
 use garde::Validate;
-use oceaniam_common::types::sqid::Sqid;
 #[cfg(feature = "database")]
 use oceaniam_database::model;
 use serde::{Deserialize, Serialize};

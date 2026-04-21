@@ -2415,7 +2415,9 @@ dependencies = [
  "migration",
  "mimalloc",
  "moka",
+ "oceaniam-api",
  "oceaniam-audit",
+ "oceaniam-auth",
  "oceaniam-common",
  "oceaniam-credential",
  "oceaniam-database",
@@ -2443,6 +2445,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "oceaniam-api"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "axum-extra",
+ "garde",
+ "oceaniam-common",
+ "serde",
+ "ts-rs",
+ "utoipa",
+]
+
+[[package]]
 name = "oceaniam-audit"
 version = "0.1.0"
 dependencies = [
@@ -2450,6 +2465,22 @@ dependencies = [
  "serde",
  "serde_json",
  "ts-rs",
+ "uuid",
+]
+
+[[package]]
+name = "oceaniam-auth"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "im",
+ "jsonwebtoken",
+ "oceaniam-common",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "ts-rs",
+ "utoipa",
  "uuid",
 ]
 
@@ -2516,6 +2547,7 @@ dependencies = [
  "axum",
  "chrono",
  "futures",
+ "oceaniam-api",
  "oceaniam-common",
  "rand 0.8.5",
  "rsa",
@@ -2534,6 +2566,8 @@ dependencies = [
 name = "oceaniam-export"
 version = "0.1.0"
 dependencies = [
+ "oceaniam-api",
+ "oceaniam-auth",
  "oceaniam-common",
  "oceaniam-vo",
  "serde",
@@ -2549,6 +2583,7 @@ dependencies = [
  "im",
  "itertools",
  "jsonwebtoken",
+ "oceaniam-auth",
  "oceaniam-common",
  "oceaniam-database",
  "parking_lot",
@@ -2571,10 +2606,13 @@ dependencies = [
  "garde",
  "jsonwebtoken",
  "names",
+ "oceaniam-api",
  "oceaniam-common",
  "oceaniam-database",
+ "reqwest",
  "serde",
  "serde_json",
+ "sqids",
  "ts-rs",
  "utoipa",
  "uuid",

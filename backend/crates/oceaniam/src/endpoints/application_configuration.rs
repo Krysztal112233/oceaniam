@@ -9,8 +9,9 @@ use axum::{
     Json,
     extract::{Path, State},
 };
+use oceaniam_api::{ApiResponse, Empty, ErrorResponse, RestResult};
 use oceaniam_audit::types::{AuditPayload, PatchApplicationConfigurationPayload};
-use oceaniam_common::{ApiResponse, Empty, ErrorResponse, RestResult, jwt::SystemClaim};
+use oceaniam_auth::jwt::SystemClaim;
 use oceaniam_vo::applications::{
     ApplicationConfigurationVO, GetApplicationConfigurationResponse,
     PatchApplicationConfigurationRequest,

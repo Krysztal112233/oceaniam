@@ -11,11 +11,14 @@ database = ["dep:oceaniam-database"]
 garde.workspace = true
 jsonwebtoken.workspace = true
 names.workspace = true
+reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sqids.workspace = true
 ts-rs.workspace = true
 utoipa.workspace = true
 uuid.workspace = true
 
+oceaniam-api.workspace = true
 oceaniam-common.workspace = true
 oceaniam-database = { workspace = true, optional = true }

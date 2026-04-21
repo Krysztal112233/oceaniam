@@ -10,11 +10,10 @@ use axum::{
 };
 use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
+use oceaniam_api::{ApiResponse, ErrorResponse, PageParam, PagedResponse, RestResult};
 use oceaniam_audit::types::{AuditPayload, CreateAdministratorPayload, PatchAdministratorPayload};
-use oceaniam_common::{
-    ApiResponse, ErrorResponse, PageParam, PagedResponse, RestResult, error::Error,
-    jwt::SystemClaim, types::sqid::Sqid,
-};
+use oceaniam_auth::jwt::SystemClaim;
+use oceaniam_common::error::Error;
 use oceaniam_database::{
     helper::{
         SafeTransactionConnectionTrait,
@@ -26,6 +25,7 @@ use oceaniam_vo::administrators::{
     AdministratorVO, CreateAdministratorRequest, CreateAdministratorResponse,
     PatchAdministratorRequest,
 };
+use oceaniam_vo::sqid::Sqid;
 use sea_orm::TransactionTrait;
 use tap::Tap;
 use tracing::{Span, error, field, info};

@@ -17,11 +17,10 @@ use axum::{
     http::StatusCode,
 };
 use axum_extra::extract::cookie::Cookie;
+use oceaniam_api::{ApiResponse, ApiResponseWithHeader, ErrorResponse, WithHeaderRestResult};
 use oceaniam_audit::types::{AuditPayload, RefreshJwtPayload, RevokeJwtPayload, SignJwtPayload};
-use oceaniam_common::{
-    ApiResponse, ApiResponseWithHeader, ErrorResponse, WithHeaderRestResult, consts, error::Error,
-    jwt::Claim,
-};
+use oceaniam_auth::jwt::Claim;
+use oceaniam_common::{consts, error::Error};
 use oceaniam_database::config::application::ApplicationConfiguration;
 use oceaniam_vo::auth::{AuthVO, SigninResponseOrChallenge, SignoutResponse, SignupResponse};
 use tap::Tap;

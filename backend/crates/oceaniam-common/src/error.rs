@@ -1,10 +1,20 @@
 use std::sync::Arc;
 
-use axum::{http::StatusCode, response::IntoResponse};
+use axum::{Json, http::StatusCode, response::IntoResponse};
 use sea_orm::DbErr;
+use serde::Serialize;
 use thiserror::Error;
 
-use crate::{ApiResponse, ErrorResponse};
+#[derive(Debug, Serialize)]
+struct ErrorResponseBody {
+    msg: String,
+}
+
+#[derive(Debug, Serialize)]
+struct ApiErrorResponse {
+    #[serde(flatten)]
+    payload: Option<ErrorResponseBody>,
+}
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -46,7 +56,11 @@ impl IntoResponse for Error {
 
         (
             status,
-            ApiResponse::new(ErrorResponse::new(status.to_string())),
+            Json(ApiErrorResponse {
+                payload: Some(ErrorResponseBody {
+                    msg: status.to_string(),
+                }),
+            }),
         )
             .into_response()
     }

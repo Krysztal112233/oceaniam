@@ -1,4 +1,4 @@
-use oceaniam_common::jwks::Jwk;
+use oceaniam_auth::jwks::Jwk;
 use serde_json::Value;
 use uuid::Uuid;
 

@@ -3,6 +3,8 @@ members = [
 	"crates/migration",
 	"crates/oceaniam",
 	"crates/oceaniam-audit",
+	"crates/oceaniam-api",
+	"crates/oceaniam-auth",
 	"crates/oceaniam-common",
 	"crates/oceaniam-credential",
 	"crates/oceaniam-database",
@@ -76,6 +78,8 @@ crypto-common = "*"
 
 migration = { path = "./crates/migration/" }
 oceaniam-audit = { path = "./crates/oceaniam-audit/" }
+oceaniam-api = { path = "./crates/oceaniam-api/" }
+oceaniam-auth = { path = "./crates/oceaniam-auth/" }
 oceaniam-common = { path = "./crates/oceaniam-common/" }
 oceaniam-credential = { path = "./crates/oceaniam-credential/" }
 oceaniam-database = { path = "./crates/oceaniam-database/" }

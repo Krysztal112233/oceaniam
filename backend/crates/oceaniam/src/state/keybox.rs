@@ -3,12 +3,11 @@ use std::time::Duration;
 use axum::http::StatusCode;
 use jsonwebtoken::Header;
 use moka::future::{Cache, CacheBuilder};
-use oceaniam_common::{
-    consts,
-    error::Error,
+use oceaniam_auth::{
     jwks::JwkSet,
     jwt::{ClaimHelper, JwtCodec, SystemClaim},
 };
+use oceaniam_common::{consts, error::Error};
 use oceaniam_database::{
     config::application::ApplicationConfiguration,
     helper::{applications::ApplicationHelper, key_boxes::KeyBoxesHelper},

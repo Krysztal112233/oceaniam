@@ -3,7 +3,7 @@
 //! Provides HTTP API routes and handlers for the application
 
 use axum::extract::State;
-use oceaniam_common::{ApiResponse, Empty, RestResult};
+use oceaniam_api::{ApiResponse, Empty, RestResult};
 use tap::Pipe as _;
 use utoipa_axum::{router::OpenApiRouter, routes};
 

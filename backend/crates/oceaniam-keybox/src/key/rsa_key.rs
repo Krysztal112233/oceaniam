@@ -1,6 +1,6 @@
 use chrono::Utc;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
-use oceaniam_common::{jwks::Jwk, jwt::JwtCodec};
+use oceaniam_auth::{jwks::Jwk, jwt::JwtCodec};
 use oceaniam_database::model::{key_boxes::Model as Key, sea_orm_active_enums::KeyStatus};
 use rsa::{
     RsaPrivateKey,
@@ -52,7 +52,7 @@ impl RsaKey {
 }
 
 impl TryIntoJwk for RsaKey {
-    fn try_into_jwk(self) -> Result<oceaniam_common::jwks::Jwk, Error> {
+    fn try_into_jwk(self) -> Result<oceaniam_auth::jwks::Jwk, Error> {
         // NOTE: ONLY SUPPORT PKCS1 DER. WHAT THE FUCK.
         let mut der = self.private.to_pkcs1_der().unwrap().to_bytes();
         let key = EncodingKey::from_rsa_der(&der);
@@ -232,7 +232,7 @@ where
 mod tests {
     use itertools::Itertools;
     use jsonwebtoken::{Algorithm, TokenData};
-    use oceaniam_common::jwt::{ClaimHelper, SystemClaim};
+    use oceaniam_auth::jwt::{ClaimHelper, SystemClaim};
     use tap::Tap;
     use uuid::Uuid;
 

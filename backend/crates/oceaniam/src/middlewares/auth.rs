@@ -5,7 +5,8 @@ use axum::{
     http::{HeaderMap, StatusCode, header, request::Parts},
 };
 use jsonwebtoken::{DecodingKey, Header, TokenData, Validation, decode, decode_header};
-use oceaniam_common::{error::Error, jwks::JwkSet, jwt::ClaimHelper};
+use oceaniam_auth::{jwks::JwkSet, jwt::ClaimHelper};
+use oceaniam_common::error::Error;
 use serde::{Serialize, de::DeserializeOwned};
 use tracing::error;
 

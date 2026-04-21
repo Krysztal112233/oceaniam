@@ -6,12 +6,11 @@ use crate::state::{
 use axum::extract::FromRef;
 use im::HashMap;
 use jsonwebtoken::{Algorithm, Validation};
-use oceaniam_common::{
-    consts,
-    error::Error,
+use oceaniam_auth::{
     jwks::{JwkSet, ManagedJwkSet},
     jwt::JwtValidator,
 };
+use oceaniam_common::{consts, error::Error};
 use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, key_boxes::KeyBoxesHelper},
     model::prelude::KeyBoxes,

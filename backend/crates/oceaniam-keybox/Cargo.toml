@@ -21,5 +21,6 @@ thiserror.workspace = true
 uuid.workspace = true
 zeroize.workspace = true
 
+oceaniam-auth.workspace = true
 oceaniam-common.workspace = true
 oceaniam-database.workspace = true

@@ -9,7 +9,7 @@ use ts_rs::TS;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use crate::error::Error;
+use oceaniam_common::error::Error;
 
 static SQID: LazyLock<sqids::Sqids> = LazyLock::new(|| Sqids::new(None).unwrap());
 
@@ -94,6 +94,7 @@ impl AsRef<str> for Sqid {
 mod tests {
     use super::*;
 
+    // NOTE: AI-generated test
     #[test]
     fn test_encode_decode_success() {
         let uuid = Uuid::now_v7();
@@ -102,6 +103,7 @@ mod tests {
         assert_eq!(uuid, decoded);
     }
 
+    // NOTE: AI-generated test
     #[test]
     fn test_decode_invalid_sqid() {
         let invalid_sqid_str = "!@#$%^&*";

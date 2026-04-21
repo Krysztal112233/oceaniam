@@ -1,8 +1,8 @@
 use core::str;
 
+use crate::sqid::Sqid;
 use garde::Validate;
-use oceaniam_common::PageParam;
-use oceaniam_common::types::sqid::Sqid;
+use oceaniam_api::PageParam;
 #[cfg(feature = "database")]
 use oceaniam_database::model::{self};
 use serde::{Deserialize, Deserializer, Serialize};
