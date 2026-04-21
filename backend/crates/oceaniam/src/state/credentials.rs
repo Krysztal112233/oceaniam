@@ -60,6 +60,18 @@ impl ManagedCredentialVaults {
             .await
     }
 
+    pub async fn verify_password(
+        &self,
+        subject_id: Uuid,
+        password: impl AsRef<str>,
+    ) -> Result<bool, Error> {
+        self.get_credential(subject_id)
+            .await?
+            .verify_password(password)
+            .await
+            .map_err(Error::from)
+    }
+
     /// Permanently deletes a credential by its ID.
     ///
     /// This method removes the credential from both the database and the in-memory cache.

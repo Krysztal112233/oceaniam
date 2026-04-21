@@ -116,26 +116,18 @@ pub async fn create_application_token(
         it.record("user_id", field::display(&user.id));
     });
 
-    let vault = credentials.get_credential(user.id).await.inspect_err(|e| {
-        error!(
-            %application_id,
-            user_id = %user.id,
-            error = %e,
-            "failed to get user credential"
-        )
-    })?;
-
     let verify_result = match auth {
-        AuthVO::Email { password, .. } | AuthVO::Phone { password, .. } => {
-            vault.verify_password(&password).await.inspect_err(|e| {
+        AuthVO::Email { password, .. } | AuthVO::Phone { password, .. } => credentials
+            .verify_password(user.id, &password)
+            .await
+            .inspect_err(|e| {
                 error!(
                     %application_id,
                     user_id = %user.id,
                     error = %e,
                     "failed to verify password"
                 )
-            })?
-        }
+            })?,
     };
 
     if !verify_result {

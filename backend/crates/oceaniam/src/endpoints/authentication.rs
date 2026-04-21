@@ -108,10 +108,7 @@ pub async fn create_auth_token(
 
     let succeed = {
         credentials
-            .get_credential(id)
-            .await
-            .inspect_err(|e| error!(admin_id = %id, error = %e, "failed to get credential"))?
-            .verify_password(&password)
+            .verify_password(id, &password)
             .await
             .inspect_err(|e| error!(admin_id = %id, error = %e, "failed to verify password"))?
     };
