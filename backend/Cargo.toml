@@ -2,9 +2,10 @@
 members = [
 	"crates/migration",
 	"crates/oceaniam",
-	"crates/oceaniam-audit",
 	"crates/oceaniam-api",
+	"crates/oceaniam-audit",
 	"crates/oceaniam-auth",
+	"crates/oceaniam-challenge",
 	"crates/oceaniam-common",
 	"crates/oceaniam-credential",
 	"crates/oceaniam-database",
@@ -54,12 +55,7 @@ strum = { version = "0.27", features = ["derive"] }
 tap = "1.0"
 thiserror = "2.0"
 tokio = { version = "1", features = ["full"] }
-totp-rs = { version = "5.7", features = [
-	"gen_secret",
-	"otpauth",
-	"qr",
-	"serde_support",
-] }
+
 tower-http = { version = "0.6", features = ["trace", "cors"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
@@ -77,15 +73,20 @@ rsa = { version = "0.9.8", features = ["serde", "pem"] }
 crypto-common = "*"
 
 migration = { path = "./crates/migration/" }
-oceaniam-audit = { path = "./crates/oceaniam-audit/" }
 oceaniam-api = { path = "./crates/oceaniam-api/" }
+oceaniam-audit = { path = "./crates/oceaniam-audit/" }
 oceaniam-auth = { path = "./crates/oceaniam-auth/" }
+oceaniam-challenge = { path = "./crates/oceaniam-challenge/" }
 oceaniam-common = { path = "./crates/oceaniam-common/" }
 oceaniam-credential = { path = "./crates/oceaniam-credential/" }
 oceaniam-database = { path = "./crates/oceaniam-database/" }
 oceaniam-export = { path = "./crates/oceaniam-export/" }
 oceaniam-keybox = { path = "./crates/oceaniam-keybox/" }
 oceaniam-vo = { path = "./crates/oceaniam-vo/" }
+
+[workspace.dependencies.totp-rs]
+version = "5.7"
+features = ["gen_secret", "otpauth", "qr", "serde_support"]
 
 [workspace.dependencies.ts-rs]
 version = "11.1"

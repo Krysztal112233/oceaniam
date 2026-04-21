@@ -8,6 +8,7 @@ pub mod administrators;
 pub mod applications;
 pub mod applications_secrets;
 pub mod audit_summary_by_application;
+pub mod challenges;
 pub mod credentials;
 pub mod key_boxes;
 pub mod revoked_jwts;

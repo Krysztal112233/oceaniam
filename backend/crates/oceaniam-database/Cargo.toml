@@ -21,4 +21,5 @@ utoipa.workspace = true
 uuid.workspace = true
 
 oceaniam-api.workspace = true
+oceaniam-challenge.workspace = true
 oceaniam-common.workspace = true

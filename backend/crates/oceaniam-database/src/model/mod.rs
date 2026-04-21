@@ -7,6 +7,7 @@ pub mod application_secret_bindings;
 pub mod application_secrets;
 pub mod applications;
 pub mod audits;
+pub mod challenges;
 pub mod credentials;
 pub mod key_boxes;
 pub mod revoked_jwts;

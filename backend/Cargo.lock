@@ -2485,6 +2485,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "oceaniam-challenge"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "oceaniam-common"
 version = "0.1.0"
 dependencies = [
@@ -2548,6 +2557,7 @@ dependencies = [
  "chrono",
  "futures",
  "oceaniam-api",
+ "oceaniam-challenge",
  "oceaniam-common",
  "rand 0.8.5",
  "rsa",

@@ -60,6 +60,68 @@ pub enum AuditType {
     Deserialize,
     strum :: Display,
 )]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "challenge_factor_type"
+)]
+pub enum ChallengeFactorType {
+    #[sea_orm(string_value = "totp")]
+    Totp,
+}
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Serialize,
+    Deserialize,
+    strum :: Display,
+)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "challenge_purpose_type"
+)]
+pub enum ChallengePurposeType {
+    #[sea_orm(string_value = "signin")]
+    Signin,
+}
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Serialize,
+    Deserialize,
+    strum :: Display,
+)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "challenge_status_type"
+)]
+pub enum ChallengeStatusType {
+    #[sea_orm(string_value = "pending")]
+    Pending,
+    #[sea_orm(string_value = "consumed")]
+    Consumed,
+}
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Serialize,
+    Deserialize,
+    strum :: Display,
+)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "key_alg")]
 pub enum KeyAlg {
     #[sea_orm(string_value = "rs256")]
