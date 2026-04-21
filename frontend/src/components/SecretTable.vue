@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { SecretVO } from "../../packages/sdk/src/types/SecretVO";
+import type { SecretVO } from "@oceaniam/sdk";
 
 const props = defineProps<{
     secrets: SecretVO[];

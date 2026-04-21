@@ -1,8 +1,11 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import { type GetApplicationsQuery, type PagedResponse } from "@oceaniam/sdk";
-import type { ApplicationVO } from "../../packages/sdk/src/types/ApplicationVO";
-import type { TenantVO } from "../../packages/sdk/src/types/TenantVO";
+import {
+    type ApplicationVO,
+    type GetApplicationsQuery,
+    type PagedResponse,
+    type TenantVO,
+} from "@oceaniam/sdk";
 import { getClient } from "../utils/api-client";
 import { useAuthStore } from "./auth";
 

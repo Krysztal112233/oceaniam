@@ -3,7 +3,7 @@
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from "vue";
 import type * as Monaco from "monaco-editor";
 import type { editor } from "monaco-editor";
-import type { ApplicationConfigurationVO } from "../../packages/sdk/src/types/ApplicationConfigurationVO";
+import type { ApplicationConfigurationVO } from "@oceaniam/sdk";
 
 type MonacoRuntime = typeof Monaco;
 type FormatterRuntime = {

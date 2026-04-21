@@ -2,7 +2,7 @@
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import type { SecretVO } from "../../packages/sdk/src/types/SecretVO";
+import type { SecretVO } from "@oceaniam/sdk";
 import { useToast } from "vue-toastification";
 import CreateSecretModal from "../components/CreateSecretModal.vue";
 import SecretTable from "../components/SecretTable.vue";

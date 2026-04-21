@@ -2535,7 +2535,6 @@ name = "oceaniam-export"
 version = "0.1.0"
 dependencies = [
  "oceaniam-common",
- "oceaniam-database",
  "oceaniam-vo",
  "serde",
  "ts-rs",

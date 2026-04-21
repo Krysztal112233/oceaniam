@@ -2,8 +2,7 @@
 import { computed, defineAsyncComponent, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useToast } from "vue-toastification";
-import type { ApplicationVO } from "../../packages/sdk/src/types/ApplicationVO";
-import type { ApplicationConfigurationVO } from "../../packages/sdk/src/types/ApplicationConfigurationVO";
+import type { ApplicationConfigurationVO, ApplicationVO } from "@oceaniam/sdk";
 import EntityListPage from "../components/EntityListPage.vue";
 import { useTenantStore } from "../stores/tenant";
 import { getClient } from "../utils/api-client";

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { TenantVO } from "../../packages/sdk/src/types/TenantVO";
+import type { TenantVO } from "@oceaniam/sdk";
 import TenantRowActions from "./TenantRowActions.vue";
 
 defineProps<{

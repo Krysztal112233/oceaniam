@@ -2,4 +2,4 @@
 import type { SigninChallenge } from "./SigninChallenge";
 import type { SignupResponse } from "./SignupResponse";
 
-export type SystemSigninResponse = SignupResponse | SigninChallenge;
+export type SigninResponseSchema = SignupResponse | SigninChallenge;
