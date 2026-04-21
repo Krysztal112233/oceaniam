@@ -23,7 +23,7 @@ use oceaniam_common::{
     jwt::Claim,
 };
 use oceaniam_database::config::application::ApplicationConfiguration;
-use oceaniam_vo::auth::{AuthVO, SigninResponse, SignoutResponse};
+use oceaniam_vo::auth::{AuthVO, SigninResponseOrChallenge, SignoutResponse, SignupResponse};
 use tap::Tap;
 use tracing::{Span, error, field, info, warn};
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -48,7 +48,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
         ),
         request_body = AuthVO,
         responses(
-            (status = 200, body = ApiResponse<Option<SigninResponse>>),
+            (status = 200, body = ApiResponse<Option<SigninResponseOrChallenge>>),
             (status = 400, description = "Bad request"),
             (status = 401, description = "Unauthorized"),
             (status = 403, description = "Forbidden - secret does not belong to this application"),
@@ -80,7 +80,7 @@ pub async fn create_application_token(
     }): State<AppState<'_>>,
     Path(path): Path<TenantApplicationPath>,
     Json(auth): Json<AuthVO>,
-) -> WithHeaderRestResult<Option<SigninResponse>> {
+) -> WithHeaderRestResult<SigninResponseOrChallenge> {
     let application = get_tenant_application(path, &database).await?;
     let application_id = application.id;
     Span::current().tap(|it| {
@@ -167,10 +167,11 @@ pub async fn create_application_token(
         .await;
 
     let cookie = Cookie::new("auth_token", jwt.clone());
-    let resp = ApiResponseWithHeader::new(Some(SigninResponse { jwt }));
+    let resp =
+        ApiResponseWithHeader::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
 
     let resp = match token_mtd {
-        TokenDispatchMethod::Cookie => ApiResponseWithHeader::new(None).with_cookie(cookie)?,
+        TokenDispatchMethod::Cookie => ApiResponseWithHeader::empty().with_cookie(cookie)?,
         TokenDispatchMethod::Json => resp,
         TokenDispatchMethod::Both => resp.with_cookie(cookie)?,
     };
@@ -263,7 +264,7 @@ pub async fn delete_application_token(
             ("application_id" = String, Path, description = "Application ID"),
         ),
         responses(
-            (status = 200, body = ApiResponse<Option<SigninResponse>>),
+            (status = 200, body = ApiResponse<Option<SigninResponseOrChallenge>>),
             (status = 203, description = "Missing Authorization header"),
             (status = 400, description = "Invalid, expired, or revoked token", body = ApiResponse<ErrorResponse>),
             (status = 401, description = "Unauthorized"),
@@ -297,7 +298,7 @@ pub async fn refresh_application_token(
         ..
     }): State<AppState<'_>>,
     Path(path): Path<TenantApplicationPath>,
-) -> WithHeaderRestResult<Option<SigninResponse>> {
+) -> WithHeaderRestResult<SigninResponseOrChallenge> {
     let jti = auth.token.claims.jti;
     let user_id = auth.token.claims.sub;
     let application = get_tenant_application(path, &database).await?;
@@ -371,10 +372,11 @@ pub async fn refresh_application_token(
         .await;
 
     let cookie = Cookie::new("auth_token", jwt.clone());
-    let resp = ApiResponseWithHeader::new(Some(SigninResponse { jwt }));
+    let resp =
+        ApiResponseWithHeader::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
 
     let resp = match token_mtd {
-        TokenDispatchMethod::Cookie => ApiResponseWithHeader::new(None).with_cookie(cookie)?,
+        TokenDispatchMethod::Cookie => ApiResponseWithHeader::empty().with_cookie(cookie)?,
         TokenDispatchMethod::Json => resp,
         TokenDispatchMethod::Both => resp.with_cookie(cookie)?,
     };

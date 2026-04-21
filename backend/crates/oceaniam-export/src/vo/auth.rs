@@ -15,8 +15,13 @@ pub struct SigninRequest;
 
 #[derive(ts_rs::TS)]
 #[ts(export)]
-#[ts(as = "oceaniam_vo::auth::SigninResponse")]
+#[ts(as = "oceaniam_vo::auth::SignupResponse")]
 pub struct SigninResponse;
+
+#[derive(ts_rs::TS)]
+#[ts(export)]
+#[ts(as = "oceaniam_vo::auth::SigninResponseOrChallenge")]
+pub struct SigninResponseSchema;
 
 #[derive(ts_rs::TS)]
 #[ts(export)]
@@ -30,5 +35,5 @@ pub struct SystemSigninRequest;
 
 #[derive(ts_rs::TS)]
 #[ts(export)]
-#[ts(as = "oceaniam_vo::auth::SystemSigninResponse")]
+#[ts(as = "oceaniam_vo::auth::SigninResponseOrChallenge")]
 pub struct SystemSigninResponse;

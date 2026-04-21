@@ -24,7 +24,9 @@ use oceaniam_common::{
 use oceaniam_database::{
     helper::administrators::AdministratorsHelper, model::prelude::Administrators,
 };
-use oceaniam_vo::auth::{SigninResponse, SignoutResponse, SignupResponse, SystemSigninRequest};
+use oceaniam_vo::auth::{
+    SigninResponseOrChallenge, SignoutResponse, SignupResponse, SystemSigninRequest,
+};
 use tap::Tap;
 use tracing::{Span, error, field};
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -59,7 +61,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
         request_body = SystemSigninRequest,
         params(("X-OceanIAM-Token-Dispatch" = String, Header, description = "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both.")),
         responses(
-            (status = 200, description = "Successfully authenticated", body = ApiResponse<SigninResponse>),
+            (status = 200, description = "Successfully authenticated", body = ApiResponse<SigninResponseOrChallenge>),
             (status = 400, description = "Invalid request body"),
             (status = 401, description = "Invalid credentials", body = ApiResponse<ErrorResponse>),
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
@@ -87,7 +89,7 @@ pub async fn create_auth_token(
     }): State<AppState<'_>>,
 
     Json(auth): Json<SystemSigninRequest>,
-) -> RestResult<SigninResponse> {
+) -> RestResult<SigninResponseOrChallenge> {
     let (id, password) = match auth {
         SystemSigninRequest::Name { name, password } => (
             Administrators::get_by_name(name, &database)
@@ -133,7 +135,9 @@ pub async fn create_auth_token(
         }))
         .await;
 
-    Ok(ApiResponse::new(SigninResponse { jwt }))
+    Ok(ApiResponse::new(SigninResponseOrChallenge::Signup(
+        SignupResponse { jwt },
+    )))
 }
 
 /// Delete auth token (signout)
@@ -276,7 +280,7 @@ pub async fn create_auth_user(
 	            ("X-OceanIAM-Token-Dispatch" = String, Header, description = "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both."),
 	        ),
 	        responses(
-	            (status = 200, description = "Token refreshed successfully", body = ApiResponse<Option<SigninResponse>>),
+                (status = 200, description = "Token refreshed successfully", body = ApiResponse<Option<SigninResponseOrChallenge>>),
 	            (status = 203, description = "Missing Authorization header"),
 	            (status = 400, description = "Invalid, expired, or revoked token", body = ApiResponse<ErrorResponse>),
 	            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
@@ -298,7 +302,7 @@ pub async fn refresh_auth_token(
         auditing,
         ..
     }): State<AppState<'_>>,
-) -> WithHeaderRestResult<Option<SigninResponse>> {
+) -> WithHeaderRestResult<SigninResponseOrChallenge> {
     let jti = auth.token.claims.jti;
     Span::current().tap(|it| {
         it.record("sub", field::display(&auth.token.claims.sub))
@@ -344,12 +348,13 @@ pub async fn refresh_auth_token(
         .await;
 
     let cookie = Cookie::new("auth_token", jwt.clone());
-    let resp = ApiResponseWithHeader::new(Some(SigninResponse { jwt }));
+    let resp =
+        ApiResponseWithHeader::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
 
     let resp = match token_mtd {
         TokenDispatchMethod::Json => resp,
         TokenDispatchMethod::Both => resp.with_cookie(cookie)?,
-        TokenDispatchMethod::Cookie => ApiResponseWithHeader::new(None).with_cookie(cookie)?,
+        TokenDispatchMethod::Cookie => ApiResponseWithHeader::empty().with_cookie(cookie)?,
     };
 
     Ok(resp)

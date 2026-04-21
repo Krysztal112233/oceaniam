@@ -89,6 +89,13 @@ where
         }
     }
 
+    pub fn empty() -> Self {
+        Self {
+            payload: None,
+            headers: HeaderMap::new(),
+        }
+    }
+
     pub fn with_header(payload: T, headers: HeaderMap) -> Self {
         Self {
             payload: Some(payload),

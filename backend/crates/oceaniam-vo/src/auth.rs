@@ -1,7 +1,6 @@
 use garde::Validate;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use uuid::Uuid;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Validate, ToSchema, PartialEq, Eq, ts_rs::TS)]
 #[serde(untagged)]
@@ -32,12 +31,18 @@ pub struct SignupResponse {
 
 #[derive(Debug, Deserialize, Serialize, ToSchema, ts_rs::TS)]
 pub struct SigninRequest {
-    pub application_id: Uuid,
-
     pub auth: AuthVO,
 }
 
-pub type SigninResponse = SignupResponse;
+#[derive(Debug, Deserialize, Serialize, ToSchema, ts_rs::TS)]
+pub struct SigninChallenge {}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema, ts_rs::TS)]
+#[serde(untagged)]
+pub enum SigninResponseOrChallenge {
+    Signup(SignupResponse),
+    Challenge(SigninChallenge),
+}
 
 #[derive(Debug, Serialize, ToSchema, ts_rs::TS)]
 pub struct SignoutResponse {
@@ -64,4 +69,4 @@ pub enum SystemSigninRequest {
         password: String,
     },
 }
-pub type SystemSigninResponse = SigninResponse;
+pub type SystemSigninResponseSchema = SigninResponseOrChallenge;
