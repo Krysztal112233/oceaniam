@@ -12,7 +12,9 @@ use serde::{Deserialize, Serialize};
     DeriveActiveEnum,
     Serialize,
     Deserialize,
+    Hash,
     strum :: Display,
+    strum :: EnumString,
 )]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "audit_type")]
 pub enum AuditType {
@@ -60,7 +62,9 @@ pub enum AuditType {
     DeriveActiveEnum,
     Serialize,
     Deserialize,
+    Hash,
     strum :: Display,
+    strum :: EnumString,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -80,7 +84,9 @@ pub enum ChallengeFactorType {
     DeriveActiveEnum,
     Serialize,
     Deserialize,
+    Hash,
     strum :: Display,
+    strum :: EnumString,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -100,7 +106,9 @@ pub enum ChallengePurposeType {
     DeriveActiveEnum,
     Serialize,
     Deserialize,
+    Hash,
     strum :: Display,
+    strum :: EnumString,
 )]
 #[sea_orm(
     rs_type = "String",
@@ -122,7 +130,9 @@ pub enum ChallengeStatusType {
     DeriveActiveEnum,
     Serialize,
     Deserialize,
+    Hash,
     strum :: Display,
+    strum :: EnumString,
 )]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "key_alg")]
 pub enum KeyAlg {
@@ -148,7 +158,9 @@ pub enum KeyAlg {
     DeriveActiveEnum,
     Serialize,
     Deserialize,
+    Hash,
     strum :: Display,
+    strum :: EnumString,
 )]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "key_status")]
 pub enum KeyStatus {
@@ -170,7 +182,9 @@ pub enum KeyStatus {
     DeriveActiveEnum,
     Serialize,
     Deserialize,
+    Hash,
     strum :: Display,
+    strum :: EnumString,
 )]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "subject_type_enum")]
 pub enum SubjectTypeEnum {
