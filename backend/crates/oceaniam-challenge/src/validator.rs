@@ -13,10 +13,10 @@ pub trait MfaValidator: Sync + Send {
 
 #[derive(Clone)]
 pub struct ValidatorRegistry<T>(
-    HashMap<ChallengeFactorType, Arc<dyn MfaValidator<ValidationContext = T>>>,
+    HashMap<ChallengeFactorType, Arc<Box<dyn MfaValidator<ValidationContext = T>>>>,
 );
 
-type BoxedMfaValidator<T> = Arc<dyn MfaValidator<ValidationContext = T>>;
+type BoxedMfaValidator<T> = Arc<Box<dyn MfaValidator<ValidationContext = T>>>;
 
 impl<T> ValidatorRegistry<T> {
     pub fn new(input: HashMap<ChallengeFactorType, BoxedMfaValidator<T>>) -> Self {

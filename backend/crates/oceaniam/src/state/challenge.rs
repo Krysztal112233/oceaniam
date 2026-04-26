@@ -1,23 +1,51 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use axum::http::StatusCode;
 use chrono::Utc;
+use linkme::distributed_slice;
 use moka::future::Cache;
 use oceaniam_audit::types::{AuditPayload, CreateChallengePayload};
+use oceaniam_challenge::validator::{MfaValidator, ValidatorRegistry};
 use oceaniam_common::error::Error;
 use oceaniam_database::{
     helper::{
         SafeTransactionConnectionTrait,
         challenges::{ChallengesHelper, CreateChallengeOpts},
     },
-    model::{self, prelude::Challenges, sea_orm_active_enums::ChallengeStatusType},
+    model::{
+        challenges::{ActiveModel as ChallengeActiveModel, Model as ChallengeModel},
+        prelude::Challenges,
+        sea_orm_active_enums::{ChallengeFactorType, ChallengeStatusType},
+    },
 };
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, DatabaseConnection, IntoActiveModel};
 use uuid::Uuid;
 
 use super::audit::Auditing;
-use model::challenges::ActiveModel as ChallengeActiveModel;
-use model::challenges::Model as ChallengeModel;
+
+#[allow(unused)]
+mod totp;
+
+#[derive(Debug, Clone)]
+pub struct ValidatorFactorContext {
+    database: DatabaseConnection,
+}
+
+#[derive(Debug, Clone)]
+pub struct ValidationContext {}
+
+type BoxedMfaValidator = Arc<Box<dyn MfaValidator<ValidationContext = ValidationContext>>>;
+type ChallengeValidatorRegistry = ValidatorRegistry<ValidationContext>;
+type ValidatorFactory =
+    fn(context: ValidatorFactorContext) -> Result<ConstructedMfaValidator, Error>;
+
+pub(crate) struct ConstructedMfaValidator {
+    pub factor: ChallengeFactorType,
+    pub validator: BoxedMfaValidator,
+}
+
+#[distributed_slice]
+static REGISTRY: [ValidatorFactory];
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct ChallengeRecord {
@@ -25,21 +53,38 @@ struct ChallengeRecord {
     id: Uuid,
 }
 
+#[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct ManagedChallenges {
     auditing: Auditing,
     database: DatabaseConnection,
+    validators: ChallengeValidatorRegistry,
     cache: Cache<ChallengeRecord, ChallengeModel>,
 }
 
 impl ManagedChallenges {
     pub fn new(database: DatabaseConnection, auditing: Auditing) -> Self {
+        let ctx = ValidatorFactorContext {
+            database: database.clone(),
+        };
+
+        let validators = REGISTRY
+            .iter()
+            .map(|it| it(ctx.clone()))
+            .filter(|it| it.is_ok())
+            .map(Result::unwrap)
+            .map(|ConstructedMfaValidator { factor, validator }| (factor, validator))
+            .collect();
+
+        let validators = ChallengeValidatorRegistry::new(validators);
+
         Self {
             auditing,
             database,
             cache: Cache::builder()
                 .time_to_idle(Duration::from_mins(5))
                 .build(),
+            validators,
         }
     }
 
@@ -130,6 +175,7 @@ impl ManagedChallenges {
             .try_get_with(record.clone(), async {
                 let challenge = Challenges::get_challenge(id, &self.database).await?;
 
+                // NOTE: FOR SECURITY CONSIDERATION
                 if challenge.application_id != application_id {
                     return Err(Error::with_code(
                         StatusCode::NOT_FOUND,
@@ -147,9 +193,9 @@ impl ManagedChallenges {
             ..challenge.into_active_model()
         };
 
-        let challenge = challenge.update(database).await?;
+        let updated_challenge = challenge.update(database).await?;
 
-        self.cache.insert(record, challenge).await;
+        self.cache.insert(record, updated_challenge).await;
 
         Ok(())
     }
