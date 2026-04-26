@@ -23,6 +23,7 @@ use uuid::Uuid;
 
 pub mod applications;
 pub mod audit;
+pub mod challenge;
 pub mod credentials;
 pub mod filters;
 pub mod keybox;

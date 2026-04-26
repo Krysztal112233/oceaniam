@@ -50,6 +50,8 @@ mod m20260416_051432_refactor_application_configuration;
 mod m20260416_094439_alter_credentials_totp;
 mod m20260421_101138_create_challenges;
 mod m20260421_155732_alter_challenge_payload;
+mod m20260421_170427_create_idx_challenges;
+mod m20260422_035649_alter_idx_challenges;
 
 pub struct Migrator;
 
@@ -110,6 +112,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260416_094439_alter_credentials_totp::Migration),
             Box::new(m20260421_101138_create_challenges::Migration),
             Box::new(m20260421_155732_alter_challenge_payload::Migration),
+            Box::new(m20260421_170427_create_idx_challenges::Migration),
+            Box::new(m20260422_035649_alter_idx_challenges::Migration),
         ]
     }
 }
