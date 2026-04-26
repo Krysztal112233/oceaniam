@@ -1,0 +1,21 @@
+[package]
+name = "oceaniam-worker"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+chrono.workspace = true
+cron.workspace = true
+dotenvy.workspace = true
+itertools.workspace = true
+linkme.workspace = true
+mimalloc.workspace = true
+sea-orm.workspace = true
+tokio.workspace = true
+tracing-subscriber.workspace = true
+tracing.workspace = true
+
+oceaniam.workspace = true
+oceaniam-common.workspace = true
+oceaniam-database.workspace = true

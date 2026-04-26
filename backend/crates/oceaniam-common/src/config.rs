@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use config::Config;
 use serde::{Deserialize, Serialize};
 
@@ -18,10 +20,17 @@ pub struct CorsConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkerConfiguration {
+    pub cron: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackendConfig {
     pub addr: String,
     pub database: DatabaseConfig,
     pub cors: CorsConfig,
+    #[serde(default)]
+    pub workers: HashMap<String, WorkerConfiguration>,
 }
 
 impl BackendConfig {

@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, sync::OnceLock};
+use std::{collections::HashMap, net::SocketAddr, sync::OnceLock};
 
 use migration::{Migrator, MigratorTrait};
 use oceaniam::app::{app, build_state};
@@ -77,6 +77,7 @@ fn test_config() -> BackendConfig {
         cors: CorsConfig {
             allow_origin: "*".to_string(),
         },
+        workers: HashMap::new(),
     }
 }
 

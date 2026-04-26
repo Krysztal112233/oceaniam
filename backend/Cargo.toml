@@ -11,6 +11,7 @@ members = [
 	"crates/oceaniam-database",
 	"crates/oceaniam-export",
 	"crates/oceaniam-keybox",
+	"crates/oceaniam-worker",
 	"crates/oceaniam-vo",
 ]
 resolver = "3"
@@ -32,12 +33,14 @@ clap = { version = "*", features = ["derive"] }
 config = { version = "0.15", default-features = false, features = ["toml"] }
 crossbeam-channel = "0.5"
 crossbeam-queue = "0.3"
+cron = "0.15"
 dotenvy = "0.15"
 futures = "0.3"
 garde = { version = "*", features = ["derive", "phone-number", "email"] }
 im = { version = "15.1", features = ["serde"] }
 itertools = "0.14"
 jsonwebtoken = { version = "10", features = ["rust_crypto"] }
+linkme = "0.3"
 log = "0.4"
 mimalloc = { version = "0.1", features = ["v3"] }
 moka = { version = "0.12", features = ["future"] }
@@ -82,6 +85,8 @@ oceaniam-credential = { path = "./crates/oceaniam-credential/" }
 oceaniam-database = { path = "./crates/oceaniam-database/" }
 oceaniam-export = { path = "./crates/oceaniam-export/" }
 oceaniam-keybox = { path = "./crates/oceaniam-keybox/" }
+oceaniam = { path = "./crates/oceaniam/" }
+oceaniam-worker = { path = "./crates/oceaniam-worker/" }
 oceaniam-vo = { path = "./crates/oceaniam-vo/" }
 
 [workspace.dependencies.totp-rs]
