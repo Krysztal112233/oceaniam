@@ -1,4 +1,6 @@
-use oceaniam_database::model::sea_orm_active_enums::AuditType;
+use oceaniam_database::model::sea_orm_active_enums::{
+    AuditType, ChallengeFactorType, ChallengePurposeType,
+};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -25,6 +27,7 @@ pub enum AuditPayload {
     DeleteApplicationUser(DeleteApplicationUserPayload),
     CreateApplicationSecret(CreateApplicationSecretPayload),
     DeleteApplicationSecret(DeleteApplicationSecretPayload),
+    CreateChallenge(CreateChallengePayload),
 }
 
 impl AuditPayload {
@@ -46,6 +49,7 @@ impl AuditPayload {
             Self::DeleteApplicationUser(_) => AuditType::DeleteApplicationUser,
             Self::CreateApplicationSecret(_) => AuditType::CreateApplicationSecret,
             Self::DeleteApplicationSecret(_) => AuditType::DeleteApplicationSecret,
+            Self::CreateChallenge(_) => AuditType::CreateChallenge,
         }
     }
 
@@ -150,21 +154,27 @@ impl From<DeleteApplicationSecretPayload> for AuditPayload {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+impl From<CreateChallengePayload> for AuditPayload {
+    fn from(value: CreateChallengePayload) -> Self {
+        Self::CreateChallenge(value)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignJwtPayload {
     pub application_id: Uuid,
     pub subject_id: Uuid,
     pub jti: Uuid,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RevokeJwtPayload {
     pub subject_id: Uuid,
     pub jti: Uuid,
     pub application_id: Option<Uuid>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RefreshJwtPayload {
     pub application_id: Uuid,
     pub subject_id: Uuid,
@@ -172,57 +182,57 @@ pub struct RefreshJwtPayload {
     pub new_jti: Uuid,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CreateApplicationPayload {
     pub application_id: Uuid,
     pub tenant_id: Uuid,
     pub comment: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PatchApplicationPayload {
     pub application_id: Uuid,
     pub comment: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PatchApplicationConfigurationPayload {
     pub application_id: Uuid,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeleteApplicationPayload {
     pub application_id: Uuid,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CreateTenantsPayload {
     pub tenant_id: Uuid,
     pub comment: Option<String>,
     pub operator_id: Uuid,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeleteTenantsPayload {
     pub tenant_id: Uuid,
     pub operator_id: Uuid,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PatchTenantPayload {
     pub tenant_id: Uuid,
     pub operator_id: Uuid,
     pub comment: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CreateAdministratorPayload {
     pub administrator_id: Uuid,
     pub operator_id: Uuid,
     pub name: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PatchAdministratorPayload {
     pub target_id: Uuid,
     pub operator_id: Uuid,
@@ -230,7 +240,7 @@ pub struct PatchAdministratorPayload {
     pub password: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CreateApplicationUserPayload {
     pub application_id: Uuid,
     pub user_id: Uuid,
@@ -239,20 +249,29 @@ pub struct CreateApplicationUserPayload {
     pub nickname: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeleteApplicationUserPayload {
     pub application_id: Uuid,
     pub user_id: Uuid,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CreateApplicationSecretPayload {
     pub operator_id: Uuid,
     pub secret_id: Uuid,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeleteApplicationSecretPayload {
     pub operator_id: Uuid,
     pub secret_id: Uuid,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CreateChallengePayload {
+    pub challenge_id: Uuid,
+    pub application_id: Uuid,
+    pub subject_id: Uuid,
+    pub factor_type: ChallengeFactorType,
+    pub purpose: ChallengePurposeType,
 }

@@ -3,6 +3,7 @@ use std::time::Duration;
 use axum::http::StatusCode;
 use chrono::Utc;
 use moka::future::Cache;
+use oceaniam_audit::types::{AuditPayload, CreateChallengePayload};
 use oceaniam_common::error::Error;
 use oceaniam_database::{
     helper::{
@@ -14,6 +15,7 @@ use oceaniam_database::{
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, DatabaseConnection, IntoActiveModel};
 use uuid::Uuid;
 
+use super::audit::Auditing;
 use model::challenges::ActiveModel as ChallengeActiveModel;
 use model::challenges::Model as ChallengeModel;
 
@@ -25,13 +27,15 @@ struct ChallengeRecord {
 
 #[derive(Debug, Clone)]
 pub struct ManagedChallenges {
+    auditing: Auditing,
     database: DatabaseConnection,
     cache: Cache<ChallengeRecord, ChallengeModel>,
 }
 
 impl ManagedChallenges {
-    pub fn new(database: DatabaseConnection) -> Self {
+    pub fn new(database: DatabaseConnection, auditing: Auditing) -> Self {
         Self {
+            auditing,
             database,
             cache: Cache::builder()
                 .time_to_idle(Duration::from_mins(5))
@@ -47,6 +51,16 @@ impl ManagedChallenges {
     ) -> Result<ChallengeModel, Error> {
         let challenge =
             Challenges::create_challenge(application_id, subject_id, opts, &self.database).await?;
+
+        self.auditing
+            .write(AuditPayload::from(CreateChallengePayload {
+                challenge_id: challenge.id,
+                application_id: challenge.application_id,
+                subject_id: challenge.subject_id,
+                factor_type: challenge.factor_type.clone(),
+                purpose: challenge.purpose.clone(),
+            }))
+            .await;
 
         self.cache
             .insert(
