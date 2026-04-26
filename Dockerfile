@@ -19,6 +19,10 @@ FROM base AS backend
 COPY --from=backend-builder /builder/target/release/oceaniam /app/
 CMD [ "./oceaniam" ]
 
+FROM base AS worker
+COPY --from=backend-builder /builder/target/release/oceaniam-worker /app/
+CMD [ "./oceaniam-worker" ]
+
 FROM base AS migration
 COPY --from=backend-builder /builder/target/release/migration /app/
 CMD [ "./migration" ]

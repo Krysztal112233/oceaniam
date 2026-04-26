@@ -49,6 +49,21 @@ services:
       postgres:
         condition: service_healthy
 
+  worker:
+    image: docker.io/krysztal112233/oceaniam-worker:latest
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      target: worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      backend-migration:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
   frontend:
     image: docker.io/krysztal112233/oceaniam-frontend:latest
     build:
