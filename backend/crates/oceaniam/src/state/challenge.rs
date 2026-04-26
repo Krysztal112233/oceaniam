@@ -34,14 +34,14 @@ pub struct ValidatorFactorContext {
 #[derive(Debug, Clone)]
 pub struct ValidationContext {}
 
-type BoxedMfaValidator = Arc<Box<dyn MfaValidator<ValidationContext = ValidationContext>>>;
+type SharedMfaValidator = Arc<dyn MfaValidator<ValidationContext = ValidationContext>>;
 type ChallengeValidatorRegistry = ValidatorRegistry<ValidationContext>;
 type ValidatorFactory =
     fn(context: ValidatorFactorContext) -> Result<ConstructedMfaValidator, Error>;
 
 pub(crate) struct ConstructedMfaValidator {
     pub factor: ChallengeFactorType,
-    pub validator: BoxedMfaValidator,
+    pub validator: SharedMfaValidator,
 }
 
 #[distributed_slice]

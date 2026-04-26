@@ -18,7 +18,7 @@ fn init(
 ) -> Result<ConstructedMfaValidator, Error> {
     ConstructedMfaValidator {
         factor: ChallengeFactorType::Totp,
-        validator: Arc::new(Box::new(TotpValidator { database })),
+        validator: Arc::new(TotpValidator { database }),
     };
     todo!()
 }

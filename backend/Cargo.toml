@@ -73,7 +73,7 @@ zeroize = "1.8"
 
 # lock the fuck version. sucks.
 rsa = { version = "0.9.8", features = ["serde", "pem"] }
-crypto-common = "*"
+crypto-common = "0.1.7"
 
 migration = { path = "./crates/migration/" }
 oceaniam-api = { path = "./crates/oceaniam-api/" }
