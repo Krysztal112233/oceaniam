@@ -25,6 +25,7 @@ impl Worker for RefreshAuditSummaryByApplicationWorker {
         "refresh_audit_summary_by_application"
     }
 
+    /// Runs once every five minutes.
     fn cron(&self) -> &'static str {
         "0 */5 * * * * *"
     }

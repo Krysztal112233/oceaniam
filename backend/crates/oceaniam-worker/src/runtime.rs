@@ -167,3 +167,19 @@ async fn shutdown_signal() {
         _ = interrupt.recv() => debug!("received SIGINT, starting worker shutdown"),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use cron::Schedule;
+
+    use super::*;
+
+    // NOTE: AI-generated test
+    #[test]
+    fn test_all_registered_worker_crons_compile() {
+        for worker in REGISTERED_WORKERS.iter().map(|it| it()) {
+            Schedule::from_str(worker.cron())
+                .unwrap_or_else(|err| panic!("invalid cron for worker `{}`: {err}", worker.name()));
+        }
+    }
+}
