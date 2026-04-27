@@ -23,7 +23,7 @@ impl<T> ValidatorRegistry<T> {
         Self(input)
     }
 
-    pub fn get_validator(self, typ: ChallengeFactorType) -> Option<SharedMfaValidator<T>> {
+    pub fn get_validator(&self, typ: ChallengeFactorType) -> Option<SharedMfaValidator<T>> {
         self.0.get(&typ).cloned()
     }
 }

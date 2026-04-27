@@ -1,6 +1,7 @@
 use core::str;
 
 use crate::sqid::Sqid;
+use chrono::{DateTime, FixedOffset};
 use garde::Validate;
 use oceaniam_api::PageParam;
 #[cfg(feature = "database")]
@@ -127,6 +128,21 @@ pub struct ApplicationVO {
     pub tenant_id: Sqid,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+pub struct ApplicationChallengeVO {
+    pub id: uuid::Uuid,
+    pub application_id: Sqid,
+    pub subject_id: uuid::Uuid,
+    pub factor_type: String,
+    pub purpose: String,
+    pub status: String,
+    pub attempt_count: i32,
+    pub remaining_attempts: i32,
+    pub expires_at: DateTime<FixedOffset>,
+    pub consumed_at: Option<DateTime<FixedOffset>>,
+    pub created_at: DateTime<FixedOffset>,
+}
+
 #[cfg(feature = "database")]
 impl From<model::applications::Model> for ApplicationVO {
     fn from(
@@ -141,6 +157,25 @@ impl From<model::applications::Model> for ApplicationVO {
             id: id.into(),
             comment,
             tenant_id: tenant_id.into(),
+        }
+    }
+}
+
+#[cfg(feature = "database")]
+impl From<model::challenges::Model> for ApplicationChallengeVO {
+    fn from(value: model::challenges::Model) -> Self {
+        Self {
+            id: value.id,
+            application_id: value.application_id.into(),
+            subject_id: value.subject_id,
+            factor_type: value.factor_type.to_string(),
+            purpose: value.purpose.to_string(),
+            status: value.status.to_string(),
+            attempt_count: value.attempt_count,
+            remaining_attempts: (value.max_attempts - value.attempt_count).max(0),
+            expires_at: value.expires_at,
+            consumed_at: value.consumed_at,
+            created_at: value.created_at,
         }
     }
 }

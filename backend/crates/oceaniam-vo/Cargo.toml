@@ -8,6 +8,7 @@ default = []
 database = ["dep:oceaniam-database"]
 
 [dependencies]
+chrono.workspace = true
 garde.workspace = true
 jsonwebtoken.workspace = true
 names.workspace = true

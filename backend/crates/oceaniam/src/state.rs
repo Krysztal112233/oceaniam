@@ -1,6 +1,7 @@
 use crate::state::{
-    applications::ManagedApplications, audit::Auditing, credentials::ManagedCredentialVaults,
-    filters::ManagedFilters, keybox::ManagedKeyBoxes, revoked::RevokedJwt,
+    applications::ManagedApplications, audit::Auditing, challenge::ManagedChallenges,
+    credentials::ManagedCredentialVaults, filters::ManagedFilters, keybox::ManagedKeyBoxes,
+    revoked::RevokedJwt,
 };
 
 use axum::extract::FromRef;
@@ -56,6 +57,8 @@ pub struct AppState<'a> {
 
     pub auditing: Auditing,
 
+    pub challenges: ManagedChallenges,
+
     pub _unit: (),
 }
 
@@ -67,6 +70,7 @@ impl AppState<'static> {
 
         let credentials = ManagedCredentialVaults::new(database.clone());
         let filters = ManagedFilters::new(database.clone());
+        let auditing = Auditing::with_database(database.clone());
         Ok(Self {
             database: database.clone(),
             keyboxes: keybox,
@@ -86,11 +90,14 @@ impl AppState<'static> {
                         ]
                     }),
             ),
-            auditing: Auditing::with_database(database.clone()),
             revoked_jwt: RevokedJwt::new(database.clone()),
             credentials: credentials.clone(),
 
-            applications: ManagedApplications::new(filters.clone(), credentials, database),
+            applications: ManagedApplications::new(filters.clone(), credentials, database.clone()),
+
+            challenges: ManagedChallenges::new(database, auditing.clone()),
+
+            auditing,
 
             filters,
 

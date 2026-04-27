@@ -62,10 +62,10 @@ impl FromRequestParts<AppState<'_>> for RequireApplicationSecret {
     }
 }
 
-// NOTE: This extractor assumes the request URI contains an `applications` path segment followed by
-// a Sqid-encoded application identifier (i.e. `/…/applications/{id}/…`). Mounting this middleware
-// on a route whose path does not follow that convention will cause authorization to always fail
-// with 400 Bad Request.
+/// NOTE: This extractor assumes the request URI contains an `applications` path segment followed by
+/// a Sqid-encoded application identifier (i.e. `/…/applications/{id}/…`). Mounting this middleware
+/// on a route whose path does not follow that convention will cause authorization to always fail
+/// with 400 Bad Request.
 #[derive(Debug, Clone)]
 pub struct RequireMatchedApplicationSecret;
 
@@ -111,10 +111,10 @@ impl FromRequestParts<AppState<'_>> for RequireMatchedApplicationSecret {
     }
 }
 
-// NOTE: When the request authenticates via application secret (i.e. the
-// `X-OceanIAM-Application-Secret` header is present), this delegates to
-// `RequireMatchedApplicationSecret` and therefore inherits the same URI path constraint — the route
-// must include `/applications/{id}` in its path.
+/// NOTE: When the request authenticates via application secret (i.e. the
+/// `X-OceanIAM-Application-Secret` header is present), this delegates to
+/// `RequireMatchedApplicationSecret` and therefore inherits the same URI path constraint — the route
+/// must include `/applications/{id}` in its path.
 #[derive(Debug, Clone)]
 pub struct RequireAdminJwtOrMatchedApplicationSecret(
     #[allow(unused)] pub Either<RequireAuth<SystemClaim>, RequireMatchedApplicationSecret>,

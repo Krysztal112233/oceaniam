@@ -52,6 +52,8 @@ pub enum AuditType {
     PatchAdministrator,
     #[sea_orm(string_value = "create_challenge")]
     CreateChallenge,
+    #[sea_orm(string_value = "verify_challenge")]
+    VerifyChallenge,
 }
 #[derive(
     Debug,

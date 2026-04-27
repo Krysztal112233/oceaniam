@@ -2647,6 +2647,7 @@ dependencies = [
 name = "oceaniam-vo"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "garde",
  "jsonwebtoken",
  "names",

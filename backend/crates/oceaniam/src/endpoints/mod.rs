@@ -10,6 +10,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 use crate::state::AppState;
 
 mod administrators;
+mod application_challenges;
 mod application_configuration;
 mod application_tokens;
 mod application_users;
@@ -35,6 +36,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
         .routes(routes!(root))
         .pipe(administrators::endpoint)
         .pipe(application_configuration::endpoint)
+        .pipe(application_challenges::endpoint)
         .pipe(application_tokens::endpoint)
         .pipe(application_users::endpoint)
         .pipe(applications::endpoint)

@@ -4,7 +4,7 @@ use axum::http::StatusCode;
 use chrono::Utc;
 use linkme::distributed_slice;
 use moka::future::Cache;
-use oceaniam_audit::types::{AuditPayload, CreateChallengePayload};
+use oceaniam_audit::types::{AuditPayload, CreateChallengePayload, VerifyChallengePayload};
 use oceaniam_challenge::validator::{MfaValidator, ValidatorRegistry};
 use oceaniam_common::error::Error;
 use oceaniam_database::{
@@ -19,6 +19,7 @@ use oceaniam_database::{
     },
 };
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, DatabaseConnection, IntoActiveModel};
+use serde_json::Value;
 use uuid::Uuid;
 
 use super::audit::Auditing;
@@ -32,7 +33,9 @@ pub struct ValidatorFactorContext {
 }
 
 #[derive(Debug, Clone)]
-pub struct ValidationContext {}
+pub struct ValidationContext {
+    pub input: Value,
+}
 
 type SharedMfaValidator = Arc<dyn MfaValidator<ValidationContext = ValidationContext>>;
 type ChallengeValidatorRegistry = ValidatorRegistry<ValidationContext>;
@@ -196,6 +199,50 @@ impl ManagedChallenges {
         let updated_challenge = challenge.update(database).await?;
 
         self.cache.insert(record, updated_challenge).await;
+
+        Ok(())
+    }
+
+    pub async fn verify_challenge(
+        &self,
+        application_id: Uuid,
+        id: Uuid,
+        payload: Value,
+    ) -> Result<(), Error> {
+        let challenge = self.get_challenge(application_id, id).await?;
+        let factor_type = challenge.factor_type.clone();
+
+        let validator = self
+            .validators
+            .get_validator(factor_type.clone())
+            .ok_or_else(|| {
+                Error::with_code(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("validator for factor_type={factor_type} is not configured"),
+                )
+            })?;
+
+        validator
+            .validate(ValidationContext { input: payload })
+            .await
+            .map_err(|e| {
+                Error::with_code(
+                    StatusCode::UNAUTHORIZED,
+                    format!("challenge verification failed: {e}"),
+                )
+            })?;
+
+        self.set_pass(application_id, id).await?;
+
+        self.auditing
+            .write(AuditPayload::from(VerifyChallengePayload {
+                challenge_id: challenge.id,
+                application_id: challenge.application_id,
+                subject_id: challenge.subject_id,
+                factor_type: challenge.factor_type,
+                purpose: challenge.purpose,
+            }))
+            .await;
 
         Ok(())
     }

@@ -28,6 +28,7 @@ pub enum AuditPayload {
     CreateApplicationSecret(CreateApplicationSecretPayload),
     DeleteApplicationSecret(DeleteApplicationSecretPayload),
     CreateChallenge(CreateChallengePayload),
+    VerifyChallenge(VerifyChallengePayload),
 }
 
 impl AuditPayload {
@@ -50,6 +51,7 @@ impl AuditPayload {
             Self::CreateApplicationSecret(_) => AuditType::CreateApplicationSecret,
             Self::DeleteApplicationSecret(_) => AuditType::DeleteApplicationSecret,
             Self::CreateChallenge(_) => AuditType::CreateChallenge,
+            Self::VerifyChallenge(_) => AuditType::VerifyChallenge,
         }
     }
 
@@ -157,6 +159,12 @@ impl From<DeleteApplicationSecretPayload> for AuditPayload {
 impl From<CreateChallengePayload> for AuditPayload {
     fn from(value: CreateChallengePayload) -> Self {
         Self::CreateChallenge(value)
+    }
+}
+
+impl From<VerifyChallengePayload> for AuditPayload {
+    fn from(value: VerifyChallengePayload) -> Self {
+        Self::VerifyChallenge(value)
     }
 }
 
@@ -269,6 +277,15 @@ pub struct DeleteApplicationSecretPayload {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CreateChallengePayload {
+    pub challenge_id: Uuid,
+    pub application_id: Uuid,
+    pub subject_id: Uuid,
+    pub factor_type: ChallengeFactorType,
+    pub purpose: ChallengePurposeType,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VerifyChallengePayload {
     pub challenge_id: Uuid,
     pub application_id: Uuid,
     pub subject_id: Uuid,
