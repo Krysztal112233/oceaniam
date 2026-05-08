@@ -50,7 +50,16 @@ fn build_argon2(configuration: &ApplicationConfiguration) -> Result<Argon2<'stat
     ))
 }
 
-/// TODO: In future, using [xorf] to detect does [Applications] existed in database for higher performance.
+/// Central manager for application-level operations.
+///
+/// Provides CRUD for applications, per-application user management, secret binding, configuration
+/// patching, and MFA challenge handling.  Internal state is backed by [`moka::future::Cache`] for
+/// users, configurations, and challenges — each scoped by `application_id` and created on demand.
+///
+/// - **Users**: cached with a 30-min idle TTL; password verification delegates to [`ManagedCredentialVaults`].
+/// - **Configurations**: cached with a 30-min idle TTL; re-fetched on write.
+/// - **Challenges**: created per-application via [`ManagedChallenges`]; cached with a 30-min idle TTL.
+/// - **Secrets**: see [`Secrets`] for `app_xxx` binding.
 #[derive(Debug, Clone)]
 pub struct ManagedApplications<'a> {
     database: DatabaseConnection,
@@ -65,7 +74,9 @@ pub struct ManagedApplications<'a> {
 
     filters: ManagedFilters<'a>,
 
-    challenges: ManagedChallenges,
+    challenges: Cache<Uuid, ManagedChallenges>,
+
+    auditing: Auditing,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -101,9 +112,13 @@ impl ManagedApplications<'_> {
                 .time_to_idle(Duration::from_mins(30))
                 .build(),
 
+            challenges: Cache::builder()
+                .time_to_idle(Duration::from_mins(30))
+                .build(),
+
             shared_credential_vaults: credential,
             filters,
-            challenges: ManagedChallenges::new(database, auditing),
+            auditing,
         }
     }
 
@@ -282,8 +297,17 @@ impl<'a> ManagedApplications<'a> {
         &self.secrets
     }
 
-    pub fn challenges(&self) -> &ManagedChallenges {
-        &self.challenges
+    pub async fn challenges(&self, application_id: Uuid) -> Result<ManagedChallenges, Error> {
+        self.is_application_exist(application_id).await?;
+
+        let database = self.database.clone();
+        let auditing = self.auditing.clone();
+        Ok(self
+            .challenges
+            .get_with(application_id, async move {
+                ManagedChallenges::new(application_id, database, auditing)
+            })
+            .await)
     }
 }
 

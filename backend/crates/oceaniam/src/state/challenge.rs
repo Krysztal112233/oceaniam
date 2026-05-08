@@ -1,11 +1,9 @@
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use axum::http::StatusCode;
 use chrono::Utc;
-use linkme::distributed_slice;
 use moka::future::Cache;
 use oceaniam_audit::types::{AuditPayload, CreateChallengePayload, VerifyChallengePayload};
-use oceaniam_challenge::validator::{MfaValidator, ValidatorRegistry};
 use oceaniam_common::error::Error;
 use oceaniam_database::{
     helper::{
@@ -20,7 +18,6 @@ use oceaniam_database::{
 };
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, DatabaseConnection, IntoActiveModel};
 use serde_json::Value;
-use tracing::error;
 use uuid::Uuid;
 
 use super::audit::Auditing;
@@ -28,9 +25,9 @@ use super::audit::Auditing;
 #[allow(unused)]
 mod totp;
 
-#[derive(Debug, Clone)]
-pub struct ValidatorFactorContext {
-    database: DatabaseConnection,
+#[async_trait::async_trait]
+pub trait MfaValidator: Sync + Send {
+    async fn validate(&self, ctx: ValidationContext) -> Result<(), Error>;
 }
 
 #[derive(Debug, Clone)]
@@ -38,18 +35,7 @@ pub struct ValidationContext {
     pub input: Value,
 }
 
-type SharedMfaValidator = Arc<dyn MfaValidator<ValidationContext = ValidationContext>>;
-type ChallengeValidatorRegistry = ValidatorRegistry<ValidationContext>;
-type ValidatorFactory =
-    fn(context: ValidatorFactorContext) -> Result<ConstructedMfaValidator, Error>;
-
-pub(crate) struct ConstructedMfaValidator {
-    pub factor: ChallengeFactorType,
-    pub validator: SharedMfaValidator,
-}
-
-#[distributed_slice]
-static REGISTRY: [ValidatorFactory];
+type SharedMfaValidator = Arc<dyn MfaValidator>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct ChallengeRecord {
@@ -57,32 +43,45 @@ struct ChallengeRecord {
     id: Uuid,
 }
 
-#[allow(unused)]
-#[derive(Debug, Clone)]
 pub struct ManagedChallenges {
+    application_id: Uuid,
     auditing: Auditing,
     database: DatabaseConnection,
-    validators: ChallengeValidatorRegistry,
+    validators: HashMap<ChallengeFactorType, SharedMfaValidator>,
     cache: Cache<ChallengeRecord, ChallengeModel>,
 }
 
+impl std::fmt::Debug for ManagedChallenges {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ManagedChallenges")
+            .field("application_id", &self.application_id)
+            .field("auditing", &self.auditing)
+            .field("database", &self.database)
+            .field("factor_types", &self.validators.keys().collect::<Vec<_>>())
+            .field("cache", &self.cache)
+            .finish()
+    }
+}
+
+impl Clone for ManagedChallenges {
+    fn clone(&self) -> Self {
+        Self {
+            application_id: self.application_id,
+            auditing: self.auditing.clone(),
+            database: self.database.clone(),
+            validators: self.validators.clone(),
+            cache: self.cache.clone(),
+        }
+    }
+}
+
 impl ManagedChallenges {
-    pub fn new(database: DatabaseConnection, auditing: Auditing) -> Self {
-        let ctx = ValidatorFactorContext {
-            database: database.clone(),
-        };
-
-        let validators = REGISTRY
-            .iter()
-            .map(|it| it(ctx.clone()).inspect_err(|e| error!("{e}")))
-            .filter(Result::is_ok)
-            .map(Result::unwrap)
-            .map(|ConstructedMfaValidator { factor, validator }| (factor, validator))
-            .collect();
-
-        let validators = ChallengeValidatorRegistry::new(validators);
+    pub fn new(application_id: Uuid, database: DatabaseConnection, auditing: Auditing) -> Self {
+        let mut validators: HashMap<ChallengeFactorType, SharedMfaValidator> = HashMap::new();
+        validators.insert(ChallengeFactorType::Totp, Arc::new(totp::TotpValidator));
 
         Self {
+            application_id,
             auditing,
             database,
             cache: Cache::builder()
@@ -94,12 +93,12 @@ impl ManagedChallenges {
 
     pub async fn create_challenge(
         &self,
-        application_id: Uuid,
         subject_id: Uuid,
         opts: CreateChallengeOpts,
     ) -> Result<ChallengeModel, Error> {
         let challenge =
-            Challenges::create_challenge(application_id, subject_id, opts, &self.database).await?;
+            Challenges::create_challenge(self.application_id, subject_id, opts, &self.database)
+                .await?;
 
         self.auditing
             .write(AuditPayload::from(CreateChallengePayload {
@@ -114,7 +113,7 @@ impl ManagedChallenges {
         self.cache
             .insert(
                 ChallengeRecord {
-                    application_id,
+                    application_id: self.application_id,
                     id: challenge.id,
                 },
                 challenge.clone(),
@@ -124,19 +123,18 @@ impl ManagedChallenges {
         Ok(challenge)
     }
 
-    pub async fn get_challenge(
-        &self,
-        application_id: Uuid,
-        id: Uuid,
-    ) -> Result<ChallengeModel, Error> {
-        let record = ChallengeRecord { application_id, id };
+    pub async fn get_challenge(&self, id: Uuid) -> Result<ChallengeModel, Error> {
+        let record = ChallengeRecord {
+            application_id: self.application_id,
+            id,
+        };
 
         let challenge = self
             .cache
             .try_get_with(record, async {
                 let challenge = Challenges::get_challenge(id, &self.database).await?;
 
-                if challenge.application_id != application_id {
+                if challenge.application_id != self.application_id {
                     return Err(Error::with_code(
                         StatusCode::NOT_FOUND,
                         format!("challenge id={id} not found"),
@@ -160,19 +158,19 @@ impl ManagedChallenges {
         Ok(challenge)
     }
 
-    pub async fn set_pass(&self, application_id: Uuid, id: Uuid) -> Result<(), Error> {
-        self.set_pass_in_tx(application_id, id, &self.database)
-            .await
+    pub async fn set_pass(&self, id: Uuid) -> Result<(), Error> {
+        self.set_pass_in_tx(id, &self.database).await
     }
 
     pub async fn set_pass_in_tx(
         &self,
-        application_id: Uuid,
         id: Uuid,
-
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<(), Error> {
-        let record = ChallengeRecord { application_id, id };
+        let record = ChallengeRecord {
+            application_id: self.application_id,
+            id,
+        };
 
         let challenge = self
             .cache
@@ -180,7 +178,7 @@ impl ManagedChallenges {
                 let challenge = Challenges::get_challenge(id, &self.database).await?;
 
                 // NOTE: FOR SECURITY CONSIDERATION
-                if challenge.application_id != application_id {
+                if challenge.application_id != self.application_id {
                     return Err(Error::with_code(
                         StatusCode::NOT_FOUND,
                         format!("challenge id={id} not found"),
@@ -204,24 +202,16 @@ impl ManagedChallenges {
         Ok(())
     }
 
-    pub async fn verify_challenge(
-        &self,
-        application_id: Uuid,
-        id: Uuid,
-        payload: Value,
-    ) -> Result<(), Error> {
-        let challenge = self.get_challenge(application_id, id).await?;
+    pub async fn verify_challenge(&self, id: Uuid, payload: Value) -> Result<(), Error> {
+        let challenge = self.get_challenge(id).await?;
         let factor_type = challenge.factor_type.clone();
 
-        let validator = self
-            .validators
-            .get_validator(factor_type.clone())
-            .ok_or_else(|| {
-                Error::with_code(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("validator for factor_type={factor_type} is not configured"),
-                )
-            })?;
+        let validator = self.validators.get(&factor_type).ok_or_else(|| {
+            Error::with_code(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("validator for factor_type={factor_type} is not configured"),
+            )
+        })?;
 
         validator
             .validate(ValidationContext { input: payload })
@@ -233,7 +223,7 @@ impl ManagedChallenges {
                 )
             })?;
 
-        self.set_pass(application_id, id).await?;
+        self.set_pass(id).await?;
 
         self.auditing
             .write(AuditPayload::from(VerifyChallengePayload {

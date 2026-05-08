@@ -57,7 +57,7 @@ Before claiming work is complete, run these commands:
 ## Code Style Conventions
 
 - **`tap` / `Pipe`**: Use `tap` for side-effect chaining (especially span field recording). Use `pipe` for method chaining.
-- **`linkme::distributed_slice`**: Used for extensible registries (challenge validators, background workers). Register new implementations via `#[distributed_slice]`.
+- **`linkme::distributed_slice`**: Used for extensible registries (background workers). Register new implementations via `#[distributed_slice]`.
 - **`moka`**: Primary caching strategy. Every state manager (keyboxes, credentials, revoked JWTs, application configs) uses a `moka::future::Cache` with appropriate TTL/capacity.
 - **`#[tracing::instrument]`**: Required on all endpoint handlers. Use `skip(...)` for parameters that don't need tracing and `fields(...)` for structured span data.
 - **`sqids`**: All resource IDs in URLs are Sqid-encoded. Convert to/from `Uuid` via `oceaniam_vo::sqid::Sqid`.

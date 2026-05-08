@@ -5,7 +5,6 @@ members = [
 	"crates/oceaniam-api",
 	"crates/oceaniam-audit",
 	"crates/oceaniam-auth",
-	"crates/oceaniam-challenge",
 	"crates/oceaniam-common",
 	"crates/oceaniam-credential",
 	"crates/oceaniam-database",
@@ -79,7 +78,6 @@ migration = { path = "./crates/migration/" }
 oceaniam-api = { path = "./crates/oceaniam-api/" }
 oceaniam-audit = { path = "./crates/oceaniam-audit/" }
 oceaniam-auth = { path = "./crates/oceaniam-auth/" }
-oceaniam-challenge = { path = "./crates/oceaniam-challenge/" }
 oceaniam-common = { path = "./crates/oceaniam-common/" }
 oceaniam-credential = { path = "./crates/oceaniam-credential/" }
 oceaniam-database = { path = "./crates/oceaniam-database/" }

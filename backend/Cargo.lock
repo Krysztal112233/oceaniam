@@ -2441,7 +2441,6 @@ dependencies = [
  "im",
  "itertools",
  "jsonwebtoken",
- "linkme",
  "log",
  "migration",
  "mimalloc",
@@ -2449,7 +2448,6 @@ dependencies = [
  "oceaniam-api",
  "oceaniam-audit",
  "oceaniam-auth",
- "oceaniam-challenge",
  "oceaniam-common",
  "oceaniam-credential",
  "oceaniam-database",
@@ -2514,18 +2512,6 @@ dependencies = [
  "ts-rs",
  "utoipa",
  "uuid",
-]
-
-[[package]]
-name = "oceaniam-challenge"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "chrono",
- "oceaniam-database",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
 ]
 
 [[package]]

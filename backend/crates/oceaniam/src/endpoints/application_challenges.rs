@@ -175,9 +175,14 @@ pub async fn create_application_challenge_attempt(
     let application = get_tenant_application(path.application, &database).await?;
     let application_id = application.id;
     let challenge_id = path.challenge_id;
-    let challenge = applications
-        .challenges()
-        .get_challenge(application_id, challenge_id)
+    let challenges = applications
+        .challenges(application_id)
+        .await
+        .inspect_err(
+            |e| error!(%application_id, %challenge_id, error = %e, "failed to get challenges manager"),
+        )?;
+    let challenge = challenges
+        .get_challenge(challenge_id)
         .await
         .inspect_err(
             |e| error!(%application_id, %challenge_id, error = %e, "failed to get challenge"),
@@ -191,9 +196,8 @@ pub async fn create_application_challenge_attempt(
             .record("token_dispatch", field::debug(&token_mtd));
     });
 
-    applications
-        .challenges()
-        .verify_challenge(application_id, challenge_id, payload)
+    challenges
+        .verify_challenge(challenge_id, payload)
         .await
         .inspect_err(
             |e| error!(%application_id, %challenge_id, error = %e, "failed to verify challenge"),
