@@ -49,7 +49,15 @@ pub(crate) struct ApplicationChallengePath {
     pub challenge_id: Uuid,
 }
 
-/// Get application challenge detail
+/// Retrieve a pending challenge's metadata by its ID.
+///
+/// Returns the challenge details (factor type, purpose, status, expiry) for a challenge that
+/// belongs to the specified application. The caller must authenticate either as a backend
+/// administrator (Bearer JWT) or with the application's own secret
+/// (`X-OceanIAM-Application-Secret`).
+///
+/// Once a challenge is consumed, expired, or no longer in `Pending` status, this endpoint returns
+/// `404 Not Found`.
 #[utoipa::path(
         get,
         path = "/tenants/{tenant_id}/applications/{application_id}/challenges/{challenge_id}",
@@ -110,7 +118,18 @@ pub async fn get_application_challenge(
     Ok(ApiResponse::new(challenge.into()))
 }
 
-/// Create application challenge attempt
+/// Submit a verification payload for a pending challenge and, on success, receive a signed JWT.
+///
+/// This is the second step of the application MFA challenge flow (after a challenge has been
+/// created by the application during sign-in). The caller provides the MFA verification payload
+/// (e.g. a TOTP code) as a JSON body.
+///
+/// On successful verification the challenge is marked as `Consumed` and a signed application JWT is
+/// issued for the subject that owns the challenge. The token can be dispatched as a JSON body, as
+/// an `auth_token` cookie, or both, controlled by the `X-OceanIAM-Token-Dispatch` header.
+///
+/// Authentication is required via either a backend administrator Bearer JWT or the application's
+/// own `X-OceanIAM-Application-Secret`.
 #[utoipa::path(
         post,
         path = "/tenants/{tenant_id}/applications/{application_id}/challenges/{challenge_id}",
@@ -137,14 +156,13 @@ pub async fn get_application_challenge(
 #[tracing::instrument(
     level = "info",
     name = "application_challenges.create_attempt",
-    skip(challenges, keyboxes, applications, auditing, token_mtd, path, payload, database),
+    skip(keyboxes, applications, auditing, token_mtd, path, payload, database),
     fields(application_id = field::Empty, challenge_id = field::Empty, user_id = field::Empty, token_dispatch = field::Empty)
 )]
 pub async fn create_application_challenge_attempt(
     _: RequireAdminJwtOrMatchedApplicationSecret,
     token_mtd: TokenDispatchMethod,
     State(AppState {
-        challenges,
         database,
         keyboxes,
         applications,
@@ -157,7 +175,8 @@ pub async fn create_application_challenge_attempt(
     let application = get_tenant_application(path.application, &database).await?;
     let application_id = application.id;
     let challenge_id = path.challenge_id;
-    let challenge = challenges
+    let challenge = applications
+        .challenges()
         .get_challenge(application_id, challenge_id)
         .await
         .inspect_err(
@@ -172,7 +191,8 @@ pub async fn create_application_challenge_attempt(
             .record("token_dispatch", field::debug(&token_mtd));
     });
 
-    challenges
+    applications
+        .challenges()
         .verify_challenge(application_id, challenge_id, payload)
         .await
         .inspect_err(

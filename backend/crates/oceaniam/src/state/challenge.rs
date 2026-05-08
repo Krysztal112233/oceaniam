@@ -20,6 +20,7 @@ use oceaniam_database::{
 };
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, DatabaseConnection, IntoActiveModel};
 use serde_json::Value;
+use tracing::error;
 use uuid::Uuid;
 
 use super::audit::Auditing;
@@ -73,8 +74,8 @@ impl ManagedChallenges {
 
         let validators = REGISTRY
             .iter()
-            .map(|it| it(ctx.clone()))
-            .filter(|it| it.is_ok())
+            .map(|it| it(ctx.clone()).inspect_err(|e| error!("{e}")))
+            .filter(Result::is_ok)
             .map(Result::unwrap)
             .map(|ConstructedMfaValidator { factor, validator }| (factor, validator))
             .collect();

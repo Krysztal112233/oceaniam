@@ -29,6 +29,8 @@ use tap::Tap;
 use tracing::{error, info};
 use uuid::Uuid;
 
+use crate::state::audit::Auditing;
+use crate::state::challenge::ManagedChallenges;
 use crate::state::credentials::ManagedCredentialVaults;
 use crate::state::filters::ManagedFilters;
 
@@ -62,6 +64,8 @@ pub struct ManagedApplications<'a> {
     shared_credential_vaults: ManagedCredentialVaults,
 
     filters: ManagedFilters<'a>,
+
+    challenges: ManagedChallenges,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -85,19 +89,21 @@ impl ManagedApplications<'_> {
         filters: ManagedFilters<'a>,
         credential: ManagedCredentialVaults,
         database: DatabaseConnection,
+        auditing: Auditing,
     ) -> ManagedApplications<'a> {
         ManagedApplications {
             database: database.clone(),
             users: Cache::builder()
                 .time_to_idle(Duration::from_mins(30))
                 .build(),
-            secrets: Secrets::new(filters.clone(), database),
+            secrets: Secrets::new(filters.clone(), database.clone()),
             configurations: Cache::builder()
                 .time_to_idle(Duration::from_mins(30))
                 .build(),
 
             shared_credential_vaults: credential,
             filters,
+            challenges: ManagedChallenges::new(database, auditing),
         }
     }
 
@@ -275,6 +281,10 @@ impl<'a> ManagedApplications<'a> {
     pub fn secrets(&self) -> &Secrets<'a> {
         &self.secrets
     }
+
+    pub fn challenges(&self) -> &ManagedChallenges {
+        &self.challenges
+    }
 }
 
 /// If [ApplicationUsers::application_id] doesn't existed in database, the entire functions of this structure will be noop
@@ -397,7 +407,8 @@ impl ApplicationUsers {
     }
 }
 
-/// If [ApplicationUsers::application_id] doesn't existed in database, the entire functions of this structure will be noop
+/// If [ApplicationUsers::application_id] doesn't existed in database, the entire functions of this
+/// structure will be noop
 ///
 /// TODO: In future, using [xorf] to detect does secret existed in database for higher performance.
 #[derive(Debug, Clone)]
@@ -427,6 +438,11 @@ impl SecretCaches {
     }
 }
 
+/// Manages application `app_xxx` secrets used by external applications to authenticate against the
+/// OceanIAM API.
+///
+/// Provides caching via [`SecretCaches`] and bloom-filter-based fast existence checks via
+/// [`ManagedFilters`] for secrets and secret IDs.
 #[derive(Debug, Clone)]
 pub struct Secrets<'a> {
     database: DatabaseConnection,
