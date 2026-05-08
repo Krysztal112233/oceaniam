@@ -175,18 +175,12 @@ pub async fn create_application_challenge_attempt(
     let application = get_tenant_application(path.application, &database).await?;
     let application_id = application.id;
     let challenge_id = path.challenge_id;
-    let challenges = applications
-        .challenges(application_id)
-        .await
-        .inspect_err(
-            |e| error!(%application_id, %challenge_id, error = %e, "failed to get challenges manager"),
-        )?;
-    let challenge = challenges
-        .get_challenge(challenge_id)
-        .await
-        .inspect_err(
-            |e| error!(%application_id, %challenge_id, error = %e, "failed to get challenge"),
-        )?;
+    let challenges = applications.challenges(application_id).await.inspect_err(
+        |e| error!(%application_id, %challenge_id, error = %e, "failed to get challenges manager"),
+    )?;
+    let challenge = challenges.get_challenge(challenge_id).await.inspect_err(
+        |e| error!(%application_id, %challenge_id, error = %e, "failed to get challenge"),
+    )?;
     let user_id = challenge.subject_id;
     Span::current().tap(|it| {
         it.record("tenant_id", field::display(&application.tenant_id))

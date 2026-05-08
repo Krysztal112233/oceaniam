@@ -43,6 +43,12 @@ pub struct PasswordConfigurationVO {
 pub struct AuthConfigurationVO {
     pub token: TokenConfigurationVO,
     pub password: PasswordConfigurationVO,
+    pub totp: TotpConfigurationVO,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+pub struct TotpConfigurationVO {
+    pub encryption_key: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
@@ -65,6 +71,12 @@ pub struct PatchTokenConfigurationVO {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
 pub struct PatchAuthConfigurationVO {
     pub token: Option<PatchTokenConfigurationVO>,
+    pub totp: Option<PatchTotpConfigurationVO>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
+pub struct PatchTotpConfigurationVO {
+    pub encryption_key: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
@@ -226,13 +238,27 @@ impl From<oceaniam_database::config::application::PasswordConfiguration>
 #[cfg(feature = "database")]
 impl From<oceaniam_database::config::application::AuthConfiguration> for AuthConfigurationVO {
     fn from(
-        oceaniam_database::config::application::AuthConfiguration { token, password }:
-            oceaniam_database::config::application::AuthConfiguration,
+        oceaniam_database::config::application::AuthConfiguration {
+            token,
+            password,
+            totp,
+        }: oceaniam_database::config::application::AuthConfiguration,
     ) -> Self {
         Self {
             token: token.into(),
             password: password.into(),
+            totp: totp.into(),
         }
+    }
+}
+
+#[cfg(feature = "database")]
+impl From<oceaniam_database::config::application::TotpConfiguration> for TotpConfigurationVO {
+    fn from(
+        oceaniam_database::config::application::TotpConfiguration { encryption_key }:
+            oceaniam_database::config::application::TotpConfiguration,
+    ) -> Self {
+        Self { encryption_key }
     }
 }
 

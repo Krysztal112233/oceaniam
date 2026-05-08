@@ -54,6 +54,7 @@ mod m20260421_170427_create_idx_challenges;
 mod m20260422_035649_alter_idx_challenges;
 mod m20260426_141557_create_audit_type_for_challenges;
 mod m20260428_015000_alter_audit_type_verify_challenge;
+mod m20260508_160709_alter_app_cfg_secrets;
 
 pub struct Migrator;
 
@@ -118,6 +119,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260422_035649_alter_idx_challenges::Migration),
             Box::new(m20260426_141557_create_audit_type_for_challenges::Migration),
             Box::new(m20260428_015000_alter_audit_type_verify_challenge::Migration),
+            Box::new(m20260508_160709_alter_app_cfg_secrets::Migration),
         ]
     }
 }
