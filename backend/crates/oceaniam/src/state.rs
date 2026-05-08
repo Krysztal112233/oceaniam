@@ -90,7 +90,12 @@ impl AppState<'static> {
             revoked_jwt: RevokedJwt::new(database.clone()),
             credentials: credentials.clone(),
 
-            applications: ManagedApplications::new(filters.clone(), credentials, database.clone(), auditing.clone()),
+            applications: ManagedApplications::new(
+                filters.clone(),
+                credentials,
+                database.clone(),
+                auditing.clone(),
+            ),
 
             auditing,
 
