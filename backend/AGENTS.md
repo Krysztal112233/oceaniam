@@ -46,6 +46,11 @@ These instructions apply to work performed inside the `backend` project.
 - If an endpoint's path, method, parameters, request body, response body, tags, or security behavior changes, update the related `#[utoipa::path(...)]` attributes so the OpenAPI description stays accurate.
 - If a newly added or modified endpoint is exposed through the frontend SDK, update `frontend/packages/sdk/src/client.ts` in the same change so the SDK client stays in sync with the backend API surface.
 
+## VO Export Sync
+
+- Any change to a value-object type in `crates/oceaniam-vo/src/` that carries `#[derive(ts_rs::TS)]` must have a corresponding export stub added or updated in `crates/oceaniam-export/src/vo/`.
+- The stub file mirrors the VO crate's module structure one-to-one.  A missing stub means the TypeScript type definition won't be generated.
+
 ## Verification Commands
 
 Before claiming work is complete, run these commands:

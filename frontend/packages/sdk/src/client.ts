@@ -17,6 +17,13 @@ import { type SystemSigninResponse } from "./types/SystemSigninResponse";
 import { type TenantVO } from "./types/TenantVO";
 import { type TokenDispatchMethod } from "./types/TokenDispatchMethod";
 import { type SecretVO } from "./types/SecretVO";
+import { type AdministratorVO } from "./types/AdministratorVO";
+import { type AuthVO } from "./types/AuthVO";
+import { type ApplicationChallengeVO } from "./types/ApplicationChallengeVO";
+import { type CreateAdministratorRequest } from "./types/CreateAdministratorRequest";
+import { type CreateAdministratorResponse } from "./types/CreateAdministratorResponse";
+import { type PatchAdministratorRequest } from "./types/PatchAdministratorRequest";
+import { type PatchTenantRequest } from "./types/PatchTenantRequest";
 
 export type TokenGetter = () =>
     | string
@@ -276,6 +283,11 @@ export class OceanIamClient {
         tenantUsers: (tenantId: string): string =>
             `/tenants/${encodeURIComponent(tenantId)}/users`,
 
+        // Administrators (backend: endpoints/administrators.rs)
+        administrators: "/administrators",
+        administrator: (targetId: string): string =>
+            `/administrators/${encodeURIComponent(targetId)}`,
+
         // Applications (backend: endpoints/applications.rs)
         applications: (tenantId: string): string =>
             `/tenants/${encodeURIComponent(tenantId)}/applications`,
@@ -309,22 +321,21 @@ export class OceanIamClient {
         ): string =>
             `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/users/${encodeURIComponent(userId)}/credentials`,
 
-        // ApplicationUserAuthentication
-        applicationAuthTokens: (
+        // ApplicationUser (single user)
+        applicationUser: (
             tenantId: string,
             applicationId: string,
+            userId: string,
         ): string =>
-            `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/tokens`,
-        applicationAuthTokensRefresh: (
-            tenantId: string,
-            applicationId: string,
-        ): string =>
-            `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/tokens/refresh`,
+            `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/users/${encodeURIComponent(userId)}`,
 
-        // Secrets (backend: endpoints/secrets.rs)
-        secrets: "/secrets",
-        secret: (secretId: string): string =>
-            `/secrets/${encodeURIComponent(secretId)}`,
+        // Application Challenges (backend: endpoints/application_challenges.rs)
+        applicationChallenge: (
+            tenantId: string,
+            applicationId: string,
+            challengeId: string,
+        ): string =>
+            `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/challenges/${encodeURIComponent(challengeId)}`,
     } as const;
 
     private baseUrl: string;
@@ -366,6 +377,12 @@ export class OceanIamClient {
             this.buildUrl(OceanIamClient.PATHS.tenant(tenantId)),
         tenantUsers: (tenantId: string): string =>
             this.buildUrl(OceanIamClient.PATHS.tenantUsers(tenantId)),
+
+        // Administrators
+        administrators: (): string =>
+            this.buildUrl(OceanIamClient.PATHS.administrators),
+        administrator: (targetId: string): string =>
+            this.buildUrl(OceanIamClient.PATHS.administrator(targetId)),
 
         // Applications
         applications: (tenantId: string): string =>
@@ -425,35 +442,31 @@ export class OceanIamClient {
                 ),
             ),
 
-        // ApplicationUserAuthentication
-        applicationUserSignin: (
+        // ApplicationUser (single user)
+        applicationUser: (
             tenantId: string,
             applicationId: string,
+            userId: string,
         ): string =>
             this.buildUrl(
-                OceanIamClient.PATHS.applicationAuthTokens(
+                OceanIamClient.PATHS.applicationUser(
                     tenantId,
                     applicationId,
+                    userId,
                 ),
             ),
-        applicationUserSignout: (
+
+        // Application Challenges
+        applicationChallenge: (
             tenantId: string,
             applicationId: string,
+            challengeId: string,
         ): string =>
             this.buildUrl(
-                OceanIamClient.PATHS.applicationAuthTokens(
+                OceanIamClient.PATHS.applicationChallenge(
                     tenantId,
                     applicationId,
-                ),
-            ),
-        applicationUserRefreshToken: (
-            tenantId: string,
-            applicationId: string,
-        ): string =>
-            this.buildUrl(
-                OceanIamClient.PATHS.applicationAuthTokensRefresh(
-                    tenantId,
-                    applicationId,
+                    challengeId,
                 ),
             ),
 
@@ -493,6 +506,17 @@ export class OceanIamClient {
         await this.request<unknown>({
             method: "DELETE",
             url: this.endpoints.tenant(tenantId),
+        });
+    }
+
+    public async patchTenant(
+        tenantId: string,
+        req: PatchTenantRequest,
+    ): Promise<TenantVO> {
+        return this.request<TenantVO>({
+            method: "PATCH",
+            url: this.endpoints.tenant(tenantId),
+            body: req,
         });
     }
 
@@ -559,6 +583,21 @@ export class OceanIamClient {
         await this.request<unknown>({
             method: "DELETE",
             url: this.endpoints.application(tenantId, applicationId),
+        });
+    }
+
+    public async getApplicationUser(
+        tenantId: string,
+        applicationId: string,
+        userId: string,
+    ): Promise<ApplicationUserVO> {
+        return this.request<ApplicationUserVO>({
+            method: "GET",
+            url: this.endpoints.applicationUser(
+                tenantId,
+                applicationId,
+                userId,
+            ),
         });
     }
 
@@ -633,6 +672,53 @@ export class OceanIamClient {
         });
     }
 
+    public async applicationUserSignin(
+        tenantId: string,
+        applicationId: string,
+        auth: AuthVO,
+        dispatch?: TokenDispatchMethod,
+    ): Promise<SystemSigninResponse> {
+        const headers: Record<string, string> = {};
+        const tokenDispatch = toTokenDispatchHeader(dispatch);
+        if (tokenDispatch) headers["X-OceanIAM-Token-Dispatch"] = tokenDispatch;
+
+        return this.request<SystemSigninResponse>({
+            method: "POST",
+            url: this.endpoints.applicationUserSignin(tenantId, applicationId),
+            body: auth,
+            headers,
+        });
+    }
+
+    public async applicationUserSignout(
+        tenantId: string,
+        applicationId: string,
+    ): Promise<SignoutResponse> {
+        return this.request<SignoutResponse>({
+            method: "DELETE",
+            url: this.endpoints.applicationUserSignout(tenantId, applicationId),
+        });
+    }
+
+    public async applicationUserRefreshToken(
+        tenantId: string,
+        applicationId: string,
+        dispatch?: TokenDispatchMethod,
+    ): Promise<SystemSigninResponse> {
+        const headers: Record<string, string> = {};
+        const tokenDispatch = toTokenDispatchHeader(dispatch);
+        if (tokenDispatch) headers["X-OceanIAM-Token-Dispatch"] = tokenDispatch;
+
+        return this.request<SystemSigninResponse>({
+            method: "POST",
+            url: this.endpoints.applicationUserRefreshToken(
+                tenantId,
+                applicationId,
+            ),
+            headers,
+        });
+    }
+
     public async getApplicationConfiguration(
         tenantId: string,
         applicationId: string,
@@ -698,6 +784,78 @@ export class OceanIamClient {
             method: "GET",
             url: this.endpoints.applicationJwks(applicationId),
             auth: "none",
+        });
+    }
+
+    public async systemSignup(name: string, password: string): Promise<void> {
+        await this.request<unknown>({
+            method: "POST",
+            url: this.endpoints.systemSignup(),
+            body: { name, password } satisfies SystemSigninRequest,
+        });
+    }
+
+    public async getAdministrators(
+        query?: PaginationQuery,
+    ): Promise<PagedResponse<AdministratorVO>> {
+        const { page, per_page } = query ?? {};
+        return this.request<PagedResponse<AdministratorVO>>({
+            method: "GET",
+            url: this.endpoints.administrators(),
+            query: { page, per_page },
+        });
+    }
+
+    public async createAdministrator(
+        req: CreateAdministratorRequest,
+    ): Promise<CreateAdministratorResponse> {
+        return this.request<CreateAdministratorResponse>({
+            method: "POST",
+            url: this.endpoints.administrators(),
+            body: req,
+        });
+    }
+
+    public async patchAdministrator(
+        targetId: string,
+        req: PatchAdministratorRequest,
+    ): Promise<AdministratorVO> {
+        return this.request<AdministratorVO>({
+            method: "PATCH",
+            url: this.endpoints.administrator(targetId),
+            body: req,
+        });
+    }
+
+    public async getApplicationChallenge(
+        tenantId: string,
+        applicationId: string,
+        challengeId: string,
+    ): Promise<ApplicationChallengeVO> {
+        return this.request<ApplicationChallengeVO>({
+            method: "GET",
+            url: this.endpoints.applicationChallenge(
+                tenantId,
+                applicationId,
+                challengeId,
+            ),
+        });
+    }
+
+    public async submitApplicationChallenge(
+        tenantId: string,
+        applicationId: string,
+        challengeId: string,
+        payload: unknown,
+    ): Promise<SystemSigninResponse> {
+        return this.request<SystemSigninResponse>({
+            method: "POST",
+            url: this.endpoints.applicationChallenge(
+                tenantId,
+                applicationId,
+                challengeId,
+            ),
+            body: payload as object,
         });
     }
 

@@ -52,3 +52,8 @@ pub struct ApplicationUserVO;
 #[ts(export)]
 #[ts(as = "oceaniam_vo::applications::SecretVO")]
 pub struct SecretVO;
+
+#[derive(ts_rs::TS)]
+#[ts(export)]
+#[ts(as = "oceaniam_vo::applications::ApplicationChallengeVO")]
+pub struct ApplicationChallengeVO;
