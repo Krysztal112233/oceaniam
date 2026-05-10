@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, fmt::Debug, sync::Arc, time::Duration};
 
 use axum::http::StatusCode;
 use chrono::Utc;
@@ -18,6 +18,7 @@ use oceaniam_database::{
 };
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, DatabaseConnection, IntoActiveModel};
 use serde_json::Value;
+use tracing::{info, warn};
 use uuid::Uuid;
 
 use super::audit::Auditing;
@@ -26,7 +27,7 @@ use crate::state::credentials::ManagedCredentialVaults;
 mod totp;
 
 #[async_trait::async_trait]
-pub trait MfaValidator: Sync + Send {
+pub trait MfaValidator: Sync + Send + Debug {
     async fn validate(&self, ctx: ValidationContext) -> Result<(), Error>;
 }
 
@@ -44,36 +45,14 @@ struct ChallengeRecord {
     id: Uuid,
 }
 
+#[derive(Debug, Clone)]
 pub struct ManagedChallenges {
     application_id: Uuid,
+
     auditing: Auditing,
     database: DatabaseConnection,
     validators: HashMap<ChallengeFactorType, SharedMfaValidator>,
     cache: Cache<ChallengeRecord, ChallengeModel>,
-}
-
-impl std::fmt::Debug for ManagedChallenges {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ManagedChallenges")
-            .field("application_id", &self.application_id)
-            .field("auditing", &self.auditing)
-            .field("database", &self.database)
-            .field("factor_types", &self.validators.keys().collect::<Vec<_>>())
-            .field("cache", &self.cache)
-            .finish()
-    }
-}
-
-impl Clone for ManagedChallenges {
-    fn clone(&self) -> Self {
-        Self {
-            application_id: self.application_id,
-            auditing: self.auditing.clone(),
-            database: self.database.clone(),
-            validators: self.validators.clone(),
-            cache: self.cache.clone(),
-        }
-    }
 }
 
 impl ManagedChallenges {
@@ -215,11 +194,19 @@ impl ManagedChallenges {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self, payload), fields(challenge_id = %id))]
     pub async fn verify_challenge(&self, id: Uuid, payload: Value) -> Result<(), Error> {
         let challenge = self.get_challenge(id).await?;
         let factor_type = challenge.factor_type.clone();
 
         let validator = self.validators.get(&factor_type).ok_or_else(|| {
+            warn!(
+                %factor_type,
+                application_id = %challenge.application_id,
+                subject_id = %challenge.subject_id,
+                "no validator configured for factor type"
+            );
+
             Error::with_code(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 format!("validator for factor_type={factor_type} is not configured"),
@@ -228,11 +215,19 @@ impl ManagedChallenges {
 
         validator
             .validate(ValidationContext {
-                input: payload,
                 subject_id: challenge.subject_id,
+                input: payload,
             })
             .await
             .map_err(|e| {
+                warn!(
+                    %factor_type,
+                    application_id = %challenge.application_id,
+                    subject_id = %challenge.subject_id,
+                    error = %e,
+                    "challenge verification failed"
+                );
+
                 Error::with_code(
                     StatusCode::UNAUTHORIZED,
                     format!("challenge verification failed: {e}"),
@@ -240,6 +235,15 @@ impl ManagedChallenges {
             })?;
 
         self.set_pass(id).await?;
+
+        info!(
+            challenge_id = %challenge.id,
+            application_id = %challenge.application_id,
+            subject_id = %challenge.subject_id,
+            %factor_type,
+            purpose = %challenge.purpose,
+            "challenge verified successfully"
+        );
 
         self.auditing
             .write(AuditPayload::from(VerifyChallengePayload {

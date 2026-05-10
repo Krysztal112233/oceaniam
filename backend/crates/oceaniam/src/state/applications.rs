@@ -1,3 +1,4 @@
+use std::sync::{Arc, OnceLock};
 use std::{collections::HashMap, time::Duration};
 
 use argon2::{Argon2, Params};
@@ -50,11 +51,71 @@ fn build_argon2(configuration: &ApplicationConfiguration) -> Result<Argon2<'stat
     ))
 }
 
+/// Per-application scope that bundles configuration, user state, and challenge manager together.
+///
+/// Constructed lazily on first access to any sub-state.  Invalidating the single
+/// [`Cache`] entry for an `application_id` atomically evicts all three.
+///
+/// `users` and `challenges` are initialized on first access via [`OnceLock`], so accessing only
+/// [`ApplicationScope::configuration`] does not pay the cost of constructing the other two.
+struct ApplicationScope {
+    application_id: Uuid,
+    configuration: ApplicationConfiguration,
+
+    database: DatabaseConnection,
+    shared_credential_vaults: ManagedCredentialVaults,
+    auditing: Auditing,
+
+    users: OnceLock<Arc<ApplicationUsers>>,
+    challenges: OnceLock<Arc<ManagedChallenges>>,
+}
+
+impl std::fmt::Debug for ApplicationScope {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ApplicationScope")
+            .field("application_id", &self.application_id)
+            .field("configuration", &self.configuration)
+            .field("users", &self.users.get())
+            .field("challenges", &self.challenges.get())
+            .finish()
+    }
+}
+
+impl ApplicationScope {
+    fn users(&self) -> Arc<ApplicationUsers> {
+        self.users
+            .get_or_init(|| {
+                Arc::new(ApplicationUsers::new(
+                    self.application_id,
+                    self.shared_credential_vaults.clone(),
+                    self.database.clone(),
+                    self.configuration.clone(),
+                ))
+            })
+            .clone()
+    }
+
+    fn challenges(&self) -> Arc<ManagedChallenges> {
+        self.challenges
+            .get_or_init(|| {
+                Arc::new(ManagedChallenges::new(
+                    self.application_id,
+                    self.database.clone(),
+                    self.auditing.clone(),
+                    self.shared_credential_vaults.clone(),
+                    self.configuration.auth.totp.encryption_key.clone(),
+                ))
+            })
+            .clone()
+    }
+}
+
 /// Central manager for application-level operations.
 ///
 /// Provides CRUD for applications, per-application user management, secret binding, configuration
-/// patching, and MFA challenge handling.  Internal state is backed by [`moka::future::Cache`] for
-/// users, configurations, and challenges — each scoped by `application_id` and created on demand.
+/// patching, and MFA challenge handling.  Internal per-application state is backed by a single
+/// [`Cache<Uuid, Arc<ApplicationScope>>`] that bundles configuration, users, and challenges
+/// together — constructed lazily on first access and atomically invalidated on write.
 ///
 /// - **Users**: cached with a 30-min idle TTL; password verification delegates to [`ManagedCredentialVaults`].
 /// - **Configurations**: cached with a 30-min idle TTL; re-fetched on write.
@@ -65,16 +126,13 @@ pub struct ManagedApplications<'a> {
     database: DatabaseConnection,
 
     secrets: Secrets<'a>,
-    users: Cache<Uuid, ApplicationUsers>,
 
-    configurations: Cache<Uuid, ApplicationConfiguration>,
+    applications: Cache<Uuid, Arc<ApplicationScope>>,
 
     /// This field are shared with global states.
     shared_credential_vaults: ManagedCredentialVaults,
 
     filters: ManagedFilters<'a>,
-
-    challenges: Cache<Uuid, ManagedChallenges>,
 
     auditing: Auditing,
 }
@@ -104,15 +162,8 @@ impl ManagedApplications<'_> {
     ) -> ManagedApplications<'a> {
         ManagedApplications {
             database: database.clone(),
-            users: Cache::builder()
-                .time_to_idle(Duration::from_mins(30))
-                .build(),
             secrets: Secrets::new(filters.clone(), database.clone()),
-            configurations: Cache::builder()
-                .time_to_idle(Duration::from_mins(30))
-                .build(),
-
-            challenges: Cache::builder()
+            applications: Cache::builder()
                 .time_to_idle(Duration::from_mins(30))
                 .build(),
 
@@ -125,20 +176,8 @@ impl ManagedApplications<'_> {
     pub async fn get_application_users(
         &self,
         application_id: Uuid,
-    ) -> Result<ApplicationUsers, Error> {
-        self.is_application_exist(application_id).await?;
-
-        Ok(self
-            .users
-            .try_get_with(
-                application_id,
-                ApplicationUsers::new(
-                    application_id,
-                    self.shared_credential_vaults.clone(),
-                    self.database.clone(),
-                ),
-            )
-            .await?)
+    ) -> Result<Arc<ApplicationUsers>, Error> {
+        Ok(self.get_or_init_scope(application_id).await?.users())
     }
 
     #[allow(private_bounds)]
@@ -169,6 +208,8 @@ impl ManagedApplications<'_> {
         self.filters.secret_filter().mark();
         self.filters.secret_id_filter().mark();
 
+        self.applications.invalidate(&application_id).await;
+
         Ok(())
     }
 
@@ -198,18 +239,11 @@ impl ManagedApplications<'_> {
         &self,
         application_id: Uuid,
     ) -> Result<ApplicationConfiguration, Error> {
-        self.is_application_exist(application_id).await?;
-
         Ok(self
-            .configurations
-            .try_get_with(application_id, async {
-                Ok(
-                    Applications::get_application(application_id, &self.database)
-                        .await?
-                        .into(),
-                )
-            })
-            .await?)
+            .get_or_init_scope(application_id)
+            .await?
+            .configuration
+            .clone())
     }
 
     pub async fn patch_configuration(
@@ -248,9 +282,7 @@ impl ManagedApplications<'_> {
             .await?,
         );
 
-        self.configurations
-            .insert(application_id, configuration.clone())
-            .await;
+        self.applications.invalidate(&application_id).await;
 
         Ok(configuration)
     }
@@ -275,6 +307,37 @@ impl ManagedApplications<'_> {
         }
     }
 
+    async fn get_or_init_scope(
+        &self,
+        application_id: Uuid,
+    ) -> Result<Arc<ApplicationScope>, Error> {
+        self.is_application_exist(application_id).await?;
+
+        let database = self.database.clone();
+        let shared_credential_vaults = self.shared_credential_vaults.clone();
+        let auditing = self.auditing.clone();
+
+        Ok(self
+            .applications
+            .try_get_with(application_id, async move {
+                let configuration: ApplicationConfiguration =
+                    Applications::get_application(application_id, &database)
+                        .await?
+                        .into();
+
+                Ok(Arc::new(ApplicationScope {
+                    application_id,
+                    configuration,
+                    database,
+                    shared_credential_vaults,
+                    auditing,
+                    users: OnceLock::new(),
+                    challenges: OnceLock::new(),
+                }))
+            })
+            .await?)
+    }
+
     async fn is_application_exist(&self, application_id: Uuid) -> Result<(), Error> {
         if self.filters.application_id_filter().exists(&application_id) {
             return Ok(());
@@ -297,39 +360,20 @@ impl<'a> ManagedApplications<'a> {
         &self.secrets
     }
 
-    pub async fn challenges(&self, application_id: Uuid) -> Result<ManagedChallenges, Error> {
-        self.is_application_exist(application_id).await?;
-
-        let database = self.database.clone();
-        let auditing = self.auditing.clone();
-        let credentials = self.shared_credential_vaults.clone();
-        let encryption_key = {
-            let config: ApplicationConfiguration =
-                Applications::get_application(application_id, &database)
-                    .await?
-                    .into();
-            config.auth.totp.encryption_key
-        };
-
-        Ok(self
-            .challenges
-            .get_with(application_id, async move {
-                ManagedChallenges::new(
-                    application_id,
-                    database,
-                    auditing,
-                    credentials,
-                    encryption_key,
-                )
-            })
-            .await)
+    pub async fn challenges(&self, application_id: Uuid) -> Result<Arc<ManagedChallenges>, Error> {
+        Ok(self.get_or_init_scope(application_id).await?.challenges())
     }
 }
 
-/// If [ApplicationUsers::application_id] doesn't existed in database, the entire functions of this structure will be noop
+/// Per-application user cache and credential operations.
+///
+/// Existence is guaranteed by [`ManagedApplications::get_or_init_scope`], which constructs
+/// [`ApplicationScope`] only after confirming the application exists.
 #[derive(Debug, Clone)]
 pub struct ApplicationUsers {
     application_id: Uuid,
+    configuration: ApplicationConfiguration,
+
     database: DatabaseConnection,
     cache: Cache<UserIdentifier, UserModel>,
 
@@ -344,25 +388,20 @@ pub struct UserSearchOptions {
 }
 
 impl ApplicationUsers {
-    async fn new(
+    fn new(
         application_id: Uuid,
         shared_credential_vaults: ManagedCredentialVaults,
         database: DatabaseConnection,
-    ) -> Result<Self, Error> {
-        if Applications::is_exist(application_id, &database).await? {
-            Ok(Self {
-                application_id,
-                database,
-                cache: Cache::builder()
-                    .time_to_idle(Duration::from_secs(30))
-                    .build(),
-                shared_credential_vaults,
-            })
-        } else {
-            Err(Error::with_code(
-                StatusCode::NOT_FOUND,
-                format!("application_id={application_id} not found"),
-            ))
+        configuration: ApplicationConfiguration,
+    ) -> Self {
+        Self {
+            application_id,
+            database,
+            cache: Cache::builder()
+                .time_to_idle(Duration::from_secs(30))
+                .build(),
+            shared_credential_vaults,
+            configuration,
         }
     }
 
@@ -408,9 +447,7 @@ impl ApplicationUsers {
     ) -> Result<UserModel, Error> {
         let user_id = Uuid::now_v7();
         let password = password.into();
-        let argon2 = build_argon2(&ApplicationConfiguration::from(
-            Applications::get_application(application_id, transaction).await?,
-        ))?;
+        let argon2 = build_argon2(&self.configuration)?;
 
         info!(
             "creating new user: user_id={}, application_id={}",
