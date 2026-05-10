@@ -5,14 +5,12 @@ use crossbeam_queue::SegQueue;
 use oceaniam_audit::types::AuditPayload;
 use oceaniam_database::model::{self, prelude::Audits};
 use sea_orm::{DatabaseConnection, EntityTrait, IntoActiveModel};
-use tokio::{sync::oneshot, time::sleep};
+use tokio::time::sleep;
 use uuid::Uuid;
 
 use super::AuditWriter;
 
 type AuditActiveModel = model::audits::ActiveModel;
-
-const AUDIT_BATCH_SIZE: usize = 2048;
 
 #[derive(Debug, Clone)]
 pub(super) struct DatabaseAuditWriter {
@@ -31,24 +29,11 @@ impl DatabaseAuditWriter {
         tokio::spawn(async move {
             loop {
                 sleep(Duration::from_millis(50)).await;
-                worker.compute_flush().await;
+                drain(&worker.queue, &worker.database);
             }
         });
 
         it
-    }
-
-    async fn compute_flush(&self) {
-        if self.queue.len() >= AUDIT_BATCH_SIZE {
-            let mut buffer = Vec::new();
-            while let Some(pat) = self.queue.pop() {
-                buffer.push(pat);
-            }
-
-            if !buffer.is_empty() {
-                flush(buffer, self.database.clone());
-            }
-        }
     }
 }
 
@@ -67,13 +52,16 @@ impl AuditWriter for DatabaseAuditWriter {
     }
 }
 
-fn flush(data: Vec<AuditActiveModel>, database: DatabaseConnection) {
-    let (rx, tx) = oneshot::channel();
-    rx.send(data).unwrap();
+fn drain(queue: &SegQueue<AuditActiveModel>, database: &DatabaseConnection) {
+    let mut buffer = Vec::new();
+    while let Some(pat) = queue.pop() {
+        buffer.push(pat);
+    }
 
-    tokio::spawn(async move {
-        let data = tx.await.unwrap();
-
-        Audits::insert_many(data).exec(&database).await.unwrap();
-    });
+    if !buffer.is_empty() {
+        let db = database.clone();
+        tokio::spawn(async move {
+            Audits::insert_many(buffer).exec(&db).await.unwrap();
+        });
+    }
 }
