@@ -1,23 +1,20 @@
 use std::sync::{Arc, OnceLock};
-use std::{collections::HashMap, time::Duration};
+use std::time::Duration;
 
 use argon2::{Argon2, Params};
 use axum::http::StatusCode;
 use moka::future::Cache;
-use oceaniam_api::{PageParam, PagedResponse};
-use oceaniam_common::{error::Error, helpers::gen_random_with_charset};
+use oceaniam_common::error::Error;
 use oceaniam_database::{
     config::application::ApplicationConfiguration,
     helper::{
         SafeTransactionConnectionTrait,
         applications::{ApplicationHelper, CreateApplicationOptions},
-        applications_secrets::ApplicationSecretsHelper,
         users::{CreateUserOpts, CreateUserResult, UserHelper},
     },
     model::{
-        application_secrets::Model as SecretModel,
         applications::Model as ApplicationModel,
-        prelude::{ApplicationSecrets, Applications, Users},
+        prelude::{Applications, Users},
         users::Model as UserModel,
     },
 };
@@ -34,6 +31,7 @@ use crate::state::audit::Auditing;
 use crate::state::challenge::ManagedChallenges;
 use crate::state::credentials::ManagedCredentialVaults;
 use crate::state::filters::ManagedFilters;
+use crate::state::secret::Secrets;
 
 fn build_argon2(configuration: &ApplicationConfiguration) -> Result<Argon2<'static>, Error> {
     let params = Params::new(
@@ -481,295 +479,4 @@ impl ApplicationUsers {
 
         Ok(user)
     }
-}
-
-/// If [ApplicationUsers::application_id] doesn't existed in database, the entire functions of this
-/// structure will be noop
-///
-/// TODO: In future, using [xorf] to detect does secret existed in database for higher performance.
-#[derive(Debug, Clone)]
-struct SecretCaches {
-    by_application: Cache<Uuid, Vec<SecretModel>>,
-    by_id: Cache<Uuid, SecretModel>,
-    application_ids_by_secret_id: Cache<Uuid, Vec<Uuid>>,
-    application_ids_by_secret: Cache<String, Vec<Uuid>>,
-}
-
-impl SecretCaches {
-    fn new() -> Self {
-        Self {
-            by_application: Cache::builder()
-                .time_to_idle(Duration::from_mins(5))
-                .build(),
-            by_id: Cache::builder()
-                .time_to_idle(Duration::from_mins(5))
-                .build(),
-            application_ids_by_secret_id: Cache::builder()
-                .time_to_idle(Duration::from_mins(5))
-                .build(),
-            application_ids_by_secret: Cache::builder()
-                .time_to_idle(Duration::from_mins(5))
-                .build(),
-        }
-    }
-}
-
-/// Manages application `app_xxx` secrets used by external applications to authenticate against the
-/// OceanIAM API.
-///
-/// Provides caching via [`SecretCaches`] and bloom-filter-based fast existence checks via
-/// [`ManagedFilters`] for secrets and secret IDs.
-#[derive(Debug, Clone)]
-pub struct Secrets<'a> {
-    database: DatabaseConnection,
-    caches: SecretCaches,
-    filters: ManagedFilters<'a>,
-}
-
-impl Secrets<'_> {
-    pub fn new<'a>(filters: ManagedFilters<'a>, database: DatabaseConnection) -> Secrets<'a> {
-        Secrets {
-            database,
-            caches: SecretCaches::new(),
-            filters,
-        }
-    }
-
-    pub async fn create_secret(&self) -> Result<SecretModel, Error> {
-        let model =
-            ApplicationSecrets::create_secret_unbound(Uuid::now_v7(), gen_secret(), &self.database)
-                .await?;
-
-        self.cache_secret_model(&model).await;
-        self.cache_secret_application_ids(model.id, Vec::new())
-            .await;
-
-        self.filters.secret_filter().mark();
-        self.filters.secret_id_filter().mark();
-
-        Ok(model)
-    }
-
-    pub async fn get_all_secrets(&self) -> Result<Vec<SecretModel>, Error> {
-        let models = ApplicationSecrets::get_all_secret_models(&self.database).await?;
-
-        for model in &models {
-            self.cache_secret_model(model).await;
-        }
-
-        Ok(models)
-    }
-
-    pub async fn get_secret_models(
-        &self,
-        page: PageParam,
-    ) -> Result<PagedResponse<SecretModel>, Error> {
-        let paged = ApplicationSecrets::get_secret_models(page, &self.database).await?;
-
-        for model in &paged.items {
-            self.cache_secret_model(model).await;
-        }
-
-        Ok(paged)
-    }
-
-    pub async fn get_secret(&self, secret_id: Uuid) -> Result<SecretModel, Error> {
-        Ok(self
-            .caches
-            .by_id
-            .try_get_with(secret_id, async {
-                ApplicationSecrets::get_secret(secret_id, &self.database).await
-            })
-            .await?)
-    }
-
-    pub async fn get_secret_application_ids(&self, secret_id: Uuid) -> Result<Vec<Uuid>, Error> {
-        Ok(self
-            .caches
-            .application_ids_by_secret_id
-            .try_get_with(secret_id, async {
-                ApplicationSecrets::get_application_ids_of_secret(secret_id, &self.database).await
-            })
-            .await?)
-    }
-
-    pub async fn get_secret_application_ids_batch(
-        &self,
-    ) -> Result<HashMap<Uuid, Vec<Uuid>>, Error> {
-        ApplicationSecrets::get_all_application_ids_grouped_by_secret_id(&self.database).await
-    }
-
-    pub async fn get_secret_application_ids_batch_by_ids(
-        &self,
-        secret_ids: Vec<Uuid>,
-    ) -> Result<HashMap<Uuid, Vec<Uuid>>, Error> {
-        let application_ids_by_secret =
-            ApplicationSecrets::get_application_ids_grouped_by_secret_ids(
-                secret_ids,
-                &self.database,
-            )
-            .await?;
-
-        for (secret_id, application_ids) in &application_ids_by_secret {
-            self.cache_secret_application_ids(*secret_id, application_ids.clone())
-                .await;
-        }
-
-        Ok(application_ids_by_secret)
-    }
-
-    async fn refresh(&self, application_id: Uuid) -> Result<(), Error> {
-        self.is_application_exist(application_id).await?;
-
-        self.caches
-            .by_application
-            .insert(
-                application_id,
-                ApplicationSecrets::get_all_secrets_of(application_id, &self.database).await?,
-            )
-            .await;
-
-        Ok(())
-    }
-
-    /// TODO: See [Secrets]
-    pub async fn find_secret_belong_to(
-        &self,
-        secret: impl Into<String>,
-    ) -> Result<Vec<Uuid>, Error> {
-        let secret = secret.into();
-
-        self.is_secret_exist(&secret).await?;
-
-        Ok(self
-            .caches
-            .application_ids_by_secret
-            .try_get_with(secret.clone(), async {
-                ApplicationSecrets::find_secret_can_be_used_for(secret, &self.database).await
-            })
-            .await?)
-    }
-
-    pub async fn get_all_secrets_of(
-        &self,
-        application_id: Uuid,
-    ) -> Result<Vec<SecretModel>, Error> {
-        self.is_application_exist(application_id).await?;
-
-        Ok(self
-            .caches
-            .by_application
-            .try_get_with(application_id, async {
-                ApplicationSecrets::get_all_secrets_of(application_id, &self.database).await
-            })
-            .await?)
-    }
-
-    pub async fn delete_secret(&self, application_id: Uuid, secret_id: Uuid) -> Result<(), Error> {
-        self.is_application_exist(application_id).await?;
-        self.is_secret_id_exist(secret_id).await?;
-
-        ApplicationSecrets::delete_secret(application_id, secret_id, &self.database).await?;
-
-        self.refresh(application_id).await?;
-        self.invalidate_secret_bindings(secret_id).await;
-
-        self.filters.secret_id_filter().mark();
-        self.filters.secret_filter().mark();
-
-        Ok(())
-    }
-
-    pub async fn delete_secret_by_id(&self, secret_id: Uuid) -> Result<(), Error> {
-        self.is_secret_id_exist(secret_id).await?;
-
-        let application_ids =
-            ApplicationSecrets::get_application_ids_of_secret(secret_id, &self.database).await?;
-
-        ApplicationSecrets::delete_secret_by_id(secret_id, &self.database).await?;
-
-        for application_id in application_ids {
-            self.invalidate_application_secrets(application_id).await;
-        }
-
-        self.invalidate_secret(secret_id).await;
-
-        self.filters.secret_id_filter().mark();
-        self.filters.secret_filter().mark();
-
-        Ok(())
-    }
-
-    async fn is_secret_id_exist(&self, secret_id: Uuid) -> Result<(), Error> {
-        if self.filters.secret_id_filter().exists(&secret_id) {
-            Ok(())
-        } else {
-            Err(Error::with_code(
-                StatusCode::NOT_FOUND,
-                format!("secret_id={secret_id} doesn't exist"),
-            ))
-        }
-    }
-
-    async fn is_secret_exist(&self, secret: impl Into<String>) -> Result<(), Error> {
-        let secret = secret.into();
-
-        if self.filters.secret_filter().exists(&secret) {
-            Ok(())
-        } else {
-            Err(Error::with_code(
-                StatusCode::NOT_FOUND,
-                format!("secret={} doesn't exist", "*".repeat(secret.len())),
-            ))
-        }
-    }
-
-    async fn is_application_exist(&self, application_id: Uuid) -> Result<(), Error> {
-        if self.filters.application_id_filter().exists(&application_id) {
-            Ok(())
-        } else {
-            Err(Error::with_code(
-                StatusCode::NOT_FOUND,
-                format!("application_id={application_id} doesn't exist"),
-            ))
-        }
-    }
-
-    async fn cache_secret_model(&self, model: &SecretModel) {
-        self.caches.by_id.insert(model.id, model.clone()).await;
-    }
-
-    async fn cache_secret_application_ids(&self, secret_id: Uuid, application_ids: Vec<Uuid>) {
-        self.caches
-            .application_ids_by_secret_id
-            .insert(secret_id, application_ids)
-            .await;
-    }
-
-    async fn invalidate_secret_bindings(&self, secret_id: Uuid) {
-        self.caches
-            .application_ids_by_secret_id
-            .invalidate(&secret_id)
-            .await;
-        self.caches.application_ids_by_secret.invalidate_all();
-    }
-
-    async fn invalidate_secret(&self, secret_id: Uuid) {
-        self.caches.by_id.invalidate(&secret_id).await;
-        self.invalidate_secret_bindings(secret_id).await;
-    }
-
-    async fn invalidate_application_secrets(&self, application_id: Uuid) {
-        self.caches.by_application.invalidate(&application_id).await;
-    }
-}
-
-fn gen_secret() -> String {
-    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
-                            abcdefghijklmnopqrstuvwxyz\
-                            0123456789";
-
-    let random = gen_random_with_charset(32, CHARSET);
-
-    format!("app_{random}")
 }

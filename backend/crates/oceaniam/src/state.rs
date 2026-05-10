@@ -28,6 +28,7 @@ pub mod credentials;
 pub mod filters;
 pub mod keybox;
 pub mod revoked;
+pub mod secret;
 
 #[derive(Debug, Clone)]
 pub struct AppState<'a> {
@@ -39,8 +40,8 @@ pub struct AppState<'a> {
     /// WARN: Only used for system authentication validations.
     pub system_jwt_validator: JwtValidator,
 
-    /// Revoked JWTs. If the system itself also uses the built-in authentication system,
-    /// the related logic will also check here whether the JWT has been revoked.
+    /// Revoked JWTs. If the system itself also uses the built-in authentication system, the related
+    /// logic will also check here whether the JWT has been revoked.
     pub revoked_jwt: RevokedJwt,
 
     /// Keybox relative actions.
