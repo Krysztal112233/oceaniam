@@ -302,10 +302,25 @@ impl<'a> ManagedApplications<'a> {
 
         let database = self.database.clone();
         let auditing = self.auditing.clone();
+        let credentials = self.shared_credential_vaults.clone();
+        let encryption_key = {
+            let config: ApplicationConfiguration =
+                Applications::get_application(application_id, &database)
+                    .await?
+                    .into();
+            config.auth.totp.encryption_key
+        };
+
         Ok(self
             .challenges
             .get_with(application_id, async move {
-                ManagedChallenges::new(application_id, database, auditing)
+                ManagedChallenges::new(
+                    application_id,
+                    database,
+                    auditing,
+                    credentials,
+                    encryption_key,
+                )
             })
             .await)
     }

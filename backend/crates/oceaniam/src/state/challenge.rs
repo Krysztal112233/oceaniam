@@ -21,8 +21,8 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use super::audit::Auditing;
+use crate::state::credentials::ManagedCredentialVaults;
 
-#[allow(unused)]
 mod totp;
 
 #[async_trait::async_trait]
@@ -33,6 +33,7 @@ pub trait MfaValidator: Sync + Send {
 #[derive(Debug, Clone)]
 pub struct ValidationContext {
     pub input: Value,
+    pub subject_id: Uuid,
 }
 
 type SharedMfaValidator = Arc<dyn MfaValidator>;
@@ -76,9 +77,21 @@ impl Clone for ManagedChallenges {
 }
 
 impl ManagedChallenges {
-    pub fn new(application_id: Uuid, database: DatabaseConnection, auditing: Auditing) -> Self {
+    pub fn new(
+        application_id: Uuid,
+        database: DatabaseConnection,
+        auditing: Auditing,
+        credentials: ManagedCredentialVaults,
+        encryption_key: String,
+    ) -> Self {
         let mut validators: HashMap<ChallengeFactorType, SharedMfaValidator> = HashMap::new();
-        validators.insert(ChallengeFactorType::Totp, Arc::new(totp::TotpValidator));
+        validators.insert(
+            ChallengeFactorType::Totp,
+            Arc::new(totp::TotpValidator {
+                credentials,
+                encryption_key,
+            }),
+        );
 
         Self {
             application_id,
@@ -214,7 +227,10 @@ impl ManagedChallenges {
         })?;
 
         validator
-            .validate(ValidationContext { input: payload })
+            .validate(ValidationContext {
+                input: payload,
+                subject_id: challenge.subject_id,
+            })
             .await
             .map_err(|e| {
                 Error::with_code(
