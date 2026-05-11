@@ -1,7 +1,7 @@
 use chrono::{DateTime, FixedOffset, Utc};
 use im::HashMap;
 use itertools::Itertools;
-use oceaniam_common::error::Error;
+use oceaniam_common::{consts, error::Error};
 use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, key_boxes::KeyBoxesHelper},
     model::{
@@ -191,6 +191,28 @@ impl KeyBox {
 
         self.keys.insert(*key_id, key);
         Ok(())
+    }
+
+    /// Generates a new key and adds it to this keybox.
+    ///
+    /// This is a pure in-memory operation — the caller is responsible for
+    /// persisting via [`KeyBox::write_to`].
+    pub fn rotate_key(&mut self) -> Result<Key, Error> {
+        let rsa_key = RsaKey::new(Uuid::now_v7(), sea_orm_active_enums::KeyAlg::Ps512);
+        let key_id = rsa_key.key_id();
+
+        self.add_key_with_option(
+            rsa_key,
+            KeyOption {
+                retired_at: Some((Utc::now() + consts::DEFAULT_KEY_RETIED_AFTER).into()),
+                expires_at: Some((Utc::now() + consts::DEFAULT_KEY_EXPIRES_AFTER).into()),
+                ..Default::default()
+            },
+        )?;
+
+        // SAFETY: the key was just inserted, it exists and is not expired
+        unsafe { self.get_raw_key_unsafe(&key_id) }
+            .ok_or_else(|| Error::with_code(500u16, "key was inserted but cannot be retrieved"))
     }
 
     /// Returns all keys in the keybox

@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use axum::http::StatusCode;
-use chrono::Utc;
 use jsonwebtoken::Header;
 use moka::future::{Cache, CacheBuilder};
 use oceaniam_auth::{
@@ -96,6 +95,12 @@ impl ManagedKeyBoxes {
             .await?)
     }
 
+    /// Creates a new initial keybox for an application with a single initial key.
+    ///
+    /// This is called during application creation to bootstrap the application's
+    /// signing key.  The initial key is created with the caller-supplied
+    /// [`KeyOption`] (which controls its activation, retirement, and expiry
+    /// timestamps) and immediately persisted to the database and cached.
     pub async fn create_keybox(
         &self,
         application_id: Uuid,
@@ -117,29 +122,19 @@ impl ManagedKeyBoxes {
         Ok(keybox)
     }
 
+    /// Generates a new key for the given application and persists it.
+    ///
+    /// Delegates the in-memory key generation to [`KeyBox::rotate_key`], then
+    /// writes all keys to the database and invalidates both the keybox cache
+    /// and the JWKS cache so subsequent requests pick up the new key immediately.
     pub async fn rotate_key(&self, application_id: Uuid) -> Result<KeyModel, Error> {
         let mut keybox = self.get_keybox(application_id).await?;
-
-        let rsa_key = RsaKey::new(Uuid::now_v7(), KeyAlg::Ps512);
-        let key_id = rsa_key.key_id();
-
-        keybox.add_key_with_option(
-            rsa_key,
-            KeyOption {
-                retired_at: Some((Utc::now() + consts::DEFAULT_KEY_RETIED_AFTER).into()),
-                expires_at: Some((Utc::now() + consts::DEFAULT_KEY_EXPIRES_AFTER).into()),
-                ..Default::default()
-            },
-        )?;
+        let new_key = keybox.rotate_key()?;
 
         keybox.write_to(&self.database).await?;
 
-        self.boxes.insert(application_id, keybox.clone()).await;
+        self.boxes.insert(application_id, keybox).await;
         self.jwks.invalidate(&application_id).await;
-
-        // SAFETY: the key was just inserted, it exists and is not expired
-        let new_key = unsafe { keybox.get_raw_key_unsafe(&key_id) }
-            .ok_or_else(|| Error::with_code(500u16, "key was inserted but cannot be retrieved"))?;
 
         Ok(new_key)
     }
