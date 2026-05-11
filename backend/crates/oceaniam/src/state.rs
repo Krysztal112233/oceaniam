@@ -146,7 +146,7 @@ async fn initial_system_keybox(
             Uuid::now_v7(),
             oceaniam_keybox::key_alg::KeyAlg::try_from(consts::SYSTEM_KEY_ALO).unwrap(),
         );
-        keybox.put_key(key).inspect_err(|e| error!("{e}"))?;
+        keybox.add_key(key).inspect_err(|e| error!("{e}"))?;
 
         info!("the system key has been generated and is about to be written to the database.");
 

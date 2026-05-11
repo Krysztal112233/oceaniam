@@ -81,6 +81,8 @@ Before claiming work is complete, run these commands:
   - Auto-cleans the schema on `Drop` via a dedicated tokio runtime thread.
 - Database connection defaults to `postgresql://postgres:postgres@localhost:5432/postgres`.
 - Root password can be set via `MIGRATION_DEFAULT_ROOT_PASSWORD` environment variable.
+- When running `oceaniam-keybox` crate tests, use `-r` (release mode) — they compile
+  and execute significantly faster than debug builds.
 
 ## Migration Discipline
 

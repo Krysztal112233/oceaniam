@@ -25,7 +25,9 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct ManagedKeyBoxes {
     database: DatabaseConnection,
+
     boxes: Cache<Uuid, KeyBox>,
+
     jwks: Cache<Uuid, JwkSet>,
 }
 
@@ -100,7 +102,7 @@ impl ManagedKeyBoxes {
         let mut keybox = KeyBox::new(application_id);
 
         keybox
-            .put_key_with_option(RsaKey::new(Uuid::now_v7(), KeyAlg::Ps512), key_opts)
+            .add_key_with_option(RsaKey::new(Uuid::now_v7(), KeyAlg::Ps512), key_opts)
             .inspect_err(|e| error!("{e}"))?;
 
         keybox
@@ -111,21 +113,6 @@ impl ManagedKeyBoxes {
         self.boxes.insert(application_id, keybox.clone()).await;
 
         Ok(keybox)
-    }
-
-    async fn refresh(&self, application_id: Uuid) -> Result<(), Error> {
-        let keys = KeyBoxes::get_application_keys(application_id, &self.database)
-            .await
-            .inspect_err(|e| error!("{e}"))?
-            .into_iter()
-            .map(|it| (it.id, it))
-            .collect();
-
-        let keybox = KeyBox::with_keys(application_id, keys);
-
-        self.boxes.insert(application_id, keybox).await;
-
-        Ok(())
     }
 
     pub async fn sign_jwt<T>(

@@ -1,7 +1,7 @@
 use chrono::{DateTime, FixedOffset, Utc};
 use im::HashMap;
 use itertools::Itertools;
-use oceaniam_common::{consts, error::Error};
+use oceaniam_common::error::Error;
 use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, key_boxes::KeyBoxesHelper},
     model::{
@@ -104,25 +104,36 @@ impl KeyBox {
         }
     }
 
-    /// Adds a new key with default options
-    pub fn put_key<T>(&mut self, key: T) -> Result<(), Error>
+    /// Adds a new key with default options.
+    ///
+    /// Returns an error if a key with the same ID already exists in this keybox.
+    pub fn add_key<T>(&mut self, key: T) -> Result<(), Error>
     where
         T: TryIntoKeyModel,
     {
-        self.put_key_with_option(key, KeyOption::default())
+        self.add_key_with_option(key, KeyOption::default())
     }
 
-    /// Adds a new key with custom options
+    /// Adds a new key with custom options.
+    ///
+    /// Returns an error if a key with the same ID already exists in this keybox.
     ///
     /// # Arguments
     ///
     /// * `key` - The key to add, must implement `TryIntoKeyModel`
     /// * `options` - Configuration options for the key lifecycle
-    pub fn put_key_with_option<T>(&mut self, key: T, options: KeyOption) -> Result<(), Error>
+    pub fn add_key_with_option<T>(&mut self, key: T, options: KeyOption) -> Result<(), Error>
     where
         T: TryIntoKeyModel,
     {
         let key = key.try_into_key_model(self.application_id, options)?;
+
+        if self.keys.contains_key(&key.id) {
+            return Err(Error::with_code(
+                409u16,
+                format!("key id={} already exists in keybox", key.id),
+            ));
+        }
 
         self.keys.insert(key.id, key);
         Ok(())
@@ -179,11 +190,10 @@ impl KeyBox {
     /// that matches the given status
     pub fn get_latest_raw_key(&self, status: KeyStatus) -> Option<StandaloneKey> {
         self.keys
-            .clone()
-            .into_iter()
-            .map(|(_, it)| it)
+            .values()
             .filter(|it| it.status == status)
             .sorted_by(|a, b| Ord::cmp(&b.activated_at, &a.activated_at))
+            .cloned()
             .map(StandaloneKey::from)
             .next()
     }
@@ -211,8 +221,7 @@ impl KeyBox {
             .map(|it| it.into_active_model())
             .collect_vec();
 
-        let _ =
-            KeyBoxes::update_application_keys(consts::SYSTEM_APPLICATION_UUID, vec, database).await;
+        KeyBoxes::update_application_keys(self.application_id, vec, database).await?;
 
         Ok(())
     }
@@ -494,7 +503,7 @@ mod tests {
         let key = create_rsa_key();
 
         // Put key
-        keybox.put_key(key.clone()).unwrap();
+        keybox.add_key(key.clone()).unwrap();
 
         let Some(key) = keybox.get_raw_key(&key.key_id()) else {
             panic!("EXPECT ACTIVE KEY BUT CANNOT GET IT")
@@ -524,9 +533,9 @@ mod tests {
         let mut keybox = KeyBox::new(Uuid::nil());
 
         // Put key
-        keybox.put_key(create_rsa_key()).unwrap();
-        keybox.put_key(create_rsa_key()).unwrap();
-        keybox.put_key(create_rsa_key()).unwrap();
+        keybox.add_key(create_rsa_key()).unwrap();
+        keybox.add_key(create_rsa_key()).unwrap();
+        keybox.add_key(create_rsa_key()).unwrap();
 
         let _ = JwkSet::from(keybox);
     }
