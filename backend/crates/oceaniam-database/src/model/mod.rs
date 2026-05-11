@@ -6,6 +6,7 @@ pub mod administrators;
 pub mod application_secret_bindings;
 pub mod application_secrets;
 pub mod applications;
+pub mod audit_summary_by_application;
 pub mod audits;
 pub mod challenges;
 pub mod credentials;

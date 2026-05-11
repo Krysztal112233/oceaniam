@@ -4,6 +4,7 @@ pub use super::administrators::Entity as Administrators;
 pub use super::application_secret_bindings::Entity as ApplicationSecretBindings;
 pub use super::application_secrets::Entity as ApplicationSecrets;
 pub use super::applications::Entity as Applications;
+pub use super::audit_summary_by_application::Entity as AuditSummaryByApplication;
 pub use super::audits::Entity as Audits;
 pub use super::challenges::Entity as Challenges;
 pub use super::credentials::Entity as Credentials;

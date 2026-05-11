@@ -5,3 +5,5 @@ export type { ApplicationConfigurationVO } from "./types/ApplicationConfiguratio
 export type { CreateApplicationUserRequest } from "./types/CreateApplicationUserRequest";
 export type { SecretVO } from "./types/SecretVO";
 export type { TenantVO } from "./types/TenantVO";
+export type { ApplicationKeyVO } from "./types/ApplicationKeyVO";
+export type { RotateKeyResponse } from "./types/RotateKeyResponse";

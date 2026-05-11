@@ -29,6 +29,8 @@ pub enum AuditPayload {
     DeleteApplicationSecret(DeleteApplicationSecretPayload),
     CreateChallenge(CreateChallengePayload),
     VerifyChallenge(VerifyChallengePayload),
+    RotateKey(RotateKeyPayload),
+    RevokeKey(RevokeKeyPayload),
 }
 
 impl AuditPayload {
@@ -52,6 +54,8 @@ impl AuditPayload {
             Self::DeleteApplicationSecret(_) => AuditType::DeleteApplicationSecret,
             Self::CreateChallenge(_) => AuditType::CreateChallenge,
             Self::VerifyChallenge(_) => AuditType::VerifyChallenge,
+            Self::RotateKey(_) => AuditType::RotateKey,
+            Self::RevokeKey(_) => AuditType::RevokeKey,
         }
     }
 
@@ -165,6 +169,18 @@ impl From<CreateChallengePayload> for AuditPayload {
 impl From<VerifyChallengePayload> for AuditPayload {
     fn from(value: VerifyChallengePayload) -> Self {
         Self::VerifyChallenge(value)
+    }
+}
+
+impl From<RotateKeyPayload> for AuditPayload {
+    fn from(value: RotateKeyPayload) -> Self {
+        Self::RotateKey(value)
+    }
+}
+
+impl From<RevokeKeyPayload> for AuditPayload {
+    fn from(value: RevokeKeyPayload) -> Self {
+        Self::RevokeKey(value)
     }
 }
 
@@ -291,4 +307,16 @@ pub struct VerifyChallengePayload {
     pub subject_id: Uuid,
     pub factor_type: ChallengeFactorType,
     pub purpose: ChallengePurposeType,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RotateKeyPayload {
+    pub application_id: Uuid,
+    pub new_key_id: Uuid,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RevokeKeyPayload {
+    pub application_id: Uuid,
+    pub key_id: Uuid,
 }

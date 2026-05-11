@@ -179,6 +179,25 @@ impl KeyBox {
         self.keys.remove(key_id)
     }
 
+    /// Revokes the specified key by setting its status to `Revoked`
+    /// and recording the revocation timestamp.
+    ///
+    /// Returns an error if the key does not exist in this keybox.
+    pub fn revoke_key(&mut self, key_id: &Uuid) -> Result<(), Error> {
+        let Some(mut key) = self.keys.get(key_id).cloned() else {
+            return Err(Error::with_code(
+                404u16,
+                format!("key id={key_id} not found in keybox"),
+            ));
+        };
+
+        key.status = KeyStatus::Revoked;
+        key.revoked_at = Some(Utc::now().into());
+
+        self.keys.insert(*key_id, key);
+        Ok(())
+    }
+
     /// Returns all keys in the keybox
     pub fn get_keys(&self) -> &HashMap<Uuid, Key> {
         &self.keys

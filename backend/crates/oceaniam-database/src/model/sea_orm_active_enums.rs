@@ -54,6 +54,10 @@ pub enum AuditType {
     CreateChallenge,
     #[sea_orm(string_value = "verify_challenge")]
     VerifyChallenge,
+    #[sea_orm(string_value = "rotate_key")]
+    RotateKey,
+    #[sea_orm(string_value = "revoke_key")]
+    RevokeKey,
 }
 #[derive(
     Debug,

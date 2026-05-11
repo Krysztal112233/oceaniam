@@ -20,6 +20,8 @@ import { type SecretVO } from "./types/SecretVO";
 import { type AdministratorVO } from "./types/AdministratorVO";
 import { type AuthVO } from "./types/AuthVO";
 import { type ApplicationChallengeVO } from "./types/ApplicationChallengeVO";
+import { type ApplicationKeyVO } from "./types/ApplicationKeyVO";
+import { type RotateKeyResponse } from "./types/RotateKeyResponse";
 import { type CreateAdministratorRequest } from "./types/CreateAdministratorRequest";
 import { type CreateAdministratorResponse } from "./types/CreateAdministratorResponse";
 import { type PatchAdministratorRequest } from "./types/PatchAdministratorRequest";
@@ -336,6 +338,16 @@ export class OceanIamClient {
             challengeId: string,
         ): string =>
             `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/challenges/${encodeURIComponent(challengeId)}`,
+
+        // ApplicationKeys (backend: endpoints/application_keys.rs)
+        applicationKeys: (tenantId: string, applicationId: string): string =>
+            `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/keys`,
+        applicationKey: (
+            tenantId: string,
+            applicationId: string,
+            keyId: string,
+        ): string =>
+            `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/keys/${encodeURIComponent(keyId)}`,
     } as const;
 
     private baseUrl: string;
@@ -467,6 +479,24 @@ export class OceanIamClient {
                     tenantId,
                     applicationId,
                     challengeId,
+                ),
+            ),
+
+        // Application Keys
+        applicationKeys: (tenantId: string, applicationId: string): string =>
+            this.buildUrl(
+                OceanIamClient.PATHS.applicationKeys(tenantId, applicationId),
+            ),
+        applicationKey: (
+            tenantId: string,
+            applicationId: string,
+            keyId: string,
+        ): string =>
+            this.buildUrl(
+                OceanIamClient.PATHS.applicationKey(
+                    tenantId,
+                    applicationId,
+                    keyId,
                 ),
             ),
 
@@ -839,6 +869,37 @@ export class OceanIamClient {
                 applicationId,
                 challengeId,
             ),
+        });
+    }
+
+    public async getApplicationKeys(
+        tenantId: string,
+        applicationId: string,
+    ): Promise<ApplicationKeyVO[]> {
+        return this.request<ApplicationKeyVO[]>({
+            method: "GET",
+            url: this.endpoints.applicationKeys(tenantId, applicationId),
+        });
+    }
+
+    public async rotateApplicationKey(
+        tenantId: string,
+        applicationId: string,
+    ): Promise<RotateKeyResponse> {
+        return this.request<RotateKeyResponse>({
+            method: "POST",
+            url: this.endpoints.applicationKeys(tenantId, applicationId),
+        });
+    }
+
+    public async revokeApplicationKey(
+        tenantId: string,
+        applicationId: string,
+        keyId: string,
+    ): Promise<void> {
+        await this.request<unknown>({
+            method: "DELETE",
+            url: this.endpoints.applicationKey(tenantId, applicationId, keyId),
         });
     }
 

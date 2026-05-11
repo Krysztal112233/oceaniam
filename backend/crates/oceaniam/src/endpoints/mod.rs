@@ -12,6 +12,7 @@ use crate::state::AppState;
 mod administrators;
 mod application_challenges;
 mod application_configuration;
+mod application_keys;
 mod application_tokens;
 mod application_users;
 mod applications;
@@ -37,6 +38,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
         .pipe(administrators::endpoint)
         .pipe(application_configuration::endpoint)
         .pipe(application_challenges::endpoint)
+        .pipe(application_keys::endpoint)
         .pipe(application_tokens::endpoint)
         .pipe(application_users::endpoint)
         .pipe(applications::endpoint)

@@ -564,3 +564,48 @@ impl SecretVO {
         self
     }
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+pub struct ApplicationKeyVO {
+    pub key_id: Sqid,
+    pub algorithm: String,
+    pub status: String,
+    pub created_at: DateTime<FixedOffset>,
+    pub activated_at: Option<DateTime<FixedOffset>>,
+    pub retired_at: Option<DateTime<FixedOffset>>,
+    pub expires_at: Option<DateTime<FixedOffset>>,
+    pub revoked_at: Option<DateTime<FixedOffset>>,
+}
+
+#[cfg(feature = "database")]
+impl From<oceaniam_database::model::key_boxes::Model> for ApplicationKeyVO {
+    fn from(
+        oceaniam_database::model::key_boxes::Model {
+            id,
+            key_alg,
+            status,
+            created_at,
+            activated_at,
+            retired_at,
+            expires_at,
+            revoked_at,
+            ..
+        }: oceaniam_database::model::key_boxes::Model,
+    ) -> Self {
+        Self {
+            key_id: id.into(),
+            algorithm: key_alg.to_string(),
+            status: status.to_string(),
+            created_at,
+            activated_at,
+            retired_at,
+            expires_at,
+            revoked_at,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+pub struct RotateKeyResponse {
+    pub key: ApplicationKeyVO,
+}

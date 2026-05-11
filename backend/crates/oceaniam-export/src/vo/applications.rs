@@ -57,3 +57,13 @@ pub struct SecretVO;
 #[ts(export)]
 #[ts(as = "oceaniam_vo::applications::ApplicationChallengeVO")]
 pub struct ApplicationChallengeVO;
+
+#[derive(ts_rs::TS)]
+#[ts(export)]
+#[ts(as = "oceaniam_vo::applications::ApplicationKeyVO")]
+pub struct ApplicationKeyVO;
+
+#[derive(ts_rs::TS)]
+#[ts(export)]
+#[ts(as = "oceaniam_vo::applications::RotateKeyResponse")]
+pub struct RotateKeyResponse;

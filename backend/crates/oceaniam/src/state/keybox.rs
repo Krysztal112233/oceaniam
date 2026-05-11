@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use axum::http::StatusCode;
+use chrono::Utc;
 use jsonwebtoken::Header;
 use moka::future::{Cache, CacheBuilder};
 use oceaniam_auth::{
@@ -12,6 +13,7 @@ use oceaniam_database::{
     config::application::ApplicationConfiguration,
     helper::{applications::ApplicationHelper, key_boxes::KeyBoxesHelper},
     model::{
+        key_boxes::Model as KeyModel,
         prelude::{Applications, KeyBoxes},
         sea_orm_active_enums::{KeyAlg, KeyStatus},
     },
@@ -113,6 +115,45 @@ impl ManagedKeyBoxes {
         self.boxes.insert(application_id, keybox.clone()).await;
 
         Ok(keybox)
+    }
+
+    pub async fn rotate_key(&self, application_id: Uuid) -> Result<KeyModel, Error> {
+        let mut keybox = self.get_keybox(application_id).await?;
+
+        let rsa_key = RsaKey::new(Uuid::now_v7(), KeyAlg::Ps512);
+        let key_id = rsa_key.key_id();
+
+        keybox.add_key_with_option(
+            rsa_key,
+            KeyOption {
+                retired_at: Some((Utc::now() + consts::DEFAULT_KEY_RETIED_AFTER).into()),
+                expires_at: Some((Utc::now() + consts::DEFAULT_KEY_EXPIRES_AFTER).into()),
+                ..Default::default()
+            },
+        )?;
+
+        keybox.write_to(&self.database).await?;
+
+        self.boxes.insert(application_id, keybox.clone()).await;
+        self.jwks.invalidate(&application_id).await;
+
+        // SAFETY: the key was just inserted, it exists and is not expired
+        let new_key = unsafe { keybox.get_raw_key_unsafe(&key_id) }
+            .ok_or_else(|| Error::with_code(500u16, "key was inserted but cannot be retrieved"))?;
+
+        Ok(new_key)
+    }
+
+    pub async fn revoke_key(&self, application_id: Uuid, key_id: Uuid) -> Result<(), Error> {
+        let mut keybox = self.get_keybox(application_id).await?;
+
+        keybox.revoke_key(&key_id)?;
+        keybox.write_to(&self.database).await?;
+
+        self.boxes.insert(application_id, keybox).await;
+        self.jwks.invalidate(&application_id).await;
+
+        Ok(())
     }
 
     pub async fn sign_jwt<T>(
