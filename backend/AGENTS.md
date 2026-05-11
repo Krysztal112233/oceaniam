@@ -81,3 +81,15 @@ Before claiming work is complete, run these commands:
   - Auto-cleans the schema on `Drop` via a dedicated tokio runtime thread.
 - Database connection defaults to `postgresql://postgres:postgres@localhost:5432/postgres`.
 - Root password can be set via `MIGRATION_DEFAULT_ROOT_PASSWORD` environment variable.
+
+## Migration Discipline
+
+- Migrations are always linear and append-only.  Never delete, rename, or modify a migration
+  file that has already been committed — future migrations must compensate instead.
+- Every migration must be idempotent (usable in both fresh installs and incremental rollouts).
+- When creating a new migration, use `sea-orm-cli migrate generate <name>` to scaffold it.
+  Run the command inside the `crates` directory (`backend/crates/`) so the scaffolding lands in
+  the correct migration crate.
+  If `sea-orm-cli` is not installed, run `cargo install sea-orm-cli` first.  If the
+  installation fails, stop and inform the user — do not proceed without a proper
+  migration scaffold.

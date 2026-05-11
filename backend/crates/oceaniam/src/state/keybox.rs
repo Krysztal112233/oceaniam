@@ -98,9 +98,11 @@ impl ManagedKeyBoxes {
         key_opts: KeyOption,
     ) -> Result<KeyBox, Error> {
         let mut keybox = KeyBox::new(application_id);
+
         keybox
             .put_key_with_option(RsaKey::new(Uuid::now_v7(), KeyAlg::Ps512), key_opts)
             .inspect_err(|e| error!("{e}"))?;
+
         keybox
             .write_to(&self.database)
             .await

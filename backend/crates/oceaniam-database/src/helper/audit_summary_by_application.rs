@@ -1,6 +1,6 @@
 use chrono::{Duration, Utc};
 use oceaniam_common::error::Error;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Statement};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use uuid::Uuid;
 
 use crate::{
@@ -11,17 +11,6 @@ use crate::{
 
 #[async_trait::async_trait]
 pub trait AuditSummaryByApplicationHelper {
-    async fn refresh(database: &impl SafeTransactionConnectionTrait) -> Result<(), Error> {
-        database
-            .execute(Statement::from_string(
-                database.get_database_backend(),
-                "REFRESH MATERIALIZED VIEW CONCURRENTLY audit_summary_by_application".to_owned(),
-            ))
-            .await?;
-
-        Ok(())
-    }
-
     async fn get_last_30days_by_application(
         application_id: Uuid,
         audit_type: AuditType,
