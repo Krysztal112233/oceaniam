@@ -875,8 +875,8 @@ export class OceanIamClient {
     public async getApplicationKeys(
         tenantId: string,
         applicationId: string,
-    ): Promise<ApplicationKeyVO[]> {
-        return this.request<ApplicationKeyVO[]>({
+    ): Promise<PagedResponse<ApplicationKeyVO>> {
+        return this.request<PagedResponse<ApplicationKeyVO>>({
             method: "GET",
             url: this.endpoints.applicationKeys(tenantId, applicationId),
         });

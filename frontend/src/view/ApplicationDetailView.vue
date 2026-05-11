@@ -2,10 +2,15 @@
 import { computed, defineAsyncComponent, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useToast } from "vue-toastification";
-import type { ApplicationConfigurationVO, ApplicationVO } from "@oceaniam/sdk";
+import type {
+    ApplicationConfigurationVO,
+    ApplicationKeyVO,
+    ApplicationVO,
+} from "@oceaniam/sdk";
 import EntityListPage from "../components/EntityListPage.vue";
 import { useTenantStore } from "../stores/tenant";
 import { getClient } from "../utils/api-client";
+import ApplicationKeyTable from "../components/ApplicationKeyTable.vue";
 
 const ConfigEditor = defineAsyncComponent(
     () => import("../components/ConfigEditor.vue"),
@@ -23,6 +28,11 @@ const commentSaving = ref(false);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const requestId = ref(0);
+const keys = ref<ApplicationKeyVO[]>([]);
+const loadingKeys = ref(false);
+const creatingKey = ref(false);
+const revokingKeyId = ref<string | null>(null);
+const newlyCreatedKey = ref<ApplicationKeyVO | null>(null);
 
 const tenantId = computed(() => {
     const raw = route.params.tenantId;
@@ -61,6 +71,7 @@ async function loadApplicationDetail(): Promise<void> {
 
     application.value = null;
     configuration.value = null;
+    keys.value = [];
     error.value = null;
 
     if (!normalizedTenantId || !normalizedApplicationId) {
@@ -73,6 +84,7 @@ async function loadApplicationDetail(): Promise<void> {
     const currentRequestId = requestId.value + 1;
     requestId.value = currentRequestId;
     loading.value = true;
+    loadingKeys.value = true;
 
     try {
         const client = getClient();
@@ -100,6 +112,31 @@ async function loadApplicationDetail(): Promise<void> {
     } finally {
         if (currentRequestId === requestId.value) {
             loading.value = false;
+        }
+    }
+
+    try {
+        const client = getClient();
+        const response = await client.getApplicationKeys(
+            normalizedTenantId,
+            normalizedApplicationId,
+        );
+
+        if (currentRequestId !== requestId.value) {
+            return;
+        }
+
+        keys.value = response.items;
+    } catch (err) {
+        if (currentRequestId !== requestId.value) {
+            return;
+        }
+
+        toast.error("加载密钥列表失败。");
+        keys.value = [];
+    } finally {
+        if (currentRequestId === requestId.value) {
+            loadingKeys.value = false;
         }
     }
 }
@@ -186,6 +223,75 @@ async function handleCommentSubmit(): Promise<void> {
         toast.error(message);
     } finally {
         commentSaving.value = false;
+    }
+}
+
+async function handleRotateKey(): Promise<void> {
+    const normalizedTenantId = tenantId.value.trim();
+    const normalizedApplicationId = applicationId.value.trim();
+
+    if (!normalizedTenantId || !normalizedApplicationId) {
+        toast.error("缺少 tenant 或 application 标识。");
+        return;
+    }
+
+    creatingKey.value = true;
+
+    try {
+        const client = getClient();
+        const response = await client.rotateApplicationKey(
+            normalizedTenantId,
+            normalizedApplicationId,
+        );
+
+        newlyCreatedKey.value = response.key;
+        toast.success("新密钥已生成。");
+
+        const keysResponse = await client.getApplicationKeys(
+            normalizedTenantId,
+            normalizedApplicationId,
+        );
+        keys.value = keysResponse.items;
+    } catch (err) {
+        const message = err instanceof Error ? err.message : "轮换密钥失败。";
+        toast.error(message);
+    } finally {
+        creatingKey.value = false;
+    }
+}
+
+async function handleRevokeKey(keyId: string): Promise<void> {
+    const normalizedTenantId = tenantId.value.trim();
+    const normalizedApplicationId = applicationId.value.trim();
+
+    if (!normalizedTenantId || !normalizedApplicationId) {
+        toast.error("缺少 tenant 或 application 标识。");
+        return;
+    }
+
+    revokingKeyId.value = keyId;
+
+    try {
+        const client = getClient();
+        await client.revokeApplicationKey(
+            normalizedTenantId,
+            normalizedApplicationId,
+            keyId,
+        );
+
+        toast.success("密钥已吊销。");
+
+        const keysResponse = await client.getApplicationKeys(
+            normalizedTenantId,
+            normalizedApplicationId,
+        );
+        keys.value = keysResponse.items;
+        newlyCreatedKey.value = null;
+    } catch (err) {
+        const message = err instanceof Error ? err.message : "吊销密钥失败。";
+        toast.error(message);
+    } finally {
+        revokingKeyId.value = null;
     }
 }
 
@@ -294,7 +400,60 @@ watch(
                 :on-submit="handleConfigurationSubmit"
             />
 
-            <section></section>
+            <section class="rounded-box border border-base-200 bg-base-100">
+                <div class="flex flex-col gap-4 px-5 py-5">
+                    <div
+                        class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"
+                    >
+                        <div class="space-y-1">
+                            <h3 class="text-base font-medium text-base-content">
+                                Signing Keys
+                            </h3>
+                            <p class="text-sm text-base-content/60">
+                                管理当前 Application 用于签发 JWT
+                                的密钥。轮换密钥会生成一个新的密钥对并使其进入生效周期。
+                            </p>
+                        </div>
+
+                        <button
+                            type="button"
+                            class="btn btn-primary btn-sm"
+                            :disabled="
+                                loadingKeys || creatingKey || !application
+                            "
+                            :class="{ loading: creatingKey }"
+                            @click="handleRotateKey"
+                        >
+                            轮换密钥
+                        </button>
+                    </div>
+
+                    <div
+                        v-if="newlyCreatedKey"
+                        class="rounded-box border border-success/20 bg-success/5 p-4"
+                    >
+                        <div class="text-sm font-medium text-base-content">
+                            新生成的密钥
+                        </div>
+                        <div
+                            class="mt-2 space-y-1 font-mono text-sm text-base-content"
+                        >
+                            <div>Key ID: {{ newlyCreatedKey.key_id }}</div>
+                            <div>
+                                Algorithm: {{ newlyCreatedKey.algorithm }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <ApplicationKeyTable
+                        :keys="keys"
+                        :loading="loadingKeys"
+                        :revoking-key-id="revokingKeyId"
+                        @rotate="handleRotateKey"
+                        @revoke="handleRevokeKey"
+                    />
+                </div>
+            </section>
         </div>
     </EntityListPage>
 </template>

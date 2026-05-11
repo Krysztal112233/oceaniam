@@ -4,10 +4,11 @@ use crate::sqid::Sqid;
 use chrono::{DateTime, FixedOffset};
 use garde::Validate;
 use oceaniam_api::PageParam;
-#[cfg(feature = "database")]
-use oceaniam_database::model::{self};
 use serde::{Deserialize, Deserializer, Serialize};
 use utoipa::ToSchema;
+
+#[cfg(feature = "database")]
+use oceaniam_database::model::{self};
 
 #[derive(Debug, Deserialize, ToSchema, ts_rs::TS)]
 pub struct CreateApplicationRequest {
