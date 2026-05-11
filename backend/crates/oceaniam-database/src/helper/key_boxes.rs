@@ -2,20 +2,14 @@
 
 use std::time::Duration;
 
-use chrono::Utc;
 use oceaniam_common::{consts, error::Error};
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, sea_query::OnConflict};
 use tracing::{debug, error};
 use uuid::Uuid;
 
 use crate::{
     helper::SafeTransactionConnectionTrait,
-    model::{
-        self,
-        key_boxes::Model as KeyBoxesModel,
-        prelude::KeyBoxes,
-        sea_orm_active_enums::{KeyAlg, KeyStatus},
-    },
+    model::{self, prelude::KeyBoxes, sea_orm_active_enums::KeyAlg},
 };
 
 #[derive(Debug, Clone)]
@@ -53,6 +47,7 @@ pub trait KeyBoxesHelper {
         Self::get_application_keys(consts::SYSTEM_APPLICATION_UUID, database).await
     }
 
+    /// Retrieves all keys for a given application from the database.
     async fn get_application_keys(
         application_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -64,12 +59,33 @@ pub trait KeyBoxesHelper {
             .inspect_err(|e| error!("{e}"))?)
     }
 
+    /// Persists all in-memory keys to the database for a given application.
+    ///
+    /// Uses `INSERT ... ON CONFLICT (id) DO UPDATE` so that every row call
+    /// is an atomic upsert — existing rows are updated, new rows are inserted.
+    /// No explicit transaction wrapper is needed because the single statement
+    /// provides statement-level atomicity.
     async fn update_application_keys(
         application_id: Uuid,
         keys: impl IntoIterator<Item = model::key_boxes::ActiveModel> + Send,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<(), Error> {
         let updated = KeyBoxes::insert_many(keys)
+            .on_conflict(
+                OnConflict::column(model::key_boxes::Column::Id)
+                    .update_columns([
+                        model::key_boxes::Column::KeyAlg,
+                        model::key_boxes::Column::Status,
+                        model::key_boxes::Column::CreatedAt,
+                        model::key_boxes::Column::ActivatedAt,
+                        model::key_boxes::Column::RetiredAt,
+                        model::key_boxes::Column::RevokedAt,
+                        model::key_boxes::Column::ExpiresAt,
+                        model::key_boxes::Column::Secret,
+                        model::key_boxes::Column::ApplicationId,
+                    ])
+                    .to_owned(),
+            )
             .exec_with_returning_keys(database)
             .await
             .inspect_err(|e| error!("{e}"))?;
@@ -81,70 +97,3 @@ pub trait KeyBoxesHelper {
 }
 
 impl KeyBoxesHelper for KeyBoxes {}
-
-/// Helper trait for status management of key box models.
-///
-/// This trait provides methods to automatically determine and update
-/// the status of a key based on its activation, retirement, and expiration times.
-pub trait KeyBoxesModelHelper {
-    /// Returns a new model with an updated status if necessary.
-    ///
-    /// The status is recalculated based on current time and the key's
-    /// temporal properties (`activated_at`, `retired_at`, `expires_at`).
-    ///
-    /// # Returns
-    ///
-    /// A new `KeyBoxesModel` with potentially updated status.
-    fn update_status(self) -> Self;
-
-    /// Determines if the key's status should be updated based on current time.
-    ///
-    /// This method checks the key's temporal properties against the current time
-    /// to determine the appropriate status (Active, Pending, or Retired).
-    ///
-    /// # Returns
-    ///
-    /// - `Some(KeyStatus)` if the status needs to be updated to the given value.
-    /// - `None` if the current status is already correct.
-    fn should_update_status(&self) -> Option<KeyStatus>;
-}
-
-impl KeyBoxesModelHelper for KeyBoxesModel {
-    fn update_status(self) -> Self {
-        let status = {
-            match self.should_update_status() {
-                Some(status) => status,
-                None => self.status,
-            }
-        };
-
-        KeyBoxesModel { status, ..self }
-    }
-
-    fn should_update_status(&self) -> Option<KeyStatus> {
-        let KeyBoxesModel {
-            activated_at,
-            retired_at,
-            expires_at,
-            ..
-        } = self;
-
-        let status = {
-            let now = Utc::now();
-
-            if expires_at.is_some_and(|t| now >= t) || retired_at.is_some_and(|t| now >= t) {
-                KeyStatus::Retired
-            } else if activated_at.is_none_or(|t| now >= t) {
-                KeyStatus::Active
-            } else {
-                KeyStatus::Pending
-            }
-        };
-
-        if self.status != status {
-            None
-        } else {
-            Some(status)
-        }
-    }
-}

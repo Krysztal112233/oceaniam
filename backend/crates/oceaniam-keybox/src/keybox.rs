@@ -174,11 +174,6 @@ impl KeyBox {
         self.get_raw_key(key_id).map(T::try_from)
     }
 
-    /// Removes the specified key
-    pub fn remove_key(&mut self, key_id: &Uuid) -> Option<Key> {
-        self.keys.remove(key_id)
-    }
-
     /// Revokes the specified key by setting its status to `Revoked`
     /// and recording the revocation timestamp.
     ///
@@ -237,8 +232,7 @@ impl KeyBox {
             .iter()
             .map(|(_, model)| model)
             .cloned()
-            .map(|it| it.into_active_model())
-            .collect_vec();
+            .map(|it| it.into_active_model());
 
         KeyBoxes::update_application_keys(self.application_id, vec, database).await?;
 
