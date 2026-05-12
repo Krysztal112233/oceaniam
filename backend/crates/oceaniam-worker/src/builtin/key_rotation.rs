@@ -56,23 +56,31 @@ impl Worker for KeyRotationWorker {
     }
 
     async fn run(&self, context: &WorkerContext) -> Result<(), Error> {
-        let apps = Applications::find().all(&context.database).await?;
+        let applications = Applications::find().all(&context.database).await?;
 
         // TODO: make this configurable via ApplicationConfiguration fields. Each application should
         // be able to control whether auto-rotation is enabled, the threshold duration, and the
         // lifetime of rotated keys.
         let threshold = Duration::days(7);
 
-        for app in &apps {
-            let keys = KeyBoxes::get_application_keys(app.id, &context.database).await?;
+        for application in &applications {
+            let keys = KeyBoxes::get_application_keys(application.id, &context.database).await?;
 
             if keys.is_empty() {
-                debug!(application_id = %app.id, "no keys found, skipping");
+                debug!(application_id = %application.id, "no keys found, skipping");
                 continue;
             }
 
-            let keys_map: im::HashMap<_, _> = keys.into_iter().map(|k| (k.id, k)).collect();
-            let keybox = KeyBox::with_keys(app.id, keys_map);
+            let keys_map = keys.into_iter().map(|k| (k.id, k)).collect();
+            let mut keybox = KeyBox::with_keys(application.id, keys_map);
+
+            if keybox.refresh_statuses() {
+                debug!(application_id = %application.id, "key statuses refreshed");
+                if let Err(e) = keybox.write_to(&context.database).await {
+                    error!(%application.id, error = %e, "failed to persist refreshed key statuses");
+                }
+            }
+
             let should_rotate = keybox
                 .get_keys()
                 .values()
@@ -85,18 +93,17 @@ impl Worker for KeyRotationWorker {
                 });
 
             if should_rotate {
-                let mut keybox = keybox;
                 match keybox.rotate_key() {
                     Ok(new_key) => {
                         if let Err(e) = keybox.write_to(&context.database).await {
-                            error!(%app.id, error = %e, "failed to persist rotated key");
+                            error!(%application.id, error = %e, "failed to persist rotated key");
                         } else {
-                            info!(%app.id, new_key_id = %new_key.id, "key rotation completed");
-                            log_key_rotation(app.id, new_key.id, &context.database).await;
+                            info!(%application.id, new_key_id = %new_key.id, "key rotation completed");
+                            log_key_rotation(application.id, new_key.id, &context.database).await;
                         }
                     }
                     Err(e) => {
-                        error!(%app.id, error = %e, "failed to rotate key");
+                        error!(%application.id, error = %e, "failed to rotate key");
                     }
                 }
             }

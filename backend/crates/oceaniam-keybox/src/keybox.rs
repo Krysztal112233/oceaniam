@@ -58,10 +58,13 @@ impl From<Key> for StandaloneKey {
 pub struct KeyOption {
     /// Timestamp when the key was created
     pub created_at: DateTime<FixedOffset>,
+
     /// Optional timestamp when the key becomes active
     pub activated_at: Option<DateTime<FixedOffset>>,
+
     /// Optional timestamp when the key is retired
     pub retired_at: Option<DateTime<FixedOffset>>,
+
     /// Optional timestamp when the key expires
     pub expires_at: Option<DateTime<FixedOffset>>,
 }
@@ -218,6 +221,50 @@ impl KeyBox {
     /// Returns all keys in the keybox
     pub fn get_keys(&self) -> &HashMap<Uuid, Key> {
         &self.keys
+    }
+
+    /// Refreshes each key's status based on its timestamps and current time.
+    ///
+    /// A previously [`Active`](KeyStatus::Active) key becomes [`Retired`](KeyStatus::Retired) once
+    /// its `retired_at` or `expires_at` has passed.  [`Revoked`](KeyStatus::Revoked) keys are never
+    /// changed.
+    ///
+    /// Returns `true` if any status was updated.
+    pub fn refresh_statuses(&mut self) -> bool {
+        let now: DateTime<FixedOffset> = Utc::now().into();
+        let mut changed = false;
+
+        let updates: Vec<(Uuid, KeyStatus)> = self
+            .keys
+            .iter()
+            .filter_map(|(id, key)| {
+                if key.revoked_at.is_some() {
+                    return None;
+                }
+
+                let new_status = if key.expires_at.is_some_and(|t| now >= t)
+                    || key.retired_at.is_some_and(|t| now >= t)
+                {
+                    KeyStatus::Retired
+                } else if key.activated_at.is_none_or(|t| now >= t) {
+                    KeyStatus::Active
+                } else {
+                    KeyStatus::Pending
+                };
+
+                (new_status != key.status).then_some((*id, new_status))
+            })
+            .collect();
+
+        for (id, status) in &updates {
+            if let Some(mut key) = self.keys.get(id).cloned() {
+                key.status = status.clone();
+                self.keys.insert(*id, key);
+                changed = true;
+            }
+        }
+
+        changed
     }
 
     /// Gets the latest key with the specified status

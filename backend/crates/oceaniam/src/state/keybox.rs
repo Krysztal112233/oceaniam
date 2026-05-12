@@ -98,18 +98,16 @@ impl ManagedKeyBoxes {
     /// Creates a new initial keybox for an application with a single initial key.
     ///
     /// This is called during application creation to bootstrap the application's
-    /// signing key.  The initial key is created with the caller-supplied
-    /// [`KeyOption`] (which controls its activation, retirement, and expiry
-    /// timestamps) and immediately persisted to the database and cached.
-    pub async fn create_keybox(
-        &self,
-        application_id: Uuid,
-        key_opts: KeyOption,
-    ) -> Result<KeyBox, Error> {
+    /// signing key.  The initial key is created with default [`KeyOption`]
+    /// timestamps and immediately persisted to the database and cached.
+    pub async fn create_keybox(&self, application_id: Uuid) -> Result<KeyBox, Error> {
         let mut keybox = KeyBox::new(application_id);
 
         keybox
-            .add_key_with_option(RsaKey::new(Uuid::now_v7(), KeyAlg::Ps512), key_opts)
+            .add_key_with_option(
+                RsaKey::new(Uuid::now_v7(), KeyAlg::Ps512),
+                KeyOption::default(),
+            )
             .inspect_err(|e| error!("{e}"))?;
 
         keybox

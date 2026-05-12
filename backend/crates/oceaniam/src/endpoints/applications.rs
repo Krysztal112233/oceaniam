@@ -5,7 +5,6 @@ use axum::{
     extract::{Path, State},
 };
 use axum_extra::extract::OptionalQuery;
-use chrono::Utc;
 use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse, RestResult};
 use oceaniam_audit::types::{
     AuditPayload, CreateApplicationPayload, DeleteApplicationPayload, PatchApplicationPayload,
@@ -14,11 +13,10 @@ use oceaniam_auth::{
     jwks::{JwkSet, JwkSetSchema},
     jwt::SystemClaim,
 };
-use oceaniam_common::{consts, error::Error};
+use oceaniam_common::error::Error;
 use oceaniam_database::{
     helper::applications::ApplicationHelper, model, model::prelude::Applications,
 };
-use oceaniam_keybox::keybox::KeyOption;
 use oceaniam_vo::applications::{
     ApplicationDetailVO, ApplicationVO, CreateApplicationRequest, CreateApplicationResponse,
     PatchApplicationRequest,
@@ -148,16 +146,7 @@ pub async fn create_application(
         "application created successfully"
     );
 
-    keyboxes
-        .create_keybox(
-            id,
-            KeyOption {
-                retired_at: Some((Utc::now() + consts::DEFAULT_KEY_RETIED_AFTER).into()),
-                expires_at: Some((Utc::now() + consts::DEFAULT_KEY_EXPIRES_AFTER).into()),
-                ..Default::default()
-            },
-        )
-        .await?;
+    keyboxes.create_keybox(id).await?;
 
     info!(
         tenant_id = %tenant_id,
