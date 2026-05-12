@@ -57,6 +57,8 @@ mod m20260428_015000_alter_audit_type_verify_challenge;
 mod m20260508_160709_alter_app_cfg_secrets;
 mod m20260510_171924_audit_summary_by_application_triggers;
 mod m20260511_133000_alter_audit_type_rotate_revoke_key;
+mod m20260512_094922_alter_key_boxes_fill_timestamps;
+mod m20260512_094928_alter_key_boxes_temporal_check;
 
 pub struct Migrator;
 
@@ -124,6 +126,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260508_160709_alter_app_cfg_secrets::Migration),
             Box::new(m20260510_171924_audit_summary_by_application_triggers::Migration),
             Box::new(m20260511_133000_alter_audit_type_rotate_revoke_key::Migration),
+            Box::new(m20260512_094922_alter_key_boxes_fill_timestamps::Migration),
+            Box::new(m20260512_094928_alter_key_boxes_temporal_check::Migration),
         ]
     }
 }

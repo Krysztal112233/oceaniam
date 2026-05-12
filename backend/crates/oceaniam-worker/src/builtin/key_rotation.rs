@@ -87,9 +87,8 @@ impl Worker for KeyRotationWorker {
                 .filter(|k| k.status == KeyStatus::Active)
                 .max_by_key(|k| k.activated_at)
                 .map_or(true, |key| {
-                    key.expires_at.is_none_or(|exp| {
-                        exp.signed_duration_since(Utc::now()).num_days() < threshold.num_days()
-                    })
+                    key.expires_at.signed_duration_since(Utc::now()).num_days()
+                        < threshold.num_days()
                 });
 
             if should_rotate {

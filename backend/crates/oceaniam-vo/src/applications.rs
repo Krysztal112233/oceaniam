@@ -572,9 +572,9 @@ pub struct ApplicationKeyVO {
     pub algorithm: String,
     pub status: String,
     pub created_at: DateTime<FixedOffset>,
-    pub activated_at: Option<DateTime<FixedOffset>>,
-    pub retired_at: Option<DateTime<FixedOffset>>,
-    pub expires_at: Option<DateTime<FixedOffset>>,
+    pub activated_at: DateTime<FixedOffset>,
+    pub retired_at: DateTime<FixedOffset>,
+    pub expires_at: DateTime<FixedOffset>,
     pub revoked_at: Option<DateTime<FixedOffset>>,
 }
 

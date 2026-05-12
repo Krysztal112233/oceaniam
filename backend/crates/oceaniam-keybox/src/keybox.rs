@@ -59,26 +59,25 @@ pub struct KeyOption {
     /// Timestamp when the key was created
     pub created_at: DateTime<FixedOffset>,
 
-    /// Optional timestamp when the key becomes active
-    pub activated_at: Option<DateTime<FixedOffset>>,
+    /// Timestamp when the key becomes active
+    pub activated_at: DateTime<FixedOffset>,
 
-    /// Optional timestamp when the key is retired
-    pub retired_at: Option<DateTime<FixedOffset>>,
+    /// Timestamp when the key is retired
+    pub retired_at: DateTime<FixedOffset>,
 
-    /// Optional timestamp when the key expires
-    pub expires_at: Option<DateTime<FixedOffset>>,
+    /// Timestamp when the key expires
+    pub expires_at: DateTime<FixedOffset>,
 }
 
 impl Default for KeyOption {
     /// Creates default key options with current time as creation timestamp
-    ///
-    /// All lifecycle timestamps (activated_at, retired_at, expires_at) are set to None
     fn default() -> Self {
+        let now: DateTime<FixedOffset> = Utc::now().into();
         Self {
-            created_at: Utc::now().into(),
-            activated_at: Default::default(),
-            retired_at: Default::default(),
-            expires_at: Default::default(),
+            created_at: now,
+            activated_at: now,
+            retired_at: now + chrono::Duration::days(30),
+            expires_at: now + chrono::Duration::days(60),
         }
     }
 }
@@ -207,8 +206,8 @@ impl KeyBox {
         self.add_key_with_option(
             rsa_key,
             KeyOption {
-                retired_at: Some((Utc::now() + consts::DEFAULT_KEY_RETIED_AFTER).into()),
-                expires_at: Some((Utc::now() + consts::DEFAULT_KEY_EXPIRES_AFTER).into()),
+                retired_at: (Utc::now() + consts::DEFAULT_KEY_RETIED_AFTER).into(),
+                expires_at: (Utc::now() + consts::DEFAULT_KEY_EXPIRES_AFTER).into(),
                 ..Default::default()
             },
         )?;
@@ -242,11 +241,9 @@ impl KeyBox {
                     return None;
                 }
 
-                let new_status = if key.expires_at.is_some_and(|t| now >= t)
-                    || key.retired_at.is_some_and(|t| now >= t)
-                {
+                let new_status = if now >= key.expires_at || now >= key.retired_at {
                     KeyStatus::Retired
-                } else if key.activated_at.is_none_or(|t| now >= t) {
+                } else if now >= key.activated_at {
                     KeyStatus::Active
                 } else {
                     KeyStatus::Pending
@@ -389,11 +386,10 @@ mod tests {
             expires_at,
         } = option;
 
-        let now = Utc::now();
-        let status = if expires_at.is_some_and(|t| now >= t) || retired_at.is_some_and(|t| now >= t)
-        {
+        let now: chrono::DateTime<chrono::FixedOffset> = Utc::now().into();
+        let status = if now >= expires_at || now >= retired_at {
             KeyStatus::Retired
-        } else if activated_at.is_none_or(|t| now >= t) {
+        } else if now >= activated_at {
             KeyStatus::Active
         } else {
             KeyStatus::Pending
@@ -422,14 +418,16 @@ mod tests {
         let key = create_rsa_standalone_key();
         let key_id = key.key_id;
 
+        let now = now_fixed();
+
         put_key_direct(
             &mut keybox,
             key,
             KeyOption {
-                created_at: now_fixed(),
-                activated_at: None,
-                retired_at: None,
-                expires_at: None,
+                created_at: now,
+                activated_at: now,
+                retired_at: now + Duration::hours(2),
+                expires_at: now + Duration::hours(3),
             },
         );
 
@@ -443,16 +441,17 @@ mod tests {
         let mut keybox = KeyBox::new(Uuid::now_v7());
         let key = create_rsa_standalone_key();
         let key_id = key.key_id;
-        let past = now_fixed() - Duration::hours(1);
+        let now = now_fixed();
+        let past = now - Duration::hours(1);
 
         put_key_direct(
             &mut keybox,
             key,
             KeyOption {
-                created_at: now_fixed(),
-                activated_at: Some(past),
-                retired_at: None,
-                expires_at: None,
+                created_at: now,
+                activated_at: past,
+                retired_at: now + Duration::hours(2),
+                expires_at: now + Duration::hours(3),
             },
         );
 
@@ -466,16 +465,17 @@ mod tests {
         let mut keybox = KeyBox::new(Uuid::now_v7());
         let key = create_rsa_standalone_key();
         let key_id = key.key_id;
-        let future = now_fixed() + Duration::hours(1);
+        let now = now_fixed();
+        let future = now + Duration::hours(1);
 
         put_key_direct(
             &mut keybox,
             key,
             KeyOption {
-                created_at: now_fixed(),
-                activated_at: Some(future),
-                retired_at: None,
-                expires_at: None,
+                created_at: now,
+                activated_at: future,
+                retired_at: future + Duration::hours(1),
+                expires_at: future + Duration::hours(2),
             },
         );
 
@@ -489,16 +489,17 @@ mod tests {
         let mut keybox = KeyBox::new(Uuid::now_v7());
         let key = create_rsa_standalone_key();
         let key_id = key.key_id;
-        let past = now_fixed() - Duration::hours(1);
+        let now = now_fixed();
+        let past = now - Duration::hours(1);
 
         put_key_direct(
             &mut keybox,
             key,
             KeyOption {
-                created_at: now_fixed(),
-                activated_at: None,
-                retired_at: None,
-                expires_at: Some(past),
+                created_at: now,
+                activated_at: past - Duration::hours(1),
+                retired_at: past - Duration::hours(1),
+                expires_at: past,
             },
         );
 
@@ -512,16 +513,17 @@ mod tests {
         let mut keybox = KeyBox::new(Uuid::now_v7());
         let key = create_rsa_standalone_key();
         let key_id = key.key_id;
-        let past = now_fixed() - Duration::hours(1);
+        let now = now_fixed();
+        let past = now - Duration::hours(1);
 
         put_key_direct(
             &mut keybox,
             key,
             KeyOption {
-                created_at: now_fixed(),
-                activated_at: None,
-                retired_at: Some(past),
-                expires_at: None,
+                created_at: now,
+                activated_at: past - Duration::hours(1),
+                retired_at: past,
+                expires_at: now + Duration::hours(1),
             },
         );
 
@@ -535,18 +537,19 @@ mod tests {
         let mut keybox = KeyBox::new(Uuid::now_v7());
         let key = create_rsa_standalone_key();
         let key_id = key.key_id;
-        let past = now_fixed() - Duration::hours(1);
-        let future = now_fixed() + Duration::hours(1);
+        let now = now_fixed();
+        let past = now - Duration::hours(1);
+        let future = now + Duration::hours(1);
 
         // `activated_at` is in the future (should be Pending), but expires_at has already passed
         put_key_direct(
             &mut keybox,
             key,
             KeyOption {
-                created_at: now_fixed(),
-                activated_at: Some(future),
-                retired_at: None,
-                expires_at: Some(past),
+                created_at: now,
+                activated_at: future,
+                retired_at: future + Duration::hours(1),
+                expires_at: past,
             },
         );
 
@@ -560,17 +563,18 @@ mod tests {
         let mut keybox = KeyBox::new(Uuid::now_v7());
         let key = create_rsa_standalone_key();
         let key_id = key.key_id;
-        let past = now_fixed() - Duration::hours(1);
+        let now = now_fixed();
+        let past = now - Duration::hours(1);
 
         // `activated_at` is in the past (should be Active), but retired_at has already passed
         put_key_direct(
             &mut keybox,
             key,
             KeyOption {
-                created_at: now_fixed(),
-                activated_at: Some(past - Duration::hours(1)),
-                retired_at: Some(past),
-                expires_at: None,
+                created_at: now,
+                activated_at: past - Duration::hours(1),
+                retired_at: past,
+                expires_at: now + Duration::hours(1),
             },
         );
 

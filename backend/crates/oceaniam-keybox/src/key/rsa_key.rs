@@ -123,11 +123,11 @@ impl TryIntoKeyModel for RsaKey {
         } = self.try_into()?;
 
         let status = {
-            let now = Utc::now();
+            let now: chrono::DateTime<chrono::FixedOffset> = Utc::now().into();
 
-            if expires_at.is_some_and(|t| now >= t) || retired_at.is_some_and(|t| now >= t) {
+            if now >= expires_at || now >= retired_at {
                 KeyStatus::Retired
-            } else if activated_at.is_none_or(|t| now >= t) {
+            } else if now >= activated_at {
                 KeyStatus::Active
             } else {
                 KeyStatus::Pending

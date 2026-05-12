@@ -13,10 +13,10 @@ pub struct Model {
     pub key_alg: KeyAlg,
     pub status: KeyStatus,
     pub created_at: DateTimeWithTimeZone,
-    pub activated_at: Option<DateTimeWithTimeZone>,
-    pub retired_at: Option<DateTimeWithTimeZone>,
+    pub activated_at: DateTimeWithTimeZone,
+    pub retired_at: DateTimeWithTimeZone,
     pub revoked_at: Option<DateTimeWithTimeZone>,
-    pub expires_at: Option<DateTimeWithTimeZone>,
+    pub expires_at: DateTimeWithTimeZone,
     #[sea_orm(column_type = "JsonBinary")]
     pub secret: Json,
     pub application_id: Uuid,
