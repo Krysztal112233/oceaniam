@@ -3,9 +3,15 @@ use std::{collections::HashMap, net::SocketAddr, sync::OnceLock};
 use migration::{Migrator, MigratorTrait};
 use oceaniam::app::{app, build_state};
 use oceaniam_common::config::{BackendConfig, CorsConfig, DatabaseConfig};
+use oceaniam_database::{
+    helper::{applications::ApplicationHelper, tenants::TenantsHelper},
+    model::prelude::{Applications, Tenants},
+};
 use rand::Rng;
 use reqwest::Client;
-use sea_orm::{ConnectOptions, ConnectionTrait, Database, Statement, TransactionTrait};
+use sea_orm::{
+    ConnectOptions, ConnectionTrait, Database, DatabaseConnection, Statement, TransactionTrait,
+};
 use tokio::task::JoinHandle;
 use uuid::Uuid;
 
@@ -29,9 +35,36 @@ pub struct TestApp {
     pub root_password: String,
 }
 
+#[allow(unused)]
 impl TestApp {
     pub fn url(&self, path: &str) -> String {
         format!("{}{}", self.address, path)
+    }
+
+    pub fn dsn_with_schema(&self) -> String {
+        add_schema_to_dsn(&self.base_dsn, &self.schema_name)
+    }
+
+    pub async fn database(&self) -> DatabaseConnection {
+        Database::connect(&self.dsn_with_schema())
+            .await
+            .expect("failed to connect to test schema database")
+    }
+
+    pub async fn seed_tenant_and_application(&self) -> (Uuid, Uuid) {
+        let db = self.database().await;
+
+        let tenant_id = Uuid::now_v7();
+        Tenants::create_tenant(tenant_id, None::<String>, &db)
+            .await
+            .unwrap();
+
+        let application_id = Uuid::now_v7();
+        Applications::create_application(application_id, tenant_id, &db)
+            .await
+            .unwrap();
+
+        (tenant_id, application_id)
     }
 }
 
@@ -249,7 +282,7 @@ async fn prepare_isolation_schema(test_config: &BackendConfig) -> String {
 ///
 /// `currentSchema` is not honored by the sqlx Postgres connection stack used here,
 /// so tests must use the standard libpq `options=-csearch_path=...` form instead.
-fn add_schema_to_dsn(dsn: &str, schema_name: &str) -> String {
+pub fn add_schema_to_dsn(dsn: &str, schema_name: &str) -> String {
     // Simple string manipulation without using the url crate
     let separator = if dsn.contains('?') { '&' } else { '?' };
     format!(
