@@ -1,31 +1,11 @@
 //! Helper functions and traits for key_boxes operations.
 
-use std::time::Duration;
-
 use oceaniam_common::{consts, error::Error};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, sea_query::OnConflict};
 use tracing::{debug, error};
 use uuid::Uuid;
 
-use crate::{
-    helper::SafeTransactionConnectionTrait,
-    model::{self, prelude::KeyBoxes, sea_orm_active_enums::KeyAlg},
-};
-
-#[derive(Debug, Clone)]
-pub struct CreateApplicationKeyboxOpts {
-    pub key_alg: KeyAlg,
-    pub expires_after: Option<Duration>,
-}
-
-impl Default for CreateApplicationKeyboxOpts {
-    fn default() -> Self {
-        Self {
-            key_alg: KeyAlg::Ps512,
-            expires_after: Some(consts::DEFAULT_KEY_EXPIRES_AFTER),
-        }
-    }
-}
+use crate::{helper::SafeTransactionConnectionTrait, model, model::prelude::KeyBoxes};
 
 /// Helper trait providing database query methods for key boxes.
 #[async_trait::async_trait]

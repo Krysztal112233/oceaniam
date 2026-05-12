@@ -1,4 +1,4 @@
-use std::{sync::LazyLock, time::Duration};
+use std::sync::LazyLock;
 
 use jsonwebtoken::Algorithm;
 use tokio::sync::Semaphore;
@@ -21,6 +21,3 @@ pub static MAX_CPU_BOUND_SEMAPHORE: LazyLock<Semaphore> =
     LazyLock::new(|| Semaphore::new(num_cpus::get()));
 
 pub const USER_LOGIN_FAILED_MSG: &str = "user not found or password invalid";
-
-pub const DEFAULT_KEY_EXPIRES_AFTER: Duration = Duration::from_hours(24 * 30);
-pub const DEFAULT_KEY_RETIED_AFTER: Duration = Duration::from_hours(24 * 30);
