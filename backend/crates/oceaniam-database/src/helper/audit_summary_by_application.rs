@@ -1,6 +1,10 @@
 use crate::error::Error;
+
 use chrono::{Duration, Utc};
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+use sea_orm::{
+    ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QuerySelect,
+    sea_query::{Expr, Order},
+};
 use uuid::Uuid;
 
 use crate::{
@@ -13,6 +17,17 @@ use crate::{
 
 #[async_trait::async_trait]
 pub trait AuditSummaryByApplicationHelper {
+    /// Fetches audit event counts aggregated by day for the last 30 days.
+    ///
+    /// The underlying table stores data at minute-level granularity. This method
+    /// re-aggregates those rows into daily buckets using `date_trunc('day', bucket)`,
+    /// summing `event_count` so callers receive a daily view.
+    ///
+    /// # Returns
+    ///
+    /// A `Vec<Model>` where each element represents one day. The `bucket` field
+    /// is set to `00:00:00 UTC` of that day, and `event_count` is the total
+    /// number of events across all minutes within that day.
     async fn get_last_30days_by_application(
         application_id: Uuid,
         audit_type: AuditType,
@@ -25,11 +40,22 @@ pub trait AuditSummaryByApplicationHelper {
             .unwrap()
             .and_utc();
 
+        let daily_bucket = Expr::cust("date_trunc('day', bucket)");
+
         AuditSummaryByApplication::find()
+            .select_only()
+            .column(ApplicationId)
+            .column_as(daily_bucket.clone(), Bucket)
+            .column(AuditType)
+            .column_as(Expr::cust("SUM(event_count)::bigint"), EventCount)
             .filter(ApplicationId.eq(application_id))
             .filter(AuditType.eq(audit_type))
             .filter(Bucket.gte(since))
-            .order_by_asc(Bucket)
+            .group_by(ApplicationId)
+            .group_by(daily_bucket.clone())
+            .group_by(AuditType)
+            .order_by(daily_bucket, Order::Asc)
+            .into_model::<audit_summary_by_application::Model>()
             .all(database)
             .await
             .map_err(Into::into)
