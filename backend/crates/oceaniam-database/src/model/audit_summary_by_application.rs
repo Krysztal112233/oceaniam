@@ -10,7 +10,7 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub application_id: Uuid,
     #[sea_orm(primary_key, auto_increment = false)]
-    pub day: Date,
+    pub bucket: DateTimeWithTimeZone,
     #[sea_orm(primary_key, auto_increment = false)]
     pub audit_type: AuditType,
     pub event_count: i64,

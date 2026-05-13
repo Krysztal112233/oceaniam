@@ -59,6 +59,7 @@ mod m20260510_171924_audit_summary_by_application_triggers;
 mod m20260511_133000_alter_audit_type_rotate_revoke_key;
 mod m20260512_094922_alter_key_boxes_fill_timestamps;
 mod m20260512_094928_alter_key_boxes_temporal_check;
+mod m20260514_003512_change_audit_summary_to_minute_granularity;
 
 pub struct Migrator;
 
@@ -128,6 +129,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260511_133000_alter_audit_type_rotate_revoke_key::Migration),
             Box::new(m20260512_094922_alter_key_boxes_fill_timestamps::Migration),
             Box::new(m20260512_094928_alter_key_boxes_temporal_check::Migration),
+            Box::new(m20260514_003512_change_audit_summary_to_minute_granularity::Migration),
         ]
     }
 }

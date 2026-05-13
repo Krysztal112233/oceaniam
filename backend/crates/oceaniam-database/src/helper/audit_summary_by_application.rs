@@ -5,8 +5,10 @@ use uuid::Uuid;
 
 use crate::{
     helper::SafeTransactionConnectionTrait,
-    model::sea_orm_active_enums::AuditType,
-    view::{audit_summary_by_application, prelude::AuditSummaryByApplication},
+    model::{
+        audit_summary_by_application, prelude::AuditSummaryByApplication,
+        sea_orm_active_enums::AuditType,
+    },
 };
 
 #[async_trait::async_trait]
@@ -18,13 +20,16 @@ pub trait AuditSummaryByApplicationHelper {
     ) -> Result<Vec<audit_summary_by_application::Model>, Error> {
         use audit_summary_by_application::Column::*;
 
-        let since = Utc::now().date_naive() - Duration::days(30);
+        let since = (Utc::now().date_naive() - Duration::days(30))
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_utc();
 
         AuditSummaryByApplication::find()
             .filter(ApplicationId.eq(application_id))
             .filter(AuditType.eq(audit_type))
-            .filter(Day.gte(since))
-            .order_by_asc(Day)
+            .filter(Bucket.gte(since))
+            .order_by_asc(Bucket)
             .all(database)
             .await
             .map_err(Into::into)
