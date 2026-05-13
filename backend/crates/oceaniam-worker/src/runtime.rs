@@ -81,8 +81,9 @@ impl WorkerRuntime {
         let _ = shutdown_tx.send(());
 
         for handle in handles {
-            handle.await.map_err(|err| {
-                Error::Internal(format!("worker scheduler task aborted unexpectedly: {err}"))
+            handle.await.map_err(|err| Error::Internal {
+                msg: format!("worker scheduler task aborted unexpectedly: {err}"),
+                location: snafu::Location::new(file!(), line!(), column!()),
             })?;
         }
 
@@ -97,8 +98,10 @@ fn spawn_worker_loop(
     mut shutdown_rx: broadcast::Receiver<()>,
 ) -> Result<JoinHandle<()>, Error> {
     let cron = worker.cron();
-    let schedule = Schedule::from_str(cron)
-        .map_err(|err| Error::Internal(format!("invalid cron for worker `{name}`: {err}")))?;
+    let schedule = Schedule::from_str(cron).map_err(|err| Error::Internal {
+        msg: format!("invalid cron for worker `{name}`: {err}"),
+        location: snafu::Location::new(file!(), line!(), column!()),
+    })?;
 
     Ok(tokio::spawn(async move {
         let running = Arc::new(AtomicBool::new(false));

@@ -211,11 +211,14 @@ where
     T: DeserializeOwned + Serialize,
 {
     fn encode(&self, header: Header, claim: T) -> Result<String, oceaniam_auth::error::Error> {
-        let der = self.private.to_pkcs1_der().map_err(|_| {
-            oceaniam_auth::error::Error::Jwt(jsonwebtoken::errors::new_error(
-                jsonwebtoken::errors::ErrorKind::InvalidKeyFormat,
-            ))
-        })?;
+        let der = self
+            .private
+            .to_pkcs1_der()
+            .map_err(|_| oceaniam_auth::error::Error::Jwt {
+                source: jsonwebtoken::errors::new_error(
+                    jsonwebtoken::errors::ErrorKind::InvalidKeyFormat,
+                ),
+            })?;
         let key = EncodingKey::from_rsa_der(der.as_bytes());
 
         Ok(encode(&header, &claim, &key)?)
@@ -227,9 +230,11 @@ where
         validation: &Validation,
     ) -> Result<jsonwebtoken::TokenData<T>, oceaniam_auth::error::Error> {
         let der = self.private.to_public_key().to_pkcs1_der().map_err(|_| {
-            oceaniam_auth::error::Error::Jwt(jsonwebtoken::errors::new_error(
-                jsonwebtoken::errors::ErrorKind::InvalidKeyFormat,
-            ))
+            oceaniam_auth::error::Error::Jwt {
+                source: jsonwebtoken::errors::new_error(
+                    jsonwebtoken::errors::ErrorKind::InvalidKeyFormat,
+                ),
+            }
         })?;
         let key = DecodingKey::from_rsa_der(der.as_bytes());
 

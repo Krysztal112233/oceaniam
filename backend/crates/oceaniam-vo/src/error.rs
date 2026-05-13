@@ -1,7 +1,7 @@
-use thiserror::Error;
+use snafu::Snafu;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Snafu)]
 pub enum Error {
-    #[error("invalid sqid")]
+    #[snafu(display("invalid sqid"))]
     InvalidSqid,
 }

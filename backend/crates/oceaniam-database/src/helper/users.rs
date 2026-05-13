@@ -257,7 +257,7 @@ pub trait UserHelper {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 oceaniam_common::consts::USER_LOGIN_FAILED_MSG,
             )),
-            Err(e) => Err(Error::Db(e)),
+            Err(e) => Err(Error::Db { source: e }),
         }
     }
 
@@ -282,7 +282,7 @@ pub trait UserHelper {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 oceaniam_common::consts::USER_LOGIN_FAILED_MSG,
             )),
-            Err(e) => Err(Error::Db(e)),
+            Err(e) => Err(Error::Db { source: e }),
         }
     }
 

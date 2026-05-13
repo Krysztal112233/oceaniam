@@ -1,20 +1,23 @@
 use sea_orm::DbErr;
-use thiserror::Error;
+use snafu::Snafu;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Snafu)]
 pub enum Error {
-    #[error("{0}")]
-    Db(#[from] DbErr),
+    #[snafu(display("{source}"), context(false))]
+    Db { source: DbErr },
 
-    #[error("{0}")]
-    Json(#[from] serde_json::Error),
+    #[snafu(display("{source}"), context(false))]
+    Json { source: serde_json::Error },
 
-    #[error("status: {0}, msg: {1}")]
-    CustomMessage(u16, String),
+    #[snafu(display("status: {code}, msg: {msg}"))]
+    CustomMessage { code: u16, msg: String },
 }
 
 impl Error {
     pub fn with_code(code: impl Into<u16>, msg: impl Into<String>) -> Self {
-        Self::CustomMessage(code.into(), msg.into())
+        Self::CustomMessage {
+            code: code.into(),
+            msg: msg.into(),
+        }
     }
 }

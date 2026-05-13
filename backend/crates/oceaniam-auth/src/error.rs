@@ -1,13 +1,13 @@
-use thiserror::Error;
+use snafu::Snafu;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Snafu)]
 pub enum Error {
-    #[error("{0}")]
-    Jwt(#[from] jsonwebtoken::errors::Error),
+    #[snafu(display("{source}"), context(false))]
+    Jwt { source: jsonwebtoken::errors::Error },
 
-    #[error("kid not found: {0}")]
-    KidNotFound(String),
+    #[snafu(display("kid not found: {kid}"))]
+    KidNotFound { kid: String },
 
-    #[error("{0}")]
-    Internal(String),
+    #[snafu(display("{msg}"))]
+    Internal { msg: String },
 }

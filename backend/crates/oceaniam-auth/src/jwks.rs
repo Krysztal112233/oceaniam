@@ -41,9 +41,9 @@ pub struct JwkSetSchema {
 impl JwkSet {
     pub fn decoding_key_for_kid(&self, kid: &str) -> Result<jsonwebtoken::DecodingKey, Error> {
         let jwkset = jsonwebtoken::jwk::JwkSet::from(self.clone());
-        let jwk = jwkset
-            .find(kid)
-            .ok_or_else(|| Error::KidNotFound(kid.to_string()))?;
+        let jwk = jwkset.find(kid).ok_or_else(|| Error::KidNotFound {
+            kid: kid.to_string(),
+        })?;
         Ok(jsonwebtoken::DecodingKey::from_jwk(jwk)?)
     }
 }

@@ -52,9 +52,9 @@ impl Password {
 
             match Argon2::default().verify_password(password.as_bytes(), &password_hash) {
                 Ok(()) => Ok(true),
-                Err(argon2::password_hash::Error::Password) => {
-                    Err(Error::Password(argon2::password_hash::Error::Password))
-                }
+                Err(argon2::password_hash::Error::Password) => Err(Error::Password {
+                    source: argon2::password_hash::Error::Password,
+                }),
                 Err(_) => Ok(false),
             }
         })

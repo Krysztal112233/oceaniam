@@ -1,48 +1,48 @@
 use jsonwebtoken::Algorithm;
 use oceaniam_database::model::sea_orm_active_enums::KeyAlg;
-use thiserror::Error;
+use snafu::Snafu;
 use uuid::Uuid;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Snafu)]
 pub enum Error {
-    #[error("{0}")]
-    Db(#[from] sea_orm::error::DbErr),
+    #[snafu(display("{source}"), context(false))]
+    Db { source: sea_orm::error::DbErr },
 
-    #[error("mismatced key algorithm: {0}")]
-    MismatchedKeyAlg(KeyAlg),
+    #[snafu(display("mismatced key algorithm: {key_alg}"))]
+    MismatchedKeyAlg { key_alg: KeyAlg },
 
-    #[error("{0}")]
-    Rsa(#[from] rsa::Error),
+    #[snafu(display("{source}"), context(false))]
+    Rsa { source: rsa::Error },
 
-    #[error("{0}")]
-    Jwt(#[from] jsonwebtoken::errors::Error),
+    #[snafu(display("{source}"), context(false))]
+    Jwt { source: jsonwebtoken::errors::Error },
 
-    #[error("{0}")]
-    Json(#[from] serde_json::Error),
+    #[snafu(display("{source}"), context(false))]
+    Json { source: serde_json::Error },
 
-    #[error("unimplemented jwt alogrithm: {0}")]
-    UnimplementedJwtAlogrithm(String),
+    #[snafu(display("unimplemented jwt alogrithm: {alg}"))]
+    UnimplementedJwtAlogrithm { alg: String },
 
-    #[error("{0}")]
-    Pkcs8(#[from] rsa::pkcs8::Error),
+    #[snafu(display("{source}"), context(false))]
+    Pkcs8 { source: rsa::pkcs8::Error },
 
-    #[error("{0}")]
-    Pkcs1(#[from] rsa::pkcs1::Error),
+    #[snafu(display("{source}"), context(false))]
+    Pkcs1 { source: rsa::pkcs1::Error },
 
-    #[error("key id={0} already exists in keybox")]
-    KeyAlreadyExists(String),
+    #[snafu(display("key id={id} already exists in keybox"))]
+    KeyAlreadyExists { id: String },
 
-    #[error("key id={0} not found in keybox")]
-    KeyNotFound(Uuid),
+    #[snafu(display("key id={id} not found in keybox"))]
+    KeyNotFound { id: Uuid },
 
-    #[error("{0}")]
-    Internal(String),
+    #[snafu(display("{msg}"))]
+    Internal { msg: String },
 }
 
 impl Error {
     pub fn unimplemented_jwt_alogrithm(key_alg: Algorithm) -> Self {
-        Self::UnimplementedJwtAlogrithm(
-            match key_alg {
+        Self::UnimplementedJwtAlogrithm {
+            alg: match key_alg {
                 Algorithm::HS256 => "HS256",
                 Algorithm::HS384 => "HS384",
                 Algorithm::HS512 => "HS512",
@@ -57,16 +57,16 @@ impl Error {
                 Algorithm::EdDSA => "EdDSA",
             }
             .to_string(),
-        )
+        }
     }
 }
 
 impl From<oceaniam_database::Error> for Error {
     fn from(e: oceaniam_database::Error) -> Self {
         match e {
-            oceaniam_database::Error::Db(db_err) => Self::Db(db_err),
-            oceaniam_database::Error::Json(e) => Self::Json(e),
-            oceaniam_database::Error::CustomMessage(_, msg) => Self::Internal(msg),
+            oceaniam_database::Error::Db { source: db_err } => Self::Db { source: db_err },
+            oceaniam_database::Error::Json { source: e } => Self::Json { source: e },
+            oceaniam_database::Error::CustomMessage { msg, .. } => Self::Internal { msg },
         }
     }
 }

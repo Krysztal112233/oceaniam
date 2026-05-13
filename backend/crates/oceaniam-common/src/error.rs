@@ -1,16 +1,16 @@
-use thiserror::Error;
+use snafu::Snafu;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Snafu)]
 pub enum Error {
-    #[error("{0}")]
-    Conf(#[from] config::ConfigError),
+    #[snafu(display("{source}"), context(false))]
+    Conf { source: config::ConfigError },
 
-    #[error("{0}")]
-    Io(#[from] std::io::Error),
+    #[snafu(display("{source}"), context(false))]
+    Io { source: std::io::Error },
 
-    #[error("{0}")]
-    Json(#[from] serde_json::Error),
+    #[snafu(display("{source}"), context(false))]
+    Json { source: serde_json::Error },
 
-    #[error("{0}")]
-    Internal(String),
+    #[snafu(display("{msg}"))]
+    Internal { msg: String },
 }
