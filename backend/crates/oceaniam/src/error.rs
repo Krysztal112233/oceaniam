@@ -4,12 +4,14 @@ use axum::{Json, http::StatusCode, response::IntoResponse};
 use sea_orm::DbErr;
 use serde::Serialize;
 use snafu::{Location, Snafu};
+use tracing::Span;
 
 use oceaniam_api::RestResult;
 
 #[derive(Debug, Serialize)]
 struct ErrorResponseBody {
     msg: String,
+    error_id: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -114,6 +116,14 @@ impl Clone for Error {
 
 impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
+        let error_id = Span::current().id().map_or(0, |id| id.into_u64());
+
+        tracing::error!(
+            error_id,
+            error = %self,
+            "unhandled error"
+        );
+
         let status = match self {
             Self::CustomMessage { code, .. } => {
                 StatusCode::from_u16(code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR)
@@ -126,6 +136,7 @@ impl IntoResponse for Error {
             Json(ApiErrorResponse {
                 payload: Some(ErrorResponseBody {
                     msg: status.to_string(),
+                    error_id: format!("{:016x}", error_id),
                 }),
             }),
         )
