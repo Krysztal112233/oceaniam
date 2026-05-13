@@ -4,8 +4,9 @@ use axum::{
     extract::FromRequestParts,
     http::{HeaderMap, StatusCode, header, request::Parts},
 };
-use jsonwebtoken::{DecodingKey, Header, TokenData, Validation, decode, decode_header};
-use oceaniam_auth::{jwks::JwkSet, jwt::ClaimHelper};
+use oceaniam_auth::{
+    Header, TokenData, Validation, decode, decode_header, jwks::JwkSet, jwt::ClaimHelper,
+};
 use oceaniam_common::error::Error;
 use serde::{Serialize, de::DeserializeOwned};
 use tracing::error;
@@ -31,23 +32,13 @@ where
     let span = tracing::debug_span!("jwt.validate", kid = %kid);
     let _guard = span.enter();
 
-    let key = {
-        let jwkset = jsonwebtoken::jwk::JwkSet::from(jwks);
-        let Some(jwk) = jwkset.find(kid) else {
-            return Err(Error::with_code(
-                StatusCode::BAD_REQUEST,
-                format!("cannot find jwk for kid `{kid}`."),
-            ));
-        };
-
-        DecodingKey::from_jwk(jwk).inspect_err(|e| {
-            error!(
-                kid = %kid,
-                error = %e,
-                "failed to create decoding key from jwk"
-            )
-        })?
-    };
+    let key = jwks.decoding_key_for_kid(kid).inspect_err(|e| {
+        error!(
+            kid = %kid,
+            error = %e,
+            "failed to create decoding key from jwk"
+        )
+    })?;
 
     Ok(decode(token, &key, validation)
         .inspect_err(|e| error!(kid = %kid, error = %e, "failed to decode token"))?)

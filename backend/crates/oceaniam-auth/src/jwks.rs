@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use im::Vector;
+use oceaniam_common::error::Error;
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -34,6 +35,18 @@ pub struct JwkSet {
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct JwkSetSchema {
     pub keys: Vec<Jwk>,
+}
+
+impl JwkSet {
+    pub fn decoding_key_for_kid(&self, kid: &str) -> Result<jsonwebtoken::DecodingKey, Error> {
+        let jwkset = jsonwebtoken::jwk::JwkSet::from(self.clone());
+
+        let jwk = jwkset
+            .find(kid)
+            .ok_or_else(|| Error::with_code(400u16, format!("cannot find jwk for kid `{kid}`")))?;
+
+        Ok(jsonwebtoken::DecodingKey::from_jwk(jwk)?)
+    }
 }
 
 // TODO: OPTIMIZE here

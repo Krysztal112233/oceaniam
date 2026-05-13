@@ -5,8 +5,8 @@ use crate::state::{
 
 use axum::extract::FromRef;
 use im::HashMap;
-use jsonwebtoken::{Algorithm, Validation};
 use oceaniam_auth::{
+    Algorithm, Validation,
     jwks::{JwkSet, ManagedJwkSet},
     jwt::JwtValidator,
 };

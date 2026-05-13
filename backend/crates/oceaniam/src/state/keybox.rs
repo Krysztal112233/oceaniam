@@ -1,9 +1,9 @@
 use std::time::Duration;
 
 use axum::http::StatusCode;
-use jsonwebtoken::Header;
 use moka::future::{Cache, CacheBuilder};
 use oceaniam_auth::{
+    Header,
     jwks::JwkSet,
     jwt::{ClaimHelper, JwtCodec, SystemClaim},
 };

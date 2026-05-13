@@ -2430,7 +2430,6 @@ dependencies = [
  "futures",
  "im",
  "itertools",
- "jsonwebtoken",
  "log",
  "migration",
  "mimalloc",
