@@ -218,6 +218,7 @@ where
                 source: jsonwebtoken::errors::new_error(
                     jsonwebtoken::errors::ErrorKind::InvalidKeyFormat,
                 ),
+                location: snafu::location!(),
             })?;
         let key = EncodingKey::from_rsa_der(der.as_bytes());
 
@@ -234,6 +235,7 @@ where
                 source: jsonwebtoken::errors::new_error(
                     jsonwebtoken::errors::ErrorKind::InvalidKeyFormat,
                 ),
+                location: snafu::location!(),
             }
         })?;
         let key = DecodingKey::from_rsa_der(der.as_bytes());

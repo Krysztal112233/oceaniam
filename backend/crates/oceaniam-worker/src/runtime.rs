@@ -83,7 +83,7 @@ impl WorkerRuntime {
         for handle in handles {
             handle.await.map_err(|err| Error::Internal {
                 msg: format!("worker scheduler task aborted unexpectedly: {err}"),
-                location: snafu::Location::new(file!(), line!(), column!()),
+                location: snafu::location!(),
             })?;
         }
 
@@ -100,7 +100,7 @@ fn spawn_worker_loop(
     let cron = worker.cron();
     let schedule = Schedule::from_str(cron).map_err(|err| Error::Internal {
         msg: format!("invalid cron for worker `{name}`: {err}"),
-        location: snafu::Location::new(file!(), line!(), column!()),
+        location: snafu::location!(),
     })?;
 
     Ok(tokio::spawn(async move {

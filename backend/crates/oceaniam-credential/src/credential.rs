@@ -54,6 +54,7 @@ impl Password {
                 Ok(()) => Ok(true),
                 Err(argon2::password_hash::Error::Password) => Err(Error::Password {
                     source: argon2::password_hash::Error::Password,
+                    location: snafu::location!(),
                 }),
                 Err(_) => Ok(false),
             }
@@ -187,7 +188,7 @@ mod tests {
 
         let result = Totp::from_encrypted(encrypted, "fedcba9876543210fedcba9876543210");
 
-        assert!(matches!(result, Err(Error::Aead)));
+        assert!(matches!(result, Err(Error::Aead { .. })));
     }
 
     // NOTE: AI-generated test

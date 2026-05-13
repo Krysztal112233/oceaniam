@@ -43,6 +43,7 @@ impl JwkSet {
         let jwkset = jsonwebtoken::jwk::JwkSet::from(self.clone());
         let jwk = jwkset.find(kid).ok_or_else(|| Error::KidNotFound {
             kid: kid.to_string(),
+            location: snafu::location!(),
         })?;
         Ok(jsonwebtoken::DecodingKey::from_jwk(jwk)?)
     }

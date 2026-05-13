@@ -1,7 +1,7 @@
-use snafu::Snafu;
+use snafu::{Location, Snafu};
 
 #[derive(Debug, Snafu)]
 pub enum Error {
-    #[snafu(display("invalid sqid"))]
-    InvalidSqid,
+    #[snafu(display("invalid sqid at {location}"))]
+    InvalidSqid { location: Location },
 }

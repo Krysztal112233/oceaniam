@@ -47,7 +47,9 @@ impl TryFrom<Sqid> for Uuid {
         let decoded = SQID.decode(&value.0);
 
         if decoded.len() != 2 {
-            return Err(Error::InvalidSqid);
+            return Err(Error::InvalidSqid {
+                location: snafu::location!(),
+            });
         }
 
         let high = (decoded[0] as u128) << 64;
@@ -64,7 +66,9 @@ impl FromStr for Sqid {
         let decoded = SQID.decode(s);
 
         if decoded.len() != 2 {
-            return Err(Error::InvalidSqid);
+            return Err(Error::InvalidSqid {
+                location: snafu::location!(),
+            });
         }
 
         Ok(Self(s.to_string()))

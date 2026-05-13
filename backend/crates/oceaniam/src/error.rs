@@ -20,24 +20,60 @@ struct ApiErrorResponse {
 
 #[derive(Debug, Snafu)]
 pub enum Error {
-    #[snafu(display("{source}"), context(false))]
-    Conf { source: config::ConfigError },
+    #[snafu(display("{source} at {location}"))]
+    Conf {
+        source: config::ConfigError,
+        location: Location,
+    },
 
-    #[snafu(display("{source}"), context(false))]
-    Io { source: std::io::Error },
+    #[snafu(display("{source} at {location}"))]
+    Io {
+        source: std::io::Error,
+        location: Location,
+    },
 
-    #[snafu(display("{source}"), context(false))]
-    Json { source: serde_json::Error },
+    #[snafu(display("{source} at {location}"))]
+    Json {
+        source: serde_json::Error,
+        location: Location,
+    },
 
-    #[snafu(display("{msg}"))]
+    #[snafu(display("{msg} at {location}"))]
     Internal { msg: String, location: Location },
 
-    #[snafu(display("status: {code}, msg: {msg}"))]
+    #[snafu(display("status: {code}, msg: {msg} at {location}"))]
     CustomMessage {
         code: u16,
         msg: String,
         location: Location,
     },
+}
+
+impl From<config::ConfigError> for Error {
+    fn from(source: config::ConfigError) -> Self {
+        Error::Conf {
+            source,
+            location: snafu::location!(),
+        }
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(source: std::io::Error) -> Self {
+        Error::Io {
+            source,
+            location: snafu::location!(),
+        }
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(source: serde_json::Error) -> Self {
+        Error::Json {
+            source,
+            location: snafu::location!(),
+        }
+    }
 }
 
 impl Error {
@@ -49,12 +85,6 @@ impl Error {
             msg: msg.into(),
             location: Location::new(loc.file(), loc.line(), loc.column()),
         }
-    }
-
-    #[track_caller]
-    fn capture_location() -> Location {
-        let loc = std::panic::Location::caller();
-        Location::new(loc.file(), loc.line(), loc.column())
     }
 }
 
@@ -110,50 +140,53 @@ impl From<Arc<Error>> for Error {
 }
 
 impl From<oceaniam_auth::AuthError> for Error {
-    #[track_caller]
     fn from(e: oceaniam_auth::AuthError) -> Self {
         match e {
-            oceaniam_auth::AuthError::KidNotFound { kid } => {
+            oceaniam_auth::AuthError::KidNotFound { kid, .. } => {
                 Self::with_code(400u16, format!("cannot find jwk for kid `{kid}`"))
             }
-            oceaniam_auth::AuthError::Jwt { source } => Self::Internal {
+            oceaniam_auth::AuthError::Jwt { source, .. } => Self::Internal {
                 msg: source.to_string(),
-                location: Self::capture_location(),
+                location: snafu::location!(),
             },
-            oceaniam_auth::AuthError::Internal { msg } => Self::Internal {
+            oceaniam_auth::AuthError::Internal { msg, .. } => Self::Internal {
                 msg,
-                location: Self::capture_location(),
+                location: snafu::location!(),
             },
         }
     }
 }
 
 impl From<oceaniam_database::error::Error> for Error {
-    #[track_caller]
     fn from(e: oceaniam_database::error::Error) -> Self {
         match e {
             oceaniam_database::error::Error::Db {
                 source: DbErr::RecordNotFound(record),
+                ..
             } => Self::with_code(404u16, format!("cannot find {record} in database")),
-            oceaniam_database::error::Error::Db { source: e } => Self::Internal {
+            oceaniam_database::error::Error::Db { source: e, .. } => Self::Internal {
                 msg: e.to_string(),
-                location: Self::capture_location(),
+                location: snafu::location!(),
             },
-            oceaniam_database::error::Error::Json { source: e } => Self::Json { source: e },
-            oceaniam_database::error::Error::CustomMessage { code, msg } => Self::CustomMessage {
-                code,
-                msg,
-                location: Self::capture_location(),
+            oceaniam_database::error::Error::Json { source: e, .. } => Self::Json {
+                source: e,
+                location: snafu::location!(),
             },
+            oceaniam_database::error::Error::CustomMessage { code, msg, .. } => {
+                Self::CustomMessage {
+                    code,
+                    msg,
+                    location: snafu::location!(),
+                }
+            }
         }
     }
 }
 
 impl From<oceaniam_vo::error::Error> for Error {
-    #[track_caller]
     fn from(e: oceaniam_vo::error::Error) -> Self {
         match e {
-            oceaniam_vo::error::Error::InvalidSqid => {
+            oceaniam_vo::error::Error::InvalidSqid { .. } => {
                 Self::with_code(400u16, "cannot parse input id")
             }
         }
@@ -161,31 +194,29 @@ impl From<oceaniam_vo::error::Error> for Error {
 }
 
 impl From<oceaniam_keybox::error::Error> for Error {
-    #[track_caller]
     fn from(e: oceaniam_keybox::error::Error) -> Self {
         Self::Internal {
             msg: e.to_string(),
-            location: Self::capture_location(),
+            location: snafu::location!(),
         }
     }
 }
 
 impl From<oceaniam_credential::error::Error> for Error {
-    #[track_caller]
     fn from(e: oceaniam_credential::error::Error) -> Self {
         match e {
-            oceaniam_credential::error::Error::Db { source: db_err } => Self::from(db_err),
+            oceaniam_credential::error::Error::Db { source: db_err, .. } => Self::from(db_err),
             oceaniam_credential::error::Error::Password { .. } => {
                 Self::with_code(500u16, oceaniam_common::consts::USER_LOGIN_FAILED_MSG)
             }
             oceaniam_credential::error::Error::Join { .. } => {
                 Self::with_code(500u16, "task execution failed")
             }
-            oceaniam_credential::error::Error::InvalidLength
+            oceaniam_credential::error::Error::InvalidLength { .. }
             | oceaniam_credential::error::Error::Base64 { .. }
             | oceaniam_credential::error::Error::SerdeJson { .. }
-            | oceaniam_credential::error::Error::Aead
-            | oceaniam_credential::error::Error::InvalidAlgorithm => {
+            | oceaniam_credential::error::Error::Aead { .. }
+            | oceaniam_credential::error::Error::InvalidAlgorithm { .. } => {
                 Self::with_code(500u16, "invalid totp secret data")
             }
             oceaniam_credential::error::Error::Totp { .. }
@@ -197,18 +228,16 @@ impl From<oceaniam_credential::error::Error> for Error {
 }
 
 impl From<axum::http::header::InvalidHeaderValue> for Error {
-    #[track_caller]
     fn from(e: axum::http::header::InvalidHeaderValue) -> Self {
         Self::CustomMessage {
             code: 500,
             msg: e.to_string(),
-            location: Self::capture_location(),
+            location: snafu::location!(),
         }
     }
 }
 
 impl From<DbErr> for Error {
-    #[track_caller]
     fn from(value: DbErr) -> Self {
         match value {
             DbErr::RecordNotFound(e) => {
@@ -216,32 +245,39 @@ impl From<DbErr> for Error {
             }
             _ => Self::Internal {
                 msg: value.to_string(),
-                location: Self::capture_location(),
+                location: snafu::location!(),
             },
         }
     }
 }
 
 impl From<jsonwebtoken::errors::Error> for Error {
-    #[track_caller]
     fn from(e: jsonwebtoken::errors::Error) -> Self {
         Self::Internal {
             msg: e.to_string(),
-            location: Self::capture_location(),
+            location: snafu::location!(),
         }
     }
 }
 
 impl From<oceaniam_common::error::Error> for Error {
-    #[track_caller]
     fn from(e: oceaniam_common::error::Error) -> Self {
         match e {
-            oceaniam_common::error::Error::Conf { source: e } => Self::Conf { source: e },
-            oceaniam_common::error::Error::Io { source: e } => Self::Io { source: e },
-            oceaniam_common::error::Error::Json { source: e } => Self::Json { source: e },
-            oceaniam_common::error::Error::Internal { msg } => Self::Internal {
+            oceaniam_common::error::Error::Conf { source: e, .. } => Self::Conf {
+                source: e,
+                location: snafu::location!(),
+            },
+            oceaniam_common::error::Error::Io { source: e, .. } => Self::Io {
+                source: e,
+                location: snafu::location!(),
+            },
+            oceaniam_common::error::Error::Json { source: e, .. } => Self::Json {
+                source: e,
+                location: snafu::location!(),
+            },
+            oceaniam_common::error::Error::Internal { msg, .. } => Self::Internal {
                 msg,
-                location: Self::capture_location(),
+                location: snafu::location!(),
             },
         }
     }

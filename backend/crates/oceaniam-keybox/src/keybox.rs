@@ -133,6 +133,7 @@ impl KeyBox {
         if self.keys.contains_key(&key.id) {
             return Err(Error::KeyAlreadyExists {
                 id: key.id.to_string(),
+                location: snafu::location!(),
             });
         }
 
@@ -181,7 +182,10 @@ impl KeyBox {
     /// Returns an error if the key does not exist in this keybox.
     pub fn revoke_key(&mut self, key_id: &Uuid) -> Result<(), Error> {
         let Some(mut key) = self.keys.get(key_id).cloned() else {
-            return Err(Error::KeyNotFound { id: *key_id });
+            return Err(Error::KeyNotFound {
+                id: *key_id,
+                location: snafu::location!(),
+            });
         };
 
         key.status = KeyStatus::Revoked;
@@ -204,6 +208,7 @@ impl KeyBox {
         // SAFETY: the key was just inserted, it exists and is not expired
         unsafe { self.get_raw_key_unsafe(&key_id) }.ok_or_else(|| Error::Internal {
             msg: "key was inserted but cannot be retrieved".into(),
+            location: snafu::location!(),
         })
     }
 
