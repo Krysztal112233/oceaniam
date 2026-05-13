@@ -1,10 +1,10 @@
 use std::{collections::HashMap, fmt::Debug, sync::Arc, time::Duration};
 
+use crate::error::Error;
 use axum::http::StatusCode;
 use chrono::Utc;
 use moka::future::Cache;
 use oceaniam_audit::types::{AuditPayload, CreateChallengePayload, VerifyChallengePayload};
-use oceaniam_common::error::Error;
 use oceaniam_database::{
     helper::{
         SafeTransactionConnectionTrait,

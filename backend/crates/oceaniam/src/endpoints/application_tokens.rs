@@ -1,5 +1,6 @@
 //! Application token-related API endpoints
 
+use crate::error::{AppResult, Error};
 use crate::{
     endpoints::applications::{TenantApplicationPath, get_tenant_application},
     middlewares::{
@@ -17,10 +18,10 @@ use axum::{
     http::StatusCode,
 };
 use axum_extra::extract::cookie::Cookie;
-use oceaniam_api::{ApiResponse, ApiResponseWithHeader, ErrorResponse, WithHeaderRestResult};
+use oceaniam_api::{ApiResponse, ErrorResponse};
 use oceaniam_audit::types::{AuditPayload, RefreshJwtPayload, RevokeJwtPayload, SignJwtPayload};
 use oceaniam_auth::jwt::Claim;
-use oceaniam_common::{consts, error::Error};
+use oceaniam_common::consts;
 use oceaniam_database::config::application::ApplicationConfiguration;
 use oceaniam_vo::auth::{AuthVO, SigninResponseOrChallenge, SignoutResponse, SignupResponse};
 use tap::Tap;
@@ -79,7 +80,7 @@ pub async fn create_application_token(
     }): State<AppState<'_>>,
     Path(path): Path<TenantApplicationPath>,
     Json(auth): Json<AuthVO>,
-) -> WithHeaderRestResult<SigninResponseOrChallenge> {
+) -> AppResult<SigninResponseOrChallenge> {
     let application = get_tenant_application(path, &database).await?;
     let application_id = application.id;
     Span::current().tap(|it| {
@@ -166,11 +167,10 @@ pub async fn create_application_token(
         .await;
 
     let cookie = Cookie::new("auth_token", jwt.clone());
-    let resp =
-        ApiResponseWithHeader::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
+    let resp = ApiResponse::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
 
     let resp = match token_mtd {
-        TokenDispatchMethod::Cookie => ApiResponseWithHeader::empty().with_cookie(cookie)?,
+        TokenDispatchMethod::Cookie => ApiResponse::empty().with_cookie(cookie)?,
         TokenDispatchMethod::Json => resp,
         TokenDispatchMethod::Both => resp.with_cookie(cookie)?,
     };
@@ -297,7 +297,7 @@ pub async fn refresh_application_token(
         ..
     }): State<AppState<'_>>,
     Path(path): Path<TenantApplicationPath>,
-) -> WithHeaderRestResult<SigninResponseOrChallenge> {
+) -> AppResult<SigninResponseOrChallenge> {
     let jti = auth.token.claims.jti;
     let user_id = auth.token.claims.sub;
     let application = get_tenant_application(path, &database).await?;
@@ -371,11 +371,10 @@ pub async fn refresh_application_token(
         .await;
 
     let cookie = Cookie::new("auth_token", jwt.clone());
-    let resp =
-        ApiResponseWithHeader::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
+    let resp = ApiResponse::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
 
     let resp = match token_mtd {
-        TokenDispatchMethod::Cookie => ApiResponseWithHeader::empty().with_cookie(cookie)?,
+        TokenDispatchMethod::Cookie => ApiResponse::empty().with_cookie(cookie)?,
         TokenDispatchMethod::Json => resp,
         TokenDispatchMethod::Both => resp.with_cookie(cookie)?,
     };

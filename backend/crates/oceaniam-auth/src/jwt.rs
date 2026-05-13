@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use oceaniam_common::error::Error;
+use crate::error::Error;
 
 pub trait JwtCodec<T>
 where

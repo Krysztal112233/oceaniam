@@ -3,6 +3,8 @@
 //! NOTE: This package is allowed to access the database directly without going through any cache
 //! layer.
 
+use crate::error::AppResult;
+use crate::error::Error;
 use argon2::Argon2;
 use axum::{
     Json,
@@ -10,10 +12,9 @@ use axum::{
 };
 use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
-use oceaniam_api::{ApiResponse, ErrorResponse, PageParam, PagedResponse, RestResult};
+use oceaniam_api::{ApiResponse, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{AuditPayload, CreateAdministratorPayload, PatchAdministratorPayload};
 use oceaniam_auth::jwt::SystemClaim;
-use oceaniam_common::error::Error;
 use oceaniam_database::{
     helper::{
         SafeTransactionConnectionTrait,
@@ -69,7 +70,7 @@ pub async fn get_administrators(
     _: RequireAuth<SystemClaim>,
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
-) -> RestResult<PagedResponse<AdministratorVO>> {
+) -> AppResult<PagedResponse<AdministratorVO>> {
     let page = query.unwrap_or_default();
     Span::current().tap(|it| {
         it.record("page", page.page)
@@ -114,7 +115,7 @@ pub async fn create_administrator(
         ..
     }): State<AppState<'_>>,
     Garde(Json(CreateAdministratorRequest { name })): Garde<Json<CreateAdministratorRequest>>,
-) -> RestResult<CreateAdministratorResponse> {
+) -> AppResult<CreateAdministratorResponse> {
     let operator_id = auth.token.claims.sub;
     let administrator_id = Uuid::now_v7();
     Span::current().tap(|it| {
@@ -156,7 +157,7 @@ pub async fn create_administrator(
                     %error,
                     "administrator creation failed"
                 );
-                return Err(error);
+                return Err(error.into());
             }
         };
 
@@ -217,7 +218,7 @@ pub async fn patch_administrator(
         ..
     }): State<AppState<'_>>,
     Garde(Json(payload)): Garde<Json<PatchAdministratorRequest>>,
-) -> RestResult<AdministratorVO> {
+) -> AppResult<AdministratorVO> {
     let operator_id = auth.token.claims.sub;
     let target_id: Uuid = target_id.try_into()?;
     Span::current().tap(|it| {
@@ -312,11 +313,12 @@ async fn patch_administrator_other(
 
     Administrators::update_model(target_id, UpdateAdministratorModel { name }, transaction)
         .await
-        .inspect_err(|e| {
+        .map_err(|e| {
             error!(
                 %target_id,
                 error = %e,
                 "administrator patch for other administrators failed"
-            )
+            );
+            Error::from(e)
         })
 }

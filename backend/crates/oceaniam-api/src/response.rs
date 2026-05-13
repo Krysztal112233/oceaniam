@@ -11,8 +11,6 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use utoipa::ToSchema;
 
-use oceaniam_common::error::Error;
-
 #[derive(Debug, Deserialize, Serialize, Default, ToSchema)]
 pub struct Empty {}
 
@@ -35,41 +33,14 @@ impl ErrorResponse {
 pub struct ApiResponse<T> {
     #[serde(flatten)]
     payload: Option<T>,
-}
-
-pub type RestResult<T> = ::std::result::Result<ApiResponse<T>, Error>;
-pub type WithHeaderRestResult<T> = ::std::result::Result<ApiResponseWithHeader<T>, Error>;
-
-impl<T> ApiResponse<T>
-where
-    T: Serialize,
-{
-    pub fn new(payload: T) -> Self {
-        Self {
-            payload: Some(payload),
-        }
-    }
-}
-
-impl<T> IntoResponse for ApiResponse<T>
-where
-    T: Serialize,
-{
-    fn into_response(self) -> axum::response::Response {
-        (StatusCode::OK, Json(self)).into_response()
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize, Default, ToSchema)]
-pub struct ApiResponseWithHeader<T> {
-    #[serde(flatten)]
-    payload: Option<T>,
 
     #[serde(skip)]
     headers: HeaderMap,
 }
 
-impl<T> ApiResponseWithHeader<T>
+pub type RestResult<T, E> = ::std::result::Result<ApiResponse<T>, E>;
+
+impl<T> ApiResponse<T>
 where
     T: Serialize,
 {
@@ -94,17 +65,13 @@ where
         }
     }
 
-    pub fn set_cookie(&mut self, cookie: Cookie<'static>) -> Result<(), Error> {
-        let header_value: HeaderValue = cookie
-            .encoded()
-            .to_string()
-            .parse::<HeaderValue>()
-            .map_err(|e| Error::with_code(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    pub fn set_cookie(&mut self, cookie: Cookie<'static>) -> Result<(), InvalidHeaderValue> {
+        let header_value: HeaderValue = cookie.encoded().to_string().parse()?;
         self.headers.append(SET_COOKIE, header_value);
         Ok(())
     }
 
-    pub fn with_cookie(mut self, cookie: Cookie<'static>) -> Result<Self, Error> {
+    pub fn with_cookie(mut self, cookie: Cookie<'static>) -> Result<Self, InvalidHeaderValue> {
         self.set_cookie(cookie)?;
         Ok(self)
     }
@@ -121,30 +88,30 @@ where
     }
 }
 
-impl<T> IntoResponse for ApiResponseWithHeader<T>
+impl<T> IntoResponse for ApiResponse<T>
 where
     T: Serialize,
 {
     fn into_response(self) -> axum::response::Response {
-        let Self { payload, headers } = self;
-
+        let ApiResponse { payload, headers } = self;
         let mut response = (
             StatusCode::OK,
-            Json(Self {
+            Json(ApiResponse {
                 payload,
                 headers: HeaderMap::new(),
             }),
         )
             .into_response();
-
-        response.headers_mut().extend(headers);
+        if !headers.is_empty() {
+            response.headers_mut().extend(headers);
+        }
         response
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{ApiResponseWithHeader, Empty};
+    use super::{ApiResponse, Empty};
 
     use axum::http::header::SET_COOKIE;
     use axum::response::IntoResponse;
@@ -153,7 +120,7 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn with_cookie_str_appends_set_cookie_header() {
-        let response = ApiResponseWithHeader::new(Empty::default())
+        let response = ApiResponse::new(Empty::default())
             .with_cookie_str("a=b; Path=/")
             .unwrap()
             .into_response();
@@ -164,7 +131,7 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn with_cookie_appends_multiple_set_cookie_headers() {
-        let response = ApiResponseWithHeader::new(Empty::default())
+        let response = ApiResponse::new(Empty::default())
             .with_cookie(Cookie::new("a", "1"))
             .unwrap()
             .with_cookie(Cookie::new("b", "2"))
@@ -177,7 +144,7 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn invalid_cookie_str_returns_err() {
-        let result = ApiResponseWithHeader::new(Empty::default()).with_cookie_str("a=b\r\nbad: 1");
+        let result = ApiResponse::new(Empty::default()).with_cookie_str("a=b\r\nbad: 1");
         assert!(result.is_err());
     }
 }

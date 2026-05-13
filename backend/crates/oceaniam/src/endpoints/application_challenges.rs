@@ -1,17 +1,15 @@
 //! Application challenge-related API endpoints
 
+use crate::error::{AppResult, Error};
 use axum::{
     Json,
     extract::{Path, State},
     http::StatusCode,
 };
 use axum_extra::extract::cookie::Cookie;
-use oceaniam_api::{
-    ApiResponse, ApiResponseWithHeader, ErrorResponse, RestResult, WithHeaderRestResult,
-};
+use oceaniam_api::{ApiResponse, ErrorResponse};
 use oceaniam_audit::types::{AuditPayload, SignJwtPayload};
 use oceaniam_auth::jwt::Claim;
-use oceaniam_common::error::Error;
 use oceaniam_database::{
     config::application::ApplicationConfiguration, helper::challenges::ChallengesHelper,
     model::prelude::Challenges,
@@ -89,7 +87,7 @@ pub async fn get_application_challenge(
     _: RequireAdminJwtOrMatchedApplicationSecret,
     State(AppState { database, .. }): State<AppState<'_>>,
     Path(path): Path<ApplicationChallengePath>,
-) -> RestResult<ApplicationChallengeVO> {
+) -> AppResult<ApplicationChallengeVO> {
     let application = get_tenant_application(path.application, &database).await?;
     let application_id = application.id;
     let challenge_id = path.challenge_id;
@@ -171,7 +169,7 @@ pub async fn create_application_challenge_attempt(
     }): State<AppState<'_>>,
     Path(path): Path<ApplicationChallengePath>,
     Json(payload): Json<Value>,
-) -> WithHeaderRestResult<SigninResponseOrChallenge> {
+) -> AppResult<SigninResponseOrChallenge> {
     let application = get_tenant_application(path.application, &database).await?;
     let application_id = application.id;
     let challenge_id = path.challenge_id;
@@ -233,11 +231,10 @@ pub async fn create_application_challenge_attempt(
         .await;
 
     let cookie = Cookie::new("auth_token", jwt.clone());
-    let resp =
-        ApiResponseWithHeader::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
+    let resp = ApiResponse::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
 
     let resp = match token_mtd {
-        TokenDispatchMethod::Cookie => ApiResponseWithHeader::empty().with_cookie(cookie)?,
+        TokenDispatchMethod::Cookie => ApiResponse::empty().with_cookie(cookie)?,
         TokenDispatchMethod::Json => resp,
         TokenDispatchMethod::Both => resp.with_cookie(cookie)?,
     };

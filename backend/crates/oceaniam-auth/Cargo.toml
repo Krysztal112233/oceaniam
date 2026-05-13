@@ -10,6 +10,7 @@ jsonwebtoken.workspace = true
 parking_lot.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
 ts-rs.workspace = true
 utoipa.workspace = true
 uuid.workspace = true

@@ -2,12 +2,13 @@
 //!
 //! Provides interfaces for tenant CRUD operations
 
+use crate::error::AppResult;
 use axum::{
     Json,
     extract::{Path, State},
 };
 use axum_extra::extract::OptionalQuery;
-use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse, RestResult};
+use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{
     AuditPayload, CreateTenantsPayload, DeleteTenantsPayload, PatchTenantPayload,
 };
@@ -63,7 +64,7 @@ pub async fn get_tenants(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
-) -> RestResult<PagedResponse<TenantVO>> {
+) -> AppResult<PagedResponse<TenantVO>> {
     let page = query.unwrap_or_default();
     let operator_id = auth.token.claims.sub;
     Span::current().tap(|it| {
@@ -115,7 +116,7 @@ pub async fn get_tenant(
     auth: middlewares::auth::RequireAuth<SystemClaim>,
     Path(tenant_id): Path<Sqid>,
     State(AppState { database, .. }): State<AppState<'_>>,
-) -> RestResult<TenantVO> {
+) -> AppResult<TenantVO> {
     let operator_id = auth.token.claims.sub;
     let uuid = tenant_id.try_into()?;
     Span::current().tap(|it| {
@@ -167,7 +168,7 @@ pub async fn create_tenant(
     }): State<AppState<'_>>,
 
     Json(CreateTenantRequest { comment }): Json<CreateTenantRequest>,
-) -> RestResult<TenantVO> {
+) -> AppResult<TenantVO> {
     let operator_id = auth.token.claims.sub;
     let tenant_id = Uuid::now_v7();
     Span::current().tap(|it| {
@@ -233,7 +234,7 @@ pub async fn patch_tenant(
         database, auditing, ..
     }): State<AppState<'_>>,
     Json(PatchTenantRequest { comment }): Json<PatchTenantRequest>,
-) -> RestResult<TenantVO> {
+) -> AppResult<TenantVO> {
     let operator_id = auth.token.claims.sub;
     let tenant_id: Uuid = tenant_id.try_into()?;
     Span::current().tap(|it| {
@@ -290,7 +291,7 @@ pub async fn delete_tenant(
     State(AppState {
         database, auditing, ..
     }): State<AppState<'_>>,
-) -> RestResult<()> {
+) -> AppResult<()> {
     let operator_id = auth.token.claims.sub;
     Span::current().tap(|it| {
         it.record("operator_id", field::display(&operator_id))
@@ -351,7 +352,7 @@ pub async fn get_tenant_users(
     Path(tenant_id): Path<Sqid>,
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
-) -> RestResult<PagedResponse<ApplicationUserVO>> {
+) -> AppResult<PagedResponse<ApplicationUserVO>> {
     let page = query.unwrap_or_default();
     let operator_id = auth.token.claims.sub;
     let tenant_id = tenant_id.try_into()?;

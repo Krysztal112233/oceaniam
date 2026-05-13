@@ -8,9 +8,9 @@ use std::{
     time::Duration,
 };
 
+use crate::error::Error;
 use axum::http::StatusCode;
 use itertools::Itertools;
-use oceaniam_common::error::Error;
 use oceaniam_database::{
     helper::{applications::ApplicationHelper, applications_secrets::ApplicationSecretsHelper},
     model::prelude::{ApplicationSecrets, Applications},
@@ -169,7 +169,11 @@ impl ManagedFilters<'_> {
             database.clone(),
             "application_id_filter",
             "application ids",
-            |database| async move { Applications::get_all_application_ids(&database).await },
+            |database| async move {
+                Applications::get_all_application_ids(&database)
+                    .await
+                    .map_err(Into::into)
+            },
         );
 
         spawn_refresh_worker(
@@ -177,7 +181,11 @@ impl ManagedFilters<'_> {
             database.clone(),
             "secret_id_filter",
             "secret ids",
-            |database| async move { ApplicationSecrets::get_all_secret_ids(&database).await },
+            |database| async move {
+                ApplicationSecrets::get_all_secret_ids(&database)
+                    .await
+                    .map_err(Into::into)
+            },
         );
 
         spawn_refresh_worker(
@@ -185,7 +193,11 @@ impl ManagedFilters<'_> {
             database,
             "secret_filter",
             "secrets",
-            |database| async move { ApplicationSecrets::get_all_secrets(&database).await },
+            |database| async move {
+                ApplicationSecrets::get_all_secrets(&database)
+                    .await
+                    .map_err(Into::into)
+            },
         );
 
         instance

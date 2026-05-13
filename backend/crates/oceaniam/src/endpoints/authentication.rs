@@ -14,14 +14,13 @@
 //! - Revoked tokens are tracked in database and cannot be reused
 //! - All authentication failures return 401 to prevent username enumeration attacks
 
+use crate::error::{AppResult, Error};
 use axum::{Json, extract::State, http::StatusCode};
 use axum_extra::extract::cookie::Cookie;
-use oceaniam_api::{
-    ApiResponse, ApiResponseWithHeader, ErrorResponse, RestResult, WithHeaderRestResult,
-};
+use oceaniam_api::{ApiResponse, ErrorResponse};
 use oceaniam_audit::types::{AuditPayload, RefreshJwtPayload, RevokeJwtPayload, SignJwtPayload};
 use oceaniam_auth::jwt::SystemClaim;
-use oceaniam_common::{consts, error::Error};
+use oceaniam_common::consts;
 use oceaniam_database::{
     helper::administrators::AdministratorsHelper, model::prelude::Administrators,
 };
@@ -90,7 +89,7 @@ pub async fn create_auth_token(
     }): State<AppState<'_>>,
 
     Json(auth): Json<SystemSigninRequest>,
-) -> RestResult<SigninResponseOrChallenge> {
+) -> AppResult<SigninResponseOrChallenge> {
     let (id, password) = match auth {
         SystemSigninRequest::Name { name, password } => (
             Administrators::get_by_name(name, &database)
@@ -178,7 +177,7 @@ pub async fn delete_auth_token(
         auditing,
         ..
     }): State<AppState<'_>>,
-) -> RestResult<SignoutResponse> {
+) -> AppResult<SignoutResponse> {
     Span::current().tap(|it| {
         it.record("sub", field::display(&auth.token.claims.sub))
             .record("jti", field::display(&auth.token.claims.jti));
@@ -238,7 +237,7 @@ pub async fn create_auth_user(
     State(AppState { revoked_jwt, .. }): State<AppState<'_>>,
 
     Json(auth): Json<SystemSigninRequest>,
-) -> RestResult<()> {
+) -> AppResult<()> {
     let _ = &revoked_jwt;
     Span::current();
 
@@ -303,7 +302,7 @@ pub async fn refresh_auth_token(
         auditing,
         ..
     }): State<AppState<'_>>,
-) -> WithHeaderRestResult<SigninResponseOrChallenge> {
+) -> AppResult<SigninResponseOrChallenge> {
     let jti = auth.token.claims.jti;
     Span::current().tap(|it| {
         it.record("sub", field::display(&auth.token.claims.sub))
@@ -349,13 +348,12 @@ pub async fn refresh_auth_token(
         .await;
 
     let cookie = Cookie::new("auth_token", jwt.clone());
-    let resp =
-        ApiResponseWithHeader::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
+    let resp = ApiResponse::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
 
     let resp = match token_mtd {
         TokenDispatchMethod::Json => resp,
         TokenDispatchMethod::Both => resp.with_cookie(cookie)?,
-        TokenDispatchMethod::Cookie => ApiResponseWithHeader::empty().with_cookie(cookie)?,
+        TokenDispatchMethod::Cookie => ApiResponse::empty().with_cookie(cookie)?,
     };
 
     Ok(resp)

@@ -1,8 +1,7 @@
 use jsonwebtoken::Algorithm;
 use oceaniam_database::model::sea_orm_active_enums::KeyAlg;
 use thiserror::Error;
-
-use oceaniam_common::error::Error as CommonError;
+use uuid::Uuid;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -29,6 +28,15 @@ pub enum Error {
 
     #[error("{0}")]
     Pkcs1(#[from] rsa::pkcs1::Error),
+
+    #[error("key id={0} already exists in keybox")]
+    KeyAlreadyExists(String),
+
+    #[error("key id={0} not found in keybox")]
+    KeyNotFound(Uuid),
+
+    #[error("{0}")]
+    Internal(String),
 }
 
 impl Error {
@@ -53,12 +61,12 @@ impl Error {
     }
 }
 
-impl From<Error> for CommonError {
-    fn from(value: Error) -> Self {
-        match value {
-            Error::Jwt(error) => CommonError::Jwt(error),
-            Error::Json(error) => CommonError::Json(error),
-            _ => CommonError::CustomMessage(500, value.to_string()),
+impl From<oceaniam_database::Error> for Error {
+    fn from(e: oceaniam_database::Error) -> Self {
+        match e {
+            oceaniam_database::Error::Db(db_err) => Self::Db(db_err),
+            oceaniam_database::Error::Json(e) => Self::Json(e),
+            oceaniam_database::Error::CustomMessage(_, msg) => Self::Internal(msg),
         }
     }
 }

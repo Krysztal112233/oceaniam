@@ -1,6 +1,7 @@
 use mimalloc::MiMalloc;
+use oceaniam::error::Error;
 use oceaniam::setup_database;
-use oceaniam_common::{config::BackendConfig, error::Error};
+use oceaniam_common::config::BackendConfig;
 use oceaniam_worker::runtime::{WorkerContext, WorkerRuntime};
 use tracing::error;
 use tracing_subscriber::EnvFilter;

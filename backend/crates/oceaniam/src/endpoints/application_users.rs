@@ -1,5 +1,6 @@
 //! Application user-related API endpoints
 
+use crate::error::AppResult;
 use argon2::Argon2;
 use axum::{
     Json,
@@ -8,7 +9,7 @@ use axum::{
 };
 use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
-use oceaniam_api::{ApiResponse, ErrorResponse, PagedResponse, RestResult};
+use oceaniam_api::{ApiResponse, ErrorResponse, PagedResponse};
 use oceaniam_audit::types::{AuditPayload, CreateApplicationUserPayload};
 use oceaniam_auth::jwt::SystemClaim;
 use oceaniam_common::helpers::gen_random_name;
@@ -72,7 +73,7 @@ pub async fn get_application_users(
     State(AppState { database, .. }): State<AppState<'_>>,
     Path(path): Path<TenantApplicationPath>,
     OptionalQuery(query): OptionalQuery<ApplicationUsersListQuery>,
-) -> RestResult<PagedResponse<ApplicationUserVO>> {
+) -> AppResult<PagedResponse<ApplicationUserVO>> {
     let query = query.unwrap_or_default();
     let page = query.page_param();
     let operator_id = auth.token.claims.sub;
@@ -153,7 +154,7 @@ pub async fn search_application_users(
     }): State<AppState<'_>>,
     Path(path): Path<TenantApplicationPath>,
     Garde(Query(search_options)): Garde<Query<SearchApplicationUsersQuery>>,
-) -> RestResult<PagedResponse<ApplicationUserVO>> {
+) -> AppResult<PagedResponse<ApplicationUserVO>> {
     let page = search_options.page_param();
     let sort_desc = search_options.is_desc();
     let operator_id = auth.token.claims.sub;
@@ -161,7 +162,7 @@ pub async fn search_application_users(
     let application_id = application.id;
 
     if !search_options.has_search_term() {
-        return Err(oceaniam_common::error::Error::with_code(
+        return Err(crate::error::Error::with_code(
             StatusCode::BAD_REQUEST,
             "at least one of by_nickname, by_email, by_phone or by_id must be provided",
         ));
@@ -306,7 +307,7 @@ pub async fn get_application_user(
         ..
     }): State<AppState<'_>>,
     Path((tenant_id, application_id, user_id)): Path<(Sqid, Sqid, Sqid)>,
-) -> RestResult<ApplicationUserVO> {
+) -> AppResult<ApplicationUserVO> {
     let operator_id = auth.token.claims.sub;
     let application = get_tenant_application(
         TenantApplicationPath {
@@ -396,7 +397,7 @@ pub async fn create_application_user(
         nickname,
         password,
     })): Garde<Json<CreateApplicationUserRequest>>,
-) -> RestResult<ApplicationUserVO> {
+) -> AppResult<ApplicationUserVO> {
     let application = get_tenant_application(path, &database).await?;
     let application_id = application.id;
 
@@ -507,7 +508,7 @@ pub async fn patch_application_user_credentials(
     Garde(Json(PatchApplicationUserCredentialsRequest { password })): Garde<
         Json<PatchApplicationUserCredentialsRequest>,
     >,
-) -> RestResult<ApplicationUserVO> {
+) -> AppResult<ApplicationUserVO> {
     let application = get_tenant_application(
         TenantApplicationPath {
             tenant_id,

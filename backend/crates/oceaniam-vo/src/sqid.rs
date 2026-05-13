@@ -2,14 +2,13 @@ use std::fmt;
 use std::str::FromStr;
 use std::sync::LazyLock;
 
-use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use sqids::Sqids;
 use ts_rs::TS;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use oceaniam_common::error::Error;
+use crate::error::Error;
 
 static SQID: LazyLock<sqids::Sqids> = LazyLock::new(|| Sqids::new(None).unwrap());
 
@@ -48,10 +47,7 @@ impl TryFrom<Sqid> for Uuid {
         let decoded = SQID.decode(&value.0);
 
         if decoded.len() != 2 {
-            return Err(Error::with_code(
-                StatusCode::BAD_REQUEST,
-                "cannot parse input id",
-            ));
+            return Err(Error::InvalidSqid);
         }
 
         let high = (decoded[0] as u128) << 64;
@@ -68,10 +64,7 @@ impl FromStr for Sqid {
         let decoded = SQID.decode(s);
 
         if decoded.len() != 2 {
-            return Err(Error::with_code(
-                StatusCode::BAD_REQUEST,
-                "cannot parse input id",
-            ));
+            return Err(Error::InvalidSqid);
         }
 
         Ok(Self(s.to_string()))

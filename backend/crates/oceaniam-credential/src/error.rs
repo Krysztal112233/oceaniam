@@ -1,5 +1,4 @@
 use argon2::password_hash;
-use axum::http::StatusCode;
 use chacha20poly1305::aead;
 use std::time::SystemTimeError;
 use thiserror::Error;
@@ -35,37 +34,6 @@ pub enum Error {
 
     #[error("system time error: {0}")]
     SystemTime(#[from] SystemTimeError),
-}
-
-impl From<Error> for oceaniam_common::error::Error {
-    fn from(value: Error) -> Self {
-        match value {
-            Error::Db(db_err) => Self::Db(db_err),
-            Error::Password(_) => Self::with_code(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                oceaniam_common::consts::USER_LOGIN_FAILED_MSG,
-            ),
-            Error::Join(_) => {
-                Self::with_code(StatusCode::INTERNAL_SERVER_ERROR, "task execution failed")
-            }
-            Error::InvalidLength
-            | Error::Base64(_)
-            | Error::SerdeJson(_)
-            | Error::Aead
-            | Error::InvalidAlgorithm => Self::with_code(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "invalid totp secret data",
-            ),
-            Error::Totp(_) => Self::with_code(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "invalid totp configuration",
-            ),
-            Error::SystemTime(_) => Self::with_code(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "invalid totp configuration",
-            ),
-        }
-    }
 }
 
 impl From<crypto_common::InvalidLength> for Error {

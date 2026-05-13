@@ -1,9 +1,9 @@
 use std::{sync::Arc, time::Duration};
 
+use crate::error::Error;
 use argon2::Argon2;
 use axum::http::StatusCode;
 use moka::future::{Cache, CacheBuilder};
-use oceaniam_common::error::Error;
 use oceaniam_credential::CredentialVault;
 use oceaniam_database::{
     helper::SafeTransactionConnectionTrait,

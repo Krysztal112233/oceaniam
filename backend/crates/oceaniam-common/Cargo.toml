@@ -6,20 +6,14 @@ edition.workspace = true
 [dependencies]
 async-trait.workspace = true
 axum-extra = { workspace = true, features = ["cookie"] }
-axum.workspace = true
 chrono.workspace = true
 config.workspace = true
 garde.workspace = true
-im.workspace = true
-jsonwebtoken.workspace = true
 log.workspace = true
 names.workspace = true
 num_cpus.workspace = true
-parking_lot.workspace = true
 rand.workspace = true
 reqwest.workspace = true
-rsa.workspace = true
-sea-orm.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sqids.workspace = true

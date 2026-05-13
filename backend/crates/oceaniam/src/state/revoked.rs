@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
+use crate::error::Error;
 use moka::future::{Cache, CacheBuilder};
-use oceaniam_common::error::Error;
 use oceaniam_database::{helper::revoked_jwts::RevokedJwtsHelper, model::prelude::RevokedJwts};
 use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
 use uuid::Uuid;

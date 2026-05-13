@@ -1,9 +1,10 @@
 use std::{collections::HashMap, time::Duration};
 
+use crate::error::Error;
 use axum::http::StatusCode;
 use moka::future::Cache;
 use oceaniam_api::{PageParam, PagedResponse};
-use oceaniam_common::{error::Error, helpers::gen_random_with_charset};
+use oceaniam_common::helpers::gen_random_with_charset;
 use oceaniam_database::{
     helper::applications_secrets::ApplicationSecretsHelper,
     model::{application_secrets::Model as SecretModel, prelude::ApplicationSecrets},
@@ -116,7 +117,9 @@ impl Secrets<'_> {
             .caches
             .by_id
             .try_get_with(secret_id, async {
-                ApplicationSecrets::get_secret(secret_id, &self.database).await
+                ApplicationSecrets::get_secret(secret_id, &self.database)
+                    .await
+                    .map_err(Into::into)
             })
             .await?)
     }
@@ -128,7 +131,9 @@ impl Secrets<'_> {
             .caches
             .application_ids_by_secret_id
             .try_get_with(secret_id, async {
-                ApplicationSecrets::get_application_ids_of_secret(secret_id, &self.database).await
+                ApplicationSecrets::get_application_ids_of_secret(secret_id, &self.database)
+                    .await
+                    .map_err(Into::into)
             })
             .await?)
     }
@@ -139,7 +144,9 @@ impl Secrets<'_> {
     pub async fn get_secret_application_ids_batch(
         &self,
     ) -> Result<HashMap<Uuid, Vec<Uuid>>, Error> {
-        ApplicationSecrets::get_all_application_ids_grouped_by_secret_id(&self.database).await
+        ApplicationSecrets::get_all_application_ids_grouped_by_secret_id(&self.database)
+            .await
+            .map_err(Into::into)
     }
 
     /// Returns the application-ID-to-secret-IDs map for the specified secrets, and populates the
@@ -194,7 +201,9 @@ impl Secrets<'_> {
             .caches
             .application_ids_by_secret
             .try_get_with(secret.clone(), async {
-                ApplicationSecrets::find_secret_can_be_used_for(secret, &self.database).await
+                ApplicationSecrets::find_secret_can_be_used_for(secret, &self.database)
+                    .await
+                    .map_err(Into::into)
             })
             .await?)
     }
@@ -210,7 +219,9 @@ impl Secrets<'_> {
             .caches
             .by_application
             .try_get_with(application_id, async {
-                ApplicationSecrets::get_all_secrets_of(application_id, &self.database).await
+                ApplicationSecrets::get_all_secrets_of(application_id, &self.database)
+                    .await
+                    .map_err(Into::into)
             })
             .await?)
     }

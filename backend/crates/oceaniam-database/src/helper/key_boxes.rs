@@ -1,6 +1,7 @@
 //! Helper functions and traits for key_boxes operations.
 
-use oceaniam_common::{consts, error::Error};
+use crate::error::Error;
+use oceaniam_common::consts;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, sea_query::OnConflict};
 use tracing::{debug, error};
 use uuid::Uuid;

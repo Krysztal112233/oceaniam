@@ -1,5 +1,6 @@
 use std::convert::Infallible;
 
+use crate::error::Error;
 use axum::{
     extract::FromRequestParts,
     http::{HeaderMap, StatusCode, header, request::Parts},
@@ -7,7 +8,6 @@ use axum::{
 use oceaniam_auth::{
     Header, TokenData, Validation, decode, decode_header, jwks::JwkSet, jwt::ClaimHelper,
 };
-use oceaniam_common::error::Error;
 use serde::{Serialize, de::DeserializeOwned};
 use tracing::error;
 

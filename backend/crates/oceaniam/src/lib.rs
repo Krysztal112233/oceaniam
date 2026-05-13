@@ -1,6 +1,8 @@
 use std::time::Duration;
 
-use oceaniam_common::{config::DatabaseConfig, consts, error::Error};
+use crate::error::Error;
+
+use oceaniam_common::{config::DatabaseConfig, consts};
 use oceaniam_database::{
     helper::{applications::ApplicationHelper, tenants::TenantsHelper},
     model::prelude::*,
@@ -11,6 +13,7 @@ use tracing::{error, warn};
 
 pub mod app;
 pub mod endpoints;
+pub mod error;
 pub mod middlewares;
 pub mod state;
 

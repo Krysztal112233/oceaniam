@@ -3,8 +3,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::{Duration, Utc};
 use linkme::distributed_slice;
+use oceaniam::error::Error;
 use oceaniam_audit::types::{AuditPayload, RotateKeyPayload};
-use oceaniam_common::error::Error;
 use oceaniam_database::{
     helper::key_boxes::KeyBoxesHelper,
     model::{

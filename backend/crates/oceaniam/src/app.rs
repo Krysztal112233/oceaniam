@@ -1,11 +1,9 @@
+use crate::error::Error;
 use axum::{
     Router,
     http::{HeaderValue, header},
 };
-use oceaniam_common::{
-    config::{BackendConfig, CorsConfig},
-    error::Error,
-};
+use oceaniam_common::config::{BackendConfig, CorsConfig};
 use tap::Pipe;
 use tower_http::{
     cors::{Any, CorsLayer},

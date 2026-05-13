@@ -2,8 +2,9 @@
 //!
 //! Provides HTTP API routes and handlers for the application
 
+use crate::error::AppResult;
 use axum::extract::State;
-use oceaniam_api::{ApiResponse, Empty, RestResult};
+use oceaniam_api::{ApiResponse, Empty};
 use tap::Pipe as _;
 use utoipa_axum::{router::OpenApiRouter, routes};
 
@@ -28,7 +29,7 @@ mod tenants;
             (status = 200, body = ApiResponse<Empty>)
         )
     )]
-async fn root(State(_ext): State<AppState<'_>>) -> RestResult<Empty> {
+async fn root(State(_ext): State<AppState<'_>>) -> AppResult<Empty> {
     Ok(ApiResponse::default())
 }
 

@@ -1,5 +1,6 @@
 //! Application configuration-related API endpoints
 
+use crate::error::AppResult;
 use crate::{
     endpoints::applications::{TenantApplicationPath, get_tenant_application},
     middlewares,
@@ -9,7 +10,7 @@ use axum::{
     Json,
     extract::{Path, State},
 };
-use oceaniam_api::{ApiResponse, Empty, ErrorResponse, RestResult};
+use oceaniam_api::{ApiResponse, Empty, ErrorResponse};
 use oceaniam_audit::types::{AuditPayload, PatchApplicationConfigurationPayload};
 use oceaniam_auth::jwt::SystemClaim;
 use oceaniam_vo::applications::{
@@ -57,7 +58,7 @@ pub async fn get_application_configuration(
         ..
     }): State<AppState<'_>>,
     Path(path): Path<TenantApplicationPath>,
-) -> RestResult<GetApplicationConfigurationResponse> {
+) -> AppResult<GetApplicationConfigurationResponse> {
     let application = get_tenant_application(path, &database).await?;
     let application_id = application.id;
     Span::current().tap(|it| {
@@ -115,7 +116,7 @@ pub async fn patch_application_configuration(
     }): State<AppState<'_>>,
     Path(path): Path<TenantApplicationPath>,
     Json(patch): Json<PatchApplicationConfigurationRequest>,
-) -> RestResult<Empty> {
+) -> AppResult<Empty> {
     let application = get_tenant_application(path, &database).await?;
     let application_id = application.id;
     Span::current().tap(|it| {

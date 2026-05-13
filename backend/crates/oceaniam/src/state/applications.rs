@@ -1,10 +1,10 @@
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
+use crate::error::Error;
 use argon2::{Argon2, Params};
 use axum::http::StatusCode;
 use moka::future::Cache;
-use oceaniam_common::error::Error;
 use oceaniam_database::{
     config::application::ApplicationConfiguration,
     helper::{
@@ -293,14 +293,16 @@ impl ManagedApplications<'_> {
         self.is_application_exist(application_id).await?;
 
         match patch.comment {
-            PatchValue::Missing => {
-                Applications::get_application(application_id, &self.database).await
-            }
-            PatchValue::Null => {
-                Applications::update_comment(application_id, None, &self.database).await
-            }
+            PatchValue::Missing => Applications::get_application(application_id, &self.database)
+                .await
+                .map_err(Into::into),
+            PatchValue::Null => Applications::update_comment(application_id, None, &self.database)
+                .await
+                .map_err(Into::into),
             PatchValue::Value(comment) => {
-                Applications::update_comment(application_id, Some(comment), &self.database).await
+                Applications::update_comment(application_id, Some(comment), &self.database)
+                    .await
+                    .map_err(Into::into)
             }
         }
     }
@@ -407,7 +409,7 @@ impl ApplicationUsers {
         Ok(self
             .cache
             .try_get_with(user_identifier.clone(), async move {
-                match user_identifier {
+                let result = match user_identifier {
                     UserIdentifier::Email(mail) => {
                         Users::find_by_email(self.application_id, mail, &self.database).await
                     }
@@ -418,7 +420,8 @@ impl ApplicationUsers {
                         Users::get_user_of_application(self.application_id, uuid, &self.database)
                             .await
                     }
-                }
+                };
+                result.map_err(Into::into)
             })
             .await?)
     }

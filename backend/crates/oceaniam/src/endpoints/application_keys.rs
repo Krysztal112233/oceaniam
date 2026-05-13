@@ -1,7 +1,8 @@
 //! Application key management API endpoints
 
+use crate::error::AppResult;
 use axum::extract::{Path, State};
-use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PagedResponse, RestResult};
+use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PagedResponse};
 use oceaniam_audit::types::{AuditPayload, RevokeKeyPayload, RotateKeyPayload};
 use oceaniam_vo::applications::{ApplicationKeyVO, RotateKeyResponse};
 use oceaniam_vo::sqid::Sqid;
@@ -61,7 +62,7 @@ pub async fn get_application_keys(
 
     Path(path): Path<KeysPath>,
     State(AppState { keyboxes, .. }): State<AppState<'_>>,
-) -> RestResult<PagedResponse<ApplicationKeyVO>> {
+) -> AppResult<PagedResponse<ApplicationKeyVO>> {
     let application_id: Uuid = path.application_id.try_into().inspect_err(|e| {
         error!(error = %e, "failed to convert application_id");
     })?;
@@ -121,7 +122,7 @@ pub async fn rotate_application_key(
     State(AppState {
         keyboxes, auditing, ..
     }): State<AppState<'_>>,
-) -> RestResult<RotateKeyResponse> {
+) -> AppResult<RotateKeyResponse> {
     let application_id: Uuid = path.application_id.try_into().inspect_err(|e| {
         error!(error = %e, "failed to convert application_id");
     })?;
@@ -187,7 +188,7 @@ pub async fn revoke_application_key(
     State(AppState {
         keyboxes, auditing, ..
     }): State<AppState<'_>>,
-) -> RestResult<()> {
+) -> AppResult<()> {
     let application_id: Uuid = path.application_id.try_into().inspect_err(|e| {
         error!(error = %e, "failed to convert application_id");
     })?;

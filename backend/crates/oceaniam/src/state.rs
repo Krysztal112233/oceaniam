@@ -3,6 +3,7 @@ use crate::state::{
     filters::ManagedFilters, keybox::ManagedKeyBoxes, revoked::RevokedJwt,
 };
 
+use crate::error::Error;
 use axum::extract::FromRef;
 use im::HashMap;
 use oceaniam_auth::{
@@ -10,7 +11,7 @@ use oceaniam_auth::{
     jwks::{JwkSet, ManagedJwkSet},
     jwt::JwtValidator,
 };
-use oceaniam_common::{consts, error::Error};
+use oceaniam_common::consts;
 use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, key_boxes::KeyBoxesHelper},
     model::prelude::KeyBoxes,
@@ -144,7 +145,8 @@ async fn initial_system_keybox(
 
         let key = RsaKey::new(
             Uuid::now_v7(),
-            oceaniam_keybox::key_alg::KeyAlg::try_from(consts::SYSTEM_KEY_ALO).unwrap(),
+            oceaniam_keybox::key_alg::KeyAlg::try_from(oceaniam_auth::consts::SYSTEM_KEY_ALO)
+                .unwrap(),
         );
         keybox.add_key(key).inspect_err(|e| error!("{e}"))?;
 

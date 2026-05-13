@@ -1,11 +1,13 @@
 //! Application management-related API endpoints
 
+use crate::error::AppResult;
+use crate::error::Error;
 use axum::{
     Json,
     extract::{Path, State},
 };
 use axum_extra::extract::OptionalQuery;
-use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse, RestResult};
+use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{
     AuditPayload, CreateApplicationPayload, DeleteApplicationPayload, PatchApplicationPayload,
 };
@@ -13,7 +15,6 @@ use oceaniam_auth::{
     jwks::{JwkSet, JwkSetSchema},
     jwt::SystemClaim,
 };
-use oceaniam_common::error::Error;
 use oceaniam_database::{
     helper::applications::ApplicationHelper, model, model::prelude::Applications,
 };
@@ -74,7 +75,7 @@ pub async fn get_applications(
     Path(tenant_id): Path<Sqid>,
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
-) -> RestResult<PagedResponse<ApplicationVO>> {
+) -> AppResult<PagedResponse<ApplicationVO>> {
     let page = query.unwrap_or_default();
     let tenant_id: Uuid = tenant_id.try_into()?;
     Span::current().tap(|it| {
@@ -127,7 +128,7 @@ pub async fn create_application(
         ..
     }): State<AppState<'_>>,
     Json(CreateApplicationRequest { comment }): Json<CreateApplicationRequest>,
-) -> RestResult<CreateApplicationResponse> {
+) -> AppResult<CreateApplicationResponse> {
     let tenant_id: Uuid = tenant_id.try_into()?;
     let model::applications::Model {
         id,
@@ -196,7 +197,7 @@ pub async fn get_application(
     _: middlewares::auth::RequireAuth<SystemClaim>,
     Path(path): Path<TenantApplicationPath>,
     State(AppState { database, .. }): State<AppState<'_>>,
-) -> RestResult<ApplicationDetailVO> {
+) -> AppResult<ApplicationDetailVO> {
     let application = get_tenant_application(path, &database).await?;
 
     Ok(ApiResponse::new(ApplicationDetailVO::from(application)))
@@ -236,7 +237,7 @@ pub async fn patch_application(
         ..
     }): State<AppState<'_>>,
     Json(patch): Json<PatchApplicationRequest>,
-) -> RestResult<ApplicationDetailVO> {
+) -> AppResult<ApplicationDetailVO> {
     let application = get_tenant_application(path, &database).await?;
     Span::current().tap(|it| {
         it.record("tenant_id", field::display(&application.tenant_id))
@@ -292,7 +293,7 @@ pub async fn delete_application(
         auditing,
         ..
     }): State<AppState<'_>>,
-) -> RestResult<()> {
+) -> AppResult<()> {
     let application = get_tenant_application(path, &database).await?;
     Span::current().tap(|it| {
         it.record("tenant_id", field::display(&application.tenant_id))
@@ -336,7 +337,7 @@ pub async fn delete_application(
 pub async fn get_application_jwks(
     Path(application_id): Path<Sqid>,
     State(AppState { keyboxes, .. }): State<AppState<'_>>,
-) -> RestResult<JwkSet> {
+) -> AppResult<JwkSet> {
     let application_id: Uuid = application_id
         .try_into()
         .inspect_err(|e| error!(error = %e, "failed to convert application_id"))?;

@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use cron::Schedule;
 use linkme::distributed_slice;
-use oceaniam_common::error::Error;
+use oceaniam::error::Error;
 use sea_orm::DatabaseConnection;
 use tokio::{sync::broadcast, task::JoinHandle};
 use tracing::{debug, error, info, warn};

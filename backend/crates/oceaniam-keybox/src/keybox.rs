@@ -1,7 +1,7 @@
+use crate::error::Error;
 use chrono::{DateTime, FixedOffset, Utc};
 use im::HashMap;
 use itertools::Itertools;
-use oceaniam_common::error::Error;
 use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, key_boxes::KeyBoxesHelper},
     model::{
@@ -131,10 +131,7 @@ impl KeyBox {
         let key = key.try_into_key_model(self.application_id, options)?;
 
         if self.keys.contains_key(&key.id) {
-            return Err(Error::with_code(
-                409u16,
-                format!("key id={} already exists in keybox", key.id),
-            ));
+            return Err(Error::KeyAlreadyExists(key.id.to_string()));
         }
 
         self.keys.insert(key.id, key);
@@ -182,10 +179,7 @@ impl KeyBox {
     /// Returns an error if the key does not exist in this keybox.
     pub fn revoke_key(&mut self, key_id: &Uuid) -> Result<(), Error> {
         let Some(mut key) = self.keys.get(key_id).cloned() else {
-            return Err(Error::with_code(
-                404u16,
-                format!("key id={key_id} not found in keybox"),
-            ));
+            return Err(Error::KeyNotFound(*key_id));
         };
 
         key.status = KeyStatus::Revoked;
@@ -207,7 +201,7 @@ impl KeyBox {
 
         // SAFETY: the key was just inserted, it exists and is not expired
         unsafe { self.get_raw_key_unsafe(&key_id) }
-            .ok_or_else(|| Error::with_code(500u16, "key was inserted but cannot be retrieved"))
+            .ok_or_else(|| Error::Internal("key was inserted but cannot be retrieved".into()))
     }
 
     /// Returns all keys in the keybox

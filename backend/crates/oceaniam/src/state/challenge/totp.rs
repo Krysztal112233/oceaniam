@@ -1,5 +1,5 @@
+use crate::error::Error;
 use axum::http::StatusCode;
-use oceaniam_common::error::Error;
 use serde::Deserialize;
 
 use crate::state::challenge::{MfaValidator, ValidationContext};

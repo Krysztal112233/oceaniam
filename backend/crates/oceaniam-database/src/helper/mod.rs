@@ -1,5 +1,5 @@
+use crate::error::Error;
 use oceaniam_api::{PageInfo, PageParam, PagedResponse};
-use oceaniam_common::error::Error;
 use sea_orm::{
     ConnectionTrait, EntityTrait, FromQueryResult, QuerySelect as _, Select, TransactionTrait,
 };

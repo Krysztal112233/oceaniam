@@ -1,8 +1,9 @@
 //! Secret management-related API endpoints
 
+use crate::error::AppResult;
 use axum::extract::{Path, State};
 use axum_extra::extract::OptionalQuery;
-use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse, RestResult};
+use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{
     AuditPayload, CreateApplicationSecretPayload, DeleteApplicationSecretPayload,
 };
@@ -43,7 +44,7 @@ pub async fn create_secret(
         auditing,
         ..
     }): State<AppState<'_>>,
-) -> RestResult<SecretVO> {
+) -> AppResult<SecretVO> {
     let operator_id = auth.token.claims.sub;
     let model = applications
         .secrets()
@@ -94,7 +95,7 @@ pub async fn get_secrets(
     _: RequireAuth<SystemClaim>,
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { applications, .. }): State<AppState<'_>>,
-) -> RestResult<PagedResponse<SecretVO>> {
+) -> AppResult<PagedResponse<SecretVO>> {
     let page: PageParam = query.unwrap_or_default();
 
     Span::current().tap(|it| {
@@ -162,7 +163,7 @@ pub async fn get_secret(
     _: RequireAuth<SystemClaim>,
     Path(secret_id): Path<Sqid>,
     State(AppState { applications, .. }): State<AppState<'_>>,
-) -> RestResult<SecretVO> {
+) -> AppResult<SecretVO> {
     let secret_id: Uuid = secret_id
         .try_into()
         .inspect_err(|e| error!(error = %e, "failed to convert secret_id"))?;
@@ -211,7 +212,7 @@ pub async fn delete_secret(
         ..
     }): State<AppState<'_>>,
     Path(secret_id): Path<Sqid>,
-) -> RestResult<Empty> {
+) -> AppResult<Empty> {
     let operator_id = auth.token.claims.sub;
     let secret_id: Uuid = secret_id
         .try_into()

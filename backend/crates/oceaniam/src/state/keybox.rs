@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use crate::error::Error;
 use axum::http::StatusCode;
 use moka::future::{Cache, CacheBuilder};
 use oceaniam_auth::{
@@ -7,7 +8,7 @@ use oceaniam_auth::{
     jwks::JwkSet,
     jwt::{ClaimHelper, JwtCodec, SystemClaim},
 };
-use oceaniam_common::{consts, error::Error};
+use oceaniam_common::consts;
 use oceaniam_database::{
     config::application::ApplicationConfiguration,
     helper::{applications::ApplicationHelper, key_boxes::KeyBoxesHelper},
@@ -212,6 +213,7 @@ impl ManagedKeyBoxes {
             )
             .inspect_err(|e| error!("failed to encode jwt: {}", e))
             .map(|it| EncodedJwt { jwt: it, claim })
+            .map_err(Into::into)
     }
 
     pub async fn sign_system_jwt(self, sub: Uuid) -> Result<EncodedJwt<SystemClaim>, Error> {

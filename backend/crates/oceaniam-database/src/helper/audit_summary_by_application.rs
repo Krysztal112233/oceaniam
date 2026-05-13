@@ -1,5 +1,5 @@
+use crate::error::Error;
 use chrono::{Duration, Utc};
-use oceaniam_common::error::Error;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use uuid::Uuid;
 
