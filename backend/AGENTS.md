@@ -51,6 +51,18 @@ These instructions apply to work performed inside the `backend` project.
 - Any change to a value-object type in `crates/oceaniam-vo/src/` that carries `#[derive(ts_rs::TS)]` must have a corresponding export stub added or updated in `crates/oceaniam-export/src/vo/`.
 - The stub file mirrors the VO crate's module structure one-to-one.  A missing stub means the TypeScript type definition won't be generated.
 
+## Database Constraints
+
+- Do not add `UNIQUE` constraints on `users.email` or `users.phone`.  Uniqueness for
+  contact fields is enforced at the application layer, not the database schema.
+
+## Index Style
+
+- Always use the SeaORM builder API (`Index::create().name(...).table(...).col(...).to_owned()`)
+  when creating indexes in migrations.
+- Extract each index name into a `const` at the top of the migration file so the string
+  is shared by `up` and `down` without duplication.
+
 ## Verification Commands
 
 Before claiming work is complete, run these commands:

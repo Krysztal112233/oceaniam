@@ -60,6 +60,8 @@ mod m20260511_133000_alter_audit_type_rotate_revoke_key;
 mod m20260512_094922_alter_key_boxes_fill_timestamps;
 mod m20260512_094928_alter_key_boxes_temporal_check;
 mod m20260514_003512_change_audit_summary_to_minute_granularity;
+mod m20260514_024939_add_performance_indexes;
+mod m20260514_031033_drop_idx_subjects_application_id;
 
 pub struct Migrator;
 
@@ -106,16 +108,12 @@ impl MigratorTrait for Migrator {
             Box::new(m20260325_170615_create_primary_key_of_application_secret_binding::Migration),
             Box::new(m20260326_112803_alter_audit_type_tenant_admin_management::Migration),
             Box::new(m20260327_202624_alter_audit_type_patch_administrator::Migration),
-            Box::new(
-                m20260329_154808_alter_application_configuration_enable_registration::Migration,
-            ),
+            Box::new(m20260329_154808_alter_application_configuration_enable_registration::Migration),
             Box::new(m20260408_085824_create_audit_summaries_by_applications::Migration),
             Box::new(m20260410_030629_create_idx_users_app_lower_nickname::Migration),
             Box::new(m20260410_035003_alter_application_argon2::Migration),
             Box::new(m20260410_113844_alter_subjects_clumn_created_at::Migration),
-            Box::new(
-                m20260410_133833_create_idx_subjects_application_id_created_at_id_desc::Migration,
-            ),
+            Box::new(m20260410_133833_create_idx_subjects_application_id_created_at_id_desc::Migration),
             Box::new(m20260416_051432_refactor_application_configuration::Migration),
             Box::new(m20260416_094439_alter_credentials_totp::Migration),
             Box::new(m20260421_101138_create_challenges::Migration),
@@ -130,6 +128,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260512_094922_alter_key_boxes_fill_timestamps::Migration),
             Box::new(m20260512_094928_alter_key_boxes_temporal_check::Migration),
             Box::new(m20260514_003512_change_audit_summary_to_minute_granularity::Migration),
+            Box::new(m20260514_024939_add_performance_indexes::Migration),
+            Box::new(m20260514_031033_drop_idx_subjects_application_id::Migration),
         ]
     }
 }
