@@ -4,13 +4,13 @@ use crate::sqid::Sqid;
 use chrono::{DateTime, FixedOffset};
 use garde::Validate;
 use oceaniam_api::PageParam;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use utoipa::ToSchema;
 
 #[cfg(feature = "database")]
 use oceaniam_database::model::{self};
 
-#[derive(Debug, Deserialize, ToSchema, ts_rs::TS)]
+#[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
 pub struct CreateApplicationRequest {
     pub comment: Option<String>,
 }
@@ -114,9 +114,28 @@ where
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, ToSchema)]
+impl<T: Serialize> Serialize for PatchValue<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            PatchValue::Missing => serializer.serialize_none(),
+            PatchValue::Null => serializer.serialize_none(),
+            PatchValue::Value(v) => v.serialize(serializer),
+        }
+    }
+}
+
+impl<T> PatchValue<T> {
+    fn is_missing(&self) -> bool {
+        matches!(self, PatchValue::Missing)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct PatchApplicationRequest {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "PatchValue::is_missing")]
     #[schema(value_type = Option<String>)]
     pub comment: PatchValue<String>,
 }

@@ -9,7 +9,7 @@ use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
 };
-use utoipa::openapi::Contact;
+use utoipa::openapi::{Components, Contact, ObjectBuilder, Type};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_scalar::{Scalar, Servable};
 
@@ -20,6 +20,19 @@ pub fn build_openapi_spec() -> utoipa::openapi::OpenApi {
     let (_, mut openapi) = OpenApiRouter::<AppState<'static>>::new()
         .pipe(endpoints::endpoint)
         .split_for_parts();
+
+    // NOTE: utoipa generates `$ref` for enum types used as query params but omits the definition
+    // from `components/schemas`, causing openapi-generator-cli to abort.
+    let components = openapi.components.get_or_insert_with(Components::new);
+    components
+        .schemas
+        .entry("ApplicationUsersSortOrder".to_string())
+        .or_insert_with(|| {
+            ObjectBuilder::new()
+                .schema_type(Type::String)
+                .enum_values(Some(["asc", "desc"]))
+                .into()
+        });
 
     openapi.info.title = "OceanIAM".to_string();
     openapi.info.description = Some("Pretty simple IAM implemented in Rust".to_string());

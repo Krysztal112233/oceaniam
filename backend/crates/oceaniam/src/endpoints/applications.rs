@@ -322,6 +322,9 @@ pub async fn delete_application(
         get,
         path = "/applications/{application_id}/.well-known/jwks.json",
         tag = "Applications",
+        params(
+            ("application_id" = String, Path, description = "Application ID"),
+        ),
         responses(
             (status = 200, body = JwkSetSchema),
             (status = 400, description = "Invalid application id", body = ApiResponse<ErrorResponse>),

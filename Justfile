@@ -12,10 +12,12 @@ gen-entities:
 watch-backend:
     cd ./backend && watchexec -e rs -r cargo run -p oceaniam
 
-refresh-export:
+export:
     cd ./backend && cargo test -p oceaniam-export
     rm -rf ./frontend/packages/sdk/src/types
     cp -r ./backend/crates/oceaniam-export/bindings/ ./frontend/packages/sdk/src/types
 
-gen-sdks:
-    cd ./backend && cargo run -p oceaniam -- openapi --output ../sdk/openapi.json
+fmt:
+    cd ./backend && cargo fmt
+    cd ./sdk/rust && cargo fmt
+    cd ./frontend && pnpm fmt
