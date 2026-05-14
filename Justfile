@@ -16,3 +16,6 @@ refresh-export:
     cd ./backend && cargo test -p oceaniam-export
     rm -rf ./frontend/packages/sdk/src/types
     cp -r ./backend/crates/oceaniam-export/bindings/ ./frontend/packages/sdk/src/types
+
+gen-sdks:
+    cd ./backend && cargo run -p oceaniam -- openapi --output ../sdk/openapi.json

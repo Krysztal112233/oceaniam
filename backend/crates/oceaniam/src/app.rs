@@ -15,6 +15,24 @@ use utoipa_scalar::{Scalar, Servable};
 
 use crate::{endpoints, state::AppState};
 
+/// Build the OpenAPI spec without requiring a database connection.
+pub fn build_openapi_spec() -> utoipa::openapi::OpenApi {
+    let (_, mut openapi) = OpenApiRouter::<AppState<'static>>::new()
+        .pipe(endpoints::endpoint)
+        .split_for_parts();
+
+    openapi.info.title = "OceanIAM".to_string();
+    openapi.info.description = Some("Pretty simple IAM implemented in Rust".to_string());
+    openapi.info.contact = Some(
+        utoipa::openapi::Contact::builder()
+            .email(Some("krysztal.huang@outlook.com"))
+            .name(Some("Krysztal Huang"))
+            .build(),
+    );
+
+    openapi
+}
+
 pub async fn build_state(config: &BackendConfig) -> Result<AppState<'static>, Error> {
     let database = crate::setup_database(&config.database).await?;
     AppState::new(database).await

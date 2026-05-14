@@ -2424,6 +2424,7 @@ dependencies = [
  "axum-valid",
  "backon",
  "chrono",
+ "clap",
  "config",
  "crossbeam-queue",
  "dotenvy",
