@@ -348,6 +348,15 @@ export class OceanIamClient {
             keyId: string,
         ): string =>
             `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/keys/${encodeURIComponent(keyId)}`,
+
+        // Application Tokens (backend: endpoints/application_tokens.rs)
+        applicationTokens: (tenantId: string, applicationId: string): string =>
+            `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/tokens`,
+        applicationTokensRefresh: (
+            tenantId: string,
+            applicationId: string,
+        ): string =>
+            `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/tokens/refresh`,
     } as const;
 
     private baseUrl: string;
@@ -497,6 +506,32 @@ export class OceanIamClient {
                     tenantId,
                     applicationId,
                     keyId,
+                ),
+            ),
+
+        // Application Tokens
+        applicationUserSignin: (
+            tenantId: string,
+            applicationId: string,
+        ): string =>
+            this.buildUrl(
+                OceanIamClient.PATHS.applicationTokens(tenantId, applicationId),
+            ),
+        applicationUserSignout: (
+            tenantId: string,
+            applicationId: string,
+        ): string =>
+            this.buildUrl(
+                OceanIamClient.PATHS.applicationTokens(tenantId, applicationId),
+            ),
+        applicationUserRefreshToken: (
+            tenantId: string,
+            applicationId: string,
+        ): string =>
+            this.buildUrl(
+                OceanIamClient.PATHS.applicationTokensRefresh(
+                    tenantId,
+                    applicationId,
                 ),
             ),
 

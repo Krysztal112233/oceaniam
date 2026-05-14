@@ -33,6 +33,7 @@ const loadingKeys = ref(false);
 const creatingKey = ref(false);
 const revokingKeyId = ref<string | null>(null);
 const newlyCreatedKey = ref<ApplicationKeyVO | null>(null);
+const activeTab = ref<"config" | "keys">("config");
 
 const tenantId = computed(() => {
     const raw = route.params.tenantId;
@@ -170,6 +171,10 @@ async function handleConfigurationSubmit(
                     token: {
                         issuer: nextConfiguration.auth.token.issuer,
                         audience: nextConfiguration.auth.token.audience,
+                    },
+                    totp: {
+                        encryption_key:
+                            nextConfiguration.auth.totp.encryption_key,
                     },
                 },
                 registration: {
@@ -315,7 +320,7 @@ watch(
 <template>
     <EntityListPage
         page-title="Application Detail"
-        page-description="展示当前 application 的基础信息与完整配置 JSON。"
+        page-description="查看当前 application 的基础信息，管理配置与 JWT 签名密钥。"
         card-title="Application Information"
         :summary-text="summaryText"
     >
@@ -393,67 +398,92 @@ watch(
                 </div>
             </section>
 
-            <ConfigEditor
-                :value="configuration"
-                title="Application Configuration"
-                description="查看并编辑当前 Application 的完整配置 JSON"
-                :on-submit="handleConfigurationSubmit"
-            />
+            <div role="tablist" class="tabs tabs-lift">
+                <button
+                    role="tab"
+                    class="tab"
+                    :class="{ 'tab-active': activeTab === 'config' }"
+                    @click="activeTab = 'config'"
+                >
+                    配置
+                </button>
+                <button
+                    role="tab"
+                    class="tab"
+                    :class="{ 'tab-active': activeTab === 'keys' }"
+                    @click="activeTab = 'keys'"
+                >
+                    密钥管理
+                </button>
+            </div>
 
-            <section class="rounded-box border border-base-200 bg-base-100">
-                <div class="flex flex-col gap-4 px-5 py-5">
-                    <div
-                        class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"
-                    >
-                        <div class="space-y-1">
-                            <h3 class="text-base font-medium text-base-content">
-                                Signing Keys
-                            </h3>
-                            <p class="text-sm text-base-content/60">
-                                管理当前 Application 用于签发 JWT
-                                的密钥。轮换密钥会生成一个新的密钥对并使其进入生效周期。
-                            </p>
-                        </div>
+            <div v-show="activeTab === 'config'" class="pt-4">
+                <ConfigEditor
+                    :value="configuration"
+                    title="Application Configuration"
+                    description="查看并编辑当前 Application 的完整配置 JSON"
+                    :on-submit="handleConfigurationSubmit"
+                />
+            </div>
 
-                        <button
-                            type="button"
-                            class="btn btn-primary btn-sm"
-                            :disabled="
-                                loadingKeys || creatingKey || !application
-                            "
-                            :class="{ loading: creatingKey }"
-                            @click="handleRotateKey"
-                        >
-                            轮换密钥
-                        </button>
-                    </div>
-
-                    <div
-                        v-if="newlyCreatedKey"
-                        class="rounded-box border border-success/20 bg-success/5 p-4"
-                    >
-                        <div class="text-sm font-medium text-base-content">
-                            新生成的密钥
-                        </div>
+            <div v-show="activeTab === 'keys'">
+                <section class="rounded-box border border-base-200 bg-base-100">
+                    <div class="flex flex-col gap-4 px-5 py-5">
                         <div
-                            class="mt-2 space-y-1 font-mono text-sm text-base-content"
+                            class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"
                         >
-                            <div>Key ID: {{ newlyCreatedKey.key_id }}</div>
-                            <div>
-                                Algorithm: {{ newlyCreatedKey.algorithm }}
+                            <div class="space-y-1">
+                                <h3
+                                    class="text-base font-medium text-base-content"
+                                >
+                                    Signing Keys
+                                </h3>
+                                <p class="text-sm text-base-content/60">
+                                    管理当前 Application 用于签发 JWT
+                                    的密钥。轮换密钥会生成一个新的密钥对并使其进入生效周期。
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                class="btn btn-primary btn-sm"
+                                :disabled="
+                                    loadingKeys || creatingKey || !application
+                                "
+                                :class="{ loading: creatingKey }"
+                                @click="handleRotateKey"
+                            >
+                                轮换密钥
+                            </button>
+                        </div>
+
+                        <div
+                            v-if="newlyCreatedKey"
+                            class="rounded-box border border-success/20 bg-success/5 p-4"
+                        >
+                            <div class="text-sm font-medium text-base-content">
+                                新生成的密钥
+                            </div>
+                            <div
+                                class="mt-2 space-y-1 font-mono text-sm text-base-content"
+                            >
+                                <div>Key ID: {{ newlyCreatedKey.key_id }}</div>
+                                <div>
+                                    Algorithm: {{ newlyCreatedKey.algorithm }}
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <ApplicationKeyTable
-                        :keys="keys"
-                        :loading="loadingKeys"
-                        :revoking-key-id="revokingKeyId"
-                        @rotate="handleRotateKey"
-                        @revoke="handleRevokeKey"
-                    />
-                </div>
-            </section>
+                        <ApplicationKeyTable
+                            :keys="keys"
+                            :loading="loadingKeys"
+                            :revoking-key-id="revokingKeyId"
+                            @rotate="handleRotateKey"
+                            @revoke="handleRevokeKey"
+                        />
+                    </div>
+                </section>
+            </div>
         </div>
     </EntityListPage>
 </template>

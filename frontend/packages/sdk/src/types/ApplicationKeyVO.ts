@@ -6,8 +6,8 @@ export type ApplicationKeyVO = {
     algorithm: string;
     status: string;
     created_at: string;
-    activated_at: string | null;
-    retired_at: string | null;
-    expires_at: string | null;
+    activated_at: string;
+    retired_at: string;
+    expires_at: string;
     revoked_at: string | null;
 };
