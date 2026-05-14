@@ -42,13 +42,13 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
         tag = "ApplicationTokens",
         params(
             ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
-            ("X-OceanIAM-Token-Dispatch" = String, Header, description = "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both."),
+            ("X-OceanIAM-Token-Dispatch" = Option<String>, Header, description = "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both."),
             ("tenant_id" = String, Path, description = "Tenant ID"),
             ("application_id" = String, Path, description = "Application ID"),
         ),
         request_body = AuthVO,
         responses(
-            (status = 200, body = ApiResponse<Option<SigninResponseOrChallenge>>),
+            (status = 200, body = ApiResponse<SigninResponseOrChallenge>),
             (status = 400, description = "Bad request"),
             (status = 401, description = "Unauthorized"),
             (status = 403, description = "Forbidden - secret does not belong to this application"),
@@ -258,12 +258,12 @@ pub async fn delete_application_token(
         params(
             ("Authorization" = String, Header, description = "Bearer token to refresh"),
             ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
-            ("X-OceanIAM-Token-Dispatch" = String, Header, description = "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both."),
+            ("X-OceanIAM-Token-Dispatch" = Option<String>, Header, description = "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both."),
             ("tenant_id" = String, Path, description = "Tenant ID"),
             ("application_id" = String, Path, description = "Application ID"),
         ),
         responses(
-            (status = 200, body = ApiResponse<Option<SigninResponseOrChallenge>>),
+            (status = 200, body = ApiResponse<SigninResponseOrChallenge>),
             (status = 203, description = "Missing Authorization header"),
             (status = 400, description = "Invalid, expired, or revoked token", body = ApiResponse<ErrorResponse>),
             (status = 401, description = "Unauthorized"),

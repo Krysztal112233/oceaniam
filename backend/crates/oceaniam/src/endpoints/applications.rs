@@ -267,6 +267,7 @@ pub async fn patch_application(
         path = "/tenants/{tenant_id}/applications/{application_id}",
         tag = "Applications",
         params(
+            ("Authorization" = String, Header, description = "Bearer token"),
             ("tenant_id" = String, Path, description = "Tenant ID"),
             ("application_id" = String, Path, description = "Application ID"),
         ),

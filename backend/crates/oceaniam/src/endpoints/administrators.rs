@@ -186,11 +186,11 @@ pub async fn create_administrator(
 /// Update administrator
 #[utoipa::path(
         patch,
-        path = "/administrators/{target_id}",
+        path = "/administrators/{administrator_id}",
         tag = "Administrators",
         params(
             ("Authorization" = String, Header, description = "Bearer token"),
-            ("administrator_id", description = "Administrator ID"),
+            ("administrator_id" = String, Path, description = "Administrator ID"),
         ),
         request_body = PatchAdministratorRequest,
         responses(
@@ -205,12 +205,12 @@ pub async fn create_administrator(
 #[tracing::instrument(
     level = "info",
     name = "administrators.patch",
-    skip(auth, database, auditing, target_id, payload),
+    skip(auth, database, auditing, administrator_id, payload),
     fields(operator_id = field::Empty, administrator_id = field::Empty)
 )]
 pub async fn patch_administrator(
     auth: RequireAuth<SystemClaim>,
-    Path(target_id): Path<Sqid>,
+    Path(administrator_id): Path<Sqid>,
     State(AppState {
         database,
         auditing,
@@ -220,10 +220,10 @@ pub async fn patch_administrator(
     Garde(Json(payload)): Garde<Json<PatchAdministratorRequest>>,
 ) -> AppResult<AdministratorVO> {
     let operator_id = auth.token.claims.sub;
-    let target_id: Uuid = target_id.try_into()?;
+    let administrator_id: Uuid = administrator_id.try_into()?;
     Span::current().tap(|it| {
         it.record("operator_id", field::display(&operator_id))
-            .record("target_id", field::display(&target_id));
+            .record("administrator_id", field::display(&administrator_id));
     });
 
     let transaction = database.begin().await?;
@@ -231,12 +231,12 @@ pub async fn patch_administrator(
     // NOTE: Prepare for future.
     //
     // HOLY SHIT WHERE's MY POLICY ENGINE?
-    let target_administrator = if operator_id == target_id {
+    let target_administrator = if operator_id == administrator_id {
         patch_administrator_self(operator_id, payload.clone(), &credentials, &transaction).await
     } else {
         patch_administrator_other(
             operator_id,
-            target_id,
+            administrator_id,
             payload.clone(),
             &credentials,
             &transaction,
@@ -248,7 +248,7 @@ pub async fn patch_administrator(
 
     info!(
         %operator_id,
-        %target_id,
+        %administrator_id,
         "administrator updated successfully"
     );
 
@@ -256,7 +256,7 @@ pub async fn patch_administrator(
 
     auditing
         .write(AuditPayload::from(PatchAdministratorPayload {
-            target_id,
+            target_id: administrator_id,
             operator_id,
             name,
             password: password.map(|it| "*".repeat(it.len())),

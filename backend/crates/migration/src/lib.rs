@@ -108,12 +108,16 @@ impl MigratorTrait for Migrator {
             Box::new(m20260325_170615_create_primary_key_of_application_secret_binding::Migration),
             Box::new(m20260326_112803_alter_audit_type_tenant_admin_management::Migration),
             Box::new(m20260327_202624_alter_audit_type_patch_administrator::Migration),
-            Box::new(m20260329_154808_alter_application_configuration_enable_registration::Migration),
+            Box::new(
+                m20260329_154808_alter_application_configuration_enable_registration::Migration,
+            ),
             Box::new(m20260408_085824_create_audit_summaries_by_applications::Migration),
             Box::new(m20260410_030629_create_idx_users_app_lower_nickname::Migration),
             Box::new(m20260410_035003_alter_application_argon2::Migration),
             Box::new(m20260410_113844_alter_subjects_clumn_created_at::Migration),
-            Box::new(m20260410_133833_create_idx_subjects_application_id_created_at_id_desc::Migration),
+            Box::new(
+                m20260410_133833_create_idx_subjects_application_id_created_at_id_desc::Migration,
+            ),
             Box::new(m20260416_051432_refactor_application_configuration::Migration),
             Box::new(m20260416_094439_alter_credentials_totp::Migration),
             Box::new(m20260421_101138_create_challenges::Migration),

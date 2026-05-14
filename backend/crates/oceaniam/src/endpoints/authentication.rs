@@ -59,7 +59,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
         path = "/auth/tokens",
         tag = "SystemAuthentication",
         request_body = SystemSigninRequest,
-        params(("X-OceanIAM-Token-Dispatch" = String, Header, description = "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both.")),
+        params(("X-OceanIAM-Token-Dispatch" = Option<String>, Header, description = "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both.")),
         responses(
             (status = 200, description = "Successfully authenticated", body = ApiResponse<SigninResponseOrChallenge>),
             (status = 400, description = "Invalid request body"),
@@ -277,10 +277,10 @@ pub async fn create_auth_user(
 	        tag = "SystemAuthentication",
 	        params(
 	            ("Authorization" = String, Header, description = "Bearer token to refresh"),
-	            ("X-OceanIAM-Token-Dispatch" = String, Header, description = "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both."),
+	            ("X-OceanIAM-Token-Dispatch" = Option<String>, Header, description = "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both."),
 	        ),
 	        responses(
-                (status = 200, description = "Token refreshed successfully", body = ApiResponse<Option<SigninResponseOrChallenge>>),
+                (status = 200, description = "Token refreshed successfully", body = ApiResponse<SigninResponseOrChallenge>),
 	            (status = 203, description = "Missing Authorization header"),
 	            (status = 400, description = "Invalid, expired, or revoked token", body = ApiResponse<ErrorResponse>),
 	            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),

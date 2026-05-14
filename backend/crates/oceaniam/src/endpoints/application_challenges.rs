@@ -135,14 +135,14 @@ pub async fn get_application_challenge(
         params(
             ("Authorization" = String, Header, description = "Bearer token for backend administrator"),
             ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
-            ("X-OceanIAM-Token-Dispatch" = String, Header, description = "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both."),
+            ("X-OceanIAM-Token-Dispatch" = Option<String>, Header, description = "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both."),
             ("tenant_id" = String, Path, description = "Tenant ID"),
             ("application_id" = String, Path, description = "Application ID"),
             ("challenge_id" = String, Path, description = "Challenge ID"),
         ),
         request_body = Value,
         responses(
-            (status = 200, body = ApiResponse<Option<SigninResponseOrChallenge>>),
+            (status = 200, body = ApiResponse<SigninResponseOrChallenge>),
             (status = 203, description = "Missing Authorization header and application secret header"),
             (status = 400, description = "Invalid ids or request body", body = ApiResponse<ErrorResponse>),
             (status = 401, description = "Unauthorized"),

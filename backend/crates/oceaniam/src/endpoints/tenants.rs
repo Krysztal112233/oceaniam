@@ -98,7 +98,7 @@ pub async fn get_tenants(
         tag = "Tenants",
         params(
             ("Authorization" = String, Header, description = "Bearer token"),
-            ("tenant_id", description = "Tenant ID"),
+            ("tenant_id" = String, Path, description = "Tenant ID"),
         ),
         responses(
             (status = 200, body = ApiResponse<TenantVO>),
@@ -148,6 +148,7 @@ pub async fn get_tenant(
         params(
             ("Authorization" = String, Header, description = "Bearer token"),
         ),
+        request_body = CreateTenantRequest,
         responses(
             (status = 201, body = ApiResponse<TenantVO>),
             (status = 400, description = "Bad request"),
@@ -211,7 +212,7 @@ pub async fn create_tenant(
         tag = "Tenants",
         params(
             ("Authorization" = String, Header, description = "Bearer token"),
-            ("tenant_id", description = "Tenant ID"),
+            ("tenant_id" = String, Path, description = "Tenant ID"),
         ),
         request_body = PatchTenantRequest,
         responses(
@@ -273,10 +274,14 @@ pub async fn patch_tenant(
         tag = "Tenants",
         params(
             ("Authorization" = String, Header, description = "Bearer token"),
-            ("tenant_id", description = "Tenant ID"),
+            ("tenant_id" = String, Path, description = "Tenant ID"),
         ),
         responses(
             (status = 200, body = ApiResponse<Empty>),
+            (status = 400, description = "Bad request"),
+            (status = 401, description = "Unauthorized"),
+            (status = 404, description = "Tenant not found"),
+            (status = 500, description = "Internal server error"),
         ),
     )]
 #[tracing::instrument(
@@ -332,7 +337,7 @@ pub async fn delete_tenant(
         tag = "Tenants",
         params(
             ("Authorization" = String, Header, description = "Bearer token"),
-            ("tenant_id", description = "Tenant ID"),
+            ("tenant_id" = String, Path, description = "Tenant ID"),
             ("page" = Option<u64>, Query, description = "Page number"),
             ("per_page" = Option<u64>, Query, description = "Items per page"),
         ),
