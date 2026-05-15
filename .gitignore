@@ -8,3 +8,5 @@ config.toml
 
 ## Exclude nodejs relative
 /**/*/node_modules
+/**/*/dist
+
