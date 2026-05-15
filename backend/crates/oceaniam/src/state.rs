@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::state::{
     applications::ManagedApplications, audit::Auditing, credentials::ManagedCredentialVaults,
     filters::ManagedFilters, keybox::ManagedKeyBoxes, revoked::RevokedJwt,
@@ -17,6 +19,7 @@ use oceaniam_database::{
     model::prelude::KeyBoxes,
 };
 use oceaniam_keybox::{KeyBox, key::rsa_key::RsaKey};
+use oceaniam_permission::{PermissionResolver, resolver::builtin::BuiltinResolver};
 use sea_orm::DatabaseConnection;
 use tap::Tap;
 use tracing::{error, info, warn};
@@ -40,6 +43,10 @@ pub struct AppState<'a> {
 
     /// WARN: Only used for system authentication validations.
     pub system_jwt_validator: JwtValidator,
+
+    /// System-level permission resolver for platform administrators. Application-level (per-app
+    /// ORBAC) permissions are not resolved here.
+    pub system_permissions: Arc<dyn PermissionResolver + Send + Sync>,
 
     /// Revoked JWTs. If the system itself also uses the built-in authentication system, the related
     /// logic will also check here whether the JWT has been revoked.
@@ -70,11 +77,14 @@ impl AppState<'static> {
         let credentials = ManagedCredentialVaults::new(database.clone());
         let filters = ManagedFilters::new(database.clone());
         let auditing = Auditing::with_database(database.clone());
+        let system_permissions = Arc::new(BuiltinResolver::new(database.clone()));
+
         Ok(Self {
             database: database.clone(),
             keyboxes: keybox,
-            system_jwks: initial_system_jwks(database.clone()).await?,
 
+            system_jwks: initial_system_jwks(database.clone()).await?,
+            system_permissions,
             system_jwt_validator: JwtValidator::new(
                 Validation::default()
                     .tap_mut(|it| it.set_audience(&["OceanIAM"]))

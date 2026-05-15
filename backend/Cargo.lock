@@ -2443,6 +2443,7 @@ dependencies = [
  "oceaniam-credential",
  "oceaniam-database",
  "oceaniam-keybox",
+ "oceaniam-permission",
  "oceaniam-vo",
  "parking_lot",
  "rand 0.8.6",

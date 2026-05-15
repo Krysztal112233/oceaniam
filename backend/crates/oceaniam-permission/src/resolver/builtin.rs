@@ -16,12 +16,13 @@ use oceaniam_common::consts;
 use oceaniam_database::model::prelude::*;
 use sea_orm::{DatabaseConnection, EntityTrait};
 
-#[derive(Hash, Eq, PartialEq, Clone)]
+#[derive(Hash, Eq, PartialEq, Clone, Debug)]
 struct SubjectCacheKey {
     subject_id: Uuid,
     application_id: Uuid,
 }
 
+#[derive(Debug)]
 pub struct BuiltinResolver {
     db: DatabaseConnection,
     platform_cache: Cache<Uuid, HashSet<Permission>>,

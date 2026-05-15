@@ -8,7 +8,7 @@ use crate::permission::Permission;
 pub mod builtin;
 
 #[async_trait]
-pub trait PermissionResolver: Send + Sync {
+pub trait PermissionResolver: Send + Sync + std::fmt::Debug {
     async fn platform_permissions(
         &self,
         platform_id: Uuid,
