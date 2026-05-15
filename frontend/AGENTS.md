@@ -5,7 +5,7 @@
 - This workspace is a Vue 3 + Vite + TypeScript frontend.
 - UI is built with Tailwind CSS v4 + DaisyUI.
 - State management uses Pinia with `pinia-plugin-persistedstate`.
-- API access should go through the local workspace SDK in `packages/sdk` whenever possible.
+- API access should go through the local workspace SDK in `sdk/typescript` whenever possible.
 - The current product model is centered around `tenant` and `application` context.
 
 ## Directory Expectations
@@ -13,7 +13,7 @@
 - `src/view`: route-level pages and page-owned data loading.
 - `src/components`: reusable presentational or interaction components.
 - `src/stores`: shared cross-page state only.
-- `packages/sdk`: generated types and API client used by the frontend.
+- `sdk/typescript`: generated types and API client used by the frontend.
 
 ## State Rules
 

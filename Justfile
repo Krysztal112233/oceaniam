@@ -14,10 +14,15 @@ watch-backend:
 
 export:
     cd ./backend && cargo test -p oceaniam-export
-    rm -rf ./frontend/packages/sdk/src/types
-    cp -r ./backend/crates/oceaniam-export/bindings/ ./frontend/packages/sdk/src/types
+    rm -rf ./sdk/typescript/src/types
+    cp -r ./backend/crates/oceaniam-export/bindings/ ./sdk/typescript/src/types
 
 fmt:
     cd ./backend && cargo fmt
-    cd ./sdk/rust && cargo fmt
     cd ./frontend && pnpm fmt
+    cd ./sdk/rust && cargo fmt
+    cd ./sdk/typescript && pnpm fmt
+
+build:
+    cd ./backend && cargo build --all -r
+    cd ./frontend && pnpm build

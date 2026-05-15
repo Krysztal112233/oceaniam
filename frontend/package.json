@@ -4,10 +4,10 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "predev": "pnpm -C packages/sdk build",
+        "predev": "pnpm -C ../sdk/typescript build",
         "dev": "VITE_BASE_URL=http://127.0.0.1:8000/ vite --host",
         "dev:all": "pnpm -r --parallel dev",
-        "prebuild": "pnpm -C packages/sdk build",
+        "prebuild": "pnpm -C ../sdk/typescript build",
         "build": "vue-tsc -p tsconfig.json && vite build",
         "fmt": "pnpm dlx oxfmt .",
         "preview": "vite preview",
