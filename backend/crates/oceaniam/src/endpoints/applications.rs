@@ -28,7 +28,10 @@ use tracing::{Span, error, field, info};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
-use crate::{middlewares, state::AppState};
+use crate::{
+    middlewares, middlewares::application::RequireAdminJwtOrMatchedApplicationSecret,
+    state::AppState,
+};
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
     router
@@ -176,13 +179,17 @@ pub async fn create_application(
         path = "/tenants/{tenant_id}/applications/{application_id}",
         tag = "Applications",
         params(
-            ("Authorization" = String, Header, description = "Bearer token"),
+            ("Authorization" = String, Header, description = "Bearer token for backend administrator"),
+            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("tenant_id" = String, Path, description = "Tenant ID"),
             ("application_id" = String, Path, description = "Application ID"),
         ),
         responses(
             (status = 200, body = ApiResponse<ApplicationDetailVO>),
+            (status = 203, description = "Missing Authorization header and application secret header"),
             (status = 400, description = "Invalid ids", body = ApiResponse<ErrorResponse>),
+            (status = 401, description = "Unauthorized"),
+            (status = 403, description = "Forbidden - secret does not belong to this application"),
             (status = 404, description = "Application not found", body = ApiResponse<ErrorResponse>),
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
@@ -194,7 +201,7 @@ pub async fn create_application(
     fields(tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn get_application(
-    _: middlewares::auth::RequireAuth<SystemClaim>,
+    _: RequireAdminJwtOrMatchedApplicationSecret,
     Path(path): Path<TenantApplicationPath>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> AppResult<ApplicationDetailVO> {

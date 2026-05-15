@@ -33,13 +33,17 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
         path = "/tenants/{tenant_id}/applications/{application_id}/configuration",
         tag = "Applications",
         params(
-            ("Authorization" = String, Header, description = "Bearer token"),
+            ("Authorization" = String, Header, description = "Bearer token for backend administrator"),
+            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("tenant_id" = String, Path, description = "Tenant ID"),
             ("application_id" = String, Path, description = "Application ID"),
         ),
         responses(
             (status = 200, body = ApiResponse<GetApplicationConfigurationResponse>),
+            (status = 203, description = "Missing Authorization header and application secret header"),
             (status = 400, description = "Invalid application id", body = ApiResponse<ErrorResponse>),
+            (status = 401, description = "Unauthorized"),
+            (status = 403, description = "Forbidden - secret does not belong to this application"),
             (status = 404, description = "Application not found", body = ApiResponse<ErrorResponse>),
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
@@ -51,7 +55,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
     fields(tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn get_application_configuration(
-    _: middlewares::auth::RequireAuth<SystemClaim>,
+    _: middlewares::application::RequireAdminJwtOrMatchedApplicationSecret,
     State(AppState {
         applications,
         database,

@@ -11,7 +11,10 @@ use tracing::{Span, error, field, info};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
-use crate::{middlewares::auth::RequireAuth, state::AppState};
+use crate::{
+    middlewares::application::RequireAdminJwtOrMatchedApplicationSecret,
+    middlewares::auth::RequireAuth, state::AppState,
+};
 use oceaniam_auth::jwt::SystemClaim;
 
 #[derive(Debug, serde::Deserialize, utoipa::ToSchema)]
@@ -40,13 +43,17 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
         path = "/tenants/{tenant_id}/applications/{application_id}/keys",
         tag = "ApplicationKeys",
         params(
-            ("Authorization" = String, Header, description = "Bearer token"),
+            ("Authorization" = String, Header, description = "Bearer token for backend administrator"),
+            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("tenant_id" = String, Path, description = "Tenant ID"),
             ("application_id" = String, Path, description = "Application ID"),
         ),
         responses(
             (status = 200, body = ApiResponse<PagedResponse<ApplicationKeyVO>>),
+            (status = 203, description = "Missing Authorization header and application secret header"),
             (status = 400, description = "Invalid ids", body = ApiResponse<ErrorResponse>),
+            (status = 401, description = "Unauthorized"),
+            (status = 403, description = "Forbidden - secret does not belong to this application"),
             (status = 404, description = "Application not found", body = ApiResponse<ErrorResponse>),
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
@@ -58,7 +65,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
     fields(tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn get_application_keys(
-    _: RequireAuth<SystemClaim>,
+    _: RequireAdminJwtOrMatchedApplicationSecret,
 
     Path(path): Path<KeysPath>,
     State(AppState { keyboxes, .. }): State<AppState<'_>>,

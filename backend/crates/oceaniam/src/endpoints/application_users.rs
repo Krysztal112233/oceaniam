@@ -11,7 +11,6 @@ use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
 use oceaniam_api::{ApiResponse, ErrorResponse, PagedResponse};
 use oceaniam_audit::types::{AuditPayload, CreateApplicationUserPayload};
-use oceaniam_auth::jwt::SystemClaim;
 use oceaniam_common::helpers::gen_random_name;
 use oceaniam_database::helper::users::{CreateUserOpts, UserHelper};
 use oceaniam_database::model::prelude::Users;
@@ -29,7 +28,7 @@ use uuid::Uuid;
 
 use crate::{
     endpoints::applications::{TenantApplicationPath, get_tenant_application},
-    middlewares::{self, application::RequireAdminJwtOrMatchedApplicationSecret},
+    middlewares::application::RequireAdminJwtOrMatchedApplicationSecret,
     state::{AppState, applications::UserIdentifier},
 };
 
@@ -48,7 +47,8 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
         path = "/tenants/{tenant_id}/applications/{application_id}/users",
         tag = "ApplicationUsers",
         params(
-            ("Authorization" = String, Header, description = "Bearer token"),
+            ("Authorization" = String, Header, description = "Bearer token for backend administrator"),
+            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("tenant_id" = String, Path, description = "Tenant ID"),
             ("application_id" = String, Path, description = "Application ID"),
             ("page" = Option<u64>, Query, description = "Page number"),
@@ -57,8 +57,10 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
         ),
         responses(
             (status = 200, body = ApiResponse<PagedResponse<ApplicationUserVO>>),
-            (status = 203, description = "Missing Authorization header"),
+            (status = 203, description = "Missing Authorization header and application secret header"),
             (status = 400, description = "Invalid token or bad request", body = ApiResponse<ErrorResponse>),
+            (status = 401, description = "Unauthorized"),
+            (status = 403, description = "Forbidden - secret does not belong to this application"),
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
@@ -69,18 +71,19 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
     fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, page = field::Empty, per_page = field::Empty, sort_order = field::Empty)
 )]
 pub async fn get_application_users(
-    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    auth: RequireAdminJwtOrMatchedApplicationSecret,
+
     State(AppState { database, .. }): State<AppState<'_>>,
     Path(path): Path<TenantApplicationPath>,
     OptionalQuery(query): OptionalQuery<ApplicationUsersListQuery>,
 ) -> AppResult<PagedResponse<ApplicationUserVO>> {
     let query = query.unwrap_or_default();
     let page = query.page_param();
-    let operator_id = auth.token.claims.sub;
+    let operator_id = auth.0.left().map(|a| a.token.claims.sub);
     let application = get_tenant_application(path, &database).await?;
     let application_id = application.id;
     Span::current().tap(|it| {
-        it.record("operator_id", field::display(&operator_id))
+        it.record("operator_id", field::debug(&operator_id))
             .record("tenant_id", field::display(&application.tenant_id))
             .record("application_id", field::display(&application_id))
             .record("page", page.page)
@@ -99,7 +102,7 @@ pub async fn get_application_users(
             .await
             .inspect_err(|e| {
                 error!(
-                    %operator_id,
+                    ?operator_id,
                     %application_id,
                     error = %e,
                     "user list query failed"
@@ -120,7 +123,8 @@ pub async fn get_application_users(
         path = "/tenants/{tenant_id}/applications/{application_id}/users/search",
         tag = "ApplicationUsers",
         params(
-            ("Authorization" = String, Header, description = "Bearer token"),
+            ("Authorization" = String, Header, description = "Bearer token for backend administrator"),
+            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("tenant_id" = String, Path, description = "Tenant ID"),
             ("application_id" = String, Path, description = "Application ID"),
             ("by_nickname" = Option<String>, Query, description = "Search users by nickname with fuzzy matching"),
@@ -133,8 +137,10 @@ pub async fn get_application_users(
         ),
         responses(
             (status = 200, body = ApiResponse<PagedResponse<ApplicationUserVO>>),
-            (status = 203, description = "Missing Authorization header"),
+            (status = 203, description = "Missing Authorization header and application secret header"),
             (status = 400, description = "Invalid token or bad request", body = ApiResponse<ErrorResponse>),
+            (status = 401, description = "Unauthorized"),
+            (status = 403, description = "Forbidden - secret does not belong to this application"),
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
@@ -145,7 +151,7 @@ pub async fn get_application_users(
     fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, page = field::Empty, per_page = field::Empty, sort_order = field::Empty, by_nickname = field::Empty, by_id = field::Empty, by_email = field::Empty, by_phone = field::Empty)
 )]
 pub async fn search_application_users(
-    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    auth: RequireAdminJwtOrMatchedApplicationSecret,
 
     State(AppState {
         applications,
@@ -157,7 +163,7 @@ pub async fn search_application_users(
 ) -> AppResult<PagedResponse<ApplicationUserVO>> {
     let page = search_options.page_param();
     let sort_desc = search_options.is_desc();
-    let operator_id = auth.token.claims.sub;
+    let operator_id = auth.0.left().map(|a| a.token.claims.sub);
     let application = get_tenant_application(path, &database).await?;
     let application_id = application.id;
 
@@ -169,7 +175,7 @@ pub async fn search_application_users(
     };
 
     Span::current().tap(|it| {
-        it.record("operator_id", field::display(&operator_id))
+        it.record("operator_id", field::debug(&operator_id))
             .record("tenant_id", field::display(&application.tenant_id))
             .record("application_id", field::display(&application_id))
             .record("page", page.page)
@@ -212,7 +218,7 @@ pub async fn search_application_users(
                 .await
                 .inspect_err(|e| {
                     error!(
-                        %operator_id,
+                        ?operator_id,
                         %application_id,
                         error = %e,
                         "failed to get application users helper"
@@ -222,7 +228,7 @@ pub async fn search_application_users(
                 .await
                 .inspect_err(|e| {
                     error!(
-                        %operator_id,
+                        ?operator_id,
                         %application_id,
                         error = %e,
                         "application user search failed"
@@ -257,7 +263,7 @@ pub async fn search_application_users(
             .await
             .inspect_err(|e| {
                 error!(
-                    %operator_id,
+                    ?operator_id,
                     %application_id,
                     error = %e,
                     "application user search failed"
@@ -280,15 +286,18 @@ pub async fn search_application_users(
         path = "/tenants/{tenant_id}/applications/{application_id}/users/{user_id}",
         tag = "ApplicationUsers",
         params(
-            ("Authorization" = String, Header, description = "Bearer token"),
+            ("Authorization" = String, Header, description = "Bearer token for backend administrator"),
+            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("tenant_id" = String, Path, description = "Tenant ID"),
             ("application_id" = String, Path, description = "Application ID"),
             ("user_id" = String, Path, description = "User ID"),
         ),
         responses(
             (status = 200, body = ApiResponse<ApplicationUserVO>),
+            (status = 203, description = "Missing Authorization header and application secret header"),
             (status = 400, description = "Bad request", body = ApiResponse<ErrorResponse>),
             (status = 401, description = "Unauthorized"),
+            (status = 403, description = "Forbidden - secret does not belong to this application"),
             (status = 404, description = "User not found"),
             (status = 500, description = "Internal server error"),
         ),
@@ -300,7 +309,7 @@ pub async fn search_application_users(
     fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
 )]
 pub async fn get_application_user(
-    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    auth: RequireAdminJwtOrMatchedApplicationSecret,
     State(AppState {
         applications,
         database,
@@ -308,7 +317,7 @@ pub async fn get_application_user(
     }): State<AppState<'_>>,
     Path((tenant_id, application_id, user_id)): Path<(Sqid, Sqid, Sqid)>,
 ) -> AppResult<ApplicationUserVO> {
-    let operator_id = auth.token.claims.sub;
+    let operator_id = auth.0.left().map(|a| a.token.claims.sub);
     let application = get_tenant_application(
         TenantApplicationPath {
             tenant_id,
@@ -321,7 +330,7 @@ pub async fn get_application_user(
     let user_id: Uuid = user_id.try_into()?;
 
     Span::current().tap(|it| {
-        it.record("operator_id", field::display(&operator_id))
+        it.record("operator_id", field::debug(&operator_id))
             .record("tenant_id", field::display(&application.tenant_id))
             .record("application_id", field::display(&application_id))
             .record("user_id", field::display(&user_id));
@@ -332,7 +341,7 @@ pub async fn get_application_user(
         .await
         .inspect_err(|e| {
             error!(
-                %operator_id,
+                ?operator_id,
                 %application_id,
                 %user_id,
                 error = %e,
@@ -343,7 +352,7 @@ pub async fn get_application_user(
         .await
         .inspect_err(|e| {
             error!(
-                %operator_id,
+                ?operator_id,
                 %application_id,
                 %user_id,
                 error = %e,
