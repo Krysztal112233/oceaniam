@@ -34,7 +34,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
 use crate::{
-    middlewares::auth::RequireAuth,
+    middlewares::auth::RequireAuthGuard,
     state::{AppState, credentials::ManagedCredentialVaults},
 };
 
@@ -67,7 +67,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
     fields(page = field::Empty, per_page = field::Empty)
 )]
 pub async fn get_administrators(
-    _: RequireAuth<SystemClaim>,
+    _: RequireAuthGuard<SystemClaim>,
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> AppResult<PagedResponse<AdministratorVO>> {
@@ -107,7 +107,7 @@ pub async fn get_administrators(
     fields(operator_id = field::Empty, administrator_id = field::Empty)
 )]
 pub async fn create_administrator(
-    auth: RequireAuth<SystemClaim>,
+    auth: RequireAuthGuard<SystemClaim>,
     State(AppState {
         database,
         credentials,
@@ -209,7 +209,7 @@ pub async fn create_administrator(
     fields(operator_id = field::Empty, administrator_id = field::Empty)
 )]
 pub async fn patch_administrator(
-    auth: RequireAuth<SystemClaim>,
+    auth: RequireAuthGuard<SystemClaim>,
     Path(administrator_id): Path<Sqid>,
     State(AppState {
         database,

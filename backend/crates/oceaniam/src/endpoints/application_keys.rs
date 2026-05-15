@@ -12,8 +12,8 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
 use crate::{
-    middlewares::application::RequireAdminJwtOrMatchedApplicationSecret,
-    middlewares::auth::RequireAuth, state::AppState,
+    middlewares::application::AdminJwtOrApplicationSecretGuard,
+    middlewares::auth::RequireAuthGuard, state::AppState,
 };
 use oceaniam_auth::jwt::SystemClaim;
 
@@ -65,7 +65,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
     fields(tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn get_application_keys(
-    _: RequireAdminJwtOrMatchedApplicationSecret,
+    _: AdminJwtOrApplicationSecretGuard,
 
     Path(path): Path<KeysPath>,
     State(AppState { keyboxes, .. }): State<AppState<'_>>,
@@ -123,7 +123,7 @@ pub async fn get_application_keys(
     fields(tenant_id = field::Empty, application_id = field::Empty, key_id = field::Empty)
 )]
 pub async fn rotate_application_key(
-    _: RequireAuth<SystemClaim>,
+    _: RequireAuthGuard<SystemClaim>,
 
     Path(path): Path<KeysPath>,
     State(AppState {
@@ -190,7 +190,7 @@ pub async fn rotate_application_key(
     fields(tenant_id = field::Empty, application_id = field::Empty, key_id = field::Empty)
 )]
 pub async fn revoke_application_key(
-    _: RequireAuth<SystemClaim>,
+    _: RequireAuthGuard<SystemClaim>,
     Path(path): Path<KeyPath>,
     State(AppState {
         keyboxes, auditing, ..

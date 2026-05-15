@@ -4,8 +4,8 @@ use crate::error::{AppResult, Error};
 use crate::{
     endpoints::applications::{TenantApplicationPath, get_tenant_application},
     middlewares::{
-        application::RequireMatchedApplicationSecret,
-        auth::{RequireAuth, TokenDispatchMethod},
+        application::MatchedApplicationSecretGuard,
+        auth::{RequireAuthGuard, TokenDispatchMethodGuard},
     },
     state::{
         AppState,
@@ -68,8 +68,8 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
     )
 )]
 pub async fn create_application_token(
-    _: RequireMatchedApplicationSecret,
-    token_mtd: TokenDispatchMethod,
+    _: MatchedApplicationSecretGuard,
+    token_mtd: TokenDispatchMethodGuard,
     State(AppState {
         database,
         applications,
@@ -170,9 +170,9 @@ pub async fn create_application_token(
     let resp = ApiResponse::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
 
     let resp = match token_mtd {
-        TokenDispatchMethod::Cookie => ApiResponse::empty().with_cookie(cookie)?,
-        TokenDispatchMethod::Json => resp,
-        TokenDispatchMethod::Both => resp.with_cookie(cookie)?,
+        TokenDispatchMethodGuard::Cookie => ApiResponse::empty().with_cookie(cookie)?,
+        TokenDispatchMethodGuard::Json => resp,
+        TokenDispatchMethodGuard::Both => resp.with_cookie(cookie)?,
     };
 
     Ok(resp)
@@ -206,8 +206,8 @@ pub async fn create_application_token(
     fields(user_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, jti = field::Empty)
 )]
 pub async fn delete_application_token(
-    _: RequireMatchedApplicationSecret,
-    auth: RequireAuth<Claim>,
+    _: MatchedApplicationSecretGuard,
+    auth: RequireAuthGuard<Claim>,
     State(AppState {
         database,
         revoked_jwt,
@@ -285,9 +285,9 @@ pub async fn delete_application_token(
     )
 )]
 pub async fn refresh_application_token(
-    auth: RequireAuth<Claim>,
-    token_mtd: TokenDispatchMethod,
-    _: RequireMatchedApplicationSecret,
+    auth: RequireAuthGuard<Claim>,
+    token_mtd: TokenDispatchMethodGuard,
+    _: MatchedApplicationSecretGuard,
     State(AppState {
         database,
         revoked_jwt,
@@ -374,9 +374,9 @@ pub async fn refresh_application_token(
     let resp = ApiResponse::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
 
     let resp = match token_mtd {
-        TokenDispatchMethod::Cookie => ApiResponse::empty().with_cookie(cookie)?,
-        TokenDispatchMethod::Json => resp,
-        TokenDispatchMethod::Both => resp.with_cookie(cookie)?,
+        TokenDispatchMethodGuard::Cookie => ApiResponse::empty().with_cookie(cookie)?,
+        TokenDispatchMethodGuard::Json => resp,
+        TokenDispatchMethodGuard::Both => resp.with_cookie(cookie)?,
     };
 
     Ok(resp)

@@ -61,7 +61,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
     fields(operator_id = field::Empty, page = field::Empty, per_page = field::Empty)
 )]
 pub async fn get_tenants(
-    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    auth: middlewares::auth::RequireAuthGuard<SystemClaim>,
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> AppResult<PagedResponse<TenantVO>> {
@@ -113,7 +113,7 @@ pub async fn get_tenants(
     fields(operator_id = field::Empty, tenant_id = field::Empty)
 )]
 pub async fn get_tenant(
-    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    auth: middlewares::auth::RequireAuthGuard<SystemClaim>,
     Path(tenant_id): Path<Sqid>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> AppResult<TenantVO> {
@@ -162,7 +162,7 @@ pub async fn get_tenant(
     fields(operator_id = field::Empty, tenant_id = field::Empty)
 )]
 pub async fn create_tenant(
-    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    auth: middlewares::auth::RequireAuthGuard<SystemClaim>,
 
     State(AppState {
         database, auditing, ..
@@ -229,7 +229,7 @@ pub async fn create_tenant(
     fields(operator_id = field::Empty, tenant_id = field::Empty)
 )]
 pub async fn patch_tenant(
-    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    auth: middlewares::auth::RequireAuthGuard<SystemClaim>,
     Path(tenant_id): Path<Sqid>,
     State(AppState {
         database, auditing, ..
@@ -291,7 +291,7 @@ pub async fn patch_tenant(
     fields(operator_id = field::Empty, tenant_id = field::Empty)
 )]
 pub async fn delete_tenant(
-    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    auth: middlewares::auth::RequireAuthGuard<SystemClaim>,
     Path(tenant_id): Path<Uuid>,
     State(AppState {
         database, auditing, ..
@@ -353,7 +353,7 @@ pub async fn delete_tenant(
     fields(operator_id = field::Empty, tenant_id = field::Empty, page = field::Empty, per_page = field::Empty)
 )]
 pub async fn get_tenant_users(
-    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    auth: middlewares::auth::RequireAuthGuard<SystemClaim>,
     Path(tenant_id): Path<Sqid>,
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { database, .. }): State<AppState<'_>>,

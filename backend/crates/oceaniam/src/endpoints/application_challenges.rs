@@ -27,9 +27,7 @@ use uuid::Uuid;
 
 use crate::{
     endpoints::applications::{TenantApplicationPath, get_tenant_application},
-    middlewares::{
-        application::RequireAdminJwtOrMatchedApplicationSecret, auth::TokenDispatchMethod,
-    },
+    middlewares::{application::AdminJwtOrApplicationSecretGuard, auth::TokenDispatchMethodGuard},
     state::AppState,
     state::keybox::{EncodedJwt, SignJwtOptions},
 };
@@ -84,7 +82,7 @@ pub(crate) struct ApplicationChallengePath {
     fields(application_id = field::Empty, challenge_id = field::Empty)
 )]
 pub async fn get_application_challenge(
-    _: RequireAdminJwtOrMatchedApplicationSecret,
+    _: AdminJwtOrApplicationSecretGuard,
     State(AppState { database, .. }): State<AppState<'_>>,
     Path(path): Path<ApplicationChallengePath>,
 ) -> AppResult<ApplicationChallengeVO> {
@@ -158,8 +156,8 @@ pub async fn get_application_challenge(
     fields(application_id = field::Empty, challenge_id = field::Empty, user_id = field::Empty, token_dispatch = field::Empty)
 )]
 pub async fn create_application_challenge_attempt(
-    _: RequireAdminJwtOrMatchedApplicationSecret,
-    token_mtd: TokenDispatchMethod,
+    _: AdminJwtOrApplicationSecretGuard,
+    token_mtd: TokenDispatchMethodGuard,
     State(AppState {
         database,
         keyboxes,
@@ -234,9 +232,9 @@ pub async fn create_application_challenge_attempt(
     let resp = ApiResponse::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
 
     let resp = match token_mtd {
-        TokenDispatchMethod::Cookie => ApiResponse::empty().with_cookie(cookie)?,
-        TokenDispatchMethod::Json => resp,
-        TokenDispatchMethod::Both => resp.with_cookie(cookie)?,
+        TokenDispatchMethodGuard::Cookie => ApiResponse::empty().with_cookie(cookie)?,
+        TokenDispatchMethodGuard::Json => resp,
+        TokenDispatchMethodGuard::Both => resp.with_cookie(cookie)?,
     };
 
     Ok(resp)

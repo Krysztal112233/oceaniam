@@ -1,8 +1,8 @@
 //! Application configuration-related API endpoints
 
-use crate::error::AppResult;
 use crate::{
     endpoints::applications::{TenantApplicationPath, get_tenant_application},
+    error::AppResult,
     middlewares,
     state::AppState,
 };
@@ -55,7 +55,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
     fields(tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn get_application_configuration(
-    _: middlewares::application::RequireAdminJwtOrMatchedApplicationSecret,
+    _: middlewares::application::AdminJwtOrApplicationSecretGuard,
     State(AppState {
         applications,
         database,
@@ -111,7 +111,7 @@ pub async fn get_application_configuration(
     fields(tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn patch_application_configuration(
-    _: middlewares::auth::RequireAuth<SystemClaim>,
+    _: middlewares::auth::RequireAuthGuard<SystemClaim>,
     State(AppState {
         applications,
         auditing,

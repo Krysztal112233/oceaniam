@@ -29,8 +29,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
 use crate::{
-    middlewares, middlewares::application::RequireAdminJwtOrMatchedApplicationSecret,
-    state::AppState,
+    middlewares, middlewares::application::AdminJwtOrApplicationSecretGuard, state::AppState,
 };
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
@@ -74,7 +73,7 @@ pub(crate) struct TenantApplicationPath {
     fields(tenant_id = field::Empty, page = field::Empty, per_page = field::Empty)
 )]
 pub async fn get_applications(
-    _: middlewares::auth::RequireAuth<SystemClaim>,
+    _: middlewares::auth::RequireAuthGuard<SystemClaim>,
     Path(tenant_id): Path<Sqid>,
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
@@ -122,7 +121,7 @@ pub async fn get_applications(
     fields(tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn create_application(
-    _: middlewares::auth::RequireAuth<SystemClaim>,
+    _: middlewares::auth::RequireAuthGuard<SystemClaim>,
     Path(tenant_id): Path<Sqid>,
     State(AppState {
         applications,
@@ -201,7 +200,7 @@ pub async fn create_application(
     fields(tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn get_application(
-    _: RequireAdminJwtOrMatchedApplicationSecret,
+    _: AdminJwtOrApplicationSecretGuard,
     Path(path): Path<TenantApplicationPath>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> AppResult<ApplicationDetailVO> {
@@ -235,7 +234,7 @@ pub async fn get_application(
     fields(tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn patch_application(
-    _: middlewares::auth::RequireAuth<SystemClaim>,
+    _: middlewares::auth::RequireAuthGuard<SystemClaim>,
     Path(path): Path<TenantApplicationPath>,
     State(AppState {
         database,
@@ -292,7 +291,7 @@ pub async fn patch_application(
     fields(tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn delete_application(
-    _: middlewares::auth::RequireAuth<SystemClaim>,
+    _: middlewares::auth::RequireAuthGuard<SystemClaim>,
 
     Path(path): Path<TenantApplicationPath>,
     State(AppState {

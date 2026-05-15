@@ -17,7 +17,7 @@ use tracing::{Span, error, field, info};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
-use crate::{middlewares::auth::RequireAuth, state::AppState};
+use crate::{middlewares::auth::RequireAuthGuard, state::AppState};
 
 #[utoipa::path(
         post,
@@ -38,7 +38,7 @@ use crate::{middlewares::auth::RequireAuth, state::AppState};
     fields(secret_id = field::Empty)
 )]
 pub async fn create_secret(
-    auth: RequireAuth<SystemClaim>,
+    auth: RequireAuthGuard<SystemClaim>,
     State(AppState {
         applications,
         auditing,
@@ -92,7 +92,7 @@ pub async fn create_secret(
     fields(page = field::Empty, per_page = field::Empty)
 )]
 pub async fn get_secrets(
-    _: RequireAuth<SystemClaim>,
+    _: RequireAuthGuard<SystemClaim>,
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { applications, .. }): State<AppState<'_>>,
 ) -> AppResult<PagedResponse<SecretVO>> {
@@ -160,7 +160,7 @@ pub async fn get_secrets(
     fields(secret_id = field::Empty)
 )]
 pub async fn get_secret(
-    _: RequireAuth<SystemClaim>,
+    _: RequireAuthGuard<SystemClaim>,
     Path(secret_id): Path<Sqid>,
     State(AppState { applications, .. }): State<AppState<'_>>,
 ) -> AppResult<SecretVO> {
@@ -205,7 +205,7 @@ pub async fn get_secret(
     fields(secret_id = field::Empty)
 )]
 pub async fn delete_secret(
-    auth: RequireAuth<SystemClaim>,
+    auth: RequireAuthGuard<SystemClaim>,
     State(AppState {
         applications,
         auditing,

@@ -14,7 +14,7 @@ use tracing::error;
 use crate::state::AppState;
 
 #[derive(Debug, Clone)]
-pub struct RequireAuth<S> {
+pub struct RequireAuthGuard<S> {
     pub token: TokenData<S>,
 }
 
@@ -44,7 +44,7 @@ where
         .inspect_err(|e| error!(kid = %kid, error = %e, "failed to decode token"))?)
 }
 
-impl<C> FromRequestParts<AppState<'_>> for RequireAuth<C>
+impl<C> FromRequestParts<AppState<'_>> for RequireAuthGuard<C>
 where
     C: Serialize + DeserializeOwned + ClaimHelper + Send,
 {
@@ -124,7 +124,7 @@ where
 /// - During migrations or when you need to support both kinds of clients,
 ///   `Both` can be used to send the token in both places.
 #[derive(Debug, Clone)]
-pub enum TokenDispatchMethod {
+pub enum TokenDispatchMethodGuard {
     /// Deliver the token via an HTTP cookie (e.g., `Set-Cookie`).
     ///
     /// Useful when:
@@ -150,7 +150,7 @@ pub enum TokenDispatchMethod {
 
 const TOKEN_DISPATCH_METHOD_HEADER: &str = "X-OceanIAM-Token-Dispatch";
 
-impl TokenDispatchMethod {
+impl TokenDispatchMethodGuard {
     fn from_headers(headers: &HeaderMap) -> Self {
         let Some(method) = headers.get(TOKEN_DISPATCH_METHOD_HEADER) else {
             return Self::Both;
@@ -175,7 +175,7 @@ impl TokenDispatchMethod {
     }
 }
 
-impl FromRequestParts<AppState<'_>> for TokenDispatchMethod {
+impl FromRequestParts<AppState<'_>> for TokenDispatchMethodGuard {
     type Rejection = Infallible;
 
     async fn from_request_parts(
@@ -188,7 +188,7 @@ impl FromRequestParts<AppState<'_>> for TokenDispatchMethod {
 
 #[cfg(test)]
 mod tests {
-    use super::{TOKEN_DISPATCH_METHOD_HEADER, TokenDispatchMethod};
+    use super::{TOKEN_DISPATCH_METHOD_HEADER, TokenDispatchMethodGuard};
 
     use axum::http::{HeaderMap, HeaderValue};
 
@@ -197,8 +197,8 @@ mod tests {
     fn default_to_both_when_header_missing() {
         let headers = HeaderMap::new();
         assert!(matches!(
-            TokenDispatchMethod::from_headers(&headers),
-            TokenDispatchMethod::Both
+            TokenDispatchMethodGuard::from_headers(&headers),
+            TokenDispatchMethodGuard::Both
         ));
     }
 
@@ -212,8 +212,8 @@ mod tests {
             HeaderValue::from_static("cookie"),
         );
         assert!(matches!(
-            TokenDispatchMethod::from_headers(&headers),
-            TokenDispatchMethod::Cookie
+            TokenDispatchMethodGuard::from_headers(&headers),
+            TokenDispatchMethodGuard::Cookie
         ));
 
         headers.insert(
@@ -221,8 +221,8 @@ mod tests {
             HeaderValue::from_static("  JSoN  "),
         );
         assert!(matches!(
-            TokenDispatchMethod::from_headers(&headers),
-            TokenDispatchMethod::Json
+            TokenDispatchMethodGuard::from_headers(&headers),
+            TokenDispatchMethodGuard::Json
         ));
 
         headers.insert(
@@ -230,8 +230,8 @@ mod tests {
             HeaderValue::from_static(" b o t h "),
         );
         assert!(matches!(
-            TokenDispatchMethod::from_headers(&headers),
-            TokenDispatchMethod::Both
+            TokenDispatchMethodGuard::from_headers(&headers),
+            TokenDispatchMethodGuard::Both
         ));
     }
 
@@ -245,15 +245,15 @@ mod tests {
             HeaderValue::from_static("unknown"),
         );
         assert!(matches!(
-            TokenDispatchMethod::from_headers(&headers),
-            TokenDispatchMethod::Both
+            TokenDispatchMethodGuard::from_headers(&headers),
+            TokenDispatchMethodGuard::Both
         ));
 
         let non_utf8 = HeaderValue::from_bytes(&[0xff, 0xfe]).unwrap();
         headers.insert(TOKEN_DISPATCH_METHOD_HEADER, non_utf8);
         assert!(matches!(
-            TokenDispatchMethod::from_headers(&headers),
-            TokenDispatchMethod::Both
+            TokenDispatchMethodGuard::from_headers(&headers),
+            TokenDispatchMethodGuard::Both
         ));
     }
 }

@@ -2,27 +2,26 @@ use axum::{
     extract::FromRequestParts,
     http::{StatusCode, header, request::Parts},
 };
-use itertools::Either;
 use oceaniam_auth::jwt::SystemClaim;
 use oceaniam_vo::sqid::Sqid;
 use tracing::{debug, warn};
 use uuid::Uuid;
 
-use crate::{middlewares::auth::RequireAuth, state::AppState};
+use crate::{middlewares::auth::RequireAuthGuard, state::AppState};
 
 #[derive(Debug, Clone)]
-pub struct RequireApplicationSecret {
+pub struct ApplicationSecretGuard {
     pub secret: String,
     pub of_applications: Vec<Uuid>,
 }
 
-impl RequireApplicationSecret {
+impl ApplicationSecretGuard {
     pub fn is_matched(&self, application_id: Uuid) -> bool {
         self.of_applications.contains(&application_id)
     }
 }
 
-impl FromRequestParts<AppState<'_>> for RequireApplicationSecret {
+impl FromRequestParts<AppState<'_>> for ApplicationSecretGuard {
     type Rejection = StatusCode;
 
     async fn from_request_parts(
@@ -67,17 +66,17 @@ impl FromRequestParts<AppState<'_>> for RequireApplicationSecret {
 /// on a route whose path does not follow that convention will cause authorization to always fail
 /// with 400 Bad Request.
 #[derive(Debug, Clone)]
-pub struct RequireMatchedApplicationSecret;
+pub struct MatchedApplicationSecretGuard;
 
-impl FromRequestParts<AppState<'_>> for RequireMatchedApplicationSecret {
+impl FromRequestParts<AppState<'_>> for MatchedApplicationSecretGuard {
     type Rejection = StatusCode;
 
     async fn from_request_parts(
         parts: &mut Parts,
         state: &AppState<'_>,
     ) -> Result<Self, Self::Rejection> {
-        let secret: RequireApplicationSecret =
-            RequireApplicationSecret::from_request_parts(parts, state).await?;
+        let secret: ApplicationSecretGuard =
+            ApplicationSecretGuard::from_request_parts(parts, state).await?;
 
         let path_segments: Vec<&str> = parts.uri.path().split('/').collect();
 
@@ -115,33 +114,5 @@ impl FromRequestParts<AppState<'_>> for RequireMatchedApplicationSecret {
 /// `X-OceanIAM-Application-Secret` header is present), this delegates to
 /// `RequireMatchedApplicationSecret` and therefore inherits the same URI path constraint — the route
 /// must include `/applications/{id}` in its path.
-#[derive(Debug, Clone)]
-pub struct RequireAdminJwtOrMatchedApplicationSecret(
-    #[allow(unused)] pub Either<RequireAuth<SystemClaim>, RequireMatchedApplicationSecret>,
-);
-
-impl FromRequestParts<AppState<'_>> for RequireAdminJwtOrMatchedApplicationSecret {
-    type Rejection = StatusCode;
-
-    async fn from_request_parts(
-        parts: &mut Parts,
-        state: &AppState<'_>,
-    ) -> Result<Self, Self::Rejection> {
-        if parts.headers.contains_key(header::AUTHORIZATION) {
-            return Ok(Self(Either::Left(
-                RequireAuth::<SystemClaim>::from_request_parts(parts, state).await?,
-            )));
-        }
-
-        if parts.headers.contains_key("X-OceanIAM-Application-Secret") {
-            return Ok(Self(Either::Right(
-                RequireMatchedApplicationSecret::from_request_parts(parts, state).await?,
-            )));
-        }
-
-        debug!(
-            "application authorization failed: missing both authorization and application secret headers"
-        );
-        Err(StatusCode::NON_AUTHORITATIVE_INFORMATION)
-    }
-}
+pub type AdminJwtOrApplicationSecretGuard =
+    axum_extra::either::Either<RequireAuthGuard<SystemClaim>, MatchedApplicationSecretGuard>;

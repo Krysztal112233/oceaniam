@@ -28,7 +28,7 @@ use uuid::Uuid;
 
 use crate::{
     endpoints::applications::{TenantApplicationPath, get_tenant_application},
-    middlewares::application::RequireAdminJwtOrMatchedApplicationSecret,
+    middlewares::application::AdminJwtOrApplicationSecretGuard,
     state::{AppState, applications::UserIdentifier},
 };
 
@@ -71,7 +71,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
     fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, page = field::Empty, per_page = field::Empty, sort_order = field::Empty)
 )]
 pub async fn get_application_users(
-    auth: RequireAdminJwtOrMatchedApplicationSecret,
+    auth: AdminJwtOrApplicationSecretGuard,
 
     State(AppState { database, .. }): State<AppState<'_>>,
     Path(path): Path<TenantApplicationPath>,
@@ -79,7 +79,10 @@ pub async fn get_application_users(
 ) -> AppResult<PagedResponse<ApplicationUserVO>> {
     let query = query.unwrap_or_default();
     let page = query.page_param();
-    let operator_id = auth.0.left().map(|a| a.token.claims.sub);
+    let operator_id = match &auth {
+        axum_extra::either::Either::E1(a) => Some(a.token.claims.sub),
+        _ => None,
+    };
     let application = get_tenant_application(path, &database).await?;
     let application_id = application.id;
     Span::current().tap(|it| {
@@ -151,7 +154,7 @@ pub async fn get_application_users(
     fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, page = field::Empty, per_page = field::Empty, sort_order = field::Empty, by_nickname = field::Empty, by_id = field::Empty, by_email = field::Empty, by_phone = field::Empty)
 )]
 pub async fn search_application_users(
-    auth: RequireAdminJwtOrMatchedApplicationSecret,
+    auth: AdminJwtOrApplicationSecretGuard,
 
     State(AppState {
         applications,
@@ -163,7 +166,10 @@ pub async fn search_application_users(
 ) -> AppResult<PagedResponse<ApplicationUserVO>> {
     let page = search_options.page_param();
     let sort_desc = search_options.is_desc();
-    let operator_id = auth.0.left().map(|a| a.token.claims.sub);
+    let operator_id = match &auth {
+        axum_extra::either::Either::E1(a) => Some(a.token.claims.sub),
+        _ => None,
+    };
     let application = get_tenant_application(path, &database).await?;
     let application_id = application.id;
 
@@ -309,7 +315,7 @@ pub async fn search_application_users(
     fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
 )]
 pub async fn get_application_user(
-    auth: RequireAdminJwtOrMatchedApplicationSecret,
+    auth: AdminJwtOrApplicationSecretGuard,
     State(AppState {
         applications,
         database,
@@ -317,7 +323,10 @@ pub async fn get_application_user(
     }): State<AppState<'_>>,
     Path((tenant_id, application_id, user_id)): Path<(Sqid, Sqid, Sqid)>,
 ) -> AppResult<ApplicationUserVO> {
-    let operator_id = auth.0.left().map(|a| a.token.claims.sub);
+    let operator_id = match &auth {
+        axum_extra::either::Either::E1(a) => Some(a.token.claims.sub),
+        _ => None,
+    };
     let application = get_tenant_application(
         TenantApplicationPath {
             tenant_id,
@@ -392,7 +401,7 @@ pub async fn get_application_user(
     fields(tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
 )]
 pub async fn create_application_user(
-    _: RequireAdminJwtOrMatchedApplicationSecret,
+    _: AdminJwtOrApplicationSecretGuard,
     State(AppState {
         applications,
         auditing,
@@ -506,7 +515,7 @@ pub async fn create_application_user(
     fields(tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
 )]
 pub async fn patch_application_user_credentials(
-    _: RequireAdminJwtOrMatchedApplicationSecret,
+    _: AdminJwtOrApplicationSecretGuard,
     State(AppState {
         applications,
         credentials,

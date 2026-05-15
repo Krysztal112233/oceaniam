@@ -32,7 +32,7 @@ use tracing::{Span, error, field};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::{
-    middlewares::{self, auth::TokenDispatchMethod},
+    middlewares::{self, auth::TokenDispatchMethodGuard},
     state::{AppState, keybox::EncodedJwt},
 };
 
@@ -78,7 +78,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
     )
 )]
 pub async fn create_auth_token(
-    token_mtd: middlewares::auth::TokenDispatchMethod,
+    token_mtd: middlewares::auth::TokenDispatchMethodGuard,
 
     State(AppState {
         credentials,
@@ -171,7 +171,7 @@ pub async fn create_auth_token(
     fields(sub = field::Empty, jti = field::Empty)
 )]
 pub async fn delete_auth_token(
-    auth: middlewares::auth::RequireAuth<SystemClaim>,
+    auth: middlewares::auth::RequireAuthGuard<SystemClaim>,
     State(AppState {
         revoked_jwt,
         auditing,
@@ -293,8 +293,8 @@ pub async fn create_auth_user(
     fields(sub = field::Empty, old_jti = field::Empty, token_dispatch = field::Empty)
 )]
 pub async fn refresh_auth_token(
-    auth: middlewares::auth::RequireAuth<SystemClaim>,
-    token_mtd: middlewares::auth::TokenDispatchMethod,
+    auth: middlewares::auth::RequireAuthGuard<SystemClaim>,
+    token_mtd: middlewares::auth::TokenDispatchMethodGuard,
 
     State(AppState {
         revoked_jwt,
@@ -351,9 +351,9 @@ pub async fn refresh_auth_token(
     let resp = ApiResponse::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
 
     let resp = match token_mtd {
-        TokenDispatchMethod::Json => resp,
-        TokenDispatchMethod::Both => resp.with_cookie(cookie)?,
-        TokenDispatchMethod::Cookie => ApiResponse::empty().with_cookie(cookie)?,
+        TokenDispatchMethodGuard::Json => resp,
+        TokenDispatchMethodGuard::Both => resp.with_cookie(cookie)?,
+        TokenDispatchMethodGuard::Cookie => ApiResponse::empty().with_cookie(cookie)?,
     };
 
     Ok(resp)
