@@ -60,7 +60,7 @@ impl OceanIamClient {
         application_id: &str,
     ) -> Result<ApplicationDetailVO, Error> {
         let path = paths::fmt2(paths::TENANT_APP, tenant_id, application_id);
-        let req = self.auth_req(Method::GET, &path, AuthMode::Bearer)?;
+        let req = self.auth_req(Method::GET, &path, AuthMode::BearerOrAppSecret)?;
         self.send_inner(req).await
     }
 
@@ -93,7 +93,7 @@ impl OceanIamClient {
         application_id: &str,
     ) -> Result<GetApplicationConfigurationResponse, Error> {
         let path = paths::fmt2(paths::APP_CONFIG, tenant_id, application_id);
-        let req = self.auth_req(Method::GET, &path, AuthMode::Bearer)?;
+        let req = self.auth_req(Method::GET, &path, AuthMode::BearerOrAppSecret)?;
         self.send_inner(req).await
     }
 
