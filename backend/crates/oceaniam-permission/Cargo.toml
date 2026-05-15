@@ -1,0 +1,20 @@
+[package]
+name = "oceaniam-permission"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+moka.workspace = true
+sea-orm.workspace = true
+serde.workspace = true
+snafu.workspace = true
+strum.workspace = true
+tap.workspace = true
+tracing.workspace = true
+ts-rs.workspace = true
+utoipa.workspace = true
+uuid.workspace = true
+
+oceaniam-common.workspace = true
+oceaniam-database.workspace = true
