@@ -4,38 +4,38 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
-#[sea_orm(table_name = "administrators")]
+#[sea_orm(table_name = "application_roles")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    #[sea_orm(unique)]
+    pub application_id: Uuid,
     pub name: String,
-    pub role: Option<String>,
+    pub is_system: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
-    #[sea_orm(has_many = "super::administrator_tenants::Entity")]
-    AdministratorTenants,
     #[sea_orm(
-        belongs_to = "super::credentials::Entity",
-        from = "Column::Id",
-        to = "super::credentials::Column::Id",
-        on_update = "Cascade",
+        belongs_to = "super::applications::Entity",
+        from = "Column::ApplicationId",
+        to = "super::applications::Column::Id",
+        on_update = "NoAction",
         on_delete = "Cascade"
     )]
-    Credentials,
+    Applications,
+    #[sea_orm(has_many = "super::subjects::Entity")]
+    Subjects,
 }
 
-impl Related<super::administrator_tenants::Entity> for Entity {
+impl Related<super::applications::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::AdministratorTenants.def()
+        Relation::Applications.def()
     }
 }
 
-impl Related<super::credentials::Entity> for Entity {
+impl Related<super::subjects::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Credentials.def()
+        Relation::Subjects.def()
     }
 }
 

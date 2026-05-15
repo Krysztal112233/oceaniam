@@ -84,6 +84,7 @@ pub trait AdministratorsHelper {
         Ok(model::administrators::ActiveModel {
             id: Set(id),
             name: Set(name.into()),
+            role: Set(None),
         }
         .insert(database)
         .await?)

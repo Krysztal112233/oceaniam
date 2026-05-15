@@ -22,6 +22,7 @@ pub trait SubjectsHelper {
                 r#type: typ,
                 application_id,
                 created_at: Utc::now().into(),
+                application_role_id: None,
             }
             .into_active_model()
             .insert(database)

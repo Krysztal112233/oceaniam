@@ -2,7 +2,9 @@
 
 pub mod prelude;
 
+pub mod administrator_tenants;
 pub mod administrators;
+pub mod application_roles;
 pub mod application_secret_bindings;
 pub mod application_secrets;
 pub mod applications;

@@ -13,7 +13,7 @@ pub struct AdministratorVO {
 
 #[cfg(feature = "database")]
 impl From<model::administrators::Model> for AdministratorVO {
-    fn from(model::administrators::Model { id, name }: model::administrators::Model) -> Self {
+    fn from(model::administrators::Model { id, name, .. }: model::administrators::Model) -> Self {
         Self {
             id: id.into(),
             name,

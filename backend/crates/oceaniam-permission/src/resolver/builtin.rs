@@ -98,8 +98,8 @@ impl PermissionResolver for BuiltinResolver {
 ///
 /// Returns the permission set for a given platform administrator:
 /// - The system built-in administrator always gets [`PlatformRole::SuperAdmin`].
-/// - Real administrators are validated against the `administrators` table first,
-///   then their role is resolved from `admin_roles` (not yet wired, Phase 2).
+/// - Real administrators are looked up in the `administrators` table,
+///   and their `role` column is parsed into a [`PlatformRole`].
 async fn resolve_platform_permissions(
     db: &DatabaseConnection,
 
@@ -109,7 +109,7 @@ async fn resolve_platform_permissions(
         return Ok(PlatformRole::SuperAdmin.permissions().clone());
     }
 
-    Administrators::find_by_id(platform_id)
+    let admin = Administrators::find_by_id(platform_id)
         .one(db)
         .await
         .map_err(|e| crate::Error::DatabaseRaw {
@@ -121,8 +121,19 @@ async fn resolve_platform_permissions(
             location: snafu::location!(),
         })?;
 
-    // TODO: resolve from admin_roles table (Phase 2)
-    Ok(PlatformRole::SuperAdmin.permissions().clone())
+    match admin.role.as_deref() {
+        Some("super_admin") => Ok(PlatformRole::SuperAdmin.permissions().clone()),
+        Some("tenant_admin") => Ok(PlatformRole::TenantAdmin.permissions().clone()),
+        Some("readonly_admin") => Ok(PlatformRole::ReadonlyAdmin.permissions().clone()),
+        Some(other) => Err(crate::Error::Internal {
+            msg: format!("unknown platform role: {other}"),
+            location: snafu::location!(),
+        }),
+        None => Err(crate::Error::Internal {
+            msg: "administrator has no role assigned".to_string(),
+            location: snafu::location!(),
+        }),
+    }
 }
 
 async fn resolve_subject_permissions(
@@ -130,6 +141,6 @@ async fn resolve_subject_permissions(
     _subject_id: Uuid,
     _application_id: Uuid,
 ) -> Result<HashSet<Permission>, crate::Error> {
-    // TODO: resolve from subject_roles → application_roles (Phase 2)
+    // TODO: resolve from subjects.application_role_id → application_roles (Phase 5)
     Ok(HashSet::new())
 }
