@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   postgres:
-    image: docker.io/krysztal112233/oceaniam-database:latest
+    image: ghcr.io/krysztal112233/oceaniam-database:latest
     build:
       context: ./
       dockerfile: Dockerfile
@@ -22,7 +22,7 @@ services:
       retries: 5
 
   backend-migration:
-    image: docker.io/krysztal112233/oceaniam-migration:latest
+    image: ghcr.io/krysztal112233/oceaniam-migration:latest
     build:
       context: ./
       dockerfile: Dockerfile
@@ -35,7 +35,7 @@ services:
         condition: service_healthy
 
   backend:
-    image: docker.io/krysztal112233/oceaniam-backend:latest
+    image: ghcr.io/krysztal112233/oceaniam-backend:latest
     build:
       context: ./
       dockerfile: Dockerfile
@@ -50,7 +50,7 @@ services:
         condition: service_healthy
 
   worker:
-    image: docker.io/krysztal112233/oceaniam-worker:latest
+    image: ghcr.io/krysztal112233/oceaniam-worker:latest
     build:
       context: ./
       dockerfile: Dockerfile
@@ -65,7 +65,7 @@ services:
         condition: service_healthy
 
   frontend:
-    image: docker.io/krysztal112233/oceaniam-frontend:latest
+    image: ghcr.io/krysztal112233/oceaniam-frontend:latest
     build:
       context: ./
       dockerfile: Dockerfile
@@ -73,7 +73,7 @@ services:
     restart: unless-stopped
 
   nginx:
-    image: docker.io/krysztal112233/oceaniam-nginx:latest
+    image: ghcr.io/krysztal112233/oceaniam-nginx:latest
     build:
       context: ./
       dockerfile: Dockerfile

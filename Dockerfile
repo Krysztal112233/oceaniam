@@ -5,7 +5,7 @@
 FROM docker.io/library/rust:slim-trixie AS backend-builder
 WORKDIR /builder
 RUN apt update && apt install build-essential curl wget file libssl-dev pkg-config -y
-COPY ../backend/ .
+COPY backend/ .
 RUN cargo build --all -r
 
 FROM docker.io/library/debian:trixie-slim AS base
@@ -33,13 +33,13 @@ CMD [ "./migration" ]
 
 FROM docker.io/library/node:24-alpine AS frontend-builder
 WORKDIR /builder
-COPY ../frontend/ .
-RUN corepack enable pnpm && pnpm install
-RUN pnpm build
+COPY frontend/ frontend/
+COPY sdk/ sdk/
+RUN corepack enable pnpm && cd frontend && pnpm install && pnpm build
 
 FROM docker.io/library/nginx:1.29-alpine AS frontend
 COPY docker/nginx/frontend.conf /etc/nginx/conf.d/default.conf
-COPY --from=frontend-builder /builder/dist/ /usr/share/nginx/html/
+COPY --from=frontend-builder /builder/frontend/dist/ /usr/share/nginx/html/
 
 ####################
 #  GATEWAY BUILDER #
