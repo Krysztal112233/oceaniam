@@ -24,4 +24,3 @@ uuid.workspace = true
 oceaniam-api.workspace = true
 oceaniam-common.workspace = true
 oceaniam-database = { workspace = true, optional = true }
-oceaniam-permission.workspace = true

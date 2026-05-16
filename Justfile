@@ -16,6 +16,7 @@ export:
     cd ./backend && cargo test -p oceaniam-export
     rm -rf ./sdk/typescript/src/types
     cp -r ./backend/crates/oceaniam-export/bindings/ ./sdk/typescript/src/types
+    cd ./sdk/typescript && pnpm build
 
 fmt:
     cd ./backend && cargo fmt

@@ -2649,7 +2649,6 @@ dependencies = [
  "oceaniam-api",
  "oceaniam-common",
  "oceaniam-database",
- "oceaniam-permission",
  "reqwest",
  "serde",
  "serde_json",

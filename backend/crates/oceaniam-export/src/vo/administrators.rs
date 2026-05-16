@@ -17,3 +17,8 @@ pub struct PatchAdministratorRequest;
 #[ts(export)]
 #[ts(as = "oceaniam_vo::administrators::CreateAdministratorResponse")]
 pub struct CreateAdministratorResponse;
+
+#[derive(ts_rs::TS)]
+#[ts(export)]
+#[ts(as = "oceaniam_vo::administrators::AdministratorProfileVO")]
+pub struct AdministratorProfileVO;

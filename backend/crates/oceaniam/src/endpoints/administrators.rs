@@ -142,7 +142,10 @@ pub async fn get_administrator_self(
                 axum::http::StatusCode::INTERNAL_SERVER_ERROR,
                 format!("permission resolution failed: {e}"),
             )
-        })?;
+        })?
+        .into_iter()
+        .map(|p| p.to_string())
+        .collect();
 
     Ok(ApiResponse::new(AdministratorProfileVO {
         id: admin.id.into(),
