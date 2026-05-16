@@ -54,3 +54,119 @@ impl AppRole {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // NOTE: AI-generated test
+    #[test]
+    fn readonly_admin_has_no_write_permissions() {
+        let perms = PlatformRole::ReadonlyAdmin.permissions();
+        for p in [
+            Permission::TenantCreate,
+            Permission::TenantDelete,
+            Permission::TenantPatch,
+            Permission::ApplicationCreate,
+            Permission::ApplicationDelete,
+            Permission::ApplicationPatch,
+            Permission::ApplicationConfigurationPatch,
+            Permission::SecretCreate,
+            Permission::SecretDelete,
+            Permission::KeyRotate,
+            Permission::KeyRevoke,
+            Permission::AdministratorCreate,
+            Permission::AdministratorPatch,
+        ] {
+            assert!(!perms.contains(&p), "ReadonlyAdmin should NOT have {p:?}");
+        }
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn readonly_admin_has_read_permissions() {
+        let perms = PlatformRole::ReadonlyAdmin.permissions();
+        for p in [
+            Permission::TenantRead,
+            Permission::ApplicationRead,
+            Permission::ApplicationConfigurationRead,
+            Permission::SecretRead,
+            Permission::KeyRead,
+            Permission::AdministratorRead,
+        ] {
+            assert!(perms.contains(&p), "ReadonlyAdmin should have {p:?}");
+        }
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn super_admin_has_all_platform_permissions() {
+        let perms = PlatformRole::SuperAdmin.permissions();
+        for p in [
+            Permission::TenantCreate,
+            Permission::TenantDelete,
+            Permission::TenantPatch,
+            Permission::TenantRead,
+            Permission::ApplicationCreate,
+            Permission::ApplicationDelete,
+            Permission::ApplicationPatch,
+            Permission::ApplicationRead,
+            Permission::ApplicationConfigurationPatch,
+            Permission::ApplicationConfigurationRead,
+            Permission::SecretCreate,
+            Permission::SecretDelete,
+            Permission::SecretRead,
+            Permission::KeyRead,
+            Permission::KeyRotate,
+            Permission::KeyRevoke,
+            Permission::AdministratorCreate,
+            Permission::AdministratorPatch,
+            Permission::AdministratorRead,
+        ] {
+            assert!(perms.contains(&p), "SuperAdmin should have {p:?}");
+        }
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn tenant_admin_has_no_tenant_crud_and_no_admin_perms() {
+        let perms = PlatformRole::TenantAdmin.permissions();
+        for p in [
+            Permission::TenantCreate,
+            Permission::TenantDelete,
+            Permission::AdministratorCreate,
+            Permission::AdministratorPatch,
+            Permission::AdministratorRead,
+        ] {
+            assert!(!perms.contains(&p), "TenantAdmin should NOT have {p:?}");
+        }
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn app_role_reader_is_subset_of_owner() {
+        let reader = AppRole::Reader.permissions();
+        let owner = AppRole::Owner.permissions();
+        assert!(reader.is_subset(owner));
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn app_role_inheritance_chain() {
+        assert!(
+            AppRole::Reader
+                .permissions()
+                .is_subset(AppRole::Member.permissions())
+        );
+        assert!(
+            AppRole::Member
+                .permissions()
+                .is_subset(AppRole::Admin.permissions())
+        );
+        assert!(
+            AppRole::Admin
+                .permissions()
+                .is_subset(AppRole::Owner.permissions())
+        );
+    }
+}

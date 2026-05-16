@@ -52,3 +52,55 @@ pub enum Permission {
     // ── Application-level: Challenges ──
     ApplicationChallengeRead,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // NOTE: AI-generated test
+    #[test]
+    fn serde_round_trip() {
+        for perm in [
+            Permission::TenantRead,
+            Permission::TenantCreate,
+            Permission::ApplicationConfigurationPatch,
+            Permission::SecretRead,
+            Permission::KeyRotate,
+            Permission::AdministratorCreate,
+            Permission::ApplicationUserDelete,
+            Permission::ApplicationTokenIssue,
+            Permission::ApplicationChallengeRead,
+        ] {
+            let json = serde_json::to_string(&perm).unwrap();
+            let deserialized: Permission = serde_json::from_str(&json).unwrap();
+            assert_eq!(perm, deserialized);
+        }
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn strum_round_trip() {
+        for perm in [
+            Permission::TenantRead,
+            Permission::TenantCreate,
+            Permission::ApplicationConfigurationPatch,
+            Permission::SecretRead,
+            Permission::KeyRotate,
+            Permission::AdministratorCreate,
+            Permission::ApplicationUserDelete,
+            Permission::ApplicationTokenIssue,
+            Permission::ApplicationChallengeRead,
+        ] {
+            let s = perm.to_string();
+            let parsed: Permission = s.parse().unwrap();
+            assert_eq!(perm, parsed);
+        }
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn serialized_as_snake_case() {
+        let json = serde_json::to_value(Permission::ApplicationUserRead).unwrap();
+        assert_eq!(json, serde_json::json!("application_user_read"));
+    }
+}

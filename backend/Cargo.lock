@@ -2628,6 +2628,7 @@ dependencies = [
  "oceaniam-database",
  "sea-orm",
  "serde",
+ "serde_json",
  "snafu",
  "strum 0.28.0",
  "tap",
