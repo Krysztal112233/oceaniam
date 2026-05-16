@@ -14,7 +14,6 @@ use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
 use oceaniam_api::{ApiResponse, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{AuditPayload, CreateAdministratorPayload, PatchAdministratorPayload};
-use oceaniam_auth::jwt::SystemClaim;
 use oceaniam_database::{
     helper::{
         SafeTransactionConnectionTrait,
@@ -34,7 +33,9 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
 use crate::{
-    middlewares::auth::RequireAuthGuard,
+    middlewares::permission::{
+        AdministratorCreate, AdministratorPatch, AdministratorRead, PlatformPermissionGuard,
+    },
     state::{AppState, credentials::ManagedCredentialVaults},
 };
 
@@ -67,7 +68,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
     fields(page = field::Empty, per_page = field::Empty)
 )]
 pub async fn get_administrators(
-    _: RequireAuthGuard<SystemClaim>,
+    _: PlatformPermissionGuard<AdministratorRead>,
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> AppResult<PagedResponse<AdministratorVO>> {
@@ -107,7 +108,8 @@ pub async fn get_administrators(
     fields(operator_id = field::Empty, administrator_id = field::Empty)
 )]
 pub async fn create_administrator(
-    auth: RequireAuthGuard<SystemClaim>,
+    auth: PlatformPermissionGuard<AdministratorCreate>,
+
     State(AppState {
         database,
         credentials,
@@ -116,7 +118,7 @@ pub async fn create_administrator(
     }): State<AppState<'_>>,
     Garde(Json(CreateAdministratorRequest { name })): Garde<Json<CreateAdministratorRequest>>,
 ) -> AppResult<CreateAdministratorResponse> {
-    let operator_id = auth.token.claims.sub;
+    let operator_id = auth.claim.sub;
     let administrator_id = Uuid::now_v7();
     Span::current().tap(|it| {
         it.record("operator_id", field::display(&operator_id))
@@ -209,7 +211,8 @@ pub async fn create_administrator(
     fields(operator_id = field::Empty, administrator_id = field::Empty)
 )]
 pub async fn patch_administrator(
-    auth: RequireAuthGuard<SystemClaim>,
+    auth: PlatformPermissionGuard<AdministratorPatch>,
+
     Path(administrator_id): Path<Sqid>,
     State(AppState {
         database,
@@ -219,7 +222,7 @@ pub async fn patch_administrator(
     }): State<AppState<'_>>,
     Garde(Json(payload)): Garde<Json<PatchAdministratorRequest>>,
 ) -> AppResult<AdministratorVO> {
-    let operator_id = auth.token.claims.sub;
+    let operator_id = auth.claim.sub;
     let administrator_id: Uuid = administrator_id.try_into()?;
     Span::current().tap(|it| {
         it.record("operator_id", field::display(&operator_id))

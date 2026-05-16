@@ -12,7 +12,6 @@ use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{
     AuditPayload, CreateTenantsPayload, DeleteTenantsPayload, PatchTenantPayload,
 };
-use oceaniam_auth::jwt::SystemClaim;
 use oceaniam_database::{
     helper::{tenants::TenantsHelper, users::UserHelper},
     model::prelude::*,
@@ -27,7 +26,10 @@ use tracing::{Span, error, field, warn};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
-use crate::{middlewares, state::AppState};
+use crate::middlewares::permission::{
+    PlatformPermissionGuard, TenantCreate, TenantDelete, TenantPatch, TenantRead,
+};
+use crate::state::AppState;
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
     router
@@ -61,12 +63,12 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
     fields(operator_id = field::Empty, page = field::Empty, per_page = field::Empty)
 )]
 pub async fn get_tenants(
-    auth: middlewares::auth::RequireAuthGuard<SystemClaim>,
+    auth: PlatformPermissionGuard<TenantRead>,
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> AppResult<PagedResponse<TenantVO>> {
     let page = query.unwrap_or_default();
-    let operator_id = auth.token.claims.sub;
+    let operator_id = auth.claim.sub;
     Span::current().tap(|it| {
         it.record("operator_id", field::display(&operator_id))
             .record("page", page.page)
@@ -113,11 +115,11 @@ pub async fn get_tenants(
     fields(operator_id = field::Empty, tenant_id = field::Empty)
 )]
 pub async fn get_tenant(
-    auth: middlewares::auth::RequireAuthGuard<SystemClaim>,
+    auth: PlatformPermissionGuard<TenantRead>,
     Path(tenant_id): Path<Sqid>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> AppResult<TenantVO> {
-    let operator_id = auth.token.claims.sub;
+    let operator_id = auth.claim.sub;
     let uuid = tenant_id.try_into()?;
     Span::current().tap(|it| {
         it.record("operator_id", field::display(&operator_id))
@@ -162,7 +164,7 @@ pub async fn get_tenant(
     fields(operator_id = field::Empty, tenant_id = field::Empty)
 )]
 pub async fn create_tenant(
-    auth: middlewares::auth::RequireAuthGuard<SystemClaim>,
+    auth: PlatformPermissionGuard<TenantCreate>,
 
     State(AppState {
         database, auditing, ..
@@ -170,7 +172,7 @@ pub async fn create_tenant(
 
     Json(CreateTenantRequest { comment }): Json<CreateTenantRequest>,
 ) -> AppResult<TenantVO> {
-    let operator_id = auth.token.claims.sub;
+    let operator_id = auth.claim.sub;
     let tenant_id = Uuid::now_v7();
     Span::current().tap(|it| {
         it.record("operator_id", field::display(&operator_id))
@@ -229,14 +231,14 @@ pub async fn create_tenant(
     fields(operator_id = field::Empty, tenant_id = field::Empty)
 )]
 pub async fn patch_tenant(
-    auth: middlewares::auth::RequireAuthGuard<SystemClaim>,
+    auth: PlatformPermissionGuard<TenantPatch>,
     Path(tenant_id): Path<Sqid>,
     State(AppState {
         database, auditing, ..
     }): State<AppState<'_>>,
     Json(PatchTenantRequest { comment }): Json<PatchTenantRequest>,
 ) -> AppResult<TenantVO> {
-    let operator_id = auth.token.claims.sub;
+    let operator_id = auth.claim.sub;
     let tenant_id: Uuid = tenant_id.try_into()?;
     Span::current().tap(|it| {
         it.record("operator_id", field::display(&operator_id))
@@ -291,13 +293,13 @@ pub async fn patch_tenant(
     fields(operator_id = field::Empty, tenant_id = field::Empty)
 )]
 pub async fn delete_tenant(
-    auth: middlewares::auth::RequireAuthGuard<SystemClaim>,
+    auth: PlatformPermissionGuard<TenantDelete>,
     Path(tenant_id): Path<Uuid>,
     State(AppState {
         database, auditing, ..
     }): State<AppState<'_>>,
 ) -> AppResult<()> {
-    let operator_id = auth.token.claims.sub;
+    let operator_id = auth.claim.sub;
     Span::current().tap(|it| {
         it.record("operator_id", field::display(&operator_id))
             .record("tenant_id", field::display(&tenant_id));
@@ -353,13 +355,13 @@ pub async fn delete_tenant(
     fields(operator_id = field::Empty, tenant_id = field::Empty, page = field::Empty, per_page = field::Empty)
 )]
 pub async fn get_tenant_users(
-    auth: middlewares::auth::RequireAuthGuard<SystemClaim>,
+    auth: PlatformPermissionGuard<TenantRead>,
     Path(tenant_id): Path<Sqid>,
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> AppResult<PagedResponse<ApplicationUserVO>> {
     let page = query.unwrap_or_default();
-    let operator_id = auth.token.claims.sub;
+    let operator_id = auth.claim.sub;
     let tenant_id = tenant_id.try_into()?;
 
     Span::current().tap(|it| {

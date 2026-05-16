@@ -13,9 +13,9 @@ use uuid::Uuid;
 
 use crate::{
     middlewares::application::AdminJwtOrApplicationSecretGuard,
-    middlewares::auth::RequireAuthGuard, state::AppState,
+    middlewares::permission::{KeyRevoke, KeyRotate, PlatformPermissionGuard},
+    state::AppState,
 };
-use oceaniam_auth::jwt::SystemClaim;
 
 #[derive(Debug, serde::Deserialize, utoipa::ToSchema)]
 pub(crate) struct KeysPath {
@@ -123,7 +123,7 @@ pub async fn get_application_keys(
     fields(tenant_id = field::Empty, application_id = field::Empty, key_id = field::Empty)
 )]
 pub async fn rotate_application_key(
-    _: RequireAuthGuard<SystemClaim>,
+    _: PlatformPermissionGuard<KeyRotate>,
 
     Path(path): Path<KeysPath>,
     State(AppState {
@@ -190,7 +190,7 @@ pub async fn rotate_application_key(
     fields(tenant_id = field::Empty, application_id = field::Empty, key_id = field::Empty)
 )]
 pub async fn revoke_application_key(
-    _: RequireAuthGuard<SystemClaim>,
+    _: PlatformPermissionGuard<KeyRevoke>,
     Path(path): Path<KeyPath>,
     State(AppState {
         keyboxes, auditing, ..

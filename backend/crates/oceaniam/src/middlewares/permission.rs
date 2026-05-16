@@ -55,20 +55,20 @@ platform_perm!(AdministratorPatch => Permission::AdministratorPatch);
 /// # Example
 ///
 /// ```ignore
-/// use crate::middlewares::permission::{RequirePlatformPermission, TenantRead};
+/// use crate::middlewares::permission::{PlatformPermissionGuard, TenantRead};
 ///
 /// async fn list_tenants(
-///     _: RequirePlatformPermission<TenantRead>,
+///     _: PlatformPermissionGuard<TenantRead>,
 /// ) -> RestResult<...> {
 ///     // ...
 /// }
 /// ```
-pub struct RequirePlatformPermission<P: PlatformPermission> {
+pub struct PlatformPermissionGuard<P: PlatformPermission> {
     pub claim: SystemClaim,
     _permission: std::marker::PhantomData<P>,
 }
 
-impl<P: PlatformPermission> FromRequestParts<AppState<'_>> for RequirePlatformPermission<P> {
+impl<P: PlatformPermission> FromRequestParts<AppState<'_>> for PlatformPermissionGuard<P> {
     type Rejection = Error;
 
     async fn from_request_parts(

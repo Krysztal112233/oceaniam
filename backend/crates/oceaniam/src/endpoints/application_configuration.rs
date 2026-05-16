@@ -1,9 +1,10 @@
 //! Application configuration-related API endpoints
 
+use crate::middlewares::application::AdminJwtOrApplicationSecretGuard;
 use crate::{
     endpoints::applications::{TenantApplicationPath, get_tenant_application},
     error::AppResult,
-    middlewares,
+    middlewares::permission::{ApplicationConfigurationPatch, PlatformPermissionGuard},
     state::AppState,
 };
 use axum::{
@@ -12,7 +13,6 @@ use axum::{
 };
 use oceaniam_api::{ApiResponse, Empty, ErrorResponse};
 use oceaniam_audit::types::{AuditPayload, PatchApplicationConfigurationPayload};
-use oceaniam_auth::jwt::SystemClaim;
 use oceaniam_vo::applications::{
     ApplicationConfigurationVO, GetApplicationConfigurationResponse,
     PatchApplicationConfigurationRequest,
@@ -55,7 +55,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
     fields(tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn get_application_configuration(
-    _: middlewares::application::AdminJwtOrApplicationSecretGuard,
+    _: AdminJwtOrApplicationSecretGuard,
     State(AppState {
         applications,
         database,
@@ -111,7 +111,8 @@ pub async fn get_application_configuration(
     fields(tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn patch_application_configuration(
-    _: middlewares::auth::RequireAuthGuard<SystemClaim>,
+    _: PlatformPermissionGuard<ApplicationConfigurationPatch>,
+
     State(AppState {
         applications,
         auditing,

@@ -7,7 +7,6 @@ use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{
     AuditPayload, CreateApplicationSecretPayload, DeleteApplicationSecretPayload,
 };
-use oceaniam_auth::jwt::SystemClaim;
 use oceaniam_vo::applications::SecretVO;
 use oceaniam_vo::sqid::Sqid;
 use rayon::iter::IntoParallelIterator;
@@ -17,7 +16,10 @@ use tracing::{Span, error, field, info};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
-use crate::{middlewares::auth::RequireAuthGuard, state::AppState};
+use crate::{
+    middlewares::permission::{PlatformPermissionGuard, SecretCreate, SecretDelete, SecretRead},
+    state::AppState,
+};
 
 #[utoipa::path(
         post,
@@ -34,18 +36,18 @@ use crate::{middlewares::auth::RequireAuthGuard, state::AppState};
 #[tracing::instrument(
     level = "info",
     name = "secrets.create",
-    skip(applications, auditing),
+    skip(auth, applications, auditing),
     fields(secret_id = field::Empty)
 )]
 pub async fn create_secret(
-    auth: RequireAuthGuard<SystemClaim>,
+    auth: PlatformPermissionGuard<SecretCreate>,
     State(AppState {
         applications,
         auditing,
         ..
     }): State<AppState<'_>>,
 ) -> AppResult<SecretVO> {
-    let operator_id = auth.token.claims.sub;
+    let operator_id = auth.claim.sub;
     let model = applications
         .secrets()
         .create_secret()
@@ -92,7 +94,7 @@ pub async fn create_secret(
     fields(page = field::Empty, per_page = field::Empty)
 )]
 pub async fn get_secrets(
-    _: RequireAuthGuard<SystemClaim>,
+    _: PlatformPermissionGuard<SecretRead>,
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { applications, .. }): State<AppState<'_>>,
 ) -> AppResult<PagedResponse<SecretVO>> {
@@ -160,7 +162,7 @@ pub async fn get_secrets(
     fields(secret_id = field::Empty)
 )]
 pub async fn get_secret(
-    _: RequireAuthGuard<SystemClaim>,
+    _: PlatformPermissionGuard<SecretRead>,
     Path(secret_id): Path<Sqid>,
     State(AppState { applications, .. }): State<AppState<'_>>,
 ) -> AppResult<SecretVO> {
@@ -201,11 +203,11 @@ pub async fn get_secret(
 #[tracing::instrument(
     level = "info",
     name = "secrets.delete",
-    skip(applications, auditing, secret_id),
+    skip(auth, applications, auditing, secret_id),
     fields(secret_id = field::Empty)
 )]
 pub async fn delete_secret(
-    auth: RequireAuthGuard<SystemClaim>,
+    auth: PlatformPermissionGuard<SecretDelete>,
     State(AppState {
         applications,
         auditing,
@@ -213,7 +215,7 @@ pub async fn delete_secret(
     }): State<AppState<'_>>,
     Path(secret_id): Path<Sqid>,
 ) -> AppResult<Empty> {
-    let operator_id = auth.token.claims.sub;
+    let operator_id = auth.claim.sub;
     let secret_id: Uuid = secret_id
         .try_into()
         .inspect_err(|e| error!(error = %e, "failed to convert secret_id"))?;

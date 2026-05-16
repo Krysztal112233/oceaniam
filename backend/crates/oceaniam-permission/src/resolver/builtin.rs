@@ -10,10 +10,13 @@ use uuid::Uuid;
 
 use super::PermissionResolver;
 use crate::permission::Permission;
-use crate::role::PlatformRole;
+use crate::role::{AppRole, PlatformRole};
 
 use oceaniam_common::consts;
-use oceaniam_database::model::prelude::*;
+use oceaniam_database::{
+    helper::{application_roles::ApplicationRolesHelper, subjects::SubjectsHelper},
+    model::prelude::*,
+};
 use sea_orm::{DatabaseConnection, EntityTrait};
 
 #[derive(Hash, Eq, PartialEq, Clone, Debug)]
@@ -122,26 +125,38 @@ async fn resolve_platform_permissions(
             location: snafu::location!(),
         })?;
 
-    match admin.role.as_deref() {
-        Some("super_admin") => Ok(PlatformRole::SuperAdmin.permissions().clone()),
-        Some("tenant_admin") => Ok(PlatformRole::TenantAdmin.permissions().clone()),
-        Some("readonly_admin") => Ok(PlatformRole::ReadonlyAdmin.permissions().clone()),
-        Some(other) => Err(crate::Error::Internal {
-            msg: format!("unknown platform role: {other}"),
-            location: snafu::location!(),
-        }),
-        None => Err(crate::Error::Internal {
+    let role_str = admin
+        .role
+        .as_deref()
+        .ok_or_else(|| crate::Error::Internal {
             msg: "administrator has no role assigned".to_string(),
             location: snafu::location!(),
-        }),
-    }
+        })?;
+
+    let platform_role: PlatformRole = role_str.parse().map_err(|_| crate::Error::Internal {
+        msg: format!("unknown platform role: {role_str}"),
+        location: snafu::location!(),
+    })?;
+
+    Ok(platform_role.permissions().clone())
 }
 
 async fn resolve_subject_permissions(
-    _db: &DatabaseConnection,
-    _subject_id: Uuid,
-    _application_id: Uuid,
+    db: &DatabaseConnection,
+    subject_id: Uuid,
+    application_id: Uuid,
 ) -> Result<HashSet<Permission>, crate::Error> {
-    // TODO: resolve from subjects.application_role_id → application_roles (Phase 5)
-    Ok(HashSet::new())
+    let Some(role_id) = Subjects::resolve_subject_role(subject_id, application_id, db).await?
+    else {
+        return Ok(HashSet::new());
+    };
+
+    let role_name = ApplicationRoles::resolve_role_name(role_id, db).await?;
+
+    let app_role: AppRole = role_name.parse().map_err(|_| crate::Error::Internal {
+        msg: format!("unknown application role name: {role_name}"),
+        location: snafu::location!(),
+    })?;
+
+    Ok(app_role.permissions().clone())
 }

@@ -5,6 +5,7 @@ use sea_orm::{
 };
 
 pub mod administrators;
+pub mod application_roles;
 pub mod applications;
 pub mod applications_secrets;
 pub mod audit_summary_by_application;

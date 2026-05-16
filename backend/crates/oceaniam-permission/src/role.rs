@@ -23,9 +23,9 @@ pub enum PlatformRole {
 impl PlatformRole {
     pub fn permissions(&self) -> &'static HashSet<Permission> {
         match self {
-            PlatformRole::SuperAdmin => &*sets::PLATFORM_SUPER_ADMIN_PERMS,
-            PlatformRole::TenantAdmin => &*sets::PLATFORM_TENANT_ADMIN_PERMS,
-            PlatformRole::ReadonlyAdmin => &*sets::PLATFORM_READONLY_ADMIN_PERMS,
+            PlatformRole::SuperAdmin => &sets::PLATFORM_SUPER_ADMIN_PERMS,
+            PlatformRole::TenantAdmin => &sets::PLATFORM_TENANT_ADMIN_PERMS,
+            PlatformRole::ReadonlyAdmin => &sets::PLATFORM_READONLY_ADMIN_PERMS,
         }
     }
 }
@@ -47,10 +47,10 @@ pub enum AppRole {
 impl AppRole {
     pub fn permissions(&self) -> &'static HashSet<Permission> {
         match self {
-            AppRole::Owner => &*sets::APP_OWNER_PERMS,
-            AppRole::Admin => &*sets::APP_ADMIN_PERMS,
-            AppRole::Member => &*sets::APP_MEMBER_PERMS,
-            AppRole::Reader => &*sets::APP_READER_PERMS,
+            AppRole::Owner => &sets::APP_OWNER_PERMS,
+            AppRole::Admin => &sets::APP_ADMIN_PERMS,
+            AppRole::Member => &sets::APP_MEMBER_PERMS,
+            AppRole::Reader => &sets::APP_READER_PERMS,
         }
     }
 }
