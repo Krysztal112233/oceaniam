@@ -14,6 +14,7 @@ use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
 use oceaniam_api::{ApiResponse, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{AuditPayload, CreateAdministratorPayload, PatchAdministratorPayload};
+use oceaniam_auth::jwt::SystemClaim;
 use oceaniam_database::{
     helper::{
         SafeTransactionConnectionTrait,
@@ -22,17 +23,18 @@ use oceaniam_database::{
     model::{administrators, prelude::*},
 };
 use oceaniam_vo::administrators::{
-    AdministratorVO, CreateAdministratorRequest, CreateAdministratorResponse,
-    PatchAdministratorRequest,
+    AdministratorProfileVO, AdministratorVO, CreateAdministratorRequest,
+    CreateAdministratorResponse, PatchAdministratorRequest,
 };
 use oceaniam_vo::sqid::Sqid;
-use sea_orm::TransactionTrait;
+use sea_orm::{EntityTrait, TransactionTrait};
 use tap::Tap;
 use tracing::{Span, error, field, info};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
 use crate::{
+    middlewares::auth::RequireAuthGuard,
     middlewares::permission::{
         AdministratorCreate, AdministratorPatch, AdministratorRead, PlatformPermissionGuard,
     },
@@ -42,6 +44,7 @@ use crate::{
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
     router
         .routes(routes!(get_administrators))
+        .routes(routes!(get_administrator_self))
         .routes(routes!(create_administrator))
         .routes(routes!(patch_administrator))
 }
@@ -84,6 +87,69 @@ pub async fn get_administrators(
     let items = items.into_iter().map(AdministratorVO::from).collect();
 
     Ok(ApiResponse::new(PagedResponse { items, page_info }))
+}
+
+/// Get current administrator profile with permissions
+#[utoipa::path(
+        get,
+        path = "/administrators/me",
+        tag = "Administrators",
+        params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+        ),
+        responses(
+            (status = 200, body = ApiResponse<AdministratorProfileVO>),
+            (status = 401, description = "Unauthorized"),
+        ),
+    )]
+#[tracing::instrument(
+    level = "info",
+    name = "administrators.me",
+    skip(auth, state),
+    fields(operator_id = field::Empty)
+)]
+pub async fn get_administrator_self(
+    auth: RequireAuthGuard<SystemClaim>,
+    State(state): State<AppState<'_>>,
+) -> AppResult<AdministratorProfileVO> {
+    let operator_id = auth.token.claims.sub;
+    Span::current().tap(|it| {
+        it.record("operator_id", field::display(&operator_id));
+    });
+
+    let admin = Administrators::find_by_id(operator_id)
+        .one(&state.database)
+        .await
+        .map_err(|e| {
+            Error::with_code(
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                format!("database error: {e}"),
+            )
+        })?
+        .ok_or_else(|| {
+            Error::with_code(
+                axum::http::StatusCode::NOT_FOUND,
+                "administrator not found".to_string(),
+            )
+        })?;
+
+    let permissions = state
+        .system_permissions
+        .platform_permissions(operator_id)
+        .await
+        .map_err(|e| {
+            Error::with_code(
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                format!("permission resolution failed: {e}"),
+            )
+        })?;
+
+    Ok(ApiResponse::new(AdministratorProfileVO {
+        id: admin.id.into(),
+        name: admin.name,
+        role: admin.role,
+        permissions,
+    }))
 }
 
 /// Create administrator

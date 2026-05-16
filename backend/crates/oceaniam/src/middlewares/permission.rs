@@ -80,7 +80,7 @@ impl<P: PlatformPermission> FromRequestParts<AppState<'_>> for PlatformPermissio
                 .await
                 .map_err(|code| {
                     error!(?code, "authentication failed in permission guard");
-                    Error::with_code(code.as_u16(), "authentication failed")
+                    Error::with_code(code, "authentication failed")
                 })?;
 
         let platform_id = token.claims.sub;
@@ -92,14 +92,14 @@ impl<P: PlatformPermission> FromRequestParts<AppState<'_>> for PlatformPermissio
             .map_err(|e| {
                 error!(%platform_id, error = %e, "permission resolution failed");
                 Error::with_code(
-                    StatusCode::INTERNAL_SERVER_ERROR.as_u16(),
+                    StatusCode::INTERNAL_SERVER_ERROR,
                     "permission resolution failed",
                 )
             })?;
 
         if !perms.contains(&P::PERMISSION) {
             return Err(Error::with_code(
-                StatusCode::FORBIDDEN.as_u16(),
+                StatusCode::FORBIDDEN,
                 "insufficient permissions",
             ));
         }
