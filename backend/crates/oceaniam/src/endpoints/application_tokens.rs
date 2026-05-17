@@ -5,7 +5,7 @@ use crate::{
     endpoints::applications::{TenantApplicationPath, get_tenant_application},
     middlewares::{
         application::MatchedApplicationSecretGuard,
-        auth::{RequireAuthGuard, TokenDispatchMethodGuard},
+        auth::{ApplicationAuthGuard, TokenDispatchMethodGuard},
     },
     state::{
         AppState,
@@ -207,7 +207,7 @@ pub async fn create_application_token(
 )]
 pub async fn delete_application_token(
     _: MatchedApplicationSecretGuard,
-    auth: RequireAuthGuard<Claim>,
+    auth: ApplicationAuthGuard,
     State(AppState {
         database,
         revoked_jwt,
@@ -285,7 +285,7 @@ pub async fn delete_application_token(
     )
 )]
 pub async fn refresh_application_token(
-    auth: RequireAuthGuard<Claim>,
+    auth: ApplicationAuthGuard,
     token_mtd: TokenDispatchMethodGuard,
     _: MatchedApplicationSecretGuard,
     State(AppState {

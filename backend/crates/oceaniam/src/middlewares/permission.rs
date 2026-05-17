@@ -7,7 +7,7 @@ use oceaniam_permission::Permission;
 use tracing::error;
 
 use crate::error::Error;
-use crate::middlewares::auth::RequireAuthGuard;
+use crate::middlewares::auth::PlatformAuthGuard;
 use crate::state::AppState;
 
 /// Marker trait for platform-level permissions.
@@ -75,18 +75,17 @@ impl<P: PlatformPermission> FromRequestParts<AppState<'_>> for PlatformPermissio
         parts: &mut Parts,
         state: &AppState<'_>,
     ) -> Result<Self, Self::Rejection> {
-        let RequireAuthGuard { token } =
-            RequireAuthGuard::<SystemClaim>::from_request_parts(parts, state)
-                .await
-                .map_err(|code| {
-                    error!(?code, "authentication failed in permission guard");
-                    Error::with_code(code, "authentication failed")
-                })?;
+        let PlatformAuthGuard { token } = PlatformAuthGuard::from_request_parts(parts, state)
+            .await
+            .map_err(|code| {
+                error!(?code, "authentication failed in permission guard");
+                Error::with_code(code, "authentication failed")
+            })?;
 
         let platform_id = token.claims.sub;
 
         let perms = state
-            .system_permissions
+            .platform_permissions
             .platform_permissions(platform_id)
             .await
             .map_err(|e| {

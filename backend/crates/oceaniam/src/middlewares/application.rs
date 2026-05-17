@@ -2,12 +2,11 @@ use axum::{
     extract::FromRequestParts,
     http::{StatusCode, header, request::Parts},
 };
-use oceaniam_auth::jwt::SystemClaim;
 use oceaniam_vo::sqid::Sqid;
 use tracing::{debug, warn};
 use uuid::Uuid;
 
-use crate::{middlewares::auth::RequireAuthGuard, state::AppState};
+use crate::{middlewares::auth::PlatformAuthGuard, state::AppState};
 
 #[derive(Debug, Clone)]
 pub struct ApplicationSecretGuard {
@@ -115,4 +114,4 @@ impl FromRequestParts<AppState<'_>> for MatchedApplicationSecretGuard {
 /// `RequireMatchedApplicationSecret` and therefore inherits the same URI path constraint — the route
 /// must include `/applications/{id}` in its path.
 pub type AdminJwtOrApplicationSecretGuard =
-    axum_extra::either::Either<RequireAuthGuard<SystemClaim>, MatchedApplicationSecretGuard>;
+    axum_extra::either::Either<PlatformAuthGuard, MatchedApplicationSecretGuard>;

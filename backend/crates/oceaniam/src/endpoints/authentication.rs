@@ -19,7 +19,6 @@ use axum::{Json, extract::State, http::StatusCode};
 use axum_extra::extract::cookie::Cookie;
 use oceaniam_api::{ApiResponse, ErrorResponse};
 use oceaniam_audit::types::{AuditPayload, RefreshJwtPayload, RevokeJwtPayload, SignJwtPayload};
-use oceaniam_auth::jwt::SystemClaim;
 use oceaniam_common::consts;
 use oceaniam_database::{
     helper::administrators::AdministratorsHelper, model::prelude::Administrators,
@@ -171,7 +170,7 @@ pub async fn create_auth_token(
     fields(sub = field::Empty, jti = field::Empty)
 )]
 pub async fn delete_auth_token(
-    auth: middlewares::auth::RequireAuthGuard<SystemClaim>,
+    auth: middlewares::auth::PlatformAuthGuard,
     State(AppState {
         revoked_jwt,
         auditing,
@@ -293,7 +292,7 @@ pub async fn create_auth_user(
     fields(sub = field::Empty, old_jti = field::Empty, token_dispatch = field::Empty)
 )]
 pub async fn refresh_auth_token(
-    auth: middlewares::auth::RequireAuthGuard<SystemClaim>,
+    auth: middlewares::auth::PlatformAuthGuard,
     token_mtd: middlewares::auth::TokenDispatchMethodGuard,
 
     State(AppState {

@@ -14,7 +14,6 @@ use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
 use oceaniam_api::{ApiResponse, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{AuditPayload, CreateAdministratorPayload, PatchAdministratorPayload};
-use oceaniam_auth::jwt::SystemClaim;
 use oceaniam_database::{
     helper::{
         SafeTransactionConnectionTrait,
@@ -34,7 +33,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
 use crate::{
-    middlewares::auth::RequireAuthGuard,
+    middlewares::auth::PlatformAuthGuard,
     middlewares::permission::{
         AdministratorCreate, AdministratorPatch, AdministratorRead, PlatformPermissionGuard,
     },
@@ -109,7 +108,7 @@ pub async fn get_administrators(
     fields(operator_id = field::Empty)
 )]
 pub async fn get_administrator_self(
-    auth: RequireAuthGuard<SystemClaim>,
+    auth: PlatformAuthGuard,
     State(state): State<AppState<'_>>,
 ) -> AppResult<AdministratorProfileVO> {
     let operator_id = auth.token.claims.sub;
@@ -134,7 +133,7 @@ pub async fn get_administrator_self(
         })?;
 
     let permissions = state
-        .system_permissions
+        .platform_permissions
         .platform_permissions(operator_id)
         .await
         .map_err(|e| {

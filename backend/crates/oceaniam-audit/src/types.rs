@@ -10,25 +10,34 @@ use uuid::Uuid;
 /// correctly from `jsonb` without depending on outside context.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "data", rename_all = "snake_case")]
+#[rustfmt::skip]
 pub enum AuditPayload {
     SignJwt(SignJwtPayload),
     RevokeJwt(RevokeJwtPayload),
     RefreshJwt(RefreshJwtPayload),
+
     CreateApplication(CreateApplicationPayload),
     PatchApplication(PatchApplicationPayload),
-    PatchApplicationConfiguration(PatchApplicationConfigurationPayload),
     DeleteApplication(DeleteApplicationPayload),
+
+    PatchApplicationConfiguration(PatchApplicationConfigurationPayload),
+
     CreateTenants(CreateTenantsPayload),
     DeleteTenants(DeleteTenantsPayload),
     PatchTenant(PatchTenantPayload),
+
     CreateAdministrator(CreateAdministratorPayload),
     PatchAdministrator(PatchAdministratorPayload),
+
     CreateApplicationUser(CreateApplicationUserPayload),
     DeleteApplicationUser(DeleteApplicationUserPayload),
+
     CreateApplicationSecret(CreateApplicationSecretPayload),
     DeleteApplicationSecret(DeleteApplicationSecretPayload),
+
     CreateChallenge(CreateChallengePayload),
     VerifyChallenge(VerifyChallengePayload),
+
     RotateKey(RotateKeyPayload),
     RevokeKey(RevokeKeyPayload),
 }
