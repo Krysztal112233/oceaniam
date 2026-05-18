@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: ghcr.io/krysztal112233/oceaniam-database:${OCEANIAM_TAG:-latest}
+    restart: unless-stopped
+    command: -c 'max_connections=20480' -c 'shared_preload_libraries=pg_duckdb'
+    volumes:
+      - pgdata:/var/lib/postgresql/18/docker
+    env_file: .env
+    ports:
+      - 5432:5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend-migration:
+    image: ghcr.io/krysztal112233/oceaniam-migration:${OCEANIAM_TAG:-latest}
+    restart: "no"
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  backend:
+    image: ghcr.io/krysztal112233/oceaniam-backend:${OCEANIAM_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      backend-migration:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
+  worker:
+    image: ghcr.io/krysztal112233/oceaniam-worker:${OCEANIAM_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      backend-migration:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    image: ghcr.io/krysztal112233/oceaniam-frontend:${OCEANIAM_TAG:-latest}
+    restart: unless-stopped
+
+  nginx:
+    image: ghcr.io/krysztal112233/oceaniam-nginx:${OCEANIAM_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - 8900:80
+    depends_on:
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
+
+volumes:
+  pgdata:
