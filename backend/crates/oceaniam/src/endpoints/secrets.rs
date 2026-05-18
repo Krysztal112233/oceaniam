@@ -98,7 +98,7 @@ pub async fn get_secrets(
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { applications, .. }): State<AppState<'_>>,
 ) -> AppResult<PagedResponse<SecretVO>> {
-    let page: PageParam = query.unwrap_or_default();
+    let page: PageParam = query.unwrap_or_default().into_clamped();
 
     Span::current().tap(|it| {
         it.record("page", page.page)

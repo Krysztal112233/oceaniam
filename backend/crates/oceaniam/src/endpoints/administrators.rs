@@ -74,7 +74,7 @@ pub async fn get_administrators(
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> AppResult<PagedResponse<AdministratorVO>> {
-    let page = query.unwrap_or_default();
+    let page = query.unwrap_or_default().into_clamped();
     Span::current().tap(|it| {
         it.record("page", page.page)
             .record("per_page", page.per_page);

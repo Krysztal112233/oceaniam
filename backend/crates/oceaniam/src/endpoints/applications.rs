@@ -80,7 +80,7 @@ pub async fn get_applications(
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> AppResult<PagedResponse<ApplicationVO>> {
-    let page = query.unwrap_or_default();
+    let page = query.unwrap_or_default().into_clamped();
     let tenant_id: Uuid = tenant_id.try_into()?;
     Span::current().tap(|it| {
         it.record("tenant_id", field::display(&tenant_id))

@@ -1,7 +1,7 @@
 use crate::error::Error;
 use axum::http::StatusCode;
 use chrono::Utc;
-use oceaniam_api::{PageInfo, PageParam, PagedResponse};
+use oceaniam_api::{PageParam, PagedResponse};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, PaginatorTrait,
     QueryFilter, QuerySelect,
@@ -61,38 +61,6 @@ pub trait ApplicationSecretsHelper {
         transaction.commit().await?;
 
         Ok(model)
-    }
-
-    async fn get_secrets_of(
-        application_id: Uuid,
-        paged: Option<PageParam>,
-        database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<PagedResponse<model::application_secrets::Model>, Error> {
-        match paged {
-            Some(paged) => {
-                let all_items = Self::get_all_secrets_of(application_id, database).await?;
-                let start = paged.as_offset() as usize;
-                let end = start
-                    .saturating_add(paged.per_page as usize)
-                    .min(all_items.len());
-                let items = if start >= all_items.len() {
-                    Vec::new()
-                } else {
-                    all_items[start..end].to_vec()
-                };
-
-                Ok(PagedResponse {
-                    page_info: PageInfo {
-                        has_next: end < all_items.len(),
-                        total: all_items.len(),
-                    },
-                    items,
-                })
-            }
-            None => Ok(PagedResponse::with_entire(
-                Self::get_all_secrets_of(application_id, database).await?,
-            )),
-        }
     }
 
     async fn get_secret_models(

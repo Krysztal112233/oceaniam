@@ -67,7 +67,7 @@ pub async fn get_tenants(
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> AppResult<PagedResponse<TenantVO>> {
-    let page = query.unwrap_or_default();
+    let page = query.unwrap_or_default().into_clamped();
     let operator_id = auth.claim.sub;
     Span::current().tap(|it| {
         it.record("operator_id", field::display(&operator_id))
@@ -360,7 +360,7 @@ pub async fn get_tenant_users(
     OptionalQuery(query): OptionalQuery<PageParam>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> AppResult<PagedResponse<ApplicationUserVO>> {
-    let page = query.unwrap_or_default();
+    let page = query.unwrap_or_default().into_clamped();
     let operator_id = auth.claim.sub;
     let tenant_id = tenant_id.try_into()?;
 

@@ -46,10 +46,25 @@ pub struct PageParam {
 }
 
 impl PageParam {
+    /// Return a clamped copy with `per_page` bounded to `[1, 100]`.
+    pub fn into_clamped(self) -> Self {
+        self.into_clamped_by(100)
+    }
+
+    /// Return a clamped copy with `per_page` bounded to `[1, max_per_page]`.
+    pub fn into_clamped_by(self, max_per_page: u64) -> Self {
+        Self {
+            page: self.page,
+            per_page: self.per_page.clamp(1, max_per_page),
+        }
+    }
+
+    /// SQL `OFFSET` from a 1-based page number.
     pub fn as_offset(&self) -> u64 {
         (self.page.saturating_sub(1)) * self.per_page
     }
 
+    /// SQL `LIMIT`.
     pub fn as_limit(&self) -> u64 {
         self.per_page
     }
