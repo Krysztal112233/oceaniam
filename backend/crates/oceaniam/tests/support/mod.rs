@@ -2,7 +2,7 @@ use std::{collections::HashMap, net::SocketAddr, sync::OnceLock};
 
 use migration::{Migrator, MigratorTrait};
 use oceaniam::app::{app, build_state};
-use oceaniam_common::config::{BackendConfig, CorsConfig, DatabaseConfig};
+use oceaniam_common::config::{BackendConfig, CookieConfig, CorsConfig, DatabaseConfig};
 use oceaniam_database::{
     helper::{applications::ApplicationHelper, tenants::TenantsHelper},
     model::prelude::{Applications, Tenants},
@@ -111,6 +111,7 @@ fn test_config() -> BackendConfig {
             allow_origin: "*".to_string(),
         },
         workers: HashMap::new(),
+        cookie: CookieConfig::default(),
     }
 }
 

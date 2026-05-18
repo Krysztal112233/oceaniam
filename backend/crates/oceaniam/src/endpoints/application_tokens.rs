@@ -5,7 +5,7 @@ use crate::{
     endpoints::applications::{TenantApplicationPath, get_tenant_application},
     middlewares::{
         application::MatchedApplicationSecretGuard,
-        auth::{ApplicationAuthGuard, TokenDispatchMethodGuard},
+        auth::{ApplicationAuthGuard, TokenDispatchMethodGuard, build_auth_cookie},
     },
     state::{
         AppState,
@@ -17,7 +17,6 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
-use axum_extra::extract::cookie::Cookie;
 use oceaniam_api::{ApiResponse, ErrorResponse};
 use oceaniam_audit::types::{AuditPayload, RefreshJwtPayload, RevokeJwtPayload, SignJwtPayload};
 use oceaniam_auth::jwt::Claim;
@@ -76,6 +75,7 @@ pub async fn create_application_token(
         credentials,
         keyboxes,
         auditing,
+        config,
         ..
     }): State<AppState<'_>>,
     Path(path): Path<TenantApplicationPath>,
@@ -166,7 +166,7 @@ pub async fn create_application_token(
         }))
         .await;
 
-    let cookie = Cookie::new("auth_token", jwt.clone());
+    let cookie = build_auth_cookie(&jwt, config.cookie.secure);
     let resp = ApiResponse::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
 
     let resp = match token_mtd {
@@ -294,6 +294,7 @@ pub async fn refresh_application_token(
         keyboxes,
         applications,
         auditing,
+        config,
         ..
     }): State<AppState<'_>>,
     Path(path): Path<TenantApplicationPath>,
@@ -370,7 +371,7 @@ pub async fn refresh_application_token(
         }))
         .await;
 
-    let cookie = Cookie::new("auth_token", jwt.clone());
+    let cookie = build_auth_cookie(&jwt, config.cookie.secure);
     let resp = ApiResponse::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
 
     let resp = match token_mtd {

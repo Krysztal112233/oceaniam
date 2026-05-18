@@ -48,7 +48,7 @@ pub fn build_openapi_spec() -> utoipa::openapi::OpenApi {
 
 pub async fn build_state(config: &BackendConfig) -> Result<AppState<'static>, Error> {
     let database = crate::setup_database(&config.database).await?;
-    AppState::new(database).await
+    AppState::new(database, config.clone()).await
 }
 
 pub fn app(state: AppState<'static>, cors: CorsConfig) -> Router {

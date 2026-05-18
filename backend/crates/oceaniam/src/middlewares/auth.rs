@@ -1,5 +1,8 @@
 use std::convert::Infallible;
 
+use axum_extra::extract::cookie::{Cookie, SameSite};
+use time::Duration;
+
 use crate::error::Error;
 use crate::state::revoked::RevokedJwt;
 use axum::{
@@ -99,6 +102,17 @@ async fn check_jti_not_revoked(revoked_jwt: &RevokedJwt, jti: Uuid) -> Result<()
     }
 
     Ok(())
+}
+
+/// Build a signed auth cookie with security attributes.
+pub fn build_auth_cookie(jwt: &str, secure: bool) -> Cookie<'static> {
+    Cookie::build(("auth_token", jwt.to_owned()))
+        .http_only(true)
+        .secure(secure)
+        .same_site(SameSite::Lax)
+        .path("/")
+        .max_age(Duration::seconds(24 * 5 * 3600))
+        .build()
 }
 
 impl FromRequestParts<AppState<'_>> for PlatformAuthGuard {

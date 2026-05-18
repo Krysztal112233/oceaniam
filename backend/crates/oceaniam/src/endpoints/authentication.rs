@@ -16,7 +16,6 @@
 
 use crate::error::{AppResult, Error};
 use axum::{Json, extract::State, http::StatusCode};
-use axum_extra::extract::cookie::Cookie;
 use oceaniam_api::{ApiResponse, ErrorResponse};
 use oceaniam_audit::types::{AuditPayload, RefreshJwtPayload, RevokeJwtPayload, SignJwtPayload};
 use oceaniam_common::consts;
@@ -31,7 +30,10 @@ use tracing::{Span, error, field};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::{
-    middlewares::{self, auth::TokenDispatchMethodGuard},
+    middlewares::{
+        self,
+        auth::{TokenDispatchMethodGuard, build_auth_cookie},
+    },
     state::{AppState, keybox::EncodedJwt},
 };
 
@@ -299,6 +301,7 @@ pub async fn refresh_auth_token(
         revoked_jwt,
         keyboxes,
         auditing,
+        config,
         ..
     }): State<AppState<'_>>,
 ) -> AppResult<SigninResponseOrChallenge> {
@@ -346,7 +349,7 @@ pub async fn refresh_auth_token(
         }))
         .await;
 
-    let cookie = Cookie::new("auth_token", jwt.clone());
+    let cookie = build_auth_cookie(&jwt, config.cookie.secure);
     let resp = ApiResponse::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
 
     let resp = match token_mtd {

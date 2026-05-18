@@ -6,7 +6,6 @@ use axum::{
     extract::{Path, State},
     http::StatusCode,
 };
-use axum_extra::extract::cookie::Cookie;
 use oceaniam_api::{ApiResponse, ErrorResponse};
 use oceaniam_audit::types::{AuditPayload, SignJwtPayload};
 use oceaniam_auth::jwt::Claim;
@@ -27,7 +26,10 @@ use uuid::Uuid;
 
 use crate::{
     endpoints::applications::{TenantApplicationPath, get_tenant_application},
-    middlewares::{application::AdminJwtOrApplicationSecretGuard, auth::TokenDispatchMethodGuard},
+    middlewares::{
+        application::AdminJwtOrApplicationSecretGuard,
+        auth::{TokenDispatchMethodGuard, build_auth_cookie},
+    },
     state::AppState,
     state::keybox::{EncodedJwt, SignJwtOptions},
 };
@@ -163,6 +165,7 @@ pub async fn create_application_challenge_attempt(
         keyboxes,
         applications,
         auditing,
+        config,
         ..
     }): State<AppState<'_>>,
     Path(path): Path<ApplicationChallengePath>,
@@ -228,7 +231,7 @@ pub async fn create_application_challenge_attempt(
         }))
         .await;
 
-    let cookie = Cookie::new("auth_token", jwt.clone());
+    let cookie = build_auth_cookie(&jwt, config.cookie.secure);
     let resp = ApiResponse::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
 
     let resp = match token_mtd {

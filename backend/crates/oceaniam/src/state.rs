@@ -13,6 +13,7 @@ use oceaniam_auth::{
     jwks::{JwkSet, ManagedJwkSet},
     jwt::JwtValidator,
 };
+use oceaniam_common::config::BackendConfig;
 use oceaniam_common::consts;
 use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, key_boxes::KeyBoxesHelper},
@@ -66,10 +67,13 @@ pub struct AppState<'a> {
     pub auditing: Auditing,
 
     pub _unit: (),
+
+    /// Application configuration.
+    pub config: BackendConfig,
 }
 
 impl AppState<'static> {
-    pub async fn new(database: DatabaseConnection) -> Result<Self, Error> {
+    pub async fn new(database: DatabaseConnection, config: BackendConfig) -> Result<Self, Error> {
         let keybox = ManagedKeyBoxes::new(database.clone());
 
         initial_system_keybox(keybox.clone(), &database).await?;
@@ -114,6 +118,8 @@ impl AppState<'static> {
             filters,
 
             _unit: (),
+
+            config,
         })
     }
 }

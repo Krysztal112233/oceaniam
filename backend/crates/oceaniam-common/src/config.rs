@@ -19,6 +19,12 @@ pub struct CorsConfig {
     pub allow_origin: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CookieConfig {
+    #[serde(default)]
+    pub secure: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkerConfiguration {
     pub cron: String,
@@ -29,8 +35,12 @@ pub struct BackendConfig {
     pub addr: String,
     pub database: DatabaseConfig,
     pub cors: CorsConfig,
+
     #[serde(default)]
     pub workers: HashMap<String, WorkerConfiguration>,
+
+    #[serde(default)]
+    pub cookie: CookieConfig,
 }
 
 impl BackendConfig {
