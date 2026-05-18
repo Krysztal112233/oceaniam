@@ -5,12 +5,13 @@ use crate::{
     endpoints::applications::{TenantApplicationPath, get_tenant_application},
     middlewares::{
         application::MatchedApplicationSecretGuard,
-        auth::{ApplicationAuthGuard, TokenDispatchMethodGuard, build_auth_cookie},
+        auth::{ApplicationAuthGuard, TokenDispatchMethodGuard},
     },
     state::{
         AppState,
         keybox::{EncodedJwt, SignJwtOptions},
     },
+    util::cookie::build_auth_cookie,
 };
 use axum::{
     Json,

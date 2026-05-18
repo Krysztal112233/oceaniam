@@ -30,11 +30,9 @@ use tracing::{Span, error, field};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::{
-    middlewares::{
-        self,
-        auth::{TokenDispatchMethodGuard, build_auth_cookie},
-    },
+    middlewares::{self, auth::TokenDispatchMethodGuard},
     state::{AppState, keybox::EncodedJwt},
+    util::cookie::build_auth_cookie,
 };
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {

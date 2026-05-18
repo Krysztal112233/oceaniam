@@ -26,12 +26,10 @@ use uuid::Uuid;
 
 use crate::{
     endpoints::applications::{TenantApplicationPath, get_tenant_application},
-    middlewares::{
-        application::AdminJwtOrApplicationSecretGuard,
-        auth::{TokenDispatchMethodGuard, build_auth_cookie},
-    },
+    middlewares::{application::AdminJwtOrApplicationSecretGuard, auth::TokenDispatchMethodGuard},
     state::AppState,
     state::keybox::{EncodedJwt, SignJwtOptions},
+    util::cookie::build_auth_cookie,
 };
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {

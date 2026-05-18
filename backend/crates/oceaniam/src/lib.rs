@@ -16,6 +16,7 @@ pub mod endpoints;
 pub mod error;
 pub mod middlewares;
 pub mod state;
+pub mod util;
 
 pub async fn setup_database(
     DatabaseConfig {
