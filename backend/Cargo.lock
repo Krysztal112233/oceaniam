@@ -2566,6 +2566,7 @@ dependencies = [
  "axum",
  "chrono",
  "futures",
+ "log",
  "oceaniam-api",
  "oceaniam-common",
  "rand 0.8.6",

@@ -1,7 +1,7 @@
 use mimalloc::MiMalloc;
 use oceaniam::error::Error;
-use oceaniam::setup_database;
 use oceaniam_common::config::BackendConfig;
+use oceaniam_database::setup::{connect, init_system};
 use oceaniam_worker::runtime::{WorkerContext, WorkerRuntime};
 use tracing::error;
 use tracing_subscriber::EnvFilter;
@@ -26,9 +26,13 @@ async fn main() -> Result<(), Error> {
     let config =
         BackendConfig::new().inspect_err(|e| error!(error = %e, "failed to load worker config"))?;
 
-    let database = setup_database(&config.database)
+    let database = connect(&config.database)
         .await
-        .inspect_err(|e| error!(error = %e, "failed to setup worker database"))?;
+        .inspect_err(|e| error!(error = %e, "failed to connect worker database"))?;
+
+    init_system(&database)
+        .await
+        .inspect_err(|e| error!(error = %e, "failed to init system data"))?;
 
     WorkerRuntime::new(WorkerContext { database })?.run().await
 }

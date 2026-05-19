@@ -310,6 +310,10 @@ export class OceanIamClient {
       `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/tokens`,
     applicationTokensRefresh: (tenantId: string, applicationId: string): string =>
       `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/tokens/refresh`,
+
+    // Secrets (backend: endpoints/secrets.rs)
+    secrets: "/secrets",
+    secret: (secretId: string): string => `/secrets/${encodeURIComponent(secretId)}`,
   } as const;
 
   private baseUrl: string;
