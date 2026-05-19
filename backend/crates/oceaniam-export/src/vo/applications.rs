@@ -72,3 +72,13 @@ pub struct RotateKeyResponse;
 #[ts(export)]
 #[ts(as = "oceaniam_vo::applications::ApplicationUsersSortOrder")]
 pub struct ApplicationUsersSortOrder;
+
+#[derive(ts_rs::TS)]
+#[ts(export)]
+#[ts(as = "oceaniam_vo::applications::ApplicationUsersListQuery")]
+pub struct ApplicationUsersListQuery;
+
+#[derive(ts_rs::TS)]
+#[ts(export)]
+#[ts(as = "oceaniam_vo::applications::SearchApplicationUsersQuery")]
+pub struct SearchApplicationUsersQuery;
