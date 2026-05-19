@@ -18,7 +18,6 @@ tokio.workspace = true
 tracing-subscriber.workspace = true
 tracing.workspace = true
 
-oceaniam.workspace = true
 oceaniam-common.workspace = true
 oceaniam-database.workspace = true
 oceaniam-keybox.workspace = true

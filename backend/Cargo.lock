@@ -2673,7 +2673,6 @@ dependencies = [
  "itertools",
  "linkme",
  "mimalloc",
- "oceaniam",
  "oceaniam-audit",
  "oceaniam-common",
  "oceaniam-database",
