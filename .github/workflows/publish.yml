@@ -21,7 +21,7 @@ jobs:
       matrix:
         service:
           - { name: database, target: database }
-          - { name: backend-migration, target: migration }
+          - { name: migration, target: migration }
           - { name: backend, target: backend }
           - { name: worker, target: worker }
           - { name: frontend, target: frontend }

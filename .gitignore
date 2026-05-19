@@ -3,10 +3,10 @@
 ## Exclude typescript bindgen
 /**/*/bindings
 
-## Exclude config file
-config.toml
-
 ## Exclude nodejs relative
 /**/*/node_modules
 /**/*/dist
 
+
+## Exclude environment relative
+.env

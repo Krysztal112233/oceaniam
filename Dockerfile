@@ -10,6 +10,7 @@ RUN cargo build --all -r
 
 FROM docker.io/library/debian:trixie-slim AS base
 WORKDIR /app
+COPY backend/config.toml .
 RUN apt-get update && \
     apt-get install -y ca-certificates && \
     apt-get clean && \

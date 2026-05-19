@@ -1,0 +1,15 @@
+addr = "0.0.0.0:8000"
+
+[database]
+dsn = "postgresql://postgres:postgres@localhost:5432/postgres"
+slow_statements_logging_threshold = 200
+max_connections = 128
+min_connections = 4
+
+[cors]
+allow_origin = "http://localhost:5173"
+
+[cookie]
+secure = false
+
+[workers]
