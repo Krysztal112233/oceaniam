@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import HomeIcon from "@iconify-vue/material-symbols/home-outline-rounded";
-import MonitorHeartIcon from "@iconify-vue/material-symbols/monitor-heart-outline-rounded";
 import WidgetsIcon from "@iconify-vue/material-symbols/widgets-outline-rounded";
+import SettingsIcon from "@iconify-vue/material-symbols/settings-outline-rounded";
+import KeyIcon from "@iconify-vue/material-symbols/key-outline-rounded";
+import GroupIcon from "@iconify-vue/material-symbols/group-outline-rounded";
+import GridViewIcon from "@iconify-vue/material-symbols/grid-view-outline-rounded";
+import MonitoringIcon from "@iconify-vue/material-symbols/monitoring-rounded";
+import DashboardIcon from "@iconify-vue/material-symbols/dashboard-outline-rounded";
+import ReceiptLongIcon from "@iconify-vue/material-symbols/receipt-long-outline-rounded";
+import BarChartIcon from "@iconify-vue/material-symbols/bar-chart-rounded";
 import { ref } from "vue";
 import AppLayout from "./layout/AppLayout.vue";
 import DrawerGroup from "./components/DrawerGroup.vue";
@@ -27,21 +34,28 @@ const loginOpen = ref(false);
             label="Applications"
             :icon="WidgetsIcon"
             :items="[
-                { label: 'Application', to: '/applications' },
-                { label: 'User Management', to: '/users' },
-                { label: 'API Secrets', to: '/api-secrets' },
+                {
+                    label: 'Application',
+                    icon: GridViewIcon,
+                    to: '/applications',
+                },
+                { label: 'Users', icon: GroupIcon, to: '/users' },
             ]"
         />
         <DrawerGroup
-            label="Monitoring"
-            :icon="MonitorHeartIcon"
+            label="Platform"
+            :icon="SettingsIcon"
             :items="[
-                { label: 'Overview', to: '/overview' },
-                { label: 'Audits', to: '/audits' },
-                {
-                    label: 'Statistics',
-                    to: '/statistics',
-                },
+                { label: 'API Secrets', icon: KeyIcon, to: '/api-secrets' },
+            ]"
+        />
+        <DrawerGroup
+            label="Observability"
+            :icon="MonitoringIcon"
+            :items="[
+                { label: 'Overview', icon: DashboardIcon, to: '/overview' },
+                { label: 'Audits', icon: ReceiptLongIcon, to: '/audits' },
+                { label: 'Statistics', icon: BarChartIcon, to: '/statistics' },
             ]"
         />
 
