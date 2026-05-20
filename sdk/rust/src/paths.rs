@@ -3,6 +3,7 @@ use const_format::concatcp;
 // Auth
 pub const AUTH_TOKENS: &str = "/auth/tokens";
 pub const AUTH_TOKENS_REFRESH: &str = concatcp!(AUTH_TOKENS, "/refresh");
+pub const AUTH_USERS: &str = "/auth/users";
 
 // Tenants
 pub const TENANTS: &str = "/tenants";
@@ -12,6 +13,7 @@ pub const TENANT_USERS: &str = concatcp!(TENANT, "/users");
 // Administrators
 pub const ADMINISTRATORS: &str = "/administrators";
 pub const ADMINISTRATOR: &str = concatcp!(ADMINISTRATORS, "/{}");
+pub const ADMINISTRATOR_SELF: &str = concatcp!(ADMINISTRATORS, "/me");
 
 // Applications (tenant-scoped)
 pub const TENANT_APPS: &str = concatcp!(TENANT, "/applications");
@@ -29,6 +31,14 @@ pub const APP_KEY: &str = concatcp!(APP_KEYS, "/{}");
 
 // JWKS (non-tenant)
 pub const JWKS: &str = "/applications/{}/.well-known/jwks.json";
+
+// Statistics
+pub const STATISTICS: &str = "/statistics";
+pub const APP_STATISTICS: &str = concatcp!(TENANT_APP, "/statistics");
+
+// Audits
+pub const APP_AUDITS: &str = concatcp!(TENANT_APP, "/audits");
+pub const AUDITS: &str = "/audits";
 
 // Secrets
 pub const SECRETS: &str = "/secrets";

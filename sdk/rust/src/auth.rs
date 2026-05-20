@@ -39,6 +39,17 @@ impl OceanIamClient {
         self.send_inner(req).await
     }
 
+    pub async fn system_signup(&self, name: &str, password: &str) -> Result<SignupResponse, Error> {
+        let body = SystemSigninRequest::Name {
+            name: name.to_string(),
+            password: password.to_string(),
+        };
+        let req = self
+            .auth_req(Method::POST, paths::AUTH_USERS, AuthMode::None)?
+            .json(&body);
+        self.send_inner(req).await
+    }
+
     // -- application tokens --
     pub async fn application_user_signin(
         &self,

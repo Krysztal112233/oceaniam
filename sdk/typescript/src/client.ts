@@ -1,6 +1,10 @@
 import { type ApplicationVO } from "./types/ApplicationVO";
 import { type ApplicationDetailVO } from "./types/ApplicationDetailVO";
 import { type ApplicationUserVO } from "./types/ApplicationUserVO";
+import { type ApplicationStatisticsVO } from "./types/ApplicationStatisticsVO";
+import { type AuditLogVO } from "./types/AuditLogVO";
+import { type OverviewVO } from "./types/OverviewVO";
+import { type AdministratorProfileVO } from "./types/AdministratorProfileVO";
 import { type CreateApplicationRequest } from "./types/CreateApplicationRequest";
 import { type CreateApplicationResponse } from "./types/CreateApplicationResponse";
 import { type CreateApplicationUserRequest } from "./types/CreateApplicationUserRequest";
@@ -57,6 +61,9 @@ export type SearchApplicationUsersQuery = PaginationQuery & {
   by_phone?: string;
 };
 export type GetSecretsQuery = PaginationQuery;
+export type AuditLogQuery = PaginationQuery & {
+  audit_type?: string;
+};
 
 type TenantScopedCreateApplicationRequest = Omit<CreateApplicationRequest, "tenant_id">;
 
@@ -270,6 +277,7 @@ export class OceanIamClient {
     // Administrators (backend: endpoints/administrators.rs)
     administrators: "/administrators",
     administrator: (targetId: string): string => `/administrators/${encodeURIComponent(targetId)}`,
+    administratorSelf: "/administrators/me",
 
     // Applications (backend: endpoints/applications.rs)
     applications: (tenantId: string): string =>
@@ -361,6 +369,7 @@ export class OceanIamClient {
     administrators: (): string => this.buildUrl(OceanIamClient.PATHS.administrators),
     administrator: (targetId: string): string =>
       this.buildUrl(OceanIamClient.PATHS.administrator(targetId)),
+    administratorSelf: (): string => this.buildUrl(OceanIamClient.PATHS.administratorSelf),
 
     // Applications
     applications: (tenantId: string): string =>
@@ -689,6 +698,45 @@ export class OceanIamClient {
     });
   }
 
+  public async getStatistics(): Promise<OverviewVO> {
+    return this.request<OverviewVO>({
+      method: "GET",
+      url: this.endpoints.statistics(),
+    });
+  }
+
+  public async getApplicationStatistics(
+    tenantId: string,
+    applicationId: string,
+  ): Promise<ApplicationStatisticsVO> {
+    return this.request<ApplicationStatisticsVO>({
+      method: "GET",
+      url: this.endpoints.applicationStatistics(tenantId, applicationId),
+    });
+  }
+
+  public async getAudits(query?: AuditLogQuery): Promise<PagedResponse<AuditLogVO>> {
+    const { page, per_page, audit_type } = query ?? {};
+    return this.request<PagedResponse<AuditLogVO>>({
+      method: "GET",
+      url: this.endpoints.audits(),
+      query: { page, per_page, audit_type },
+    });
+  }
+
+  public async getApplicationAudits(
+    tenantId: string,
+    applicationId: string,
+    query?: AuditLogQuery,
+  ): Promise<PagedResponse<AuditLogVO>> {
+    const { page, per_page, audit_type } = query ?? {};
+    return this.request<PagedResponse<AuditLogVO>>({
+      method: "GET",
+      url: this.endpoints.applicationAudits(tenantId, applicationId),
+      query: { page, per_page, audit_type },
+    });
+  }
+
   public async getApplicationJwks(applicationId: string): Promise<unknown> {
     return this.request<unknown>({
       method: "GET",
@@ -732,6 +780,13 @@ export class OceanIamClient {
       method: "PATCH",
       url: this.endpoints.administrator(targetId),
       body: req,
+    });
+  }
+
+  public async getAdministratorSelf(): Promise<AdministratorProfileVO> {
+    return this.request<AdministratorProfileVO>({
+      method: "GET",
+      url: this.endpoints.administratorSelf(),
     });
   }
 
@@ -787,6 +842,14 @@ export class OceanIamClient {
       method: "POST",
       url: this.endpoints.applicationChallenge(tenantId, applicationId, challengeId),
       body: payload as object,
+    });
+  }
+
+  public async getRoot(): Promise<void> {
+    await this.request<unknown>({
+      method: "GET",
+      url: this.endpoints.root(),
+      auth: "none",
     });
   }
 

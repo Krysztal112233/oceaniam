@@ -1,8 +1,12 @@
 export * from "./client";
 export type { PageInfo, PagedResponse } from "./pagination";
+export type { AdministratorProfileVO } from "./types/AdministratorProfileVO";
+export type { ApplicationStatisticsVO } from "./types/ApplicationStatisticsVO";
 export type { ApplicationVO } from "./types/ApplicationVO";
 export type { ApplicationConfigurationVO } from "./types/ApplicationConfigurationVO";
+export type { AuditLogVO } from "./types/AuditLogVO";
 export type { CreateApplicationUserRequest } from "./types/CreateApplicationUserRequest";
+export type { OverviewVO } from "./types/OverviewVO";
 export type { SecretVO } from "./types/SecretVO";
 export type { TenantVO } from "./types/TenantVO";
 export type { ApplicationKeyVO } from "./types/ApplicationKeyVO";

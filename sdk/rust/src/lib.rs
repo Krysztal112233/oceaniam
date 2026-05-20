@@ -8,6 +8,7 @@ mod applications;
 mod auth;
 mod keys;
 mod secrets;
+mod statistics;
 mod tenants;
 
 pub use client::OceanIamClient;
@@ -22,4 +23,5 @@ pub use oceaniam_vo::administrators::*;
 pub use oceaniam_vo::applications::*;
 pub use oceaniam_vo::auth::*;
 pub use oceaniam_vo::sqid::Sqid;
+pub use oceaniam_vo::statistics::*;
 pub use oceaniam_vo::tenants::*;

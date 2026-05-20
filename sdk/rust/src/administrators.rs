@@ -40,4 +40,9 @@ impl OceanIamClient {
             .json(body);
         self.send_inner(req).await
     }
+
+    pub async fn get_administrator_self(&self) -> Result<AdministratorProfileVO, Error> {
+        let req = self.auth_req(Method::GET, paths::ADMINISTRATOR_SELF, AuthMode::Bearer)?;
+        self.send_inner(req).await
+    }
 }
