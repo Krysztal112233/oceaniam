@@ -13,6 +13,7 @@ pub mod challenges;
 pub mod credentials;
 pub mod key_boxes;
 pub mod revoked_jwts;
+pub mod statistics;
 pub mod subjects;
 pub mod tenants;
 pub mod users;

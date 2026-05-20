@@ -314,6 +314,16 @@ export class OceanIamClient {
     // Secrets (backend: endpoints/secrets.rs)
     secrets: "/secrets",
     secret: (secretId: string): string => `/secrets/${encodeURIComponent(secretId)}`,
+
+    // Statistics (backend: endpoints/statistics.rs)
+    statistics: "/statistics",
+    applicationStatistics: (tenantId: string, applicationId: string): string =>
+      `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/statistics`,
+    applicationAudits: (tenantId: string, applicationId: string): string =>
+      `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/audits`,
+
+    // Audits (backend: endpoints/audits.rs)
+    audits: "/audits",
   } as const;
 
   private baseUrl: string;
@@ -401,6 +411,16 @@ export class OceanIamClient {
     // Secrets
     secrets: (): string => this.buildUrl(OceanIamClient.PATHS.secrets),
     secret: (secretId: string): string => this.buildUrl(OceanIamClient.PATHS.secret(secretId)),
+
+    // Statistics
+    statistics: (): string => this.buildUrl(OceanIamClient.PATHS.statistics),
+    applicationStatistics: (tenantId: string, applicationId: string): string =>
+      this.buildUrl(OceanIamClient.PATHS.applicationStatistics(tenantId, applicationId)),
+    applicationAudits: (tenantId: string, applicationId: string): string =>
+      this.buildUrl(OceanIamClient.PATHS.applicationAudits(tenantId, applicationId)),
+
+    // Audits
+    audits: (): string => this.buildUrl(OceanIamClient.PATHS.audits),
   } as const;
 
   public async getTenants(query?: GetTenantsQuery): Promise<PagedResponse<TenantVO>> {
