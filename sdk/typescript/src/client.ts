@@ -2,8 +2,11 @@ import { type ApplicationVO } from "./types/ApplicationVO";
 import { type ApplicationDetailVO } from "./types/ApplicationDetailVO";
 import { type ApplicationUserVO } from "./types/ApplicationUserVO";
 import { type ApplicationStatisticsVO } from "./types/ApplicationStatisticsVO";
+import { type ApplicationTrendsVO } from "./types/ApplicationTrendsVO";
 import { type AuditLogVO } from "./types/AuditLogVO";
 import { type OverviewVO } from "./types/OverviewVO";
+import { type PlatformTrendsVO } from "./types/PlatformTrendsVO";
+import { type TrendDataPoint } from "./types/TrendDataPoint";
 import { type AdministratorProfileVO } from "./types/AdministratorProfileVO";
 import { type CreateApplicationRequest } from "./types/CreateApplicationRequest";
 import { type CreateApplicationResponse } from "./types/CreateApplicationResponse";
@@ -63,6 +66,11 @@ export type SearchApplicationUsersQuery = PaginationQuery & {
 export type GetSecretsQuery = PaginationQuery;
 export type AuditLogQuery = PaginationQuery & {
   audit_type?: string;
+};
+
+export type TrendQuery = {
+  granularity?: "day" | "week" | "month";
+  range?: number;
 };
 
 type TenantScopedCreateApplicationRequest = Omit<CreateApplicationRequest, "tenant_id">;
@@ -325,8 +333,11 @@ export class OceanIamClient {
 
     // Statistics (backend: endpoints/statistics.rs)
     statistics: "/statistics",
+    statisticsTrends: "/statistics/trends",
     applicationStatistics: (tenantId: string, applicationId: string): string =>
       `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/statistics`,
+    applicationStatisticsTrends: (tenantId: string, applicationId: string): string =>
+      `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/statistics/trends`,
     applicationAudits: (tenantId: string, applicationId: string): string =>
       `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/audits`,
 
@@ -423,8 +434,11 @@ export class OceanIamClient {
 
     // Statistics
     statistics: (): string => this.buildUrl(OceanIamClient.PATHS.statistics),
+    statisticsTrends: (): string => this.buildUrl(OceanIamClient.PATHS.statisticsTrends),
     applicationStatistics: (tenantId: string, applicationId: string): string =>
       this.buildUrl(OceanIamClient.PATHS.applicationStatistics(tenantId, applicationId)),
+    applicationStatisticsTrends: (tenantId: string, applicationId: string): string =>
+      this.buildUrl(OceanIamClient.PATHS.applicationStatisticsTrends(tenantId, applicationId)),
     applicationAudits: (tenantId: string, applicationId: string): string =>
       this.buildUrl(OceanIamClient.PATHS.applicationAudits(tenantId, applicationId)),
 
@@ -705,6 +719,15 @@ export class OceanIamClient {
     });
   }
 
+  public async getStatisticsTrends(query?: TrendQuery): Promise<PlatformTrendsVO> {
+    const { granularity, range } = query ?? {};
+    return this.request<PlatformTrendsVO>({
+      method: "GET",
+      url: this.endpoints.statisticsTrends(),
+      query: { granularity, range },
+    });
+  }
+
   public async getApplicationStatistics(
     tenantId: string,
     applicationId: string,
@@ -712,6 +735,19 @@ export class OceanIamClient {
     return this.request<ApplicationStatisticsVO>({
       method: "GET",
       url: this.endpoints.applicationStatistics(tenantId, applicationId),
+    });
+  }
+
+  public async getApplicationStatisticsTrends(
+    tenantId: string,
+    applicationId: string,
+    query?: TrendQuery,
+  ): Promise<ApplicationTrendsVO> {
+    const { granularity, range } = query ?? {};
+    return this.request<ApplicationTrendsVO>({
+      method: "GET",
+      url: this.endpoints.applicationStatisticsTrends(tenantId, applicationId),
+      query: { granularity, range },
     });
   }
 

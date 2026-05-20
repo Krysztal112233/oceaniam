@@ -17,6 +17,7 @@ serde.workspace = true
 serde_json.workspace = true
 sqids.workspace = true
 snafu.workspace = true
+strum.workspace = true
 ts-rs.workspace = true
 utoipa.workspace = true
 uuid.workspace = true

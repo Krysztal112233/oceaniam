@@ -23,7 +23,7 @@ pub struct TenantVO {
 
 #[cfg(feature = "database")]
 impl From<model::tenants::Model> for TenantVO {
-    fn from(model::tenants::Model { id, comment }: model::tenants::Model) -> Self {
+    fn from(model::tenants::Model { id, comment, .. }: model::tenants::Model) -> Self {
         Self {
             id: id.into(),
             comment,

@@ -48,6 +48,7 @@ pub trait ApplicationHelper {
             tenant_id,
             comment,
             configuration: serde_json::to_value(configuration)?,
+            created_at: chrono::Utc::now().into(),
         }
         .into_active_model()
         .insert(database)

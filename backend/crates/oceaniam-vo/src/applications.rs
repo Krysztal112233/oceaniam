@@ -319,6 +319,7 @@ impl From<model::applications::Model> for ApplicationDetailVO {
             comment,
             tenant_id,
             configuration,
+            ..
         }: model::applications::Model,
     ) -> Self {
         Self {

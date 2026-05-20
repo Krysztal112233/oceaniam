@@ -12,6 +12,7 @@ pub struct Model {
     pub email: Option<String>,
     pub phone: Option<String>,
     pub nickname: String,
+    pub created_at: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

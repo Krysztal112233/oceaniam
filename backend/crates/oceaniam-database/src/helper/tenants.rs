@@ -39,6 +39,7 @@ pub trait TenantsHelper {
         Ok(model::tenants::Model {
             id,
             comment: comment.map(Into::into),
+            created_at: chrono::Utc::now().into(),
         }
         .into_active_model()
         .insert(database)

@@ -35,6 +35,65 @@ pub struct AuditLogVO {
     pub created_at: DateTime<FixedOffset>,
 }
 
+#[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
+#[ts(rename_all = "snake_case")]
+pub struct TrendDataPoint {
+    pub bucket: DateTime<FixedOffset>,
+    pub count: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
+#[ts(rename_all = "snake_case")]
+pub struct PlatformTrendsVO {
+    pub granularity: Granularity,
+    pub range: u64,
+    pub tenants: Vec<TrendDataPoint>,
+    pub applications: Vec<TrendDataPoint>,
+    pub users: Vec<TrendDataPoint>,
+    pub administrators: Vec<TrendDataPoint>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
+#[ts(rename_all = "snake_case")]
+pub struct ApplicationTrendsVO {
+    pub granularity: Granularity,
+    pub range: u64,
+    pub new_users: Vec<TrendDataPoint>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema, ts_rs::TS, strum::Display)]
+#[serde(rename_all = "snake_case")]
+#[ts(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
+pub enum Granularity {
+    #[default]
+    Day,
+    Week,
+    Month,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct TrendQuery {
+    #[serde(default)]
+    pub granularity: Granularity,
+
+    #[serde(default = "default_range")]
+    pub range: u64,
+}
+
+fn default_range() -> u64 {
+    30
+}
+
+impl Default for TrendQuery {
+    fn default() -> Self {
+        Self {
+            granularity: Granularity::default(),
+            range: default_range(),
+        }
+    }
+}
+
 #[cfg(feature = "database")]
 impl From<PlatformCounts> for OverviewVO {
     fn from(pc: PlatformCounts) -> Self {

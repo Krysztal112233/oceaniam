@@ -1,11 +1,17 @@
 //! Statistics API endpoints
 
+use std::collections::HashMap;
+
 use axum::extract::{Path, State};
 use axum_extra::extract::OptionalQuery;
 use oceaniam_api::{ApiResponse, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_database::helper::statistics::AuditsHelper;
+use oceaniam_database::helper::trend;
 use oceaniam_database::model::{prelude::Audits, sea_orm_active_enums::AuditType};
-use oceaniam_vo::statistics::{ApplicationStatisticsVO, AuditLogQuery, AuditLogVO, OverviewVO};
+use oceaniam_vo::statistics::{
+    ApplicationStatisticsVO, ApplicationTrendsVO, AuditLogQuery, AuditLogVO, OverviewVO,
+    PlatformTrendsVO, TrendDataPoint, TrendQuery,
+};
 use tap::Tap;
 use tracing::{Span, error, field};
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -23,7 +29,9 @@ use crate::middlewares::application::AdminJwtOrApplicationSecretGuard;
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
     router
         .routes(routes!(get_statistics))
+        .routes(routes!(get_statistics_trends))
         .routes(routes!(get_application_statistics))
+        .routes(routes!(get_application_statistics_trends))
         .routes(routes!(get_application_audits))
 }
 
@@ -54,6 +62,59 @@ async fn get_statistics(
         .into();
 
     Ok(ApiResponse::new(overview))
+}
+
+/// Platform-level creation trends over time
+#[utoipa::path(
+    get,
+    path = "/statistics/trends",
+    tag = "Statistics",
+    params(
+        ("Authorization" = String, Header, description = "Bearer token"),
+        ("granularity" = Option<String>, Query, description = "Aggregation granularity: day, week, or month"),
+        ("range" = Option<u64>, Query, description = "Lookback range in days (default 30)"),
+    ),
+    responses(
+        (status = 200, body = ApiResponse<PlatformTrendsVO>),
+        (status = 203, description = "Missing Authorization header"),
+        (status = 400, description = "Invalid query parameters", body = ApiResponse<ErrorResponse>),
+        (status = 403, description = "Insufficient permissions"),
+        (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
+    ),
+)]
+#[tracing::instrument(level = "info", name = "statistics.trends", skip(database))]
+async fn get_statistics_trends(
+    _: PlatformPermissionGuard<TenantRead>,
+    OptionalQuery(query): OptionalQuery<TrendQuery>,
+    State(AppState { database, .. }): State<AppState<'_>>,
+) -> AppResult<PlatformTrendsVO> {
+    let TrendQuery { granularity, range } = query.unwrap_or_default();
+
+    let granularity_str = granularity.to_string();
+
+    let rows = trend::get_platform_trends(&granularity_str, range, &database)
+        .await
+        .inspect_err(|e| error!(error = %e, "failed to query platform trends"))?;
+
+    let mut grouped: HashMap<String, Vec<TrendDataPoint>> = HashMap::new();
+    for row in rows {
+        grouped
+            .entry(row.entity_type)
+            .or_default()
+            .push(TrendDataPoint {
+                bucket: row.period,
+                count: row.count as u64,
+            });
+    }
+
+    Ok(ApiResponse::new(PlatformTrendsVO {
+        granularity,
+        range,
+        tenants: grouped.remove("tenant").unwrap_or_default(),
+        applications: grouped.remove("application").unwrap_or_default(),
+        users: grouped.remove("user").unwrap_or_default(),
+        administrators: grouped.remove("administrator").unwrap_or_default(),
+    }))
 }
 
 /// Application-level statistics
@@ -91,6 +152,61 @@ async fn get_application_statistics(
         .into();
 
     Ok(ApiResponse::new(stats))
+}
+
+/// Application-level creation trends over time
+#[utoipa::path(
+    get,
+    path = "/tenants/{tenant_id}/applications/{application_id}/statistics/trends",
+    tag = "Statistics",
+    params(
+        ("Authorization" = String, Header, description = "Bearer token"),
+        ("tenant_id" = String, Path, description = "Tenant Sqid"),
+        ("application_id" = String, Path, description = "Application Sqid"),
+        ("granularity" = Option<String>, Query, description = "Aggregation granularity: day, week, or month"),
+        ("range" = Option<u64>, Query, description = "Lookback range in days (default 30)"),
+    ),
+    responses(
+        (status = 200, body = ApiResponse<ApplicationTrendsVO>),
+        (status = 203, description = "Missing Authorization header"),
+        (status = 400, description = "Invalid query parameters", body = ApiResponse<ErrorResponse>),
+        (status = 403, description = "Insufficient permissions"),
+        (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
+    ),
+)]
+#[tracing::instrument(level = "info", name = "statistics.application.trends", skip(database))]
+async fn get_application_statistics_trends(
+    _: AdminJwtOrApplicationSecretGuard,
+
+    Path(TenantApplicationPath { application_id, .. }): Path<TenantApplicationPath>,
+    OptionalQuery(query): OptionalQuery<TrendQuery>,
+    State(AppState { database, .. }): State<AppState<'_>>,
+) -> AppResult<ApplicationTrendsVO> {
+    let TrendQuery { granularity, range } = query.unwrap_or_default();
+
+    let app_id: Uuid = application_id.try_into().inspect_err(|e| {
+        error!(error = %e, "failed to convert application_id");
+    })?;
+
+    let granularity_str = granularity.to_string();
+
+    let rows = trend::get_application_trends(app_id, &granularity_str, range, &database)
+        .await
+        .inspect_err(|e| error!(error = %e, "failed to query application trends"))?;
+
+    let new_users = rows
+        .into_iter()
+        .map(|r| TrendDataPoint {
+            bucket: r.period,
+            count: r.count as u64,
+        })
+        .collect();
+
+    Ok(ApiResponse::new(ApplicationTrendsVO {
+        granularity,
+        range,
+        new_users,
+    }))
 }
 
 /// Application-scoped audit logs

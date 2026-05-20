@@ -85,6 +85,7 @@ pub trait AdministratorsHelper {
             id: Set(id),
             name: Set(name.into()),
             role: Set(None),
+            created_at: Set(chrono::Utc::now().into()),
         }
         .insert(database)
         .await?)

@@ -62,6 +62,7 @@ pub trait UserHelper {
             email,
             phone,
             nickname,
+            created_at: chrono::Utc::now().into(),
         }
         .into_active_model()
         .insert(database)

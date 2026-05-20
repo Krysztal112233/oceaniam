@@ -16,6 +16,7 @@ pub mod revoked_jwts;
 pub mod statistics;
 pub mod subjects;
 pub mod tenants;
+pub mod trend;
 pub mod users;
 
 pub trait SafeTransactionConnectionTrait: TransactionTrait + ConnectionTrait + Sync + Send {}

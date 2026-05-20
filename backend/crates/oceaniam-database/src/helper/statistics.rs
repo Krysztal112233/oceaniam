@@ -1,5 +1,5 @@
 use oceaniam_api::{PageInfo, PageParam, PagedResponse};
-use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect};
+use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder};
 use serde_json::json;
 use uuid::Uuid;
 
