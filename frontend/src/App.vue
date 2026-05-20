@@ -9,7 +9,7 @@ import MonitoringIcon from "@iconify-vue/material-symbols/monitoring-rounded";
 import DashboardIcon from "@iconify-vue/material-symbols/dashboard-outline-rounded";
 import ReceiptLongIcon from "@iconify-vue/material-symbols/receipt-long-outline-rounded";
 import BarChartIcon from "@iconify-vue/material-symbols/bar-chart-rounded";
-import { ref } from "vue";
+import { ref, provide } from "vue";
 import AppLayout from "./layout/AppLayout.vue";
 import DrawerGroup from "./components/DrawerGroup.vue";
 import DrawerItem from "./components/DrawerItem.vue";
@@ -18,6 +18,9 @@ import LoginModal from "./components/auth/LoginModal.vue";
 import TenantSwitcher from "./components/TenantSwitcher.vue";
 
 const loginOpen = ref(false);
+provide("openLogin", () => {
+    loginOpen.value = true;
+});
 </script>
 
 <template>

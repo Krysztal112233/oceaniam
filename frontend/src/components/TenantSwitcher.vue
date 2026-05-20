@@ -6,10 +6,6 @@ import CreateTenantModal from "./CreateTenantModal.vue";
 import { useAuthStore } from "../stores/auth";
 import { useTenantStore } from "../stores/tenant";
 
-type TenantPopoverElement = HTMLElement & {
-    hidePopover?: () => void;
-};
-
 const authStore = useAuthStore();
 const tenantStore = useTenantStore();
 const route = useRoute();
@@ -23,9 +19,6 @@ const {
     tenantsLoading,
 } = storeToRefs(tenantStore);
 const search = ref("");
-const tenantPopoverRef = ref<TenantPopoverElement | null>(null);
-const tenantPopoverId = "tenant-switcher-popover";
-const tenantAnchorName = "--tenant-switcher-anchor";
 const createTenantModalOpen = ref(false);
 
 const isLoggedIn = computed(() => authStore.isLoggedIn);
@@ -53,12 +46,10 @@ const buttonSubtitle = computed(
 
 async function selectTenant(nextTenantId: string) {
     if (!nextTenantId || nextTenantId === currentTenantId.value) {
-        tenantPopoverRef.value?.hidePopover?.();
         return;
     }
 
     tenantStore.syncCurrentTenant(nextTenantId);
-    tenantPopoverRef.value?.hidePopover?.();
     search.value = "";
 
     await router.push({
@@ -77,7 +68,6 @@ function closeCreateTenantModal(): void {
 
 async function handleTenantCreated(tenantId: string): Promise<void> {
     createTenantModalOpen.value = false;
-    tenantPopoverRef.value?.hidePopover?.();
     search.value = "";
 
     await router.push({
@@ -122,95 +112,100 @@ onMounted(() => {
 
 <template>
     <div v-if="isLoggedIn" class="hidden items-center gap-2 md:flex">
-        <button
-            type="button"
-            class="btn btn-ghost h-auto min-h-0 gap-3 rounded-box border border-base-200 bg-base-100/90 px-3 py-2 text-left"
-            :popovertarget="tenantPopoverId"
-            :style="{ anchorName: tenantAnchorName }"
-        >
-            <div class="flex flex-col items-start leading-tight">
-                <span
-                    class="max-w-40 truncate text-sm font-medium text-base-content"
-                >
-                    {{ buttonLabel }}
-                </span>
-                <span class="max-w-40 truncate text-xs text-base-content/55">
-                    {{ tenantsLoading ? "加载中..." : buttonSubtitle }}
-                </span>
-            </div>
-        </button>
-
-        <div
-            :id="tenantPopoverId"
-            ref="tenantPopoverRef"
-            popover="auto"
-            class="dropdown dropdown-end mt-2 w-88 rounded-box border border-base-200 bg-base-100 p-3 shadow-xl"
-            :style="{ positionAnchor: tenantAnchorName }"
-        >
-            <label class="input input-sm w-full">
-                <input
-                    v-model="search"
-                    type="text"
-                    placeholder="搜索 tenant id / comment"
-                />
-            </label>
-
-            <div v-if="tenantsError" class="alert alert-error alert-soft mt-3">
-                <span>{{ tenantsError }}</span>
-            </div>
-
-            <div v-else-if="tenantsLoading" class="mt-3 space-y-2">
-                <div class="skeleton h-12 w-full"></div>
-                <div class="skeleton h-12 w-full"></div>
+        <div class="dropdown dropdown-end">
+            <div
+                tabindex="0"
+                role="button"
+                class="btn btn-ghost h-auto min-h-0 gap-3 rounded-box border border-base-200 bg-base-100/90 px-3 py-2 text-left"
+            >
+                <div class="flex flex-col items-start leading-tight">
+                    <span
+                        class="max-w-40 truncate text-sm font-medium text-base-content"
+                    >
+                        {{ buttonLabel }}
+                    </span>
+                    <span
+                        class="max-w-40 truncate text-xs text-base-content/55"
+                    >
+                        {{ tenantsLoading ? "加载中..." : buttonSubtitle }}
+                    </span>
+                </div>
             </div>
 
             <div
-                v-else-if="filteredTenants.length === 0"
-                class="mt-3 rounded-box border border-dashed border-base-300 px-3 py-4 text-sm text-base-content/60"
+                tabindex="0"
+                class="dropdown-content mt-2 w-88 rounded-box border border-base-200 bg-base-100 p-3 shadow-xl"
             >
-                {{
-                    hasTenants
-                        ? "没有匹配的 tenant。"
-                        : "当前还没有可用 tenant。"
-                }}
-            </div>
+                <label class="input input-sm w-full">
+                    <input
+                        v-model="search"
+                        type="text"
+                        placeholder="搜索 tenant id / comment"
+                    />
+                </label>
 
-            <div v-else class="mt-3 max-h-80 overflow-y-auto">
-                <button
-                    v-for="tenant in filteredTenants"
-                    :key="tenant.id"
-                    type="button"
-                    class="flex w-full items-start justify-between rounded-box px-3 py-2 text-left transition hover:bg-base-200"
-                    :class="tenant.id === currentTenantId ? 'bg-base-200' : ''"
-                    @click="selectTenant(tenant.id)"
+                <div
+                    v-if="tenantsError"
+                    class="alert alert-error alert-soft mt-3"
                 >
-                    <div class="min-w-0">
-                        <div
-                            class="truncate text-sm font-medium text-base-content"
-                        >
-                            {{ tenant.id }}
-                        </div>
-                        <div class="truncate text-xs text-base-content/60">
-                            {{ tenant.comment || "暂无备注" }}
-                        </div>
-                    </div>
-                    <span
-                        v-if="tenant.id === currentTenantId"
-                        class="badge badge-neutral badge-sm"
+                    <span>{{ tenantsError }}</span>
+                </div>
+
+                <div v-else-if="tenantsLoading" class="mt-3 space-y-2">
+                    <div class="skeleton h-12 w-full"></div>
+                    <div class="skeleton h-12 w-full"></div>
+                </div>
+
+                <div
+                    v-else-if="filteredTenants.length === 0"
+                    class="mt-3 rounded-box border border-dashed border-base-300 px-3 py-4 text-sm text-base-content/60"
+                >
+                    {{
+                        hasTenants
+                            ? "没有匹配的 tenant。"
+                            : "当前还没有可用 tenant。"
+                    }}
+                </div>
+
+                <div v-else class="mt-3 max-h-80 overflow-y-auto">
+                    <button
+                        v-for="tenant in filteredTenants"
+                        :key="tenant.id"
+                        type="button"
+                        class="flex w-full items-start justify-between rounded-box px-3 py-2 text-left transition hover:bg-base-200"
+                        :class="
+                            tenant.id === currentTenantId ? 'bg-base-200' : ''
+                        "
+                        @click="selectTenant(tenant.id)"
                     >
-                        当前
-                    </span>
-                </button>
-            </div>
+                        <div class="min-w-0">
+                            <div
+                                class="truncate text-sm font-medium text-base-content"
+                            >
+                                {{ tenant.id }}
+                            </div>
+                            <div class="truncate text-xs text-base-content/60">
+                                {{ tenant.comment || "暂无备注" }}
+                            </div>
+                        </div>
+                        <span
+                            v-if="tenant.id === currentTenantId"
+                            class="badge badge-neutral badge-sm"
+                        >
+                            当前
+                        </span>
+                    </button>
+                </div>
 
-            <div class="mt-3 border-t border-base-200 pt-3">
-                <button
-                    type="button"
-                    class="btn btn-primary btn-sm w-full"
-                    @click="openCreateTenantModal"
-                >
-                    创建租户
-                </button>
+                <div class="mt-3 border-t border-base-200 pt-3">
+                    <button
+                        type="button"
+                        class="btn btn-primary btn-sm w-full"
+                        @click="openCreateTenantModal"
+                    >
+                        创建租户
+                    </button>
+                </div>
             </div>
         </div>
 

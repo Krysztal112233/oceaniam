@@ -1,12 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useToast } from "vue-toastification";
-import { authState, logout } from "../../utils/auth.ts";
+import { logout } from "../../utils/auth.ts";
 import { useAuthStore } from "../../stores/auth";
-
-type AuthPopoverElement = HTMLElement & {
-    hidePopover?: () => void;
-};
 
 const props = withDefaults(
     defineProps<{
@@ -23,9 +19,7 @@ const emit = defineEmits<{
 
 const authStore = useAuthStore();
 const toast = useToast();
-const authPopoverRef = ref<AuthPopoverElement | null>(null);
-const authPopoverId = "auth-widget-popover";
-const authAnchorName = "--auth-widget-anchor";
+const isBusy = ref(false);
 
 const username = computed(() => authStore.username?.trim() || "");
 const displayName = computed(() => username.value || "已登录");
@@ -36,19 +30,19 @@ const avatarText = computed(() => {
     return displayName.value.trim().slice(0, 1).toUpperCase();
 });
 
-const isBusy = computed(() => authState.loading);
-
 function openLogin() {
     emit("open-login");
 }
 
 async function handleLogout() {
+    isBusy.value = true;
     try {
-        authPopoverRef.value?.hidePopover?.();
         await logout();
         toast.success("已退出登录。");
     } catch {
         // errors are swallowed inside logout; this is defensive
+    } finally {
+        isBusy.value = false;
     }
 }
 </script>
@@ -90,12 +84,11 @@ async function handleLogout() {
                 </button>
             </div>
 
-            <div v-else>
-                <button
-                    type="button"
+            <div v-else class="dropdown dropdown-end">
+                <div
+                    tabindex="0"
+                    role="button"
                     class="btn btn-ghost btn-sm gap-2"
-                    :popovertarget="authPopoverId"
-                    :style="{ anchorName: authAnchorName }"
                 >
                     <div class="avatar placeholder">
                         <div
@@ -107,14 +100,11 @@ async function handleLogout() {
                     <span class="hidden max-w-40 truncate sm:inline">
                         {{ displayName }}
                     </span>
-                </button>
+                </div>
 
                 <ul
-                    :id="authPopoverId"
-                    ref="authPopoverRef"
-                    popover="auto"
-                    class="dropdown menu mt-2 w-56 rounded-box bg-base-100 p-2 shadow"
-                    :style="{ positionAnchor: authAnchorName }"
+                    tabindex="0"
+                    class="dropdown-content menu mt-2 w-56 rounded-box bg-base-100 p-2 shadow"
                 >
                     <li class="menu-title">
                         <span class="truncate">{{ username || "未设置" }}</span>
