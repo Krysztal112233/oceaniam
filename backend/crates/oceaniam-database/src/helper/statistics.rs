@@ -1,6 +1,6 @@
 use oceaniam_api::{PageInfo, PageParam, PagedResponse};
+use sea_orm::sea_query::extension::postgres::PgExpr;
 use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder};
-use serde_json::json;
 use uuid::Uuid;
 
 use crate::error::Error;
@@ -154,14 +154,13 @@ pub trait AuditsHelper {
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<PagedResponse<crate::model::audits::Model>, Error> {
         use crate::model::audits::Column::*;
+        use sea_orm::sea_query::Expr;
 
-        let json_str = json!({"data": {"application_id": app_id.to_string()}}).to_string();
+        let payload: serde_json::Value =
+            serde_json::json!({"data": {"application_id": app_id.to_string()}});
 
         let mut query = Audits::find()
-            .filter(sea_orm::sea_query::Expr::cust(format!(
-                "payload @> '{}'::jsonb",
-                json_str.replace('\'', "''")
-            )))
+            .filter(Expr::col(Payload).contains(payload))
             .order_by_desc(CreatedAt);
 
         if let Some(atype) = audit_type {
@@ -182,3 +181,33 @@ pub trait AuditsHelper {
 }
 
 impl AuditsHelper for Audits {}
+
+#[cfg(test)]
+mod tests {
+
+    use sea_orm::prelude::Expr;
+    use sea_orm::{QueryTrait, Value};
+
+    use super::*;
+
+    #[test]
+    fn jsonb_contains_implicit_value_conversion_produces_same_sql() {
+        use crate::model::audits::Column::*;
+
+        let payload: serde_json::Value = serde_json::json!({"data": {"application_id": "ca189192-10a2-4af1-9f20-33ef2c4023a5".to_string()}});
+
+        let query0 = Audits::find()
+            .filter(Expr::col(Payload).contains(payload.clone()))
+            .order_by_desc(CreatedAt)
+            .build(sea_orm::DatabaseBackend::Postgres)
+            .to_string();
+
+        let query1 = Audits::find()
+            .filter(Expr::col(Payload).contains(Value::Json(Some(Box::new(payload)))))
+            .order_by_desc(CreatedAt)
+            .build(sea_orm::DatabaseBackend::Postgres)
+            .to_string();
+
+        assert_eq!(query0, query1)
+    }
+}
