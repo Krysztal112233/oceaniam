@@ -190,12 +190,15 @@ mod tests {
 
     use super::*;
 
+    /// Prefer `serde_json::Value` over `Value::Json(Some(Box::new(...)))` when passing JSON
+    /// payloads to `PgExpr::contains` — the implicit conversion is equivalent.
     #[test]
     fn jsonb_contains_implicit_value_conversion_produces_same_sql() {
         use crate::model::audits::Column::*;
 
         let payload: serde_json::Value = serde_json::json!({"data": {"application_id": "ca189192-10a2-4af1-9f20-33ef2c4023a5".to_string()}});
 
+        // NOTE: PREFER THIS
         let query0 = Audits::find()
             .filter(Expr::col(Payload).contains(payload.clone()))
             .order_by_desc(CreatedAt)

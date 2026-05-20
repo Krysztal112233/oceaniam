@@ -28,6 +28,9 @@ These instructions apply to work performed inside the `backend` project.
 ## Unit Tests
 
 - Any unit test written by the agent must include `// NOTE: AI-generated test` immediately above the test.
+- When a file already contains tests, read them. Some tests exist to prove equivalence between two
+  approaches and mark which one is preferred (`// NOTE: PREFER THIS`). Use that preferred pattern
+  rather than the alternative being compared.
 
 ## Design Responsibility
 
