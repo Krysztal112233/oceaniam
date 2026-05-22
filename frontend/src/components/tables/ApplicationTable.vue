@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { ApplicationVO } from "@oceaniam/sdk";
-import ApplicationRowActions from "./ApplicationRowActions.vue";
+import ApplicationRowActions from "../actions/ApplicationRowActions.vue";
 
 defineProps<{
     applications: ApplicationVO[];

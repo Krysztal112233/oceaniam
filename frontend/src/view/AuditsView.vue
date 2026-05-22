@@ -2,8 +2,8 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import AuditPayloadDrawer from "../components/AuditPayloadDrawer.vue";
-import AuditTable from "../components/AuditTable.vue";
-import EntityListPage from "../components/EntityListPage.vue";
+import AuditTable from "../components/tables/AuditTable.vue";
+import EntityListPage from "../components/layout/EntityListPage.vue";
 import { getClient } from "../utils/api-client";
 
 type AuditLogItem = {

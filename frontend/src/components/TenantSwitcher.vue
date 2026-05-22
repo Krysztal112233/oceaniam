@@ -2,7 +2,7 @@
 import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import CreateTenantModal from "./CreateTenantModal.vue";
+import CreateTenantModal from "./modals/CreateTenantModal.vue";
 import { useAuthStore } from "../stores/auth";
 import { useTenantStore } from "../stores/tenant";
 

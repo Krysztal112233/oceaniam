@@ -7,10 +7,10 @@ import type {
     ApplicationKeyVO,
     ApplicationVO,
 } from "@oceaniam/sdk";
-import EntityListPage from "../components/EntityListPage.vue";
+import EntityListPage from "../components/layout/EntityListPage.vue";
 import { useTenantStore } from "../stores/tenant";
 import { getClient } from "../utils/api-client";
-import ApplicationKeyTable from "../components/ApplicationKeyTable.vue";
+import ApplicationKeyTable from "../components/tables/ApplicationKeyTable.vue";
 
 const ConfigEditor = defineAsyncComponent(
     () => import("../components/ConfigEditor.vue"),

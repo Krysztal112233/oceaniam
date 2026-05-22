@@ -7,8 +7,8 @@ import {
     type SearchApplicationUsersQuery,
 } from "@oceaniam/sdk";
 import { useToast } from "vue-toastification";
-import CreateUserModal from "../components/CreateUserModal.vue";
-import EntityListPage from "../components/EntityListPage.vue";
+import CreateUserModal from "../components/modals/CreateUserModal.vue";
+import EntityListPage from "../components/layout/EntityListPage.vue";
 import { useAuthStore } from "../stores/auth";
 import { useTenantStore } from "../stores/tenant";
 import { getClient } from "../utils/api-client";

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
-import DeleteApplicationModal from "./DeleteApplicationModal.vue";
+import DeleteApplicationModal from "../modals/DeleteApplicationModal.vue";
 
 const props = defineProps<{
     applicationId: string;

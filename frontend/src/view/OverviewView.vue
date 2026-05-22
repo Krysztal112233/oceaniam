@@ -3,9 +3,9 @@ import AppsIcon from "@iconify-vue/material-symbols/apps";
 import LoginIcon from "@iconify-vue/material-symbols/login";
 import TokenIcon from "@iconify-vue/material-symbols/token-outline";
 import { computed, ref } from "vue";
-import MetricsStats from "../components/MetricsStats.vue";
-import MetricsStatsItem from "../components/MetricsStatsItem.vue";
-import MetricsTrendCard from "../components/MetricsTrendCard.vue";
+import MetricsStats from "../components/metrics/MetricsStats.vue";
+import MetricsStatsItem from "../components/metrics/MetricsStatsItem.vue";
+import MetricsTrendCard from "../components/metrics/MetricsTrendCard.vue";
 
 type DashboardMetrics = {
     applicationsCount: number;

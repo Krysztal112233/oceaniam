@@ -2,8 +2,8 @@
 import CloseIcon from "@iconify-vue/material-symbols/close-rounded";
 import { ref, watch } from "vue";
 import { useToast } from "vue-toastification";
-import { useTenantStore } from "../stores/tenant";
-import { getClient } from "../utils/api-client";
+import { useTenantStore } from "../../stores/tenant";
+import { getClient } from "../../utils/api-client";
 
 const props = defineProps<{
     open: boolean;

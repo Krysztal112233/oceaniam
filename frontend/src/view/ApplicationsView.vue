@@ -3,9 +3,9 @@ import { storeToRefs } from "pinia";
 import { computed, onMounted, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useToast } from "vue-toastification";
-import ApplicationTable from "../components/ApplicationTable.vue";
-import CreateApplicationModal from "../components/CreateApplicationModal.vue";
-import EntityListPage from "../components/EntityListPage.vue";
+import ApplicationTable from "../components/tables/ApplicationTable.vue";
+import CreateApplicationModal from "../components/modals/CreateApplicationModal.vue";
+import EntityListPage from "../components/layout/EntityListPage.vue";
 import { useTenantStore } from "../stores/tenant";
 
 const route = useRoute();

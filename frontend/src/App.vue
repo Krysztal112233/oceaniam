@@ -11,8 +11,8 @@ import ReceiptLongIcon from "@iconify-vue/material-symbols/receipt-long-outline-
 import BarChartIcon from "@iconify-vue/material-symbols/bar-chart-rounded";
 import { ref, provide } from "vue";
 import AppLayout from "./layout/AppLayout.vue";
-import DrawerGroup from "./components/DrawerGroup.vue";
-import DrawerItem from "./components/DrawerItem.vue";
+import DrawerGroup from "./components/layout/DrawerGroup.vue";
+import DrawerItem from "./components/layout/DrawerItem.vue";
 import AuthWidget from "./components/auth/AuthWidget.vue";
 import LoginModal from "./components/auth/LoginModal.vue";
 import TenantSwitcher from "./components/TenantSwitcher.vue";

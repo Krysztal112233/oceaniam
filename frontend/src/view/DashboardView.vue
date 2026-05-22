@@ -4,7 +4,7 @@ import AddBoxIcon from "@iconify-vue/material-symbols/add-box-outline-rounded";
 import WidgetsIcon from "@iconify-vue/material-symbols/widgets-outline-rounded";
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import CreateTenantModal from "../components/CreateTenantModal.vue";
+import CreateTenantModal from "../components/modals/CreateTenantModal.vue";
 import HomeActionCard from "../components/HomeActionCard.vue";
 
 const router = useRouter();

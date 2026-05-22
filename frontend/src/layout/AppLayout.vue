@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from "vue";
-import Drawer from "../components/Drawer.vue";
+import Drawer from "../components/layout/Drawer.vue";
 import AppNavbar from "./AppNavbar.vue";
 
 const props = withDefaults(

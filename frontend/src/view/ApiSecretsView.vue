@@ -4,9 +4,9 @@ import { computed, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import type { SecretVO } from "@oceaniam/sdk";
 import { useToast } from "vue-toastification";
-import CreateSecretModal from "../components/CreateSecretModal.vue";
-import SecretTable from "../components/SecretTable.vue";
-import EntityListPage from "../components/EntityListPage.vue";
+import CreateSecretModal from "../components/modals/CreateSecretModal.vue";
+import SecretTable from "../components/tables/SecretTable.vue";
+import EntityListPage from "../components/layout/EntityListPage.vue";
 import { useTenantStore } from "../stores/tenant";
 import { getClient } from "../utils/api-client";
 
