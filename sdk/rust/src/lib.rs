@@ -19,7 +19,6 @@ pub use error::Error;
 pub use oceaniam_api::{Empty, ErrorResponse, PageInfo, PageParam, PagedResponse};
 
 // Re-export VO types
-pub use oceaniam_common::sqid::Sqid;
 pub use oceaniam_vo::administrators::*;
 pub use oceaniam_vo::applications::*;
 pub use oceaniam_vo::auth::*;

@@ -2475,7 +2475,6 @@ dependencies = [
  "axum",
  "axum-extra",
  "garde",
- "oceaniam-common",
  "serde",
  "ts-rs",
  "utoipa",

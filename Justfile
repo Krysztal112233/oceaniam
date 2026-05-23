@@ -27,3 +27,11 @@ fmt:
 build:
     cd ./backend && cargo build --all -r
     cd ./frontend && pnpm build
+
+check:
+    cd ./backend && cargo test --all -r
+    cd ./backend && cargo build --all -r
+    cd ./frontend && pnpm build
+    cd ./sdk/rust && cargo test --all -r
+    cd ./sdk/rust && cargo build --all -r
+    cd ./sdk/typescript && pnpm build
