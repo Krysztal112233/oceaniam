@@ -14,4 +14,3 @@ tracing = "0.1"
 uuid = { version = "1.18", features = ["v7"] }
 
 oceaniam-vo = { path = "../../backend/crates/oceaniam-vo" }
-oceaniam-api = { path = "../../backend/crates/oceaniam-api" }

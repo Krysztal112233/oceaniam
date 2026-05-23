@@ -3,5 +3,5 @@ pub mod vo;
 
 #[derive(ts_rs::TS)]
 #[ts(export)]
-#[ts(as = "oceaniam_api::ErrorResponse")]
+#[ts(as = "oceaniam_vo::response::ErrorResponse")]
 pub struct ErrorResponse;

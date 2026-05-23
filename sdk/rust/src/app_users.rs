@@ -1,4 +1,4 @@
-use oceaniam_api::PagedResponse;
+use oceaniam_vo::pagination::PagedResponse;
 use oceaniam_vo::applications::*;
 use reqwest::Method;
 

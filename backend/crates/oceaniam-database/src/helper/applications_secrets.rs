@@ -1,7 +1,7 @@
 use crate::error::Error;
 use axum::http::StatusCode;
 use chrono::Utc;
-use oceaniam_api::{PageParam, PagedResponse};
+use oceaniam_vo::pagination::{PageParam, PagedResponse};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, PaginatorTrait,
     QueryFilter, QuerySelect,

@@ -1,6 +1,6 @@
 use crate::error::Error;
 use axum::http::StatusCode;
-use oceaniam_api::{PageInfo, PageParam, PagedResponse};
+use oceaniam_vo::pagination::{PageInfo, PageParam, PagedResponse};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, Iterable,
     PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,

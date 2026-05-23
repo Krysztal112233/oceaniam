@@ -209,15 +209,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "31b698c5f9a010f6573133b09e0de5408834d0c82f8d7475a89fc1867a71cd90"
 dependencies = [
  "axum-core",
- "axum-macros",
  "bytes",
- "form_urlencoded",
  "futures-util",
  "http",
  "http-body",
  "http-body-util",
- "hyper",
- "hyper-util",
  "itoa",
  "matchit",
  "memchr",
@@ -225,11 +221,7 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "serde_core",
- "serde_json",
- "serde_path_to_error",
- "serde_urlencoded",
  "sync_wrapper",
- "tokio",
  "tower",
  "tower-layer",
  "tower-service",
@@ -280,17 +272,6 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "tracing",
-]
-
-[[package]]
-name = "axum-macros"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7aa268c23bfbbd2c4363b9cd302a4f504fb2a9dfe7e3451d66f35dd392e20aca"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.117",
 ]
 
 [[package]]
@@ -1337,7 +1318,6 @@ dependencies = [
  "http",
  "http-body",
  "httparse",
- "httpdate",
  "itoa",
  "pin-project-lite",
  "smallvec",
@@ -1933,18 +1913,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "oceaniam-api"
-version = "0.1.0"
-dependencies = [
- "axum",
- "axum-extra",
- "garde",
- "serde",
- "ts-rs",
- "utoipa",
-]
-
-[[package]]
 name = "oceaniam-common"
 version = "0.1.0"
 dependencies = [
@@ -1976,7 +1944,6 @@ name = "oceaniam-sdk"
 version = "0.1.0"
 dependencies = [
  "const_format",
- "oceaniam-api",
  "oceaniam-vo",
  "reqwest",
  "serde",
@@ -3789,7 +3756,6 @@ dependencies = [
  "tokio",
  "tower-layer",
  "tower-service",
- "tracing",
 ]
 
 [[package]]

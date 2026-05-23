@@ -16,7 +16,8 @@ pub use client::OceanIamClient;
 pub use error::Error;
 
 // Re-export response types
-pub use oceaniam_api::{Empty, ErrorResponse, PageInfo, PageParam, PagedResponse};
+pub use oceaniam_vo::pagination::{PageInfo, PageParam, PagedResponse};
+pub use oceaniam_vo::response::{Empty, ErrorResponse};
 
 // Re-export VO types
 pub use oceaniam_vo::administrators::*;
