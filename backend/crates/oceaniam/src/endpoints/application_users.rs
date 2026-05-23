@@ -9,7 +9,7 @@ use axum::{
 };
 use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
-use oceaniam_api::{ApiResponse, ErrorResponse, PagedResponse};
+use oceaniam_api::{ApiResponse, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{AuditPayload, CreateApplicationUserPayload};
 use oceaniam_common::helpers::gen_random_name;
 use oceaniam_common::sqid::Sqid;
@@ -78,7 +78,10 @@ pub async fn get_application_users(
     OptionalQuery(query): OptionalQuery<ApplicationUsersListQuery>,
 ) -> AppResult<PagedResponse<ApplicationUserVO>> {
     let query = query.unwrap_or_default();
-    let page = query.page_param();
+    let page = PageParam {
+        page: query.page,
+        per_page: query.per_page,
+    };
     let operator_id = match &auth {
         axum_extra::either::Either::E1(a) => Some(a.token.claims.sub),
         _ => None,
@@ -100,17 +103,21 @@ pub async fn get_application_users(
             );
     });
 
-    let PagedResponse { items, page_info } =
-        Users::get_users(application_id, page, query.is_desc(), &database)
-            .await
-            .inspect_err(|e| {
-                error!(
-                    ?operator_id,
-                    %application_id,
-                    error = %e,
-                    "user list query failed"
-                )
-            })?;
+    let PagedResponse { items, page_info } = Users::get_users(
+        application_id,
+        page,
+        matches!(query.sort_order, ApplicationUsersSortOrder::Desc),
+        &database,
+    )
+    .await
+    .inspect_err(|e| {
+        error!(
+            ?operator_id,
+            %application_id,
+            error = %e,
+            "user list query failed"
+        )
+    })?;
     let items = items
         .into_iter()
         .map(crate::conversion::users::user_model_to_vo)
@@ -167,8 +174,11 @@ pub async fn search_application_users(
     Path(path): Path<TenantApplicationPath>,
     Garde(Query(search_options)): Garde<Query<SearchApplicationUsersQuery>>,
 ) -> AppResult<PagedResponse<ApplicationUserVO>> {
-    let page = search_options.page_param();
-    let sort_desc = search_options.is_desc();
+    let page = PageParam {
+        page: search_options.page,
+        per_page: search_options.per_page,
+    };
+    let sort_desc = matches!(search_options.sort_order, ApplicationUsersSortOrder::Desc);
     let operator_id = match &auth {
         axum_extra::either::Either::E1(a) => Some(a.token.claims.sub),
         _ => None,
@@ -176,7 +186,26 @@ pub async fn search_application_users(
     let application = get_tenant_application(path, &database).await?;
     let application_id = application.id;
 
-    if !search_options.has_search_term() {
+    if !(search_options
+        .by_nickname
+        .as_deref()
+        .map(str::trim)
+        .filter(|it| !it.is_empty())
+        .is_some()
+        || search_options
+            .by_email
+            .as_deref()
+            .map(str::trim)
+            .filter(|it| !it.is_empty())
+            .is_some()
+        || search_options
+            .by_phone
+            .as_deref()
+            .map(str::trim)
+            .filter(|it| !it.is_empty())
+            .is_some()
+        || search_options.by_id.is_some())
+    {
         return Err(crate::error::Error::with_code(
             StatusCode::BAD_REQUEST,
             "at least one of by_nickname, by_email, by_phone or by_id must be provided",

@@ -1,10 +1,7 @@
-use core::str;
-
 use chrono::{DateTime, FixedOffset};
 use garde::Validate;
-use oceaniam_api::PageParam;
-use oceaniam_common::sqid::Sqid;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use oceaniam_common::{patch::PatchValue, sqid::Sqid, validation::forbid_search_wildcards};
+use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
@@ -88,48 +85,6 @@ pub struct PatchApplicationConfigurationRequest {
     pub registration: Option<PatchRegistrationConfigurationVO>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Default)]
-pub enum PatchValue<T> {
-    #[default]
-    Missing,
-    Null,
-    Value(T),
-}
-
-impl<'de, T> Deserialize<'de> for PatchValue<T>
-where
-    T: Deserialize<'de>,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(match Option::<T>::deserialize(deserializer)? {
-            Some(value) => Self::Value(value),
-            None => Self::Null,
-        })
-    }
-}
-
-impl<T: Serialize> Serialize for PatchValue<T> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            PatchValue::Missing => serializer.serialize_none(),
-            PatchValue::Null => serializer.serialize_none(),
-            PatchValue::Value(v) => v.serialize(serializer),
-        }
-    }
-}
-
-impl<T> PatchValue<T> {
-    fn is_missing(&self) -> bool {
-        matches!(self, PatchValue::Missing)
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct PatchApplicationRequest {
     #[serde(default, skip_serializing_if = "PatchValue::is_missing")]
@@ -198,18 +153,6 @@ pub struct PatchApplicationUserCredentialsRequest {
     pub password: Option<String>,
 }
 
-fn forbid_search_wildcards(value: &Option<String>, _: &()) -> garde::Result {
-    if let Some(value) = value.as_deref()
-        && (value.contains('%') || value.contains('_') || value.contains('\\'))
-    {
-        return Err(garde::Error::new(
-            "must not contain expressions that expand `LIKE/ILIKE` search scope",
-        ));
-    }
-
-    Ok(())
-}
-
 #[derive(
     Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema,
 )]
@@ -238,40 +181,9 @@ pub struct ApplicationUsersListQuery {
 
 impl Default for ApplicationUsersListQuery {
     fn default() -> Self {
-        let page = PageParam::default();
-
         Self {
-            page: page.page,
-            per_page: page.per_page,
-            sort_order: ApplicationUsersSortOrder::default(),
-        }
-    }
-}
-
-impl ApplicationUsersListQuery {
-    pub fn page_param(&self) -> PageParam {
-        PageParam {
-            page: self.page,
-            per_page: self.per_page,
-        }
-    }
-
-    pub fn is_desc(&self) -> bool {
-        matches!(self.sort_order, ApplicationUsersSortOrder::Desc)
-    }
-}
-
-impl From<ApplicationUsersListQuery> for PageParam {
-    fn from(value: ApplicationUsersListQuery) -> Self {
-        value.page_param()
-    }
-}
-
-impl From<PageParam> for ApplicationUsersListQuery {
-    fn from(value: PageParam) -> Self {
-        Self {
-            page: value.page,
-            per_page: value.per_page,
+            page: 0,
+            per_page: 30,
             sort_order: ApplicationUsersSortOrder::default(),
         }
     }
@@ -301,51 +213,15 @@ pub struct SearchApplicationUsersQuery {
 
 impl Default for SearchApplicationUsersQuery {
     fn default() -> Self {
-        let page = PageParam::default();
-
         Self {
-            page: page.page,
-            per_page: page.per_page,
+            page: 0,
+            per_page: 30,
             sort_order: ApplicationUsersSortOrder::default(),
             by_nickname: None,
             by_email: None,
             by_phone: None,
             by_id: None,
         }
-    }
-}
-
-impl SearchApplicationUsersQuery {
-    pub fn page_param(&self) -> PageParam {
-        PageParam {
-            page: self.page,
-            per_page: self.per_page,
-        }
-    }
-
-    pub fn is_desc(&self) -> bool {
-        matches!(self.sort_order, ApplicationUsersSortOrder::Desc)
-    }
-
-    pub fn has_search_term(&self) -> bool {
-        self.by_nickname
-            .as_deref()
-            .map(str::trim)
-            .filter(|it| !it.is_empty())
-            .is_some()
-            || self
-                .by_email
-                .as_deref()
-                .map(str::trim)
-                .filter(|it| !it.is_empty())
-                .is_some()
-            || self
-                .by_phone
-                .as_deref()
-                .map(str::trim)
-                .filter(|it| !it.is_empty())
-                .is_some()
-            || self.by_id.is_some()
     }
 }
 

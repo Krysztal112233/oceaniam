@@ -5,6 +5,7 @@ use crate::error::Error;
 use argon2::{Argon2, Params};
 use axum::http::StatusCode;
 use moka::future::Cache;
+use oceaniam_common::patch::PatchValue;
 use oceaniam_database::{
     config::application::ApplicationConfiguration,
     helper::{
@@ -18,9 +19,7 @@ use oceaniam_database::{
         users::Model as UserModel,
     },
 };
-use oceaniam_vo::applications::{
-    PatchApplicationConfigurationRequest, PatchApplicationRequest, PatchValue,
-};
+use oceaniam_vo::applications::{PatchApplicationConfigurationRequest, PatchApplicationRequest};
 use oceaniam_vo::auth::AuthVO;
 use sea_orm::prelude::*;
 use tap::Tap;
