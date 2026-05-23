@@ -81,7 +81,7 @@ Before claiming work is complete, run these commands:
 - **`moka`**: Primary caching strategy. Every state manager (keyboxes, credentials, revoked JWTs, application configs) uses a `moka::future::Cache` with appropriate TTL/capacity.
 - **`#[tracing::instrument]`**: Required on all endpoint handlers. Use `skip(...)` for parameters that don't need tracing and `fields(...)` for structured span data.
 - **Tracing field shorthand**: In `info!`, `error!`, `warn!`, `debug!` macros, prefer `%field` over `field = %field` when the field name matches the variable name. For example, write `info!(%application_id, "msg")` instead of `info!(application_id = %application_id, "msg")`.
-- **`sqids`**: All resource IDs in URLs are Sqid-encoded. Convert to/from `Uuid` via `oceaniam_vo::sqid::Sqid`.
+- **`sqids`**: All resource IDs in URLs are Sqid-encoded. Convert to/from `Uuid` via `oceaniam_common::sqid::Sqid`.
 - **`garde` + `axum-valid`**: Use `#[derive(Validate)]` with `garde` annotations for request body validation. Apply via `Garde` extractor.
 - **`thiserror` + `oceaniam_common::error::Error`**: Use `Error::with_code(StatusCode, msg)` for typed HTTP errors. Avoid raw `StatusCode` returns.
 - **Response types**: Use `oceaniam_api::ApiResponse<T>` for success, `ApiResponseWithHeader<T>` for responses with custom headers (cookies), and `RestResult<T>` / `WithHeaderRestResult<T>` as return type aliases.
@@ -89,6 +89,7 @@ Before claiming work is complete, run these commands:
   the endpoint returns all items without pagination. Use `PagedResponse::with_entire(...)` for
   unpaginated lists.
 - **`#[allow(unused)]`**: Used as a WIP marker for modules or structs that are not yet wired up to the endpoint layer.
+- **`crate::conversion` module**: Model→VO 转换统一放在 `crates/oceaniam/src/conversion/` 中，使用普通函数而非 `From` trait impl。`oceaniam-vo` 只包含纯数据类型（struct + derive），不包含业务逻辑或数据库依赖。新增端点需要 VO 转换时，优先在该模块中添加对应的转换函数。
 
 ## Testing Infrastructure
 

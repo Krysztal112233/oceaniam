@@ -13,5 +13,4 @@ ts-rs.workspace = true
 utoipa.workspace = true
 uuid.workspace = true
 
-oceaniam-api.workspace = true
 oceaniam-common.workspace = true

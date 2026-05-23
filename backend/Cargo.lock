@@ -2646,7 +2646,6 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "garde",
- "oceaniam-api",
  "oceaniam-common",
  "serde",
  "serde_json",
