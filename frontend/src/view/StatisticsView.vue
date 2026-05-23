@@ -316,7 +316,7 @@ onMounted(() => {
             >
                 <div class="join">
                     <button
-                        v-for="g in (['day', 'week', 'month'] as Granularity[])"
+                        v-for="g in ['day', 'week', 'month'] as Granularity[]"
                         :key="g"
                         type="button"
                         class="btn btn-sm join-item"

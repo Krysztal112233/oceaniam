@@ -10,6 +10,7 @@ import type {
 import EntityListPage from "../components/layout/EntityListPage.vue";
 import { useTenantStore } from "../stores/tenant";
 import { getClient } from "../utils/api-client";
+import { appConfig } from "../config";
 import ApplicationKeyTable from "../components/tables/ApplicationKeyTable.vue";
 
 const ConfigEditor = defineAsyncComponent(
@@ -59,6 +60,13 @@ const summaryText = computed(() => {
     }
 
     return `Application ${application.value.id} 隶属于 tenant ${application.value.tenant_id}`;
+});
+
+const jwksUrl = computed(() => {
+    const id = application.value?.id;
+    if (!id) return null;
+    const base = appConfig.systemBaseUrl.replace(/\/+$/, "");
+    return `${base}/applications/${id}/.well-known/jwks.json`;
 });
 
 const commentSaveEnabled = computed(() => {
@@ -300,6 +308,15 @@ async function handleRevokeKey(keyId: string): Promise<void> {
     }
 }
 
+async function copyToClipboard(text: string): Promise<void> {
+    try {
+        await navigator.clipboard.writeText(text);
+        toast.success("已复制到剪贴板。");
+    } catch {
+        toast.error("复制失败。");
+    }
+}
+
 watch(
     () => application.value?.comment,
     (nextComment) => {
@@ -393,6 +410,30 @@ watch(
                             @click="handleCommentSubmit"
                         >
                             保存
+                        </button>
+                    </div>
+                </div>
+
+                <div
+                    class="rounded-box border border-base-200 bg-base-50 p-5 lg:col-span-2"
+                >
+                    <div class="label px-0 pt-0">
+                        <span class="label-text text-xs text-base-content/60">
+                            .well-known JWKS
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <code
+                            class="flex-1 break-all font-mono text-sm text-base-content"
+                            >{{ jwksUrl }}</code
+                        >
+                        <button
+                            type="button"
+                            class="btn btn-outline btn-sm"
+                            :disabled="!jwksUrl"
+                            @click="copyToClipboard(jwksUrl ?? '')"
+                        >
+                            复制
                         </button>
                     </div>
                 </div>
