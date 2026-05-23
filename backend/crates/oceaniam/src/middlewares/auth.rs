@@ -8,7 +8,7 @@ use oceaniam_auth::{
     Algorithm, TokenData, Validation,
     jwt::{Claim, SystemClaim},
 };
-use oceaniam_vo::sqid::Sqid;
+use oceaniam_common::sqid::Sqid;
 use tap::Tap;
 use uuid::Uuid;
 

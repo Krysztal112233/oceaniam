@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use crate::sqid::Sqid;
 use garde::Validate;
+use oceaniam_common::sqid::Sqid;
 #[cfg(feature = "database")]
 use oceaniam_database::model;
 use serde::{Deserialize, Serialize};

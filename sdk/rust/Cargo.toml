@@ -13,5 +13,6 @@ tap = "1.0"
 tracing = "0.1"
 uuid = { version = "1.18", features = ["v7"] }
 
+oceaniam-common = { path = "../../backend/crates/oceaniam-common" }
 oceaniam-vo = { path = "../../backend/crates/oceaniam-vo" }
 oceaniam-api = { path = "../../backend/crates/oceaniam-api" }

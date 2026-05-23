@@ -1,9 +1,9 @@
 use core::str;
 
-use crate::sqid::Sqid;
 use chrono::{DateTime, FixedOffset};
 use garde::Validate;
 use oceaniam_api::PageParam;
+use oceaniam_common::sqid::Sqid;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use utoipa::ToSchema;
 

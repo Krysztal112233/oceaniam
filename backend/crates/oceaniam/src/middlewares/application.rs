@@ -2,7 +2,7 @@ use axum::{
     extract::FromRequestParts,
     http::{StatusCode, header, request::Parts},
 };
-use oceaniam_vo::sqid::Sqid;
+use oceaniam_common::sqid::Sqid;
 use tracing::{debug, warn};
 use uuid::Uuid;
 

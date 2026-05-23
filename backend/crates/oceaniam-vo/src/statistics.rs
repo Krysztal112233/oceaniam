@@ -2,7 +2,7 @@ use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::sqid::Sqid;
+use oceaniam_common::sqid::Sqid;
 #[cfg(feature = "database")]
 use oceaniam_database::{
     helper::statistics::{ApplicationCounts, PlatformCounts},

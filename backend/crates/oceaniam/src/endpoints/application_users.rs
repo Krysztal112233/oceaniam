@@ -12,6 +12,7 @@ use axum_valid::Garde;
 use oceaniam_api::{ApiResponse, ErrorResponse, PagedResponse};
 use oceaniam_audit::types::{AuditPayload, CreateApplicationUserPayload};
 use oceaniam_common::helpers::gen_random_name;
+use oceaniam_common::sqid::Sqid;
 use oceaniam_database::helper::users::{CreateUserOpts, UserHelper};
 use oceaniam_database::model::prelude::Users;
 use oceaniam_vo::applications::{
@@ -19,7 +20,6 @@ use oceaniam_vo::applications::{
     CreateApplicationUserRequest, PatchApplicationUserCredentialsRequest,
     SearchApplicationUsersQuery,
 };
-use oceaniam_vo::sqid::Sqid;
 use sea_orm::TransactionTrait;
 use tap::Tap;
 use tracing::{Span, error, field, info};

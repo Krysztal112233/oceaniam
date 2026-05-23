@@ -7,8 +7,8 @@ use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{
     AuditPayload, CreateApplicationSecretPayload, DeleteApplicationSecretPayload,
 };
+use oceaniam_common::sqid::Sqid;
 use oceaniam_vo::applications::SecretVO;
-use oceaniam_vo::sqid::Sqid;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 use tap::Tap;

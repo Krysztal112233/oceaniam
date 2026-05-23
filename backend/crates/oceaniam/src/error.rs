@@ -194,10 +194,10 @@ impl From<oceaniam_database::error::Error> for Error {
     }
 }
 
-impl From<oceaniam_vo::error::Error> for Error {
-    fn from(e: oceaniam_vo::error::Error) -> Self {
+impl From<oceaniam_common::sqid::Error> for Error {
+    fn from(e: oceaniam_common::sqid::Error) -> Self {
         match e {
-            oceaniam_vo::error::Error::InvalidSqid { .. } => {
+            oceaniam_common::sqid::Error::InvalidSqid { .. } => {
                 Self::with_code(400u16, "cannot parse input id")
             }
         }

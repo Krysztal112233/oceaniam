@@ -1,5 +1,5 @@
-use crate::sqid::Sqid;
 use oceaniam_api::PageParam;
+use oceaniam_common::sqid::Sqid;
 #[cfg(feature = "database")]
 use oceaniam_database::model;
 use serde::{Deserialize, Serialize};

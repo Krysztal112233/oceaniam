@@ -14,6 +14,7 @@ use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
 use oceaniam_api::{ApiResponse, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{AuditPayload, CreateAdministratorPayload, PatchAdministratorPayload};
+use oceaniam_common::sqid::Sqid;
 use oceaniam_database::{
     helper::{
         SafeTransactionConnectionTrait,
@@ -25,7 +26,6 @@ use oceaniam_vo::administrators::{
     AdministratorProfileVO, AdministratorVO, CreateAdministratorRequest,
     CreateAdministratorResponse, PatchAdministratorRequest,
 };
-use oceaniam_vo::sqid::Sqid;
 use sea_orm::{EntityTrait, TransactionTrait};
 use tap::Tap;
 use tracing::{Span, error, field, info};

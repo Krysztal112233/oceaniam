@@ -2654,8 +2654,6 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "snafu",
- "sqids",
  "strum 0.28.0",
  "ts-rs",
  "utoipa",

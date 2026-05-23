@@ -3,12 +3,17 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 
 use serde::{Deserialize, Serialize};
+use snafu::{Location, Snafu};
 use sqids::Sqids;
 use ts_rs::TS;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use crate::error::Error;
+#[derive(Debug, Snafu)]
+pub enum Error {
+    #[snafu(display("invalid sqid at {location}"))]
+    InvalidSqid { location: Location },
+}
 
 static SQID: LazyLock<sqids::Sqids> = LazyLock::new(|| Sqids::new(None).unwrap());
 

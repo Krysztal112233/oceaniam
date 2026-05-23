@@ -12,13 +12,13 @@ use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{
     AuditPayload, CreateTenantsPayload, DeleteTenantsPayload, PatchTenantPayload,
 };
+use oceaniam_common::sqid::Sqid;
 use oceaniam_database::{
     helper::{tenants::TenantsHelper, users::UserHelper},
     model::prelude::*,
 };
 use oceaniam_vo::{
     applications::ApplicationUserVO,
-    sqid::Sqid,
     tenants::{CreateTenantRequest, PatchTenantRequest, TenantVO},
 };
 use tap::Tap;

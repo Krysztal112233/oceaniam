@@ -2,7 +2,7 @@
 
 ## Sqid Type Handling
 
-`Sqid` (`oceaniam_vo::sqid::Sqid`) is a `#[repr(transparent)]` newtype over `String`. In the SDK,
+`Sqid` (`oceaniam_common::sqid::Sqid`) is a `#[repr(transparent)]` newtype over `String`. In the SDK,
 it is used solely as a route parameter — the value is always put directly into the URL path without
 any sqid decoding or encoding.
 
