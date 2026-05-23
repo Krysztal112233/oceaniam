@@ -2646,12 +2646,8 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "garde",
- "jsonwebtoken",
- "names",
  "oceaniam-api",
  "oceaniam-common",
- "oceaniam-database",
- "reqwest",
  "serde",
  "serde_json",
  "strum 0.28.0",

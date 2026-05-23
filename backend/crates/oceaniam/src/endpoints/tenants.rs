@@ -86,7 +86,10 @@ pub async fn get_tenants(
     );
 
     Ok(ApiResponse::new(PagedResponse {
-        items: items.into_iter().map(Into::into).collect(),
+        items: items
+            .into_iter()
+            .map(crate::conversion::tenants::tenant_model_to_vo)
+            .collect(),
         page_info,
     }))
 }
@@ -137,7 +140,9 @@ pub async fn get_tenant(
             )
         })?;
 
-    Ok(ApiResponse::new(TenantVO::from(result)))
+    Ok(ApiResponse::new(
+        crate::conversion::tenants::tenant_model_to_vo(result),
+    ))
 }
 
 /// Create a new tenant
@@ -204,7 +209,9 @@ pub async fn create_tenant(
         }))
         .await;
 
-    Ok(ApiResponse::new(model.into()))
+    Ok(ApiResponse::new(
+        crate::conversion::tenants::tenant_model_to_vo(model),
+    ))
 }
 
 /// Update tenant
@@ -264,7 +271,9 @@ pub async fn patch_tenant(
         }))
         .await;
 
-    Ok(ApiResponse::new(tenant.into()))
+    Ok(ApiResponse::new(
+        crate::conversion::tenants::tenant_model_to_vo(tenant),
+    ))
 }
 
 /// Delete a tenant
@@ -381,7 +390,10 @@ pub async fn get_tenant_users(
                 "tenant user list query failed"
             )
         })?;
-    let items: Vec<ApplicationUserVO> = items.into_iter().map(Into::into).collect();
+    let items: Vec<ApplicationUserVO> = items
+        .into_iter()
+        .map(crate::conversion::users::user_model_to_vo)
+        .collect();
 
     warn!(
         %operator_id,

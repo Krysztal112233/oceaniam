@@ -49,7 +49,7 @@ oceaniam-credential.workspace = true
 oceaniam-database.workspace = true
 oceaniam-keybox.workspace = true
 oceaniam-permission.workspace = true
-oceaniam-vo = { workspace = true, features = ["database"] }
+oceaniam-vo.workspace = true
 
 [dev-dependencies]
 reqwest.workspace = true

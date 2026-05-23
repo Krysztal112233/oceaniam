@@ -1,7 +1,5 @@
 use oceaniam_api::PageParam;
 use oceaniam_common::sqid::Sqid;
-#[cfg(feature = "database")]
-use oceaniam_database::model;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -19,16 +17,6 @@ pub struct PatchTenantRequest {
 pub struct TenantVO {
     pub id: Sqid,
     pub comment: Option<String>,
-}
-
-#[cfg(feature = "database")]
-impl From<model::tenants::Model> for TenantVO {
-    fn from(model::tenants::Model { id, comment, .. }: model::tenants::Model) -> Self {
-        Self {
-            id: id.into(),
-            comment,
-        }
-    }
 }
 
 #[derive(Debug, Deserialize, ToSchema, Serialize, ts_rs::TS)]

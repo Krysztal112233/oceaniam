@@ -83,7 +83,10 @@ pub async fn get_administrators(
     let PagedResponse { items, page_info } = Administrators::get_administrators(page, &database)
         .await
         .inspect_err(|e| error!(error = %e, "administrator list query failed"))?;
-    let items = items.into_iter().map(AdministratorVO::from).collect();
+    let items = items
+        .into_iter()
+        .map(crate::conversion::administrators::administrator_model_to_vo)
+        .collect();
 
     Ok(ApiResponse::new(PagedResponse { items, page_info }))
 }
@@ -248,7 +251,7 @@ pub async fn create_administrator(
         .await;
 
     Ok(ApiResponse::new(CreateAdministratorResponse {
-        administrator: administrator.into(),
+        administrator: crate::conversion::administrators::administrator_model_to_vo(administrator),
         initial_password,
     }))
 }
@@ -334,7 +337,9 @@ pub async fn patch_administrator(
         }))
         .await;
 
-    Ok(ApiResponse::new(target_administrator.into()))
+    Ok(ApiResponse::new(
+        crate::conversion::administrators::administrator_model_to_vo(target_administrator),
+    ))
 }
 
 #[tracing::instrument(

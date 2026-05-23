@@ -94,7 +94,10 @@ pub async fn get_applications(
         Applications::get_applications(tenant_id, page, &database).await?;
 
     Ok(ApiResponse::new(PagedResponse {
-        items: items.into_iter().map(ApplicationVO::from).collect(),
+        items: items
+            .into_iter()
+            .map(crate::conversion::applications::application_model_to_vo)
+            .collect(),
         page_info,
     }))
 }
@@ -208,7 +211,9 @@ pub async fn get_application(
 ) -> AppResult<ApplicationDetailVO> {
     let application = get_tenant_application(path, &database).await?;
 
-    Ok(ApiResponse::new(ApplicationDetailVO::from(application)))
+    Ok(ApiResponse::new(
+        crate::conversion::applications::application_detail_model_to_vo(application),
+    ))
 }
 
 /// Patch application
@@ -266,7 +271,9 @@ pub async fn patch_application(
         }))
         .await;
 
-    Ok(ApiResponse::new(ApplicationDetailVO::from(application)))
+    Ok(ApiResponse::new(
+        crate::conversion::applications::application_detail_model_to_vo(application),
+    ))
 }
 
 /// Delete application

@@ -68,7 +68,9 @@ pub async fn create_secret(
         }))
         .await;
 
-    Ok(ApiResponse::new(SecretVO::with_unmasked(model)))
+    Ok(ApiResponse::new(
+        crate::conversion::secrets::secret_with_unmasked(model),
+    ))
 }
 
 #[utoipa::path(
@@ -132,7 +134,8 @@ pub async fn get_secrets(
                 .get(&secret.id)
                 .cloned()
                 .unwrap_or_default();
-            SecretVO::with_masked(secret).with_application_ids(application_ids)
+            crate::conversion::secrets::secret_with_masked(secret)
+                .with_application_ids(application_ids)
         })
         .collect();
 
@@ -180,7 +183,8 @@ pub async fn get_secret(
         .await?;
 
     Ok(ApiResponse::new(
-        SecretVO::with_masked(secret).with_application_ids(application_ids),
+        crate::conversion::secrets::secret_with_masked(secret)
+            .with_application_ids(application_ids),
     ))
 }
 

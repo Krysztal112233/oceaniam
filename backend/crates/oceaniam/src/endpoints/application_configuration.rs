@@ -14,8 +14,7 @@ use axum::{
 use oceaniam_api::{ApiResponse, Empty, ErrorResponse};
 use oceaniam_audit::types::{AuditPayload, PatchApplicationConfigurationPayload};
 use oceaniam_vo::applications::{
-    ApplicationConfigurationVO, GetApplicationConfigurationResponse,
-    PatchApplicationConfigurationRequest,
+    GetApplicationConfigurationResponse, PatchApplicationConfigurationRequest,
 };
 use tap::Tap;
 use tracing::{Span, error, field};
@@ -82,7 +81,9 @@ pub async fn get_application_configuration(
         })?;
 
     Ok(ApiResponse::new(GetApplicationConfigurationResponse {
-        configuration: ApplicationConfigurationVO::from(configuration),
+        configuration: crate::conversion::configurations::application_configuration_to_vo(
+            configuration,
+        ),
     }))
 }
 

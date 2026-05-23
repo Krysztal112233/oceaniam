@@ -2,6 +2,7 @@ use oceaniam_common::config::DatabaseConfig;
 use sea_orm::DatabaseConnection;
 
 pub mod app;
+pub mod conversion;
 pub mod endpoints;
 pub mod error;
 pub mod middlewares;

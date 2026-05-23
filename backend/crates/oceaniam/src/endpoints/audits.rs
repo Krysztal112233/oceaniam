@@ -70,7 +70,10 @@ async fn get_audit_logs(
             .await
             .inspect_err(|e| error!(error = %e, "failed to query audit logs"))?;
 
-    let items = items.into_iter().map(AuditLogVO::from).collect();
+    let items = items
+        .into_iter()
+        .map(crate::conversion::statistics::audit_log_model_to_vo)
+        .collect();
 
     Ok(ApiResponse::new(PagedResponse { items, page_info }))
 }

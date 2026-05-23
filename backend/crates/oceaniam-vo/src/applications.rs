@@ -7,9 +7,6 @@ use oceaniam_common::sqid::Sqid;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use utoipa::ToSchema;
 
-#[cfg(feature = "database")]
-use oceaniam_database::model::{self};
-
 #[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
 pub struct CreateApplicationRequest {
     pub comment: Option<String>,
@@ -173,166 +170,6 @@ pub struct ApplicationChallengeVO {
     pub expires_at: DateTime<FixedOffset>,
     pub consumed_at: Option<DateTime<FixedOffset>>,
     pub created_at: DateTime<FixedOffset>,
-}
-
-#[cfg(feature = "database")]
-impl From<model::applications::Model> for ApplicationVO {
-    fn from(
-        model::applications::Model {
-            id,
-            comment,
-            tenant_id,
-            ..
-        }: model::applications::Model,
-    ) -> Self {
-        Self {
-            id: id.into(),
-            comment,
-            tenant_id: tenant_id.into(),
-        }
-    }
-}
-
-#[cfg(feature = "database")]
-impl From<model::challenges::Model> for ApplicationChallengeVO {
-    fn from(value: model::challenges::Model) -> Self {
-        Self {
-            id: value.id,
-            application_id: value.application_id.into(),
-            subject_id: value.subject_id,
-            factor_type: value.factor_type.to_string(),
-            purpose: value.purpose.to_string(),
-            status: value.status.to_string(),
-            attempt_count: value.attempt_count,
-            remaining_attempts: (value.max_attempts - value.attempt_count).max(0),
-            expires_at: value.expires_at,
-            consumed_at: value.consumed_at,
-            created_at: value.created_at,
-        }
-    }
-}
-
-#[cfg(feature = "database")]
-impl From<oceaniam_database::config::application::TokenConfiguration> for TokenConfigurationVO {
-    fn from(
-        oceaniam_database::config::application::TokenConfiguration {
-            issuer,
-            audience,
-        }: oceaniam_database::config::application::TokenConfiguration,
-    ) -> Self {
-        Self { issuer, audience }
-    }
-}
-
-#[cfg(feature = "database")]
-impl From<oceaniam_database::config::application::Argon2Configuration> for Argon2Configuration {
-    fn from(
-        oceaniam_database::config::application::Argon2Configuration {
-            m_cost,
-            t_cost,
-            p_cost,
-        }: oceaniam_database::config::application::Argon2Configuration,
-    ) -> Self {
-        Self {
-            m_cost,
-            t_cost,
-            p_cost,
-        }
-    }
-}
-
-#[cfg(feature = "database")]
-impl From<oceaniam_database::config::application::PasswordConfiguration>
-    for PasswordConfigurationVO
-{
-    fn from(
-        oceaniam_database::config::application::PasswordConfiguration { argon2 }:
-            oceaniam_database::config::application::PasswordConfiguration,
-    ) -> Self {
-        Self {
-            argon2: argon2.into(),
-        }
-    }
-}
-
-#[cfg(feature = "database")]
-impl From<oceaniam_database::config::application::AuthConfiguration> for AuthConfigurationVO {
-    fn from(
-        oceaniam_database::config::application::AuthConfiguration {
-            token,
-            password,
-            totp,
-        }: oceaniam_database::config::application::AuthConfiguration,
-    ) -> Self {
-        Self {
-            token: token.into(),
-            password: password.into(),
-            totp: totp.into(),
-        }
-    }
-}
-
-#[cfg(feature = "database")]
-impl From<oceaniam_database::config::application::TotpConfiguration> for TotpConfigurationVO {
-    fn from(
-        oceaniam_database::config::application::TotpConfiguration { encryption_key }:
-            oceaniam_database::config::application::TotpConfiguration,
-    ) -> Self {
-        Self { encryption_key }
-    }
-}
-
-#[cfg(feature = "database")]
-impl From<oceaniam_database::config::application::RegistrationConfiguration>
-    for RegistrationConfigurationVO
-{
-    fn from(
-        oceaniam_database::config::application::RegistrationConfiguration { enabled }:
-            oceaniam_database::config::application::RegistrationConfiguration,
-    ) -> Self {
-        Self { enabled }
-    }
-}
-
-#[cfg(feature = "database")]
-impl From<oceaniam_database::config::application::ApplicationConfiguration>
-    for ApplicationConfigurationVO
-{
-    fn from(
-        oceaniam_database::config::application::ApplicationConfiguration {
-            auth,
-            registration,
-        }: oceaniam_database::config::application::ApplicationConfiguration,
-    ) -> Self {
-        Self {
-            auth: auth.into(),
-            registration: registration.into(),
-        }
-    }
-}
-
-#[cfg(feature = "database")]
-impl From<model::applications::Model> for ApplicationDetailVO {
-    fn from(
-        model::applications::Model {
-            id,
-            comment,
-            tenant_id,
-            configuration,
-            ..
-        }: model::applications::Model,
-    ) -> Self {
-        Self {
-            id: id.into(),
-            comment,
-            tenant_id: tenant_id.into(),
-            configuration: serde_json::from_value::<
-                oceaniam_database::config::application::ApplicationConfiguration,
-            >(configuration)
-            .unwrap()
-            .into(),
-        }
-    }
 }
 
 /// VO for creating a new application user
@@ -520,26 +357,6 @@ pub struct ApplicationUserVO {
     pub nickname: String,
 }
 
-#[cfg(feature = "database")]
-impl From<oceaniam_database::model::users::Model> for ApplicationUserVO {
-    fn from(
-        oceaniam_database::model::users::Model {
-            id,
-            email,
-            phone,
-            nickname,
-            ..
-        }: oceaniam_database::model::users::Model,
-    ) -> Self {
-        Self {
-            id: id.into(),
-            email,
-            phone,
-            nickname,
-        }
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
 pub struct SecretVO {
     pub id: Sqid,
@@ -550,33 +367,6 @@ pub struct SecretVO {
 }
 
 impl SecretVO {
-    #[cfg(feature = "database")]
-    pub fn with_masked(model: model::application_secrets::Model) -> Self {
-        Self {
-            secret: format!("{}...", model.secret.clone().split_at(8).0),
-            ..Self::with_unmasked(model)
-        }
-    }
-
-    #[cfg(feature = "database")]
-    pub fn with_unmasked(
-        model::application_secrets::Model {
-            id,
-            secret,
-            created_at,
-            revoked_at,
-            ..
-        }: model::application_secrets::Model,
-    ) -> Self {
-        Self {
-            id: id.into(),
-            secret,
-            created_at: created_at.to_rfc2822(),
-            revoked_at: revoked_at.map(|it| it.to_rfc2822()),
-            application_ids: Vec::new(),
-        }
-    }
-
     pub fn with_application_ids(
         mut self,
         application_ids: impl IntoIterator<Item = uuid::Uuid>,
@@ -596,34 +386,6 @@ pub struct ApplicationKeyVO {
     pub retired_at: DateTime<FixedOffset>,
     pub expires_at: DateTime<FixedOffset>,
     pub revoked_at: Option<DateTime<FixedOffset>>,
-}
-
-#[cfg(feature = "database")]
-impl From<oceaniam_database::model::key_boxes::Model> for ApplicationKeyVO {
-    fn from(
-        oceaniam_database::model::key_boxes::Model {
-            id,
-            key_alg,
-            status,
-            created_at,
-            activated_at,
-            retired_at,
-            expires_at,
-            revoked_at,
-            ..
-        }: oceaniam_database::model::key_boxes::Model,
-    ) -> Self {
-        Self {
-            key_id: id.into(),
-            algorithm: key_alg.to_string(),
-            status: status.to_string(),
-            created_at,
-            activated_at,
-            retired_at,
-            expires_at,
-            revoked_at,
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]

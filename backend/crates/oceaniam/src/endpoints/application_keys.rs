@@ -87,7 +87,7 @@ pub async fn get_application_keys(
         .get_keys()
         .values()
         .cloned()
-        .map(ApplicationKeyVO::from)
+        .map(crate::conversion::keys::key_model_to_vo)
         .collect::<Vec<_>>();
 
     info!(
@@ -161,7 +161,7 @@ pub async fn rotate_application_key(
         .await;
 
     Ok(ApiResponse::new(RotateKeyResponse {
-        key: ApplicationKeyVO::from(new_key),
+        key: crate::conversion::keys::key_model_to_vo(new_key),
     }))
 }
 

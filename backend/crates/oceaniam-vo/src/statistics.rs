@@ -3,11 +3,6 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use oceaniam_common::sqid::Sqid;
-#[cfg(feature = "database")]
-use oceaniam_database::{
-    helper::statistics::{ApplicationCounts, PlatformCounts},
-    model,
-};
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
 #[ts(rename_all = "snake_case")]
@@ -90,41 +85,6 @@ impl Default for TrendQuery {
         Self {
             granularity: Granularity::default(),
             range: default_range(),
-        }
-    }
-}
-
-#[cfg(feature = "database")]
-impl From<PlatformCounts> for OverviewVO {
-    fn from(pc: PlatformCounts) -> Self {
-        Self {
-            total_tenants: pc.total_tenants,
-            total_applications: pc.total_applications,
-            total_administrators: pc.total_administrators,
-            total_application_users: pc.total_application_users,
-            total_active_secrets: pc.total_active_secrets,
-        }
-    }
-}
-
-#[cfg(feature = "database")]
-impl From<ApplicationCounts> for ApplicationStatisticsVO {
-    fn from(ac: ApplicationCounts) -> Self {
-        Self {
-            total_users: ac.total_users,
-            total_active_keys: ac.total_active_keys,
-        }
-    }
-}
-
-#[cfg(feature = "database")]
-impl From<model::audits::Model> for AuditLogVO {
-    fn from(m: model::audits::Model) -> Self {
-        Self {
-            id: m.id.into(),
-            audit_type: m.audit_type.to_string(),
-            payload: m.payload,
-            created_at: m.created_at,
         }
     }
 }

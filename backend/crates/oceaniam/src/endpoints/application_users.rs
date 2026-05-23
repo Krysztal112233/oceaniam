@@ -111,7 +111,10 @@ pub async fn get_application_users(
                     "user list query failed"
                 )
             })?;
-    let items = items.into_iter().map(ApplicationUserVO::from).collect();
+    let items = items
+        .into_iter()
+        .map(crate::conversion::users::user_model_to_vo)
+        .collect();
 
     Ok(ApiResponse::new(PagedResponse { items, page_info }))
 }
@@ -242,7 +245,7 @@ pub async fn search_application_users(
                 })?;
 
             let items = if page.as_offset() == 0 && page.per_page > 0 {
-                vec![ApplicationUserVO::from(user)]
+                vec![crate::conversion::users::user_model_to_vo(user)]
             } else {
                 Vec::new()
             };
@@ -277,7 +280,10 @@ pub async fn search_application_users(
             })?;
 
             PagedResponse {
-                items: items.into_iter().map(ApplicationUserVO::from).collect(),
+                items: items
+                    .into_iter()
+                    .map(crate::conversion::users::user_model_to_vo)
+                    .collect(),
                 page_info,
             }
         }
@@ -369,7 +375,9 @@ pub async fn get_application_user(
             )
         })?;
 
-    Ok(ApiResponse::new(user.into()))
+    Ok(ApiResponse::new(
+        crate::conversion::users::user_model_to_vo(user),
+    ))
 }
 
 /// Create application user
@@ -481,7 +489,9 @@ pub async fn create_application_user(
         }))
         .await;
 
-    Ok(ApiResponse::new(user.into()))
+    Ok(ApiResponse::new(
+        crate::conversion::users::user_model_to_vo(user),
+    ))
 }
 
 /// Patch application user credentials
@@ -589,5 +599,7 @@ pub async fn patch_application_user_credentials(
         "application user credentials updated successfully"
     );
 
-    Ok(ApiResponse::new(user.into()))
+    Ok(ApiResponse::new(
+        crate::conversion::users::user_model_to_vo(user),
+    ))
 }

@@ -56,10 +56,11 @@ async fn get_statistics(
     _: PlatformPermissionGuard<TenantRead>,
     State(AppState { database, .. }): State<AppState<'_>>,
 ) -> AppResult<OverviewVO> {
-    let overview: OverviewVO = Audits::platform_counts(&database)
-        .await
-        .inspect_err(|e| error!(error = %e, "failed to query platform counts"))?
-        .into();
+    let overview: OverviewVO = crate::conversion::statistics::platform_counts_to_overview(
+        Audits::platform_counts(&database)
+            .await
+            .inspect_err(|e| error!(error = %e, "failed to query platform counts"))?,
+    );
 
     Ok(ApiResponse::new(overview))
 }
@@ -146,10 +147,12 @@ async fn get_application_statistics(
         error!(error = %e, "failed to convert application_id");
     })?;
 
-    let stats: ApplicationStatisticsVO = Audits::application_counts(app_id, &database)
-        .await
-        .inspect_err(|e| error!(error = %e, "failed to query application counts"))?
-        .into();
+    let stats: ApplicationStatisticsVO =
+        crate::conversion::statistics::application_counts_to_statistics(
+            Audits::application_counts(app_id, &database)
+                .await
+                .inspect_err(|e| error!(error = %e, "failed to query application counts"))?,
+        );
 
     Ok(ApiResponse::new(stats))
 }
@@ -267,7 +270,10 @@ async fn get_application_audits(
             .await
             .inspect_err(|e| error!(error = %e, "failed to query application audit logs"))?;
 
-    let items = items.into_iter().map(AuditLogVO::from).collect();
+    let items = items
+        .into_iter()
+        .map(crate::conversion::statistics::audit_log_model_to_vo)
+        .collect();
 
     Ok(ApiResponse::new(PagedResponse { items, page_info }))
 }

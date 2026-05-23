@@ -2,8 +2,6 @@ use std::collections::HashSet;
 
 use garde::Validate;
 use oceaniam_common::sqid::Sqid;
-#[cfg(feature = "database")]
-use oceaniam_database::model;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -11,16 +9,6 @@ use utoipa::ToSchema;
 pub struct AdministratorVO {
     pub id: Sqid,
     pub name: String,
-}
-
-#[cfg(feature = "database")]
-impl From<model::administrators::Model> for AdministratorVO {
-    fn from(model::administrators::Model { id, name, .. }: model::administrators::Model) -> Self {
-        Self {
-            id: id.into(),
-            name,
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema)]

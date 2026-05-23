@@ -111,7 +111,9 @@ pub async fn get_application_challenge(
         ));
     }
 
-    Ok(ApiResponse::new(challenge.into()))
+    Ok(ApiResponse::new(
+        crate::conversion::challenges::challenge_model_to_vo(challenge),
+    ))
 }
 
 /// Submit a verification payload for a pending challenge and, on success, receive a signed JWT.

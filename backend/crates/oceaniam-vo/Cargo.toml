@@ -3,16 +3,9 @@ name = "oceaniam-vo"
 version.workspace = true
 edition.workspace = true
 
-[features]
-default = []
-database = ["dep:oceaniam-database"]
-
 [dependencies]
 chrono.workspace = true
 garde.workspace = true
-jsonwebtoken.workspace = true
-names.workspace = true
-reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 strum.workspace = true
@@ -22,4 +15,3 @@ uuid.workspace = true
 
 oceaniam-api.workspace = true
 oceaniam-common.workspace = true
-oceaniam-database = { workspace = true, optional = true }
