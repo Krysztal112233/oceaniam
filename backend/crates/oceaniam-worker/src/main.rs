@@ -3,7 +3,7 @@ use oceaniam_common::config::BackendConfig;
 use oceaniam_database::setup::{connect, init_system};
 use oceaniam_worker::error::Error;
 use oceaniam_worker::{WorkerContext, collect_workers};
-use oceaniam_worker_runtime::{WorkerRuntime, WorkerRuntimeController};
+use oceaniam_worker_runtime::WorkerRuntime;
 use tokio::signal::unix::{SignalKind, signal};
 use tracing::{debug, error};
 use tracing_subscriber::EnvFilter;
@@ -37,8 +37,7 @@ async fn main() -> Result<(), Error> {
         .inspect_err(|e| error!(error = %e, "failed to init system data"))?;
 
     let workers = collect_workers();
-    let ctrl: WorkerRuntimeController<Error> =
-        WorkerRuntime::new(WorkerContext { database }, workers).start()?;
+    let ctrl = WorkerRuntime::new(WorkerContext { database }, workers).start()?;
 
     let mut terminate =
         signal(SignalKind::terminate()).expect("failed to install SIGTERM signal handler");

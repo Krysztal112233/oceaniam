@@ -11,9 +11,9 @@ members = [
 	"crates/oceaniam-export",
 	"crates/oceaniam-keybox",
 	"crates/oceaniam-permission",
+	"crates/oceaniam-vo",
 	"crates/oceaniam-worker",
 	"crates/oceaniam-worker-runtime",
-	"crates/oceaniam-vo",
 ]
 resolver = "3"
 

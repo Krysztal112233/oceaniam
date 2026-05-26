@@ -23,7 +23,7 @@ pub trait WorkerRuntimeError: fmt::Display {
 pub struct WorkerRuntime<Ctx, E>
 where
     Ctx: Clone + Send + Sync + 'static,
-    E: fmt::Display + 'static,
+    E: WorkerRuntimeError + 'static,
 {
     context: Ctx,
     workers: HashMap<String, Arc<dyn Worker<Ctx, Error = E>>>,
@@ -32,28 +32,20 @@ where
 impl<Ctx, E> WorkerRuntime<Ctx, E>
 where
     Ctx: Clone + Send + Sync + 'static,
-    E: fmt::Display + 'static,
+    E: WorkerRuntimeError + 'static,
 {
     pub fn new(context: Ctx, workers: HashMap<String, Arc<dyn Worker<Ctx, Error = E>>>) -> Self {
         Self { context, workers }
     }
 
-    pub fn start<R>(self) -> Result<WorkerRuntimeController<R>, R>
-    where
-        R: WorkerRuntimeError,
-    {
+    pub fn start(self) -> Result<WorkerRuntimeController<E>, E> {
         let (shutdown_tx, _) = broadcast::channel(1);
 
         let handles = self
             .workers
             .into_iter()
             .map(|(name, worker)| {
-                spawn_worker_loop::<_, _, R>(
-                    name,
-                    worker,
-                    self.context.clone(),
-                    shutdown_tx.subscribe(),
-                )
+                spawn_worker_loop(name, worker, self.context.clone(), shutdown_tx.subscribe())
             })
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -69,22 +61,19 @@ where
     }
 }
 
-pub struct WorkerRuntimeController<R> {
+pub struct WorkerRuntimeController<E> {
     handles: Vec<JoinHandle<()>>,
     shutdown_tx: broadcast::Sender<()>,
-    _phantom: PhantomData<R>,
+    _phantom: PhantomData<E>,
 }
 
-impl<R> WorkerRuntimeController<R>
-where
-    R: WorkerRuntimeError,
-{
-    pub async fn shutdown(self) -> Result<(), R> {
+impl<E: WorkerRuntimeError> WorkerRuntimeController<E> {
+    pub async fn shutdown(self) -> Result<(), E> {
         let _ = self.shutdown_tx.send(());
 
         for handle in self.handles {
             handle.await.map_err(|err| {
-                R::internal(format!("worker scheduler task aborted unexpectedly: {err}"))
+                E::internal(format!("worker scheduler task aborted unexpectedly: {err}"))
             })?;
         }
 
@@ -92,20 +81,19 @@ where
     }
 }
 
-fn spawn_worker_loop<Ctx, E, R>(
+fn spawn_worker_loop<Ctx, E>(
     name: String,
     worker: Arc<dyn Worker<Ctx, Error = E>>,
     context: Ctx,
     mut shutdown_rx: broadcast::Receiver<()>,
-) -> Result<JoinHandle<()>, R>
+) -> Result<JoinHandle<()>, E>
 where
     Ctx: Clone + Send + Sync + 'static,
-    E: fmt::Display + 'static,
-    R: WorkerRuntimeError,
+    E: WorkerRuntimeError + 'static,
 {
     let cron = worker.cron();
     let schedule = Schedule::from_str(cron)
-        .map_err(|err| R::internal(format!("invalid cron for worker `{name}`: {err}")))?;
+        .map_err(|err| E::internal(format!("invalid cron for worker `{name}`: {err}")))?;
 
     Ok(tokio::spawn(async move {
         let running = Arc::new(AtomicBool::new(false));
