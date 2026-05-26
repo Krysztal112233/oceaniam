@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use crate::error::Error;
 use async_trait::async_trait;
 use chrono::{Duration, Utc};
 use linkme::distributed_slice;
@@ -14,16 +13,16 @@ use oceaniam_database::{
     },
 };
 use oceaniam_keybox::KeyBox;
+use oceaniam_worker_runtime::Worker;
 use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait};
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
-use crate::runtime::{REGISTERED_WORKERS, Worker, WorkerContext, WorkerRef};
+use crate::{REGISTERED_WORKERS, WorkerContext, error::Error};
 
 async fn log_key_rotation(
     application_id: Uuid,
     new_key_id: Uuid,
-
     database: &sea_orm::DatabaseConnection,
 ) {
     let payload = AuditPayload::from(RotateKeyPayload {
@@ -46,7 +45,9 @@ async fn log_key_rotation(
 struct KeyRotationWorker;
 
 #[async_trait]
-impl Worker for KeyRotationWorker {
+impl Worker<WorkerContext> for KeyRotationWorker {
+    type Error = Error;
+
     fn name(&self) -> &'static str {
         "key_rotation"
     }
@@ -86,7 +87,7 @@ impl Worker for KeyRotationWorker {
                 .values()
                 .filter(|k| k.status == KeyStatus::Active)
                 .max_by_key(|k| k.activated_at)
-                .map_or(true, |key| {
+                .is_none_or(|key| {
                     key.expires_at.signed_duration_since(Utc::now()).num_days()
                         < threshold.num_days()
                 });
@@ -113,4 +114,4 @@ impl Worker for KeyRotationWorker {
 }
 
 #[distributed_slice(REGISTERED_WORKERS)]
-static KEY_ROTATION_WORKER: fn() -> WorkerRef = || Arc::new(KeyRotationWorker);
+static KEY_ROTATION_WORKER: fn() -> crate::OceaniamWorkerRef = || Arc::new(KeyRotationWorker);

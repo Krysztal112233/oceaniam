@@ -1,0 +1,11 @@
+[package]
+name = "oceaniam-worker-runtime"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+chrono.workspace = true
+cron.workspace = true
+tokio.workspace = true
+tracing.workspace = true

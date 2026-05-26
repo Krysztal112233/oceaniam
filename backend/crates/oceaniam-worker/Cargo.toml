@@ -6,10 +6,7 @@ edition.workspace = true
 [dependencies]
 async-trait.workspace = true
 chrono.workspace = true
-cron.workspace = true
 dotenvy.workspace = true
-im.workspace = true
-itertools.workspace = true
 linkme.workspace = true
 mimalloc.workspace = true
 sea-orm.workspace = true
@@ -17,9 +14,10 @@ snafu.workspace = true
 tokio.workspace = true
 tracing-subscriber.workspace = true
 tracing.workspace = true
+uuid.workspace = true
 
 oceaniam-common.workspace = true
 oceaniam-database.workspace = true
 oceaniam-keybox.workspace = true
 oceaniam-audit.workspace = true
-uuid.workspace = true
+oceaniam-worker-runtime.workspace = true

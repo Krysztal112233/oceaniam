@@ -1,5 +1,5 @@
-use oceaniam_vo::pagination::PagedResponse;
 use oceaniam_vo::applications::*;
+use oceaniam_vo::pagination::PagedResponse;
 use reqwest::Method;
 
 use crate::client::{AuthMode, OceanIamClient};

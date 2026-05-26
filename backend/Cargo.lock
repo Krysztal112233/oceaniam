@@ -2661,22 +2661,31 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
- "cron",
  "dotenvy",
- "im",
- "itertools",
  "linkme",
  "mimalloc",
  "oceaniam-audit",
  "oceaniam-common",
  "oceaniam-database",
  "oceaniam-keybox",
+ "oceaniam-worker-runtime",
  "sea-orm",
  "snafu",
  "tokio",
  "tracing",
  "tracing-subscriber",
  "uuid",
+]
+
+[[package]]
+name = "oceaniam-worker-runtime"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "cron",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

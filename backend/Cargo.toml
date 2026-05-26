@@ -12,6 +12,7 @@ members = [
 	"crates/oceaniam-keybox",
 	"crates/oceaniam-permission",
 	"crates/oceaniam-worker",
+	"crates/oceaniam-worker-runtime",
 	"crates/oceaniam-vo",
 ]
 resolver = "3"
@@ -91,6 +92,7 @@ oceaniam-keybox = { path = "./crates/oceaniam-keybox/" }
 oceaniam-permission = { path = "./crates/oceaniam-permission/" }
 oceaniam = { path = "./crates/oceaniam/" }
 oceaniam-worker = { path = "./crates/oceaniam-worker/" }
+oceaniam-worker-runtime = { path = "./crates/oceaniam-worker-runtime/" }
 oceaniam-vo = { path = "./crates/oceaniam-vo/" }
 
 [workspace.dependencies.totp-rs]

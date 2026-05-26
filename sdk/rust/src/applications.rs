@@ -1,5 +1,5 @@
-use oceaniam_vo::pagination::{PageParam, PagedResponse};
 use oceaniam_vo::applications::*;
+use oceaniam_vo::pagination::{PageParam, PagedResponse};
 use reqwest::Method;
 use serde::Deserialize;
 

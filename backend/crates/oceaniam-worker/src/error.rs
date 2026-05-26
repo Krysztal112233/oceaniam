@@ -1,5 +1,6 @@
 use snafu::{Location, Snafu};
 
+use oceaniam_worker_runtime::WorkerRuntimeError;
 use sea_orm::DbErr;
 
 #[derive(Debug, Snafu)]
@@ -33,6 +34,15 @@ impl From<oceaniam_database::error::Error> for Error {
     fn from(e: oceaniam_database::error::Error) -> Self {
         Error::Internal {
             msg: e.to_string(),
+            location: snafu::location!(),
+        }
+    }
+}
+
+impl WorkerRuntimeError for Error {
+    fn internal(msg: String) -> Self {
+        Error::Internal {
+            msg,
             location: snafu::location!(),
         }
     }

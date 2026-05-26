@@ -2,8 +2,10 @@ use mimalloc::MiMalloc;
 use oceaniam_common::config::BackendConfig;
 use oceaniam_database::setup::{connect, init_system};
 use oceaniam_worker::error::Error;
-use oceaniam_worker::runtime::{WorkerContext, WorkerRuntime};
-use tracing::error;
+use oceaniam_worker::{WorkerContext, collect_workers};
+use oceaniam_worker_runtime::{WorkerRuntime, WorkerRuntimeController};
+use tokio::signal::unix::{SignalKind, signal};
+use tracing::{debug, error};
 use tracing_subscriber::EnvFilter;
 
 #[global_allocator]
@@ -34,5 +36,19 @@ async fn main() -> Result<(), Error> {
         .await
         .inspect_err(|e| error!(error = %e, "failed to init system data"))?;
 
-    WorkerRuntime::new(WorkerContext { database })?.run().await
+    let workers = collect_workers();
+    let ctrl: WorkerRuntimeController<Error> =
+        WorkerRuntime::new(WorkerContext { database }, workers).start()?;
+
+    let mut terminate =
+        signal(SignalKind::terminate()).expect("failed to install SIGTERM signal handler");
+    let mut interrupt =
+        signal(SignalKind::interrupt()).expect("failed to install SIGINT signal handler");
+
+    tokio::select! {
+        _ = terminate.recv() => debug!("received SIGTERM, starting worker shutdown"),
+        _ = interrupt.recv() => debug!("received SIGINT, starting worker shutdown"),
+    }
+
+    ctrl.shutdown().await
 }
