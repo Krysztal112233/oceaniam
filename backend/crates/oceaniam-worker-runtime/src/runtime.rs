@@ -160,7 +160,7 @@ mod tests {
         // Workers register via linkme::distributed_slice in the consuming crate.
         // The runtime crate itself has no registered workers, so this test
         // simply verifies that the cron crate is functional.
-        for cron in ["0 0 */6 * * *", "*/5 * * * *"] {
+        for cron in ["0 0 */6 * * *", "0 */5 * * * *"] {
             Schedule::from_str(cron).unwrap_or_else(|err| panic!("invalid cron `{cron}`: {err}"));
         }
     }
