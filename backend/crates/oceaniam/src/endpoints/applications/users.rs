@@ -1,6 +1,3 @@
-//! Application user-related API endpoints
-
-use crate::error::AppResult;
 use argon2::Argon2;
 use axum::{
     Json,
@@ -26,9 +23,11 @@ use tracing::{Span, error, field, info};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
+use super::ResolvedApplication;
 use crate::{
-    endpoints::applications::{TenantApplicationPath, get_tenant_application},
+    error::AppResult,
     middlewares::application::AdminJwtOrApplicationSecretGuard,
+    middlewares::auth::AuthenticatedOperator,
     state::{AppState, applications::UserIdentifier},
 };
 
@@ -67,14 +66,14 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
 #[tracing::instrument(
     level = "info",
     name = "tenant_application_users.list",
-    skip(auth, database, path),
+    skip(_auth, database),
     fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, page = field::Empty, per_page = field::Empty, sort_order = field::Empty)
 )]
 pub async fn get_application_users(
-    auth: AdminJwtOrApplicationSecretGuard,
-
+    _auth: AdminJwtOrApplicationSecretGuard,
+    operator: AuthenticatedOperator,
     State(AppState { database, .. }): State<AppState<'_>>,
-    Path(path): Path<TenantApplicationPath>,
+    app: ResolvedApplication,
     OptionalQuery(query): OptionalQuery<ApplicationUsersListQuery>,
 ) -> AppResult<PagedResponse<ApplicationUserVO>> {
     let query = query.unwrap_or_default();
@@ -82,15 +81,11 @@ pub async fn get_application_users(
         page: query.page,
         per_page: query.per_page,
     };
-    let operator_id = match &auth {
-        axum_extra::either::Either::E1(a) => Some(a.token.claims.sub),
-        _ => None,
-    };
-    let application = get_tenant_application(path, &database).await?;
-    let application_id = application.id;
+    let operator_id = operator.0;
+    let application_id = app.id();
     Span::current().tap(|it| {
         it.record("operator_id", field::debug(&operator_id))
-            .record("tenant_id", field::display(&application.tenant_id))
+            .record("tenant_id", field::display(&app.tenant_id()))
             .record("application_id", field::display(&application_id))
             .record("page", page.page)
             .record("per_page", page.per_page)
@@ -160,18 +155,18 @@ pub async fn get_application_users(
 #[tracing::instrument(
     level = "info",
     name = "tenant_application_users.search",
-    skip(auth, applications, database, path, search_options),
+    skip(_auth, applications, database, search_options),
     fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, page = field::Empty, per_page = field::Empty, sort_order = field::Empty, by_nickname = field::Empty, by_id = field::Empty, by_email = field::Empty, by_phone = field::Empty)
 )]
 pub async fn search_application_users(
-    auth: AdminJwtOrApplicationSecretGuard,
-
+    _auth: AdminJwtOrApplicationSecretGuard,
+    operator: AuthenticatedOperator,
     State(AppState {
         applications,
         database,
         ..
     }): State<AppState<'_>>,
-    Path(path): Path<TenantApplicationPath>,
+    app: ResolvedApplication,
     Garde(Query(search_options)): Garde<Query<SearchApplicationUsersQuery>>,
 ) -> AppResult<PagedResponse<ApplicationUserVO>> {
     let page = PageParam {
@@ -179,12 +174,8 @@ pub async fn search_application_users(
         per_page: search_options.per_page,
     };
     let sort_desc = matches!(search_options.sort_order, ApplicationUsersSortOrder::Desc);
-    let operator_id = match &auth {
-        axum_extra::either::Either::E1(a) => Some(a.token.claims.sub),
-        _ => None,
-    };
-    let application = get_tenant_application(path, &database).await?;
-    let application_id = application.id;
+    let operator_id = operator.0;
+    let application_id = app.id();
 
     if !(search_options
         .by_nickname
@@ -214,7 +205,7 @@ pub async fn search_application_users(
 
     Span::current().tap(|it| {
         it.record("operator_id", field::debug(&operator_id))
-            .record("tenant_id", field::display(&application.tenant_id))
+            .record("tenant_id", field::display(&app.tenant_id()))
             .record("application_id", field::display(&application_id))
             .record("page", page.page)
             .record("per_page", page.per_page)
@@ -346,36 +337,23 @@ pub async fn search_application_users(
 #[tracing::instrument(
     level = "info",
     name = "tenant_application_users.get",
-    skip(auth, applications, database),
+    skip(_auth, applications),
     fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
 )]
 pub async fn get_application_user(
-    auth: AdminJwtOrApplicationSecretGuard,
-    State(AppState {
-        applications,
-        database,
-        ..
-    }): State<AppState<'_>>,
-    Path((tenant_id, application_id, user_id)): Path<(Sqid, Sqid, Sqid)>,
+    _auth: AdminJwtOrApplicationSecretGuard,
+    operator: AuthenticatedOperator,
+    State(AppState { applications, .. }): State<AppState<'_>>,
+    app: ResolvedApplication,
+    Path((_tenant_id, _application_id, user_id)): Path<(Sqid, Sqid, Sqid)>,
 ) -> AppResult<ApplicationUserVO> {
-    let operator_id = match &auth {
-        axum_extra::either::Either::E1(a) => Some(a.token.claims.sub),
-        _ => None,
-    };
-    let application = get_tenant_application(
-        TenantApplicationPath {
-            tenant_id,
-            application_id,
-        },
-        &database,
-    )
-    .await?;
-    let application_id = application.id;
+    let operator_id = operator.0;
+    let application_id = app.id();
     let user_id: Uuid = user_id.try_into()?;
 
     Span::current().tap(|it| {
         it.record("operator_id", field::debug(&operator_id))
-            .record("tenant_id", field::display(&application.tenant_id))
+            .record("tenant_id", field::display(&app.tenant_id()))
             .record("application_id", field::display(&application_id))
             .record("user_id", field::display(&user_id));
     });
@@ -434,7 +412,7 @@ pub async fn get_application_user(
 #[tracing::instrument(
     level = "info",
     name = "tenant_application_users.create",
-    skip(applications, auditing, path, email, phone, nickname, password, database),
+    skip(applications, auditing, email, phone, nickname, password, database),
     fields(tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
 )]
 pub async fn create_application_user(
@@ -445,7 +423,7 @@ pub async fn create_application_user(
         database,
         ..
     }): State<AppState<'_>>,
-    Path(path): Path<TenantApplicationPath>,
+    app: ResolvedApplication,
     Garde(Json(CreateApplicationUserRequest {
         email,
         phone,
@@ -453,8 +431,7 @@ pub async fn create_application_user(
         password,
     })): Garde<Json<CreateApplicationUserRequest>>,
 ) -> AppResult<ApplicationUserVO> {
-    let application = get_tenant_application(path, &database).await?;
-    let application_id = application.id;
+    let application_id = app.id();
 
     // NOTE: This field required more than 4 char if [Some] or [None].
     //
@@ -463,7 +440,7 @@ pub async fn create_application_user(
     // If [None], it will be filled with [gen_random_name]
     let nickname = nickname.unwrap_or_else(gen_random_name);
     Span::current().tap(|it| {
-        it.record("tenant_id", field::display(&application.tenant_id))
+        it.record("tenant_id", field::display(&app.tenant_id()))
             .record("application_id", field::display(&application_id));
     });
 
@@ -561,24 +538,17 @@ pub async fn patch_application_user_credentials(
         database,
         ..
     }): State<AppState<'_>>,
-    Path((tenant_id, application_id, user_id)): Path<(Sqid, Sqid, Sqid)>,
+    app: ResolvedApplication,
+    Path((_tenant_id, _application_id, user_id)): Path<(Sqid, Sqid, Sqid)>,
     Garde(Json(PatchApplicationUserCredentialsRequest { password })): Garde<
         Json<PatchApplicationUserCredentialsRequest>,
     >,
 ) -> AppResult<ApplicationUserVO> {
-    let application = get_tenant_application(
-        TenantApplicationPath {
-            tenant_id,
-            application_id,
-        },
-        &database,
-    )
-    .await?;
-    let application_id = application.id;
+    let application_id = app.id();
     let user_id: Uuid = user_id.try_into()?;
 
     Span::current().tap(|it| {
-        it.record("tenant_id", field::display(&application.tenant_id))
+        it.record("tenant_id", field::display(&app.tenant_id()))
             .record("application_id", field::display(&application_id))
             .record("user_id", field::display(&user_id));
     });

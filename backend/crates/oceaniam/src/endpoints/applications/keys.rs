@@ -1,6 +1,3 @@
-//! Application key management API endpoints
-
-use crate::error::AppResult;
 use axum::extract::{Path, State};
 use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PagedResponse};
 use oceaniam_audit::types::{AuditPayload, RevokeKeyPayload, RotateKeyPayload};
@@ -12,6 +9,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
 use crate::{
+    error::AppResult,
     middlewares::application::AdminJwtOrApplicationSecretGuard,
     middlewares::permission::{KeyRevoke, KeyRotate, PlatformPermissionGuard},
     state::AppState,
@@ -66,7 +64,6 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
 )]
 pub async fn get_application_keys(
     _: AdminJwtOrApplicationSecretGuard,
-
     Path(path): Path<KeysPath>,
     State(AppState { keyboxes, .. }): State<AppState<'_>>,
 ) -> AppResult<PagedResponse<ApplicationKeyVO>> {
@@ -124,7 +121,6 @@ pub async fn get_application_keys(
 )]
 pub async fn rotate_application_key(
     _: PlatformPermissionGuard<KeyRotate>,
-
     Path(path): Path<KeysPath>,
     State(AppState {
         keyboxes, auditing, ..

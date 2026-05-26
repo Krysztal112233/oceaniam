@@ -21,6 +21,27 @@ pub struct PlatformAuthGuard {
     pub token: TokenData<SystemClaim>,
 }
 
+/// Always-extractable operator ID.
+///
+/// Returns `Some(operator_id)` when the request carries a valid
+/// platform JWT, and `None` otherwise.  Never rejects a request.
+#[derive(Debug, Clone)]
+pub struct AuthenticatedOperator(pub Option<Uuid>);
+
+impl FromRequestParts<AppState<'_>> for AuthenticatedOperator {
+    type Rejection = Infallible;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState<'_>,
+    ) -> Result<Self, Self::Rejection> {
+        match PlatformAuthGuard::from_request_parts(parts, state).await {
+            Ok(guard) => Ok(Self(Some(guard.token.claims.sub))),
+            Err(_) => Ok(Self(None)),
+        }
+    }
+}
+
 impl FromRequestParts<AppState<'_>> for PlatformAuthGuard {
     type Rejection = StatusCode;
 

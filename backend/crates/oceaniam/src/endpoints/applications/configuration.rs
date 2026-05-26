@@ -1,16 +1,4 @@
-//! Application configuration-related API endpoints
-
-use crate::middlewares::application::AdminJwtOrApplicationSecretGuard;
-use crate::{
-    endpoints::applications::{TenantApplicationPath, get_tenant_application},
-    error::AppResult,
-    middlewares::permission::{ApplicationConfigurationPatch, PlatformPermissionGuard},
-    state::AppState,
-};
-use axum::{
-    Json,
-    extract::{Path, State},
-};
+use axum::{Json, extract::State};
 use oceaniam_api::{ApiResponse, Empty, ErrorResponse};
 use oceaniam_audit::types::{AuditPayload, PatchApplicationConfigurationPayload};
 use oceaniam_vo::applications::{
@@ -19,6 +7,14 @@ use oceaniam_vo::applications::{
 use tap::Tap;
 use tracing::{Span, error, field};
 use utoipa_axum::{router::OpenApiRouter, routes};
+
+use super::ResolvedApplication;
+use crate::{
+    error::AppResult,
+    middlewares::application::AdminJwtOrApplicationSecretGuard,
+    middlewares::permission::{ApplicationConfigurationPatch, PlatformPermissionGuard},
+    state::AppState,
+};
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
     router
@@ -50,22 +46,17 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
 #[tracing::instrument(
     level = "info",
     name = "tenant_application_configuration.get",
-    skip(applications, path, database),
+    skip(applications),
     fields(tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn get_application_configuration(
     _: AdminJwtOrApplicationSecretGuard,
-    State(AppState {
-        applications,
-        database,
-        ..
-    }): State<AppState<'_>>,
-    Path(path): Path<TenantApplicationPath>,
+    State(AppState { applications, .. }): State<AppState<'_>>,
+    app: ResolvedApplication,
 ) -> AppResult<GetApplicationConfigurationResponse> {
-    let application = get_tenant_application(path, &database).await?;
-    let application_id = application.id;
+    let application_id = app.id();
     Span::current().tap(|it| {
-        it.record("tenant_id", field::display(&application.tenant_id))
+        it.record("tenant_id", field::display(&app.tenant_id()))
             .record("application_id", field::display(&application_id));
     });
 
@@ -108,25 +99,22 @@ pub async fn get_application_configuration(
 #[tracing::instrument(
     level = "info",
     name = "tenant_application_configuration.patch",
-    skip(applications, auditing, path, patch, database),
+    skip(applications, auditing, patch),
     fields(tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn patch_application_configuration(
     _: PlatformPermissionGuard<ApplicationConfigurationPatch>,
-
     State(AppState {
         applications,
         auditing,
-        database,
         ..
     }): State<AppState<'_>>,
-    Path(path): Path<TenantApplicationPath>,
+    app: ResolvedApplication,
     Json(patch): Json<PatchApplicationConfigurationRequest>,
 ) -> AppResult<Empty> {
-    let application = get_tenant_application(path, &database).await?;
-    let application_id = application.id;
+    let application_id = app.id();
     Span::current().tap(|it| {
-        it.record("tenant_id", field::display(&application.tenant_id))
+        it.record("tenant_id", field::display(&app.tenant_id()))
             .record("application_id", field::display(&application_id));
     });
 

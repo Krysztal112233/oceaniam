@@ -1,8 +1,17 @@
-//! Application token-related API endpoints
+use axum::{Json, extract::State, http::StatusCode};
+use oceaniam_api::{ApiResponse, ErrorResponse};
+use oceaniam_audit::types::{AuditPayload, RefreshJwtPayload, RevokeJwtPayload, SignJwtPayload};
+use oceaniam_auth::jwt::Claim;
+use oceaniam_common::consts;
+use oceaniam_database::config::application::ApplicationConfiguration;
+use oceaniam_vo::auth::{AuthVO, SigninResponseOrChallenge, SignoutResponse, SignupResponse};
+use tap::Tap;
+use tracing::{Span, error, field, info, warn};
+use utoipa_axum::{router::OpenApiRouter, routes};
 
-use crate::error::{AppResult, Error};
+use super::ResolvedApplication;
 use crate::{
-    endpoints::applications::{TenantApplicationPath, get_tenant_application},
+    error::{AppResult, Error},
     middlewares::{
         application::MatchedApplicationSecretGuard,
         auth::{ApplicationAuthGuard, TokenDispatchMethodGuard},
@@ -13,20 +22,6 @@ use crate::{
     },
     util::cookie::build_auth_cookie,
 };
-use axum::{
-    Json,
-    extract::{Path, State},
-    http::StatusCode,
-};
-use oceaniam_api::{ApiResponse, ErrorResponse};
-use oceaniam_audit::types::{AuditPayload, RefreshJwtPayload, RevokeJwtPayload, SignJwtPayload};
-use oceaniam_auth::jwt::Claim;
-use oceaniam_common::consts;
-use oceaniam_database::config::application::ApplicationConfiguration;
-use oceaniam_vo::auth::{AuthVO, SigninResponseOrChallenge, SignoutResponse, SignupResponse};
-use tap::Tap;
-use tracing::{Span, error, field, info, warn};
-use utoipa_axum::{router::OpenApiRouter, routes};
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
     router
@@ -59,7 +54,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
 #[tracing::instrument(
     level = "info",
     name = "tenant_application_tokens.create",
-    skip(token_mtd, applications, credentials, keyboxes, auditing, path, auth, database),
+    skip(token_mtd, applications, credentials, keyboxes, auditing, auth),
     fields(
         tenant_id = field::Empty,
         application_id = field::Empty,
@@ -71,7 +66,6 @@ pub async fn create_application_token(
     _: MatchedApplicationSecretGuard,
     token_mtd: TokenDispatchMethodGuard,
     State(AppState {
-        database,
         applications,
         credentials,
         keyboxes,
@@ -79,13 +73,12 @@ pub async fn create_application_token(
         config,
         ..
     }): State<AppState<'_>>,
-    Path(path): Path<TenantApplicationPath>,
+    app: ResolvedApplication,
     Json(auth): Json<AuthVO>,
 ) -> AppResult<SigninResponseOrChallenge> {
-    let application = get_tenant_application(path, &database).await?;
-    let application_id = application.id;
+    let application_id = app.id();
     Span::current().tap(|it| {
-        it.record("tenant_id", field::display(&application.tenant_id))
+        it.record("tenant_id", field::display(&app.tenant_id()))
             .record("application_id", field::display(&application_id))
             .record("token_dispatch", field::debug(&token_mtd));
     });
@@ -203,27 +196,25 @@ pub async fn create_application_token(
 #[tracing::instrument(
     level = "info",
     name = "tenant_application_tokens.delete",
-    skip(auth, revoked_jwt, auditing, path, database),
+    skip(auth, revoked_jwt, auditing),
     fields(user_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, jti = field::Empty)
 )]
 pub async fn delete_application_token(
     _: MatchedApplicationSecretGuard,
     auth: ApplicationAuthGuard,
     State(AppState {
-        database,
         revoked_jwt,
         auditing,
         ..
     }): State<AppState<'_>>,
-    Path(path): Path<TenantApplicationPath>,
+    app: ResolvedApplication,
 ) -> Result<ApiResponse<SignoutResponse>, Error> {
     let jti = auth.token.claims.jti;
     let user_id = auth.token.claims.sub;
-    let application = get_tenant_application(path, &database).await?;
-    let app_id = application.id;
+    let app_id = app.id();
     Span::current().tap(|it| {
         it.record("user_id", field::display(&user_id))
-            .record("tenant_id", field::display(&application.tenant_id))
+            .record("tenant_id", field::display(&app.tenant_id()))
             .record("application_id", field::display(&app_id))
             .record("jti", field::display(&jti));
     });
@@ -276,7 +267,7 @@ pub async fn delete_application_token(
 #[tracing::instrument(
     level = "info",
     name = "tenant_application_tokens.refresh",
-    skip(auth, token_mtd, revoked_jwt, keyboxes, applications, auditing, path, database),
+    skip(auth, token_mtd, revoked_jwt, keyboxes, applications, auditing),
     fields(
         user_id = field::Empty,
         tenant_id = field::Empty,
@@ -290,7 +281,6 @@ pub async fn refresh_application_token(
     token_mtd: TokenDispatchMethodGuard,
     _: MatchedApplicationSecretGuard,
     State(AppState {
-        database,
         revoked_jwt,
         keyboxes,
         applications,
@@ -298,16 +288,15 @@ pub async fn refresh_application_token(
         config,
         ..
     }): State<AppState<'_>>,
-    Path(path): Path<TenantApplicationPath>,
+    app: ResolvedApplication,
 ) -> AppResult<SigninResponseOrChallenge> {
     let jti = auth.token.claims.jti;
     let user_id = auth.token.claims.sub;
-    let application = get_tenant_application(path, &database).await?;
-    let application_id = application.id;
+    let application_id = app.id();
 
     Span::current().tap(|it| {
         it.record("user_id", field::display(&user_id))
-            .record("tenant_id", field::display(&application.tenant_id))
+            .record("tenant_id", field::display(&app.tenant_id()))
             .record("application_id", field::display(&application_id))
             .record("old_jti", field::display(&jti))
             .record("token_dispatch", field::debug(&token_mtd));

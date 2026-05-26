@@ -126,6 +126,11 @@ pub struct ManagedApplications<'a> {
 
     applications: Cache<Uuid, Arc<ApplicationScope>>,
 
+    /// Cache for application models (basic entity data).
+    ///
+    /// Invalidation: see `delete_application`, `patch_application`, `patch_configuration`.
+    models: Cache<Uuid, Arc<ApplicationModel>>,
+
     /// This field are shared with global states.
     shared_credential_vaults: ManagedCredentialVaults,
 
@@ -164,6 +169,10 @@ impl ManagedApplications<'_> {
                 .time_to_idle(Duration::from_mins(30))
                 .build(),
 
+            models: Cache::builder()
+                .time_to_idle(Duration::from_mins(30))
+                .build(),
+
             shared_credential_vaults: credential,
             filters,
             auditing,
@@ -175,6 +184,24 @@ impl ManagedApplications<'_> {
         application_id: Uuid,
     ) -> Result<Arc<ApplicationUsers>, Error> {
         Ok(self.get_or_init_scope(application_id).await?.users())
+    }
+
+    pub async fn get_model(&self, application_id: Uuid) -> Result<Arc<ApplicationModel>, Error> {
+        self.is_application_exist(application_id).await?;
+
+        let database = self.database.clone();
+
+        self.models
+            .try_get_with(application_id, async move {
+                Applications::get_application(application_id, &database)
+                    .await
+                    .map(Arc::new)
+            })
+            .await
+            .map_err(|e| Error::Internal {
+                msg: e.to_string(),
+                location: snafu::location!(),
+            })
     }
 
     #[allow(private_bounds)]
@@ -206,6 +233,7 @@ impl ManagedApplications<'_> {
         self.filters.secret_id_filter().mark();
 
         self.applications.invalidate(&application_id).await;
+        self.models.invalidate(&application_id).await;
 
         Ok(())
     }
@@ -280,6 +308,7 @@ impl ManagedApplications<'_> {
         );
 
         self.applications.invalidate(&application_id).await;
+        self.models.invalidate(&application_id).await;
 
         Ok(configuration)
     }
@@ -291,19 +320,25 @@ impl ManagedApplications<'_> {
     ) -> Result<ApplicationModel, Error> {
         self.is_application_exist(application_id).await?;
 
-        match patch.comment {
-            PatchValue::Missing => Applications::get_application(application_id, &self.database)
-                .await
-                .map_err(Into::into),
-            PatchValue::Null => Applications::update_comment(application_id, None, &self.database)
-                .await
-                .map_err(Into::into),
-            PatchValue::Value(comment) => {
-                Applications::update_comment(application_id, Some(comment), &self.database)
-                    .await
-                    .map_err(Into::into)
+        let is_missing = matches!(patch.comment, PatchValue::Missing);
+
+        let result: ApplicationModel = match patch.comment {
+            PatchValue::Missing => {
+                Applications::get_application(application_id, &self.database).await?
             }
+            PatchValue::Null => {
+                Applications::update_comment(application_id, None, &self.database).await?
+            }
+            PatchValue::Value(comment) => {
+                Applications::update_comment(application_id, Some(comment), &self.database).await?
+            }
+        };
+
+        if !is_missing {
+            self.models.invalidate(&application_id).await;
         }
+
+        Ok(result)
     }
 
     async fn get_or_init_scope(

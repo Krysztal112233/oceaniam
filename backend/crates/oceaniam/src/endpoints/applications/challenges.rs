@@ -1,6 +1,3 @@
-//! Application challenge-related API endpoints
-
-use crate::error::{AppResult, Error};
 use axum::{
     Json,
     extract::{Path, State},
@@ -9,6 +6,7 @@ use axum::{
 use oceaniam_api::{ApiResponse, ErrorResponse};
 use oceaniam_audit::types::{AuditPayload, SignJwtPayload};
 use oceaniam_auth::jwt::Claim;
+use oceaniam_common::sqid::Sqid;
 use oceaniam_database::{
     config::application::ApplicationConfiguration, helper::challenges::ChallengesHelper,
     model::prelude::Challenges,
@@ -20,12 +18,12 @@ use oceaniam_vo::{
 use serde_json::Value;
 use tap::Tap;
 use tracing::{Span, error, field, info};
-use utoipa::ToSchema;
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
+use super::ResolvedApplication;
 use crate::{
-    endpoints::applications::{TenantApplicationPath, get_tenant_application},
+    error::{AppResult, Error},
     middlewares::{application::AdminJwtOrApplicationSecretGuard, auth::TokenDispatchMethodGuard},
     state::AppState,
     state::keybox::{EncodedJwt, SignJwtOptions},
@@ -36,13 +34,6 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
     router
         .routes(routes!(get_application_challenge))
         .routes(routes!(create_application_challenge_attempt))
-}
-
-#[derive(Debug, serde::Deserialize, ToSchema)]
-pub(crate) struct ApplicationChallengePath {
-    #[serde(flatten)]
-    pub application: TenantApplicationPath,
-    pub challenge_id: Uuid,
 }
 
 /// Retrieve a pending challenge's metadata by its ID.
@@ -78,19 +69,17 @@ pub(crate) struct ApplicationChallengePath {
 #[tracing::instrument(
     level = "info",
     name = "application_challenges.get",
-    skip(database, path),
     fields(application_id = field::Empty, challenge_id = field::Empty)
 )]
 pub async fn get_application_challenge(
     _: AdminJwtOrApplicationSecretGuard,
     State(AppState { database, .. }): State<AppState<'_>>,
-    Path(path): Path<ApplicationChallengePath>,
+    app: ResolvedApplication,
+    Path((_tid, _aid, challenge_id)): Path<(Sqid, Sqid, Uuid)>,
 ) -> AppResult<ApplicationChallengeVO> {
-    let application = get_tenant_application(path.application, &database).await?;
-    let application_id = application.id;
-    let challenge_id = path.challenge_id;
+    let application_id = app.id();
     Span::current().tap(|it| {
-        it.record("tenant_id", field::display(&application.tenant_id))
+        it.record("tenant_id", field::display(&app.tenant_id()))
             .record("application_id", field::display(&application_id))
             .record("challenge_id", field::display(&challenge_id));
     });
@@ -154,26 +143,24 @@ pub async fn get_application_challenge(
 #[tracing::instrument(
     level = "info",
     name = "application_challenges.create_attempt",
-    skip(keyboxes, applications, auditing, token_mtd, path, payload, database),
+    skip(keyboxes, applications, auditing, token_mtd, payload),
     fields(application_id = field::Empty, challenge_id = field::Empty, user_id = field::Empty, token_dispatch = field::Empty)
 )]
 pub async fn create_application_challenge_attempt(
     _: AdminJwtOrApplicationSecretGuard,
     token_mtd: TokenDispatchMethodGuard,
     State(AppState {
-        database,
         keyboxes,
         applications,
         auditing,
         config,
         ..
     }): State<AppState<'_>>,
-    Path(path): Path<ApplicationChallengePath>,
+    app: ResolvedApplication,
+    Path((_tid, _aid, challenge_id)): Path<(Sqid, Sqid, Uuid)>,
     Json(payload): Json<Value>,
 ) -> AppResult<SigninResponseOrChallenge> {
-    let application = get_tenant_application(path.application, &database).await?;
-    let application_id = application.id;
-    let challenge_id = path.challenge_id;
+    let application_id = app.id();
     let challenges = applications.challenges(application_id).await.inspect_err(
         |e| error!(%application_id, %challenge_id, error = %e, "failed to get challenges manager"),
     )?;
@@ -182,7 +169,7 @@ pub async fn create_application_challenge_attempt(
     )?;
     let user_id = challenge.subject_id;
     Span::current().tap(|it| {
-        it.record("tenant_id", field::display(&application.tenant_id))
+        it.record("tenant_id", field::display(&app.tenant_id()))
             .record("application_id", field::display(&application_id))
             .record("challenge_id", field::display(&challenge_id))
             .record("user_id", field::display(&user_id))
