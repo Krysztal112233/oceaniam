@@ -63,7 +63,8 @@ mod m20260514_003512_change_audit_summary_to_minute_granularity;
 mod m20260514_024939_add_performance_indexes;
 mod m20260514_031033_drop_idx_subjects_application_id;
 mod m20260515_144335_create_permission_tables;
-mod m20260520_create_trend_summary_tables;
+mod m20260520_122848_create_trend_summary_tables;
+mod m20260529_031818_alter_key_boxes_tenant_id;
 
 pub struct Migrator;
 
@@ -137,7 +138,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260514_024939_add_performance_indexes::Migration),
             Box::new(m20260514_031033_drop_idx_subjects_application_id::Migration),
             Box::new(m20260515_144335_create_permission_tables::Migration),
-            Box::new(m20260520_create_trend_summary_tables::Migration),
+            Box::new(m20260520_122848_create_trend_summary_tables::Migration),
+            Box::new(m20260529_031818_alter_key_boxes_tenant_id::Migration),
         ]
     }
 }

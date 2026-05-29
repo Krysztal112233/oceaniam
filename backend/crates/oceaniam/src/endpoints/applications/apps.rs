@@ -7,7 +7,6 @@ use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{
     AuditPayload, CreateApplicationPayload, DeleteApplicationPayload, PatchApplicationPayload,
 };
-use oceaniam_auth::jwks::{JwkSet, JwkSetSchema};
 use oceaniam_common::sqid::Sqid;
 use oceaniam_database::{
     helper::applications::ApplicationHelper, model, model::prelude::Applications,
@@ -39,7 +38,6 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
         .routes(routes!(get_application))
         .routes(routes!(patch_application))
         .routes(routes!(delete_application))
-        .routes(routes!(get_application_jwks))
 }
 
 /// Get application list under a tenant
@@ -114,7 +112,7 @@ pub async fn get_applications(
 #[tracing::instrument(
     level = "info",
     name = "tenant_applications.create",
-    skip(applications, auditing, keyboxes, comment),
+    skip(applications, auditing, comment),
     fields(tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn create_application(
@@ -123,7 +121,6 @@ pub async fn create_application(
     State(AppState {
         applications,
         auditing,
-        keyboxes,
         ..
     }): State<AppState<'_>>,
     Json(CreateApplicationRequest { comment }): Json<CreateApplicationRequest>,
@@ -144,14 +141,6 @@ pub async fn create_application(
         tenant_id = %tenant_id,
         application_id = %id,
         "application created successfully"
-    );
-
-    keyboxes.create_keybox(id).await?;
-
-    info!(
-        tenant_id = %tenant_id,
-        application_id = %id,
-        "default keybox of application created successfully"
     );
 
     auditing
@@ -312,44 +301,4 @@ pub async fn delete_application(
         .await;
 
     Ok(ApiResponse::new(()))
-}
-
-/// Get application JWKS
-#[utoipa::path(
-        get,
-        path = "/applications/{application_id}/.well-known/jwks.json",
-        tag = "Applications",
-        params(
-            ("application_id" = String, Path, description = "Application ID"),
-        ),
-        responses(
-            (status = 200, body = JwkSetSchema),
-            (status = 400, description = "Invalid application id", body = ApiResponse<ErrorResponse>),
-            (status = 404, description = "Application not found", body = ApiResponse<ErrorResponse>),
-            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
-        ),
-    )]
-#[tracing::instrument(
-    level = "info",
-    name = "applications.jwks",
-    skip(keyboxes, application_id),
-    fields(application_id = field::Empty)
-)]
-pub async fn get_application_jwks(
-    Path(application_id): Path<Sqid>,
-    State(AppState { keyboxes, .. }): State<AppState<'_>>,
-) -> AppResult<JwkSet> {
-    let application_id: Uuid = application_id
-        .try_into()
-        .inspect_err(|e| error!(error = %e, "failed to convert application_id"))?;
-    Span::current().tap(|it| {
-        it.record("application_id", field::display(&application_id));
-    });
-
-    Ok(ApiResponse::new(
-        keyboxes
-            .get_jwks(application_id)
-            .await
-            .inspect_err(|e| error!(%application_id, error = %e, "failed to get jwks"))?,
-    ))
 }

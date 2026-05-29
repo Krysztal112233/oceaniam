@@ -35,7 +35,7 @@ pub struct ManagedKeyBoxes {
 
 #[derive(Debug, Clone)]
 pub struct SignJwtOptions {
-    pub application_id: Uuid,
+    pub tenant_id: Uuid,
     pub iss: String,
     pub aud: Vec<String>,
 }
@@ -60,26 +60,35 @@ impl ManagedKeyBoxes {
         }
     }
 
-    pub async fn get_keybox(&self, application_id: Uuid) -> Result<KeyBox, Error> {
+    pub async fn get_keybox(&self, tenant_id: Uuid) -> Result<KeyBox, Error> {
         let database = self.database.clone();
 
         Ok(self
             .boxes
-            .try_get_with::<_, Error>(application_id, async {
-                let keys = KeyBoxes::get_application_keys(application_id, &database)
+            .try_get_with::<_, Error>(tenant_id, async {
+                let keys = KeyBoxes::get_tenant_keys(tenant_id, &database)
                     .await
                     .inspect_err(|e| error!("{e}"))?
                     .into_iter()
                     .map(|it| (it.id, it))
                     .collect();
 
-                let keybox = KeyBox::with_keys(application_id, keys);
+                let keybox = KeyBox::with_keys(tenant_id, keys);
 
                 if keybox.get_keys().is_empty() {
-                    Err(Error::with_code(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        format!("cannot get keybox of `{application_id}`"),
-                    ))
+                    debug!(%tenant_id, "keybox is empty, auto-creating default keybox");
+                    let mut keybox = KeyBox::new(tenant_id);
+                    keybox
+                        .add_key_with_option(
+                            RsaKey::new(Uuid::now_v7(), KeyAlg::Ps512),
+                            KeyOption::default(),
+                        )
+                        .inspect_err(|e| error!("{e}"))?;
+                    keybox
+                        .write_to(&database)
+                        .await
+                        .inspect_err(|e| error!("{e}"))?;
+                    Ok(keybox)
                 } else {
                     Ok(keybox)
                 }
@@ -87,22 +96,22 @@ impl ManagedKeyBoxes {
             .await?)
     }
 
-    pub async fn get_jwks(&self, application_id: Uuid) -> Result<JwkSet, Error> {
+    pub async fn get_jwks(&self, tenant_id: Uuid) -> Result<JwkSet, Error> {
         Ok(self
             .jwks
-            .try_get_with(application_id, async {
-                Ok(JwkSet::from(self.clone().get_keybox(application_id).await?))
+            .try_get_with(tenant_id, async {
+                Ok(JwkSet::from(self.clone().get_keybox(tenant_id).await?))
             })
             .await?)
     }
 
-    /// Creates a new initial keybox for an application with a single initial key.
+    /// Creates a new initial keybox for a tenant with a single initial key.
     ///
-    /// This is called during application creation to bootstrap the application's
+    /// This is called during tenant creation to bootstrap the tenant's
     /// signing key.  The initial key is created with default [`KeyOption`]
     /// timestamps and immediately persisted to the database and cached.
-    pub async fn create_keybox(&self, application_id: Uuid) -> Result<KeyBox, Error> {
-        let mut keybox = KeyBox::new(application_id);
+    pub async fn create_keybox(&self, tenant_id: Uuid) -> Result<KeyBox, Error> {
+        let mut keybox = KeyBox::new(tenant_id);
 
         keybox
             .add_key_with_option(
@@ -116,36 +125,36 @@ impl ManagedKeyBoxes {
             .await
             .inspect_err(|e| error!("{e}"))?;
 
-        self.boxes.insert(application_id, keybox.clone()).await;
+        self.boxes.insert(tenant_id, keybox.clone()).await;
 
         Ok(keybox)
     }
 
-    /// Generates a new key for the given application and persists it.
+    /// Generates a new key for the given tenant and persists it.
     ///
     /// Delegates the in-memory key generation to [`KeyBox::rotate_key`], then
     /// writes all keys to the database and invalidates both the keybox cache
     /// and the JWKS cache so subsequent requests pick up the new key immediately.
-    pub async fn rotate_key(&self, application_id: Uuid) -> Result<KeyModel, Error> {
-        let mut keybox = self.get_keybox(application_id).await?;
+    pub async fn rotate_key(&self, tenant_id: Uuid) -> Result<KeyModel, Error> {
+        let mut keybox = self.get_keybox(tenant_id).await?;
         let new_key = keybox.rotate_key()?;
 
         keybox.write_to(&self.database).await?;
 
-        self.boxes.insert(application_id, keybox).await;
-        self.jwks.invalidate(&application_id).await;
+        self.boxes.insert(tenant_id, keybox).await;
+        self.jwks.invalidate(&tenant_id).await;
 
         Ok(new_key)
     }
 
-    pub async fn revoke_key(&self, application_id: Uuid, key_id: Uuid) -> Result<(), Error> {
-        let mut keybox = self.get_keybox(application_id).await?;
+    pub async fn revoke_key(&self, tenant_id: Uuid, key_id: Uuid) -> Result<(), Error> {
+        let mut keybox = self.get_keybox(tenant_id).await?;
 
         keybox.revoke_key(&key_id)?;
         keybox.write_to(&self.database).await?;
 
-        self.boxes.insert(application_id, keybox).await;
-        self.jwks.invalidate(&application_id).await;
+        self.boxes.insert(tenant_id, keybox).await;
+        self.jwks.invalidate(&tenant_id).await;
 
         Ok(())
     }
@@ -154,7 +163,7 @@ impl ManagedKeyBoxes {
         self,
         sub: Uuid,
         SignJwtOptions {
-            application_id,
+            tenant_id,
             iss,
             aud,
         }: SignJwtOptions,
@@ -165,21 +174,21 @@ impl ManagedKeyBoxes {
         debug!("signing jwt for sub {}", sub);
 
         let Ok(keybox) = self
-            .get_keybox(application_id)
+            .get_keybox(tenant_id)
             .await
-            .inspect_err(|e| error!("cannot find system keybox of {application_id}: {e}"))
+            .inspect_err(|e| error!("cannot find keybox of {tenant_id}: {e}"))
         else {
             return Err(Error::with_code(
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "!!!CANNOT FIND SYSTEM KEYBOX, THIS MUST BE ERROR!!!",
+                "!!!CANNOT FIND TENANT KEYBOX, THIS MUST BE ERROR!!!",
             ));
         };
 
         let Some(key) = keybox.get_latest_raw_key(KeyStatus::Active) else {
-            error!("cannot find active key in system keybox of {application_id}",);
+            error!("cannot find active key in keybox of {tenant_id}",);
             return Err(Error::with_code(
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "!!!CANNOT FIND SYSTEM KEYBOX, THIS MUST BE ERROR!!!",
+                "!!!CANNOT FIND ACTIVE KEY IN TENANT KEYBOX, THIS MUST BE ERROR!!!",
             ));
         };
 
@@ -225,7 +234,7 @@ impl ManagedKeyBoxes {
         self.sign_jwt(
             sub,
             SignJwtOptions {
-                application_id: consts::SYSTEM_APPLICATION_UUID,
+                tenant_id: consts::SYSTEM_TENANT_UUID,
                 iss: config.auth.token.issuer,
                 aud: config.auth.token.audience,
             },

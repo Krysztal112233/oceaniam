@@ -10,7 +10,7 @@ use crate::support::spawn_app_with_isolated_schema;
 async fn insert_key_box(
     db: &sea_orm::DatabaseConnection,
     id: Uuid,
-    application_id: Uuid,
+    tenant_id: Uuid,
     now: DateTime<FixedOffset>,
     activated_at: DateTime<FixedOffset>,
     retired_at: DateTime<FixedOffset>,
@@ -26,7 +26,7 @@ async fn insert_key_box(
         revoked_at: Set(None),
         expires_at: Set(expires_at),
         secret: Set(json!({"k": "v"})),
-        application_id: Set(application_id),
+        tenant_id: Set(tenant_id),
     }
     .insert(db)
     .await
@@ -37,7 +37,7 @@ async fn insert_key_box(
 async fn valid_key_boxes_timestamps_passes_check_constraint() {
     let app = spawn_app_with_isolated_schema().await;
     let db = app.database().await;
-    let (_tenant_id, application_id) = app.seed_tenant_and_application().await;
+    let (tenant_id, _application_id) = app.seed_tenant_and_application().await;
 
     let now: DateTime<FixedOffset> = Utc::now().into();
     let key_id = Uuid::now_v7();
@@ -45,7 +45,7 @@ async fn valid_key_boxes_timestamps_passes_check_constraint() {
     insert_key_box(
         &db,
         key_id,
-        application_id,
+        tenant_id,
         now,
         now,
         now + Duration::hours(1),
@@ -60,7 +60,7 @@ async fn valid_key_boxes_timestamps_passes_check_constraint() {
 async fn activated_at_after_retired_at_violates_check_constraint() {
     let app = spawn_app_with_isolated_schema().await;
     let db = app.database().await;
-    let (_tenant_id, application_id) = app.seed_tenant_and_application().await;
+    let (tenant_id, _application_id) = app.seed_tenant_and_application().await;
 
     let now: DateTime<FixedOffset> = Utc::now().into();
     let key_id = Uuid::now_v7();
@@ -68,7 +68,7 @@ async fn activated_at_after_retired_at_violates_check_constraint() {
     let err = insert_key_box(
         &db,
         key_id,
-        application_id,
+        tenant_id,
         now,
         now,
         now - Duration::hours(1),
@@ -88,7 +88,7 @@ async fn activated_at_after_retired_at_violates_check_constraint() {
 async fn retired_at_after_expires_at_violates_check_constraint() {
     let app = spawn_app_with_isolated_schema().await;
     let db = app.database().await;
-    let (_tenant_id, application_id) = app.seed_tenant_and_application().await;
+    let (tenant_id, _application_id) = app.seed_tenant_and_application().await;
 
     let now: DateTime<FixedOffset> = Utc::now().into();
     let key_id = Uuid::now_v7();
@@ -96,7 +96,7 @@ async fn retired_at_after_expires_at_violates_check_constraint() {
     let err = insert_key_box(
         &db,
         key_id,
-        application_id,
+        tenant_id,
         now,
         now - Duration::hours(2),
         now + Duration::hours(2),
@@ -116,7 +116,7 @@ async fn retired_at_after_expires_at_violates_check_constraint() {
 async fn update_that_violates_constraint_is_rejected() {
     let app = spawn_app_with_isolated_schema().await;
     let db = app.database().await;
-    let (_tenant_id, application_id) = app.seed_tenant_and_application().await;
+    let (tenant_id, _application_id) = app.seed_tenant_and_application().await;
 
     let now: DateTime<FixedOffset> = Utc::now().into();
     let key_id = Uuid::now_v7();
@@ -125,7 +125,7 @@ async fn update_that_violates_constraint_is_rejected() {
     insert_key_box(
         &db,
         key_id,
-        application_id,
+        tenant_id,
         now,
         now,
         now + Duration::days(1),

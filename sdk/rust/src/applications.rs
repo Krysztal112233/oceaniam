@@ -110,8 +110,8 @@ impl OceanIamClient {
         self.send_empty(req).await
     }
 
-    pub async fn get_application_jwks(&self, application_id: &str) -> Result<JwkSet, Error> {
-        let path = paths::fmt1(paths::JWKS, application_id);
+    pub async fn get_tenant_jwks(&self, tenant_id: &str) -> Result<JwkSet, Error> {
+        let path = paths::fmt1(paths::JWKS, tenant_id);
         let req = self.auth_req(Method::GET, &path, AuthMode::None)?;
         self.send_inner(req).await
     }

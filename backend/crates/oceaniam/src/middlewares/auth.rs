@@ -69,14 +69,14 @@ impl FromRequestParts<AppState<'_>> for PlatformAuthGuard {
     }
 }
 
-/// Guard that validates a JWT against the **application-specific** JWKS and
+/// Guard that validates a JWT against the **tenant-level** JWKS and
 /// token configuration (`issuer`, `audience`) extracted from the request path.
 ///
 /// Unlike [`PlatformAuthGuard`] (which always uses the system-level JWKS), this
-/// guard loads the key set and validation parameters belonging to the
-/// application identified by the `application_id` path segment, so that
-/// application tokens are verified with the same keys and settings that were
-/// used to sign them.
+/// guard loads the key set from the tenant identified by the `tenant_id` path
+/// segment, so that application tokens are verified with the same keys used
+/// to sign them.  The validation parameters (issuer, audience) still come from
+/// the application configuration.
 ///
 /// # Panics
 ///
@@ -103,6 +103,19 @@ impl FromRequestParts<AppState<'_>> for ApplicationAuthGuard {
         let (token, header) = jwt::extract_bearer_token(parts)?;
 
         let path_segments: Vec<&str> = parts.uri.path().split('/').collect();
+        let tenant_id = path_segments
+            .iter()
+            .position(|&segment| segment == "tenants")
+            .and_then(|idx| path_segments.get(idx + 1))
+            .and_then(|id| id.parse::<Sqid>().ok())
+            .and_then(|id| Uuid::try_from(id).ok())
+            .ok_or(StatusCode::BAD_REQUEST)?;
+
+        let jwks = keyboxes
+            .get_jwks(tenant_id)
+            .await
+            .map_err(|_| StatusCode::BAD_REQUEST)?;
+
         let application_id = path_segments
             .iter()
             .position(|&segment| segment == "applications")
@@ -110,11 +123,6 @@ impl FromRequestParts<AppState<'_>> for ApplicationAuthGuard {
             .and_then(|id| id.parse::<Sqid>().ok())
             .and_then(|id| Uuid::try_from(id).ok())
             .ok_or(StatusCode::BAD_REQUEST)?;
-
-        let jwks = keyboxes
-            .get_jwks(application_id)
-            .await
-            .map_err(|_| StatusCode::BAD_REQUEST)?;
 
         let config = applications
             .get_configuration(application_id)

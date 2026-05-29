@@ -192,7 +192,7 @@ pub async fn create_application_challenge_attempt(
         .sign_jwt::<Claim>(
             user_id,
             SignJwtOptions {
-                application_id,
+                tenant_id: app.tenant_id(),
                 iss: authentication.token.issuer,
                 aud: authentication.token.audience,
             },

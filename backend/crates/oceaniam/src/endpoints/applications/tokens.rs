@@ -135,7 +135,7 @@ pub async fn create_application_token(
         .sign_jwt::<Claim>(
             user.id,
             SignJwtOptions {
-                application_id: user.application_id,
+                tenant_id: app.tenant_id(),
                 iss: authentication.token.issuer,
                 aud: authentication.token.audience,
             },
@@ -336,7 +336,7 @@ pub async fn refresh_application_token(
         .sign_jwt::<Claim>(
             user_id,
             SignJwtOptions {
-                application_id,
+                tenant_id: app.tenant_id(),
                 iss: authentication.token.issuer,
                 aud: authentication.token.audience,
             },

@@ -13,7 +13,7 @@ use crate::{helper::SafeTransactionConnectionTrait, model, model::prelude::KeyBo
 pub trait KeyBoxesHelper {
     /// Retrieves all system-level keys from the database.
     ///
-    /// System keys are identified by the constant `SYSTEM_APPLICATION_UUID`.
+    /// System keys are identified by the constant `SYSTEM_TENANT_UUID`.
     ///
     /// # Arguments
     ///
@@ -25,29 +25,29 @@ pub trait KeyBoxesHelper {
     async fn get_system_keys(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<model::key_boxes::Model>, Error> {
-        Self::get_application_keys(consts::SYSTEM_APPLICATION_UUID, database).await
+        Self::get_tenant_keys(consts::SYSTEM_TENANT_UUID, database).await
     }
 
-    /// Retrieves all keys for a given application from the database.
-    async fn get_application_keys(
-        application_id: Uuid,
+    /// Retrieves all keys for a given tenant from the database.
+    async fn get_tenant_keys(
+        tenant_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<model::key_boxes::Model>, Error> {
         Ok(KeyBoxes::find()
-            .filter(model::key_boxes::Column::ApplicationId.eq(application_id))
+            .filter(model::key_boxes::Column::TenantId.eq(tenant_id))
             .all(database)
             .await
             .inspect_err(|e| error!("{e}"))?)
     }
 
-    /// Persists all in-memory keys to the database for a given application.
+    /// Persists all in-memory keys to the database for a given tenant.
     ///
     /// Uses `INSERT ... ON CONFLICT (id) DO UPDATE` so that every row call
     /// is an atomic upsert — existing rows are updated, new rows are inserted.
     /// No explicit transaction wrapper is needed because the single statement
     /// provides statement-level atomicity.
     async fn update_application_keys(
-        application_id: Uuid,
+        tenant_id: Uuid,
         keys: impl IntoIterator<Item = model::key_boxes::ActiveModel> + Send,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<(), Error> {
@@ -63,7 +63,7 @@ pub trait KeyBoxesHelper {
                         model::key_boxes::Column::RevokedAt,
                         model::key_boxes::Column::ExpiresAt,
                         model::key_boxes::Column::Secret,
-                        model::key_boxes::Column::ApplicationId,
+                        model::key_boxes::Column::TenantId,
                     ])
                     .to_owned(),
             )
@@ -71,7 +71,7 @@ pub trait KeyBoxesHelper {
             .await
             .inspect_err(|e| error!("{e}"))?;
 
-        debug!("updated application({application_id}) keys {updated:?}");
+        debug!("updated tenant({tenant_id}) keys {updated:?}");
 
         Ok(())
     }

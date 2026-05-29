@@ -108,7 +108,7 @@ impl FromSecretField for RsaKey {
 impl TryIntoKeyModel for RsaKey {
     fn try_into_key_model(
         self,
-        application_id: Uuid,
+        tenant_id: Uuid,
         KeyOption {
             created_at,
             activated_at,
@@ -144,7 +144,7 @@ impl TryIntoKeyModel for RsaKey {
             revoked_at: None,
             expires_at,
             secret,
-            application_id,
+            tenant_id,
         })
     }
 }

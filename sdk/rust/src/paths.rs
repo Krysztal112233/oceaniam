@@ -29,8 +29,12 @@ pub const APP_CHALLENGE: &str = concatcp!(TENANT_APP, "/challenges/{}");
 pub const APP_KEYS: &str = concatcp!(TENANT_APP, "/keys");
 pub const APP_KEY: &str = concatcp!(APP_KEYS, "/{}");
 
-// JWKS (non-tenant)
-pub const JWKS: &str = "/applications/{}/.well-known/jwks.json";
+// JWKS (tenant-scoped)
+pub const JWKS: &str = concatcp!(TENANT, "/.well-known/jwks.json");
+
+// Keys (tenant-scoped)
+pub const TENANT_KEYS: &str = concatcp!(TENANT, "/keys");
+pub const TENANT_KEY: &str = concatcp!(TENANT_KEYS, "/{}");
 
 // Statistics
 pub const STATISTICS: &str = "/statistics";

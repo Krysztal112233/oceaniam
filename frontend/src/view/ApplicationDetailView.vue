@@ -63,10 +63,10 @@ const summaryText = computed(() => {
 });
 
 const jwksUrl = computed(() => {
-    const id = application.value?.id;
-    if (!id) return null;
+    const tid = tenantId.value;
+    if (!tid) return null;
     const base = appConfig.systemBaseUrl.replace(/\/+$/, "");
-    return `${base}/applications/${id}/.well-known/jwks.json`;
+    return `${base}/tenants/${tid}/.well-known/jwks.json`;
 });
 
 const commentSaveEnabled = computed(() => {
@@ -126,9 +126,8 @@ async function loadApplicationDetail(): Promise<void> {
 
     try {
         const client = getClient();
-        const response = await client.getApplicationKeys(
+        const response = await client.getTenantKeys(
             normalizedTenantId,
-            normalizedApplicationId,
         );
 
         if (currentRequestId !== requestId.value) {
@@ -241,10 +240,9 @@ async function handleCommentSubmit(): Promise<void> {
 
 async function handleRotateKey(): Promise<void> {
     const normalizedTenantId = tenantId.value.trim();
-    const normalizedApplicationId = applicationId.value.trim();
 
-    if (!normalizedTenantId || !normalizedApplicationId) {
-        toast.error("缺少 tenant 或 application 标识。");
+    if (!normalizedTenantId) {
+        toast.error("缺少 tenant 标识。");
         return;
     }
 
@@ -252,17 +250,15 @@ async function handleRotateKey(): Promise<void> {
 
     try {
         const client = getClient();
-        const response = await client.rotateApplicationKey(
+        const response = await client.rotateTenantKey(
             normalizedTenantId,
-            normalizedApplicationId,
         );
 
         newlyCreatedKey.value = response.key;
         toast.success("新密钥已生成。");
 
-        const keysResponse = await client.getApplicationKeys(
+        const keysResponse = await client.getTenantKeys(
             normalizedTenantId,
-            normalizedApplicationId,
         );
         keys.value = keysResponse.items;
     } catch (err) {
@@ -275,10 +271,9 @@ async function handleRotateKey(): Promise<void> {
 
 async function handleRevokeKey(keyId: string): Promise<void> {
     const normalizedTenantId = tenantId.value.trim();
-    const normalizedApplicationId = applicationId.value.trim();
 
-    if (!normalizedTenantId || !normalizedApplicationId) {
-        toast.error("缺少 tenant 或 application 标识。");
+    if (!normalizedTenantId) {
+        toast.error("缺少 tenant 标识。");
         return;
     }
 
@@ -286,17 +281,15 @@ async function handleRevokeKey(keyId: string): Promise<void> {
 
     try {
         const client = getClient();
-        await client.revokeApplicationKey(
+        await client.revokeTenantKey(
             normalizedTenantId,
-            normalizedApplicationId,
             keyId,
         );
 
         toast.success("密钥已吊销。");
 
-        const keysResponse = await client.getApplicationKeys(
+        const keysResponse = await client.getTenantKeys(
             normalizedTenantId,
-            normalizedApplicationId,
         );
         keys.value = keysResponse.items;
         newlyCreatedKey.value = null;

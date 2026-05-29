@@ -12,6 +12,7 @@ use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{
     AuditPayload, CreateTenantsPayload, DeleteTenantsPayload, PatchTenantPayload,
 };
+use oceaniam_auth::jwks::{JwkSet, JwkSetSchema};
 use oceaniam_common::sqid::Sqid;
 use oceaniam_database::{
     helper::{tenants::TenantsHelper, users::UserHelper},
@@ -22,7 +23,7 @@ use oceaniam_vo::{
     tenants::{CreateTenantRequest, PatchTenantRequest, TenantVO},
 };
 use tap::Tap;
-use tracing::{Span, error, field, warn};
+use tracing::{Span, error, field, info, warn};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
@@ -39,6 +40,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
         .routes(routes!(get_tenant_users))
         .routes(routes!(patch_tenant))
         .routes(routes!(get_tenants))
+        .routes(routes!(get_tenant_jwks))
 }
 
 /// Get tenant list
@@ -165,14 +167,17 @@ pub async fn get_tenant(
 #[tracing::instrument(
     level = "info",
     name = "tenants.create",
-    skip(auth, database, auditing, comment),
+    skip(auth, database, auditing, keyboxes, comment),
     fields(operator_id = field::Empty, tenant_id = field::Empty)
 )]
 pub async fn create_tenant(
     auth: PlatformPermissionGuard<TenantCreate>,
 
     State(AppState {
-        database, auditing, ..
+        database,
+        auditing,
+        keyboxes,
+        ..
     }): State<AppState<'_>>,
 
     Json(CreateTenantRequest { comment }): Json<CreateTenantRequest>,
@@ -194,6 +199,13 @@ pub async fn create_tenant(
                 "tenant creation failed"
             )
         })?;
+
+    keyboxes.create_keybox(tenant_id).await?;
+
+    info!(
+        %tenant_id,
+        "default keybox for tenant created successfully"
+    );
 
     warn!(
         tenant_id = %tenant_id,
@@ -403,4 +415,44 @@ pub async fn get_tenant_users(
     );
 
     Ok(ApiResponse::new(PagedResponse { items, page_info }))
+}
+
+/// Get tenant JWKS
+#[utoipa::path(
+        get,
+        path = "/tenants/{tenant_id}/.well-known/jwks.json",
+        tag = "Tenants",
+        params(
+            ("tenant_id" = String, Path, description = "Tenant ID"),
+        ),
+        responses(
+            (status = 200, body = JwkSetSchema),
+            (status = 400, description = "Invalid tenant id", body = ApiResponse<ErrorResponse>),
+            (status = 404, description = "Tenant not found", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
+        ),
+    )]
+#[tracing::instrument(
+    level = "info",
+    name = "tenants.jwks",
+    skip(keyboxes, tenant_id),
+    fields(tenant_id = field::Empty)
+)]
+pub async fn get_tenant_jwks(
+    Path(tenant_id): Path<Sqid>,
+    State(AppState { keyboxes, .. }): State<AppState<'_>>,
+) -> AppResult<JwkSet> {
+    let tenant_id: Uuid = tenant_id
+        .try_into()
+        .inspect_err(|e| error!(error = %e, "failed to convert tenant_id"))?;
+    Span::current().tap(|it| {
+        it.record("tenant_id", field::display(&tenant_id));
+    });
+
+    Ok(ApiResponse::new(
+        keyboxes
+            .get_jwks(tenant_id)
+            .await
+            .inspect_err(|e| error!(%tenant_id, error = %e, "failed to get jwks"))?,
+    ))
 }

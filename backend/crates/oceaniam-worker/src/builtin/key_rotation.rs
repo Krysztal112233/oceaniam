@@ -8,7 +8,7 @@ use oceaniam_database::{
     helper::key_boxes::KeyBoxesHelper,
     model::{
         self,
-        prelude::{Applications, KeyBoxes},
+        prelude::{KeyBoxes, Tenants},
         sea_orm_active_enums::KeyStatus,
     },
 };
@@ -21,12 +21,12 @@ use uuid::Uuid;
 use crate::{REGISTERED_WORKERS, WorkerContext, error::Error};
 
 async fn log_key_rotation(
-    application_id: Uuid,
+    tenant_id: Uuid,
     new_key_id: Uuid,
     database: &sea_orm::DatabaseConnection,
 ) {
     let payload = AuditPayload::from(RotateKeyPayload {
-        application_id,
+        application_id: tenant_id,
         new_key_id,
     });
 
@@ -38,7 +38,7 @@ async fn log_key_rotation(
     };
 
     if let Err(e) = model.insert(database).await {
-        error!(%application_id, %new_key_id, error = %e, "failed to write rotation audit event");
+        error!(%tenant_id, %new_key_id, error = %e, "failed to write rotation audit event");
     }
 }
 
@@ -57,28 +57,28 @@ impl Worker<WorkerContext> for KeyRotationWorker {
     }
 
     async fn run(&self, context: &WorkerContext) -> Result<(), Error> {
-        let applications = Applications::find().all(&context.database).await?;
+        let tenants = Tenants::find().all(&context.database).await?;
 
         // TODO: make this configurable via ApplicationConfiguration fields. Each application should
         // be able to control whether auto-rotation is enabled, the threshold duration, and the
         // lifetime of rotated keys.
         let threshold = Duration::days(7);
 
-        for application in &applications {
-            let keys = KeyBoxes::get_application_keys(application.id, &context.database).await?;
+        for tenant in &tenants {
+            let keys = KeyBoxes::get_tenant_keys(tenant.id, &context.database).await?;
 
             if keys.is_empty() {
-                debug!(application_id = %application.id, "no keys found, skipping");
+                debug!(tenant_id = %tenant.id, "no keys found, skipping");
                 continue;
             }
 
             let keys_map = keys.into_iter().map(|k| (k.id, k)).collect();
-            let mut keybox = KeyBox::with_keys(application.id, keys_map);
+            let mut keybox = KeyBox::with_keys(tenant.id, keys_map);
 
             if keybox.refresh_statuses() {
-                debug!(application_id = %application.id, "key statuses refreshed");
+                debug!(tenant_id = %tenant.id, "key statuses refreshed");
                 if let Err(e) = keybox.write_to(&context.database).await {
-                    error!(%application.id, error = %e, "failed to persist refreshed key statuses");
+                    error!(%tenant.id, error = %e, "failed to persist refreshed key statuses");
                 }
             }
 
@@ -96,14 +96,14 @@ impl Worker<WorkerContext> for KeyRotationWorker {
                 match keybox.rotate_key() {
                     Ok(new_key) => {
                         if let Err(e) = keybox.write_to(&context.database).await {
-                            error!(%application.id, error = %e, "failed to persist rotated key");
+                            error!(%tenant.id, error = %e, "failed to persist rotated key");
                         } else {
-                            info!(%application.id, new_key_id = %new_key.id, "key rotation completed");
-                            log_key_rotation(application.id, new_key.id, &context.database).await;
+                            info!(%tenant.id, new_key_id = %new_key.id, "key rotation completed");
+                            log_key_rotation(tenant.id, new_key.id, &context.database).await;
                         }
                     }
                     Err(e) => {
-                        error!(%application.id, error = %e, "failed to rotate key");
+                        error!(%tenant.id, error = %e, "failed to rotate key");
                     }
                 }
             }

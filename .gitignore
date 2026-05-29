@@ -10,3 +10,4 @@
 
 ## Exclude environment relative
 .env
+.opencode

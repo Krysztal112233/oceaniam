@@ -85,25 +85,22 @@ impl Default for KeyOption {
 /// [KeyBox] is used to manage multiple keys, providing expiration checking and key management functionality
 #[derive(Debug, Clone)]
 pub struct KeyBox {
-    /// Belong to application
-    application_id: Uuid,
+    /// Belong to tenant
+    tenant_id: Uuid,
 
     /// Stores all keys with [Key::id] as the key
     keys: HashMap<Uuid, Key>,
 }
 
 impl KeyBox {
-    /// Creates a new empty KeyBox for the specified application
-    pub fn new(application_id: Uuid) -> Self {
-        Self::with_keys(application_id, HashMap::default())
+    /// Creates a new empty KeyBox for the specified tenant
+    pub fn new(tenant_id: Uuid) -> Self {
+        Self::with_keys(tenant_id, HashMap::default())
     }
 
     /// Creates a KeyBox with the specified keys
-    pub fn with_keys(application_id: Uuid, keys: HashMap<Uuid, Key>) -> Self {
-        Self {
-            application_id,
-            keys,
-        }
+    pub fn with_keys(tenant_id: Uuid, keys: HashMap<Uuid, Key>) -> Self {
+        Self { tenant_id, keys }
     }
 
     /// Adds a new key with default options.
@@ -128,7 +125,7 @@ impl KeyBox {
     where
         T: TryIntoKeyModel,
     {
-        let key = key.try_into_key_model(self.application_id, options)?;
+        let key = key.try_into_key_model(self.tenant_id, options)?;
 
         if self.keys.contains_key(&key.id) {
             return Err(Error::KeyAlreadyExists {
@@ -295,14 +292,14 @@ impl KeyBox {
             .cloned()
             .map(|it| it.into_active_model());
 
-        KeyBoxes::update_application_keys(self.application_id, vec, database).await?;
+        KeyBoxes::update_application_keys(self.tenant_id, vec, database).await?;
 
         Ok(())
     }
 
-    /// Returns the application ID this keybox belongs to
-    pub fn application_id(&self) -> Uuid {
-        self.application_id
+    /// Returns the tenant ID this keybox belongs to
+    pub fn tenant_id(&self) -> Uuid {
+        self.tenant_id
     }
 }
 
@@ -400,7 +397,7 @@ mod tests {
             revoked_at: None,
             expires_at,
             secret,
-            application_id: keybox.application_id,
+            tenant_id: keybox.tenant_id,
         };
 
         keybox.keys.insert(id, key);

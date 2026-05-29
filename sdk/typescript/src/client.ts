@@ -294,8 +294,8 @@ export class OceanIamClient {
       `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}`,
     applicationConfiguration: (tenantId: string, applicationId: string): string =>
       `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/configuration`,
-    applicationJwks: (applicationId: string): string =>
-      `/applications/${encodeURIComponent(applicationId)}/.well-known/jwks.json`,
+    tenantJwks: (tenantId: string): string =>
+      `/tenants/${encodeURIComponent(tenantId)}/.well-known/jwks.json`,
 
     // ApplicationUsers
     applicationUsers: (tenantId: string, applicationId: string): string =>
@@ -315,11 +315,11 @@ export class OceanIamClient {
     applicationChallenge: (tenantId: string, applicationId: string, challengeId: string): string =>
       `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/challenges/${encodeURIComponent(challengeId)}`,
 
-    // ApplicationKeys (backend: endpoints/application_keys.rs)
-    applicationKeys: (tenantId: string, applicationId: string): string =>
-      `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/keys`,
-    applicationKey: (tenantId: string, applicationId: string, keyId: string): string =>
-      `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/keys/${encodeURIComponent(keyId)}`,
+    // TenantKeys (backend: endpoints/applications/keys.rs)
+    tenantKeys: (tenantId: string): string =>
+      `/tenants/${encodeURIComponent(tenantId)}/keys`,
+    tenantKey: (tenantId: string, keyId: string): string =>
+      `/tenants/${encodeURIComponent(tenantId)}/keys/${encodeURIComponent(keyId)}`,
 
     // Application Tokens (backend: endpoints/application_tokens.rs)
     applicationTokens: (tenantId: string, applicationId: string): string =>
@@ -389,8 +389,8 @@ export class OceanIamClient {
       this.buildUrl(OceanIamClient.PATHS.application(tenantId, applicationId)),
     applicationConfiguration: (tenantId: string, applicationId: string): string =>
       this.buildUrl(OceanIamClient.PATHS.applicationConfiguration(tenantId, applicationId)),
-    applicationJwks: (applicationId: string): string =>
-      this.buildUrl(OceanIamClient.PATHS.applicationJwks(applicationId)),
+    applicationJwks: (tenantId: string): string =>
+      this.buildUrl(OceanIamClient.PATHS.tenantJwks(tenantId)),
 
     // ApplicationUsers
     applicationUsers: (tenantId: string, applicationId: string): string =>
@@ -414,11 +414,11 @@ export class OceanIamClient {
         OceanIamClient.PATHS.applicationChallenge(tenantId, applicationId, challengeId),
       ),
 
-    // Application Keys
-    applicationKeys: (tenantId: string, applicationId: string): string =>
-      this.buildUrl(OceanIamClient.PATHS.applicationKeys(tenantId, applicationId)),
-    applicationKey: (tenantId: string, applicationId: string, keyId: string): string =>
-      this.buildUrl(OceanIamClient.PATHS.applicationKey(tenantId, applicationId, keyId)),
+    // Tenant Keys
+    tenantKeys: (tenantId: string): string =>
+      this.buildUrl(OceanIamClient.PATHS.tenantKeys(tenantId)),
+    tenantKey: (tenantId: string, keyId: string): string =>
+      this.buildUrl(OceanIamClient.PATHS.tenantKey(tenantId, keyId)),
 
     // Application Tokens
     applicationUserSignin: (tenantId: string, applicationId: string): string =>
@@ -773,10 +773,10 @@ export class OceanIamClient {
     });
   }
 
-  public async getApplicationJwks(applicationId: string): Promise<unknown> {
+  public async getTenantJwks(tenantId: string): Promise<unknown> {
     return this.request<unknown>({
       method: "GET",
-      url: this.endpoints.applicationJwks(applicationId),
+      url: this.endpoints.applicationJwks(tenantId),
       auth: "none",
     });
   }
@@ -837,34 +837,31 @@ export class OceanIamClient {
     });
   }
 
-  public async getApplicationKeys(
+  public async getTenantKeys(
     tenantId: string,
-    applicationId: string,
   ): Promise<PagedResponse<ApplicationKeyVO>> {
     return this.request<PagedResponse<ApplicationKeyVO>>({
       method: "GET",
-      url: this.endpoints.applicationKeys(tenantId, applicationId),
+      url: this.endpoints.tenantKeys(tenantId),
     });
   }
 
-  public async rotateApplicationKey(
+  public async rotateTenantKey(
     tenantId: string,
-    applicationId: string,
   ): Promise<RotateKeyResponse> {
     return this.request<RotateKeyResponse>({
       method: "POST",
-      url: this.endpoints.applicationKeys(tenantId, applicationId),
+      url: this.endpoints.tenantKeys(tenantId),
     });
   }
 
-  public async revokeApplicationKey(
+  public async revokeTenantKey(
     tenantId: string,
-    applicationId: string,
     keyId: string,
   ): Promise<void> {
     await this.request<unknown>({
       method: "DELETE",
-      url: this.endpoints.applicationKey(tenantId, applicationId, keyId),
+      url: this.endpoints.tenantKey(tenantId, keyId),
     });
   }
 

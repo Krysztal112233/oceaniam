@@ -131,7 +131,7 @@ async fn initial_system_jwks(database: DatabaseConnection) -> Result<ManagedJwkS
         .map(|it| (it.id, it))
         .collect();
     let system_jwks = ManagedJwkSet::new(JwkSet::from(KeyBox::with_keys(
-        consts::SYSTEM_APPLICATION_UUID,
+        consts::SYSTEM_TENANT_UUID,
         keys,
     )));
 
@@ -152,12 +152,12 @@ async fn initial_system_keybox(
         .map(|it| (it.id, it))
         .collect();
 
-    let keybox = keybox.get_keybox(consts::SYSTEM_APPLICATION_UUID).await;
+    let keybox = keybox.get_keybox(consts::SYSTEM_TENANT_UUID).await;
 
     if keys.is_empty() || keybox.is_err() {
         info!("could not find any system keys. a new system key will be generated.");
 
-        let mut keybox = KeyBox::new(consts::SYSTEM_APPLICATION_UUID);
+        let mut keybox = KeyBox::new(consts::SYSTEM_TENANT_UUID);
 
         let key = RsaKey::new(
             Uuid::now_v7(),

@@ -19,24 +19,24 @@ pub struct Model {
     pub expires_at: DateTimeWithTimeZone,
     #[sea_orm(column_type = "JsonBinary")]
     pub secret: Json,
-    pub application_id: Uuid,
+    pub tenant_id: Uuid,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::applications::Entity",
-        from = "Column::ApplicationId",
-        to = "super::applications::Column::Id",
+        belongs_to = "super::tenants::Entity",
+        from = "Column::TenantId",
+        to = "super::tenants::Column::Id",
         on_update = "NoAction",
         on_delete = "Cascade"
     )]
-    Applications,
+    Tenants,
 }
 
-impl Related<super::applications::Entity> for Entity {
+impl Related<super::tenants::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Applications.def()
+        Relation::Tenants.def()
     }
 }
 

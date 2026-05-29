@@ -17,7 +17,7 @@ pub(in crate::key) trait FromSecretField {
 pub trait TryIntoKeyModel {
     fn try_into_key_model(
         self,
-        application_id: Uuid,
+        tenant_id: Uuid,
         options: KeyOption,
     ) -> Result<oceaniam_database::model::key_boxes::Model, Error>;
 }
