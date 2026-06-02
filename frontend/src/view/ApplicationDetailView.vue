@@ -126,9 +126,7 @@ async function loadApplicationDetail(): Promise<void> {
 
     try {
         const client = getClient();
-        const response = await client.getTenantKeys(
-            normalizedTenantId,
-        );
+        const response = await client.getTenantKeys(normalizedTenantId);
 
         if (currentRequestId !== requestId.value) {
             return;
@@ -250,16 +248,12 @@ async function handleRotateKey(): Promise<void> {
 
     try {
         const client = getClient();
-        const response = await client.rotateTenantKey(
-            normalizedTenantId,
-        );
+        const response = await client.rotateTenantKey(normalizedTenantId);
 
         newlyCreatedKey.value = response.key;
         toast.success("新密钥已生成。");
 
-        const keysResponse = await client.getTenantKeys(
-            normalizedTenantId,
-        );
+        const keysResponse = await client.getTenantKeys(normalizedTenantId);
         keys.value = keysResponse.items;
     } catch (err) {
         const message = err instanceof Error ? err.message : "轮换密钥失败。";
@@ -281,16 +275,11 @@ async function handleRevokeKey(keyId: string): Promise<void> {
 
     try {
         const client = getClient();
-        await client.revokeTenantKey(
-            normalizedTenantId,
-            keyId,
-        );
+        await client.revokeTenantKey(normalizedTenantId, keyId);
 
         toast.success("密钥已吊销。");
 
-        const keysResponse = await client.getTenantKeys(
-            normalizedTenantId,
-        );
+        const keysResponse = await client.getTenantKeys(normalizedTenantId);
         keys.value = keysResponse.items;
         newlyCreatedKey.value = null;
     } catch (err) {

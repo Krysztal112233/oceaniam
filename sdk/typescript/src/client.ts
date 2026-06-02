@@ -316,8 +316,7 @@ export class OceanIamClient {
       `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/challenges/${encodeURIComponent(challengeId)}`,
 
     // TenantKeys (backend: endpoints/applications/keys.rs)
-    tenantKeys: (tenantId: string): string =>
-      `/tenants/${encodeURIComponent(tenantId)}/keys`,
+    tenantKeys: (tenantId: string): string => `/tenants/${encodeURIComponent(tenantId)}/keys`,
     tenantKey: (tenantId: string, keyId: string): string =>
       `/tenants/${encodeURIComponent(tenantId)}/keys/${encodeURIComponent(keyId)}`,
 
@@ -837,28 +836,21 @@ export class OceanIamClient {
     });
   }
 
-  public async getTenantKeys(
-    tenantId: string,
-  ): Promise<PagedResponse<ApplicationKeyVO>> {
+  public async getTenantKeys(tenantId: string): Promise<PagedResponse<ApplicationKeyVO>> {
     return this.request<PagedResponse<ApplicationKeyVO>>({
       method: "GET",
       url: this.endpoints.tenantKeys(tenantId),
     });
   }
 
-  public async rotateTenantKey(
-    tenantId: string,
-  ): Promise<RotateKeyResponse> {
+  public async rotateTenantKey(tenantId: string): Promise<RotateKeyResponse> {
     return this.request<RotateKeyResponse>({
       method: "POST",
       url: this.endpoints.tenantKeys(tenantId),
     });
   }
 
-  public async revokeTenantKey(
-    tenantId: string,
-    keyId: string,
-  ): Promise<void> {
+  public async revokeTenantKey(tenantId: string, keyId: string): Promise<void> {
     await this.request<unknown>({
       method: "DELETE",
       url: this.endpoints.tenantKey(tenantId, keyId),

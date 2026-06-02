@@ -5,5 +5,5 @@ export interface AppConfig {
 const env = import.meta.env;
 
 export const appConfig: AppConfig = {
-    systemBaseUrl: env.VITE_BASE_URL?.trim() || "/api",
+    systemBaseUrl: env.VITE_BASE_URL?.trim() || `${window.location.origin}/api`,
 };
