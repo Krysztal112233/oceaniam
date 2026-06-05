@@ -10,11 +10,11 @@ use uuid::Uuid;
 
 use super::PermissionResolver;
 use crate::permission::Permission;
-use crate::role::{AppRole, PlatformRole};
+use crate::role::PlatformRole;
 
 use oceaniam_common::consts;
 use oceaniam_database::{
-    helper::{application_roles::ApplicationRolesHelper, subjects::SubjectsHelper},
+    helper::{role_permissions::RolePermissionsHelper, subjects::SubjectsHelper},
     model::prelude::*,
 };
 use sea_orm::{DatabaseConnection, EntityTrait};
@@ -146,17 +146,24 @@ async fn resolve_subject_permissions(
     subject_id: Uuid,
     application_id: Uuid,
 ) -> Result<HashSet<Permission>, crate::Error> {
-    let Some(role_id) = Subjects::resolve_subject_role(subject_id, application_id, db).await?
-    else {
+    let role_ids = Subjects::resolve_subject_roles(subject_id, application_id, db).await?;
+
+    if role_ids.is_empty() {
         return Ok(HashSet::new());
-    };
+    }
 
-    let role_name = ApplicationRoles::resolve_role_name(role_id, db).await?;
+    let mut permissions = HashSet::new();
 
-    let app_role: AppRole = role_name.parse().map_err(|_| crate::Error::Internal {
-        msg: format!("unknown application role name: {role_name}"),
-        location: snafu::location!(),
-    })?;
+    for role_id in role_ids {
+        let perms = RolePermissions::get_role_permissions(role_id, db).await?;
+        for p in perms {
+            let perm: Permission = p.parse().map_err(|_| crate::Error::Internal {
+                msg: format!("unknown permission: {p}"),
+                location: snafu::location!(),
+            })?;
+            permissions.insert(perm);
+        }
+    }
 
-    Ok(app_role.permissions().clone())
+    Ok(permissions)
 }

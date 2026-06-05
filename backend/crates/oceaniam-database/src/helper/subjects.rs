@@ -6,7 +6,12 @@ use uuid::Uuid;
 use crate::{
     error::Error,
     helper::SafeTransactionConnectionTrait,
-    model::{self, prelude::Subjects, sea_orm_active_enums::SubjectTypeEnum},
+    helper::subject_roles::SubjectRolesHelper,
+    model::{
+        self,
+        prelude::{SubjectRoles, Subjects},
+        sea_orm_active_enums::SubjectTypeEnum,
+    },
 };
 
 #[async_trait::async_trait]
@@ -23,7 +28,6 @@ pub trait SubjectsHelper {
                 r#type: typ,
                 application_id,
                 created_at: Utc::now().into(),
-                application_role_id: None,
             }
             .into_active_model()
             .insert(database)
@@ -33,11 +37,11 @@ pub trait SubjectsHelper {
         Ok(result)
     }
 
-    async fn resolve_subject_role(
+    async fn resolve_subject_roles(
         id: Uuid,
         application_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<Option<Uuid>, Error> {
+    ) -> Result<Vec<Uuid>, Error> {
         let subject = Subjects::find_by_id(id)
             .one(database)
             .await?
@@ -52,7 +56,7 @@ pub trait SubjectsHelper {
             ));
         }
 
-        Ok(subject.application_role_id)
+        SubjectRoles::get_subject_role_ids(id, database).await
     }
 }
 

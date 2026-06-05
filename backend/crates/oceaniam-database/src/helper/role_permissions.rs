@@ -1,0 +1,63 @@
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use uuid::Uuid;
+
+use crate::{
+    error::Error,
+    helper::SafeTransactionConnectionTrait,
+    model::prelude::RolePermissions,
+    model::role_permissions::{ActiveModel, Column},
+};
+
+#[async_trait::async_trait]
+pub trait RolePermissionsHelper {
+    async fn get_role_permissions(
+        role_id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<Vec<String>, Error>;
+
+    async fn set_role_permissions(
+        role_id: Uuid,
+        permissions: &[String],
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<(), Error>;
+}
+
+#[async_trait::async_trait]
+impl RolePermissionsHelper for RolePermissions {
+    async fn get_role_permissions(
+        role_id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<Vec<String>, Error> {
+        let rows = RolePermissions::find()
+            .filter(Column::RoleId.eq(role_id))
+            .all(database)
+            .await?;
+
+        Ok(rows.into_iter().map(|r| r.permission).collect())
+    }
+
+    async fn set_role_permissions(
+        role_id: Uuid,
+        permissions: &[String],
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<(), Error> {
+        RolePermissions::delete_many()
+            .filter(Column::RoleId.eq(role_id))
+            .exec(database)
+            .await?;
+
+        if !permissions.is_empty() {
+            let models: Vec<ActiveModel> = permissions
+                .iter()
+                .map(|p| ActiveModel {
+                    role_id: sea_orm::ActiveValue::Set(role_id),
+                    permission: sea_orm::ActiveValue::Set(p.clone()),
+                })
+                .collect();
+
+            RolePermissions::insert_many(models).exec(database).await?;
+        }
+
+        Ok(())
+    }
+}
