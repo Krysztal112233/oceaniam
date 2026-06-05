@@ -1,4 +1,5 @@
 pub mod administrators;
+pub mod application_roles;
 pub mod applications;
 pub mod auth;
 pub mod pagination;
