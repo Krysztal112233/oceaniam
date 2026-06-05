@@ -296,6 +296,7 @@ enum ApplicationRoles {
 }
 
 #[derive(DeriveIden)]
+#[allow(dead_code)]
 enum RolePermissions {
     Table,
     RoleId,
