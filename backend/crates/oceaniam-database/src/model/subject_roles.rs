@@ -15,14 +15,6 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::subjects::Entity",
-        from = "Column::SubjectId",
-        to = "super::subjects::Column::Id",
-        on_update = "NoAction",
-        on_delete = "Cascade"
-    )]
-    Subjects,
-    #[sea_orm(
         belongs_to = "super::application_roles::Entity",
         from = "Column::RoleId",
         to = "super::application_roles::Column::Id",
@@ -30,17 +22,25 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     ApplicationRoles,
-}
-
-impl Related<super::subjects::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Subjects.def()
-    }
+    #[sea_orm(
+        belongs_to = "super::subjects::Entity",
+        from = "Column::SubjectId",
+        to = "super::subjects::Column::Id",
+        on_update = "NoAction",
+        on_delete = "Cascade"
+    )]
+    Subjects,
 }
 
 impl Related<super::application_roles::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ApplicationRoles.def()
+    }
+}
+
+impl Related<super::subjects::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Subjects.def()
     }
 }
 
