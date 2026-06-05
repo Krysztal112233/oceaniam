@@ -4,7 +4,6 @@ use axum::{
     extract::FromRequestParts,
     http::{request::Parts, StatusCode},
 };
-use oceaniam_common::sqid::Sqid;
 use oceaniam_permission::Permission;
 use tracing::error;
 use uuid::Uuid;
@@ -61,18 +60,7 @@ impl<P: AppPermission> FromRequestParts<AppState<'_>> for AppPermissionGuard<P> 
             })?;
 
         let subject_id = auth.token.claims.sub;
-
-        let path_segments: Vec<&str> = parts.uri.path().split('/').collect();
-        let application_id = path_segments
-            .iter()
-            .position(|&segment| segment == "applications")
-            .and_then(|idx| path_segments.get(idx + 1))
-            .and_then(|id| id.parse::<Sqid>().ok())
-            .and_then(|id| Uuid::try_from(id).ok())
-            .ok_or_else(|| {
-                error!("failed to parse application_id from path in app permission guard");
-                Error::with_code(StatusCode::BAD_REQUEST, "invalid application_id")
-            })?;
+        let application_id = auth.application_id;
 
         let perms = state
             .platform_permissions

@@ -86,6 +86,8 @@ impl FromRequestParts<AppState<'_>> for PlatformAuthGuard {
 #[derive(Debug, Clone)]
 pub struct ApplicationAuthGuard {
     pub token: TokenData<Claim>,
+    pub tenant_id: Uuid,
+    pub application_id: Uuid,
 }
 
 impl FromRequestParts<AppState<'_>> for ApplicationAuthGuard {
@@ -155,7 +157,11 @@ impl FromRequestParts<AppState<'_>> for ApplicationAuthGuard {
             .await
             .map_err(|_| StatusCode::BAD_REQUEST)?;
 
-        Ok(Self { token })
+        Ok(Self {
+            token,
+            tenant_id,
+            application_id,
+        })
     }
 }
 
