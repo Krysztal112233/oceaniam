@@ -14,6 +14,8 @@ pub use super::credentials::Entity as Credentials;
 pub use super::key_boxes::Entity as KeyBoxes;
 pub use super::platform_summary::Entity as PlatformSummary;
 pub use super::revoked_jwts::Entity as RevokedJwts;
+pub use super::role_permissions::Entity as RolePermissions;
+pub use super::subject_roles::Entity as SubjectRoles;
 pub use super::subjects::Entity as Subjects;
 pub use super::tenants::Entity as Tenants;
 pub use super::users::Entity as Users;
