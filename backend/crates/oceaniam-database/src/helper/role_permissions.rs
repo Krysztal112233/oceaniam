@@ -12,18 +12,6 @@ use crate::{
 
 #[async_trait::async_trait]
 pub trait RolePermissionsHelper {
-    async fn get_role_permissions(
-        role_id: Uuid,
-        database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<Vec<String>, Error> {
-        let rows = RolePermissions::find()
-            .filter(Column::RoleId.eq(role_id))
-            .all(database)
-            .await?;
-
-        Ok(rows.into_iter().map(|r| r.permission).collect())
-    }
-
     async fn get_role_permissions_map(
         role_ids: &[Uuid],
         database: &impl SafeTransactionConnectionTrait,

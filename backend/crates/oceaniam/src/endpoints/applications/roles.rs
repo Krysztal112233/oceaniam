@@ -259,11 +259,13 @@ pub async fn get_role(
 
     ensure_belongs_to_app(&role, application_id)?;
 
-    let permissions = RolePermissions::get_role_permissions(role_id, &database)
+    let permissions = RolePermissions::get_role_permissions_map(&[role_id], &database)
         .await
         .inspect_err(|e| {
             error!(%role_id, error = %e, "failed to get role permissions");
-        })?;
+        })?
+        .remove(&role_id)
+        .unwrap_or_default();
 
     Ok(ApiResponse::new(application_role_model_to_vo(
         role,
@@ -338,11 +340,13 @@ pub async fn patch_role(
 
     let updated = ApplicationRoles::get_role_by_id(role_id, &database).await?;
 
-    let permissions = RolePermissions::get_role_permissions(role_id, &database)
+    let permissions = RolePermissions::get_role_permissions_map(&[role_id], &database)
         .await
         .inspect_err(|e| {
             error!(%role_id, error = %e, "failed to get role permissions");
-        })?;
+        })?
+        .remove(&role_id)
+        .unwrap_or_default();
 
     Ok(ApiResponse::new(application_role_model_to_vo(
         updated,
@@ -468,11 +472,13 @@ pub async fn get_role_permissions(
 
     ensure_belongs_to_app(&role, application_id)?;
 
-    let permissions = RolePermissions::get_role_permissions(role_id, &database)
+    let permissions = RolePermissions::get_role_permissions_map(&[role_id], &database)
         .await
         .inspect_err(|e| {
             error!(%role_id, error = %e, "failed to get role permissions");
-        })?;
+        })?
+        .remove(&role_id)
+        .unwrap_or_default();
 
     Ok(ApiResponse::new(RolePermissionsVO { permissions }))
 }

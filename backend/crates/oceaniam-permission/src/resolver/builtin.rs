@@ -154,8 +154,11 @@ async fn resolve_subject_permissions(
 
     let mut permissions = HashSet::new();
 
-    for role_id in role_ids {
-        let perms = RolePermissions::get_role_permissions(role_id, db).await?;
+    for role_id in &role_ids {
+        let perms = RolePermissions::get_role_permissions_map(&[*role_id], db)
+            .await?
+            .remove(role_id)
+            .unwrap_or_default();
         for p in perms {
             let perm: Permission = p.parse().map_err(|_| crate::Error::Internal {
                 msg: format!("unknown permission: {p}"),
