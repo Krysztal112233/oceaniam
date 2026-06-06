@@ -120,42 +120,25 @@ pub trait ApplicationSecretsHelper {
             .await?)
     }
 
-    async fn get_all_application_ids_grouped_by_secret_id(
-        database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<HashMap<Uuid, Vec<Uuid>>, Error> {
-        use model::application_secret_bindings::Column::*;
-
-        let bindings = ApplicationSecretBindings::find()
-            .select_only()
-            .column(SecretId)
-            .column(ApplicationId)
-            .into_tuple::<(Uuid, Uuid)>()
-            .all(database)
-            .await?;
-
-        let mut grouped = HashMap::<Uuid, Vec<Uuid>>::new();
-        for (secret_id, application_id) in bindings {
-            grouped.entry(secret_id).or_default().push(application_id);
-        }
-
-        Ok(grouped)
-    }
-
     async fn get_application_ids_grouped_by_secret_ids(
-        secret_ids: Vec<Uuid>,
+        secret_ids: Option<&[Uuid]>,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<HashMap<Uuid, Vec<Uuid>>, Error> {
         use model::application_secret_bindings::Column::*;
 
-        if secret_ids.is_empty() {
-            return Ok(HashMap::new());
-        }
-
-        let bindings = ApplicationSecretBindings::find()
-            .filter(SecretId.is_in(secret_ids))
+        let mut query = ApplicationSecretBindings::find()
             .select_only()
             .column(SecretId)
-            .column(ApplicationId)
+            .column(ApplicationId);
+
+        if let Some(ids) = secret_ids {
+            if ids.is_empty() {
+                return Ok(HashMap::new());
+            }
+            query = query.filter(SecretId.is_in(ids.iter().copied()));
+        }
+
+        let bindings = query
             .into_tuple::<(Uuid, Uuid)>()
             .all(database)
             .await?;

@@ -144,7 +144,7 @@ impl Secrets<'_> {
     pub async fn get_secret_application_ids_batch(
         &self,
     ) -> Result<HashMap<Uuid, Vec<Uuid>>, Error> {
-        ApplicationSecrets::get_all_application_ids_grouped_by_secret_id(&self.database)
+        ApplicationSecrets::get_application_ids_grouped_by_secret_ids(None, &self.database)
             .await
             .map_err(Into::into)
     }
@@ -157,7 +157,7 @@ impl Secrets<'_> {
     ) -> Result<HashMap<Uuid, Vec<Uuid>>, Error> {
         let application_ids_by_secret =
             ApplicationSecrets::get_application_ids_grouped_by_secret_ids(
-                secret_ids,
+                Some(&secret_ids),
                 &self.database,
             )
             .await?;
