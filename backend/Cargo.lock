@@ -2599,7 +2599,6 @@ dependencies = [
 name = "oceaniam-keybox"
 version = "0.1.0"
 dependencies = [
- "backon",
  "chrono",
  "im",
  "itertools",
@@ -2607,7 +2606,6 @@ dependencies = [
  "oceaniam-auth",
  "oceaniam-common",
  "oceaniam-database",
- "parking_lot",
  "rand 0.8.6",
  "rsa",
  "sea-orm",

@@ -4,13 +4,11 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-backon.workspace = true
 chrono.workspace = true
 im.workspace = true
 itertools.workspace = true
 jsonwebtoken.workspace = true
 tracing.workspace = true
-parking_lot.workspace = true
 rand.workspace = true
 rsa.workspace = true
 sea-orm.workspace = true
