@@ -193,10 +193,6 @@ pub trait ApplicationHelper {
 
 impl ApplicationHelper for Applications {}
 
-fn is_system_application(application_id: Uuid) -> bool {
-    application_id == consts::SYSTEM_APPLICATION_UUID
-}
-
 fn is_system_tenant(tenant_id: Uuid) -> bool {
     tenant_id == consts::SYSTEM_TENANT_UUID
 }

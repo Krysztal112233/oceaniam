@@ -130,10 +130,6 @@ pub trait TenantsHelper {
 
 impl TenantsHelper for Tenants {}
 
-fn is_system_tenant(tenant_id: Uuid) -> bool {
-    tenant_id == consts::SYSTEM_TENANT_UUID
-}
-
 fn tenant_not_found(tenant_id: Uuid) -> Error {
     Error::with_code(
         StatusCode::NOT_FOUND,
