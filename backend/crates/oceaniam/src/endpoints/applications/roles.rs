@@ -540,11 +540,15 @@ pub async fn set_role_permissions(
         ));
     }
 
-    RolePermissions::set_role_permissions(role_id, &body.permissions, &database)
+    let tx = database.begin().await?;
+
+    RolePermissions::set_role_permissions(role_id, &body.permissions, &tx)
         .await
         .inspect_err(|e| {
             error!(%role_id, error = %e, "failed to set role permissions");
         })?;
+
+    tx.commit().await?;
 
     info!(
         %application_id,

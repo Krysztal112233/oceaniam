@@ -11,7 +11,9 @@ use oceaniam_auth::{
 use oceaniam_common::consts;
 use oceaniam_database::{
     config::application::ApplicationConfiguration,
-    helper::{applications::ApplicationHelper, key_boxes::KeyBoxesHelper},
+    helper::{
+        SafeTransactionConnectionTrait, applications::ApplicationHelper, key_boxes::KeyBoxesHelper,
+    },
     model::{
         key_boxes::Model as KeyModel,
         prelude::{Applications, KeyBoxes},
@@ -111,6 +113,18 @@ impl ManagedKeyBoxes {
     /// signing key.  The initial key is created with default [`KeyOption`]
     /// timestamps and immediately persisted to the database and cached.
     pub async fn create_keybox(&self, tenant_id: Uuid) -> Result<KeyBox, Error> {
+        let keybox = self.create_keybox_in_tx(tenant_id, &self.database).await?;
+
+        self.boxes.insert(tenant_id, keybox.clone()).await;
+
+        Ok(keybox)
+    }
+
+    pub async fn create_keybox_in_tx(
+        &self,
+        tenant_id: Uuid,
+        transaction: &impl SafeTransactionConnectionTrait,
+    ) -> Result<KeyBox, Error> {
         let mut keybox = KeyBox::new(tenant_id);
 
         keybox
@@ -121,13 +135,15 @@ impl ManagedKeyBoxes {
             .inspect_err(|e| error!("{e}"))?;
 
         keybox
-            .write_to(&self.database)
+            .write_to(transaction)
             .await
             .inspect_err(|e| error!("{e}"))?;
 
-        self.boxes.insert(tenant_id, keybox.clone()).await;
-
         Ok(keybox)
+    }
+
+    pub async fn insert_cache(&self, tenant_id: Uuid, keybox: KeyBox) {
+        self.boxes.insert(tenant_id, keybox).await;
     }
 
     /// Generates a new key for the given tenant and persists it.

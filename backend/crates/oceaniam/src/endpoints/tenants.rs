@@ -22,6 +22,7 @@ use oceaniam_vo::{
     applications::ApplicationUserVO,
     tenants::{CreateTenantRequest, PatchTenantRequest, TenantVO},
 };
+use sea_orm::TransactionTrait;
 use tap::Tap;
 use tracing::{Span, error, field, info, warn};
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -189,18 +190,26 @@ pub async fn create_tenant(
             .record("tenant_id", field::display(&tenant_id));
     });
 
-    let model = Tenants::create_tenant(tenant_id, comment, &database)
+    let transaction = database.begin().await?;
+
+    let model = Tenants::create_tenant(tenant_id, comment, &transaction)
         .await
         .inspect_err(|e| {
             warn!(
-                tenant_id = %tenant_id,
+                %tenant_id,
                 %operator_id,
                 error = %e,
                 "tenant creation failed"
             )
         })?;
 
-    keyboxes.create_keybox(tenant_id).await?;
+    let keybox = keyboxes
+        .create_keybox_in_tx(tenant_id, &transaction)
+        .await?;
+
+    transaction.commit().await?;
+
+    keyboxes.insert_cache(tenant_id, keybox).await;
 
     info!(
         %tenant_id,
@@ -208,7 +217,7 @@ pub async fn create_tenant(
     );
 
     warn!(
-        tenant_id = %tenant_id,
+        %tenant_id,
         %operator_id,
         "tenant created successfully"
     );
@@ -330,7 +339,7 @@ pub async fn delete_tenant(
         .await
         .inspect_err(|e| {
             error!(
-                tenant_id = %tenant_id,
+                %tenant_id,
                 %operator_id,
                 error = %e,
                 "tenant deletion failed"
@@ -338,7 +347,7 @@ pub async fn delete_tenant(
         })?;
 
     warn!(
-        tenant_id = %tenant_id,
+        %tenant_id,
         %operator_id,
         "tenant deleted successfully"
     );
@@ -398,7 +407,7 @@ pub async fn get_tenant_users(
             .inspect_err(|e| {
                 error!(
                     %operator_id,
-                    tenant_id = %tenant_id,
+                    %tenant_id,
                     error = %e,
                     "tenant user list query failed"
                 )

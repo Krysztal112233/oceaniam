@@ -80,7 +80,7 @@ pub async fn get_tenant_keys(
         .collect::<Vec<_>>();
 
     info!(
-        tenant_id = %tenant_id,
+        %tenant_id,
         key_count = keys.len(),
         "listed tenant keys"
     );

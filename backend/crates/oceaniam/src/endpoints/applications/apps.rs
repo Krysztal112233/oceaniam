@@ -78,7 +78,7 @@ pub async fn get_applications(
             .record("per_page", page.per_page);
     });
 
-    info!(tenant_id = %tenant_id, "getting applications");
+    info!(%tenant_id, "getting applications");
 
     let PagedResponse { items, page_info } =
         Applications::get_applications(tenant_id, Some(page), &database).await?;
@@ -138,7 +138,7 @@ pub async fn create_application(
     });
 
     info!(
-        tenant_id = %tenant_id,
+        %tenant_id,
         application_id = %id,
         "application created successfully"
     );
