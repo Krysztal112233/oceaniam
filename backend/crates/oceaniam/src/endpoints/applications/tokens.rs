@@ -4,7 +4,13 @@ use oceaniam_audit::types::{AuditPayload, RefreshJwtPayload, RevokeJwtPayload, S
 use oceaniam_auth::jwt::Claim;
 use oceaniam_common::consts;
 use oceaniam_database::config::application::ApplicationConfiguration;
-use oceaniam_vo::auth::{AuthVO, SigninResponseOrChallenge, SignoutResponse, SignupResponse};
+use oceaniam_database::helper::challenges::CreateChallengeOpts;
+use oceaniam_database::model::sea_orm_active_enums::{
+    ChallengeFactorType, ChallengePurposeType,
+};
+use oceaniam_vo::auth::{
+    AuthVO, SigninChallenge, SigninResponseOrChallenge, SignoutResponse, SignupResponse,
+};
 use tap::Tap;
 use tracing::{Span, error, field, info, warn};
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -128,6 +134,35 @@ pub async fn create_application_token(
         return Err(Error::with_code(
             StatusCode::INTERNAL_SERVER_ERROR,
             consts::USER_LOGIN_FAILED_MSG,
+        ));
+    }
+
+    if credentials.has_totp(user.id).await? {
+        let challenges = applications.challenges(application_id).await?;
+        let challenge = challenges
+            .create_challenge(
+                user.id,
+                CreateChallengeOpts {
+                    factor_type: ChallengeFactorType::Totp,
+                    challenge_purpose_type: ChallengePurposeType::Signin,
+                    ..Default::default()
+                },
+            )
+            .await?;
+
+        info!(
+            %application_id,
+            user_id = %user.id,
+            challenge_id = %challenge.id,
+            "mfa challenge created during signin"
+        );
+
+        return Ok(ApiResponse::new(
+            SigninResponseOrChallenge::Challenge(SigninChallenge {
+                challenge_id: challenge.id.into(),
+                factor_type: "totp".to_string(),
+                expires_at: challenge.expires_at,
+            }),
         ));
     }
 

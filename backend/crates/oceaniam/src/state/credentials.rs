@@ -236,11 +236,11 @@ impl ManagedCredentialVaults {
 
     pub async fn verify_totp_enrollment(
         &self,
-        id: Uuid,
+        subject_id: Uuid,
         code: &str,
         encryption_key: &str,
     ) -> Result<(), Error> {
-        let encrypted = self.pending_enrollments.remove(&id).await.ok_or_else(|| {
+        let encrypted = self.pending_enrollments.remove(&subject_id).await.ok_or_else(|| {
             Error::with_code(
                 StatusCode::BAD_REQUEST,
                 "TOTP enrollment session expired, please start again",
@@ -257,19 +257,19 @@ impl ManagedCredentialVaults {
             ));
         }
 
-        let db = &self.database;
-        let vault = self.get_credential_in_tx(id, db).await?;
+        let vault = self.get_credential_in_tx(subject_id, &self.database).await?;
         let vault = vault.enable_totp(encrypted);
-        vault.write_to(id, db).await?;
+        vault.write_to(subject_id, &self.database).await?;
+        self.credentials.insert(subject_id, vault.clone()).await;
 
         Ok(())
     }
 
-    pub async fn remove_totp(&self, id: Uuid) -> Result<(), Error> {
-        let db = &self.database;
-        let vault = self.get_credential_in_tx(id, db).await?;
+    pub async fn remove_totp(&self, subject_id: Uuid) -> Result<(), Error> {
+        let vault = self.get_credential_in_tx(subject_id, &self.database).await?;
         let vault = vault.remove_totp();
-        vault.write_to(id, db).await?;
+        vault.write_to(subject_id, &self.database).await?;
+        self.credentials.insert(subject_id, vault.clone()).await;
         Ok(())
     }
 }
