@@ -140,10 +140,10 @@ impl KeyBox {
 
     /// Gets a key by key_id
     ///
-    /// # Safety
+    /// # Note
     ///
     /// This function doesn't check the key is expired.
-    pub unsafe fn get_raw_key_unsafe(&self, key_id: &Uuid) -> Option<Key> {
+    pub fn get_raw_key_unchecked(&self, key_id: &Uuid) -> Option<Key> {
         self.keys.get(key_id).cloned()
     }
 
@@ -153,7 +153,7 @@ impl KeyBox {
     ///
     /// This function doesn't check if the key is expired.
     pub fn get_raw_key(&self, key_id: &Uuid) -> Option<StandaloneKey> {
-        unsafe { self.get_raw_key_unsafe(key_id).map(Into::into) }
+        self.get_raw_key_unchecked(key_id).map(Into::into)
     }
 
     /// Gets a key by key_id and converts it to the specified type
@@ -202,8 +202,8 @@ impl KeyBox {
 
         self.add_key_with_option(rsa_key, KeyOption::default())?;
 
-        // SAFETY: the key was just inserted, it exists and is not expired
-        unsafe { self.get_raw_key_unsafe(&key_id) }.ok_or_else(|| Error::Internal {
+        // NOTE: the key was just inserted, it exists and is not expired
+        self.get_raw_key_unchecked(&key_id).ok_or_else(|| Error::Internal {
             msg: "key was inserted but cannot be retrieved".into(),
             location: snafu::location!(),
         })
@@ -423,7 +423,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_raw_key_unsafe(&key_id) }.unwrap();
+        let stored_key = keybox.get_raw_key_unchecked(&key_id).unwrap();
         assert_eq!(stored_key.status, KeyStatus::Active);
     }
 
@@ -447,7 +447,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_raw_key_unsafe(&key_id) }.unwrap();
+        let stored_key = keybox.get_raw_key_unchecked(&key_id).unwrap();
         assert_eq!(stored_key.status, KeyStatus::Active);
     }
 
@@ -471,7 +471,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_raw_key_unsafe(&key_id) }.unwrap();
+        let stored_key = keybox.get_raw_key_unchecked(&key_id).unwrap();
         assert_eq!(stored_key.status, KeyStatus::Pending);
     }
 
@@ -495,7 +495,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_raw_key_unsafe(&key_id) }.unwrap();
+        let stored_key = keybox.get_raw_key_unchecked(&key_id).unwrap();
         assert_eq!(stored_key.status, KeyStatus::Retired);
     }
 
@@ -519,7 +519,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_raw_key_unsafe(&key_id) }.unwrap();
+        let stored_key = keybox.get_raw_key_unchecked(&key_id).unwrap();
         assert_eq!(stored_key.status, KeyStatus::Retired);
     }
 
@@ -545,7 +545,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_raw_key_unsafe(&key_id) }.unwrap();
+        let stored_key = keybox.get_raw_key_unchecked(&key_id).unwrap();
         assert_eq!(stored_key.status, KeyStatus::Retired);
     }
 
@@ -570,7 +570,7 @@ mod tests {
             },
         );
 
-        let stored_key = unsafe { keybox.get_raw_key_unsafe(&key_id) }.unwrap();
+        let stored_key = keybox.get_raw_key_unchecked(&key_id).unwrap();
         assert_eq!(stored_key.status, KeyStatus::Retired);
     }
 
