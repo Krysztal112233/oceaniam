@@ -228,7 +228,7 @@ pub trait ApplicationSecretsHelper {
     ) -> Result<Vec<Uuid>, Error> {
         use model::application_secrets::Column::*;
 
-        Ok(ApplicationSecrets::find()
+        Ok(all_secrets_base()
             .select_only()
             .column(Id)
             .distinct()
@@ -240,7 +240,7 @@ pub trait ApplicationSecretsHelper {
     async fn get_all_secret_models(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<model::application_secrets::Model>, Error> {
-        Ok(ApplicationSecrets::find().all(database).await?)
+        Ok(all_secrets_base().all(database).await?)
     }
 
     async fn get_all_secrets(
@@ -248,7 +248,7 @@ pub trait ApplicationSecretsHelper {
     ) -> Result<Vec<String>, Error> {
         use model::application_secrets::Column::*;
 
-        Ok(ApplicationSecrets::find()
+        Ok(all_secrets_base()
             .select_only()
             .column(Secret)
             .distinct()
@@ -256,6 +256,10 @@ pub trait ApplicationSecretsHelper {
             .all(database)
             .await?)
     }
+}
+
+fn all_secrets_base() -> sea_orm::Select<ApplicationSecrets> {
+    ApplicationSecrets::find()
 }
 
 impl ApplicationSecretsHelper for ApplicationSecrets {}
