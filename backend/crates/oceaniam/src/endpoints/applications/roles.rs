@@ -547,6 +547,13 @@ pub async fn set_role_permissions(
 
     ensure_belongs_to_app(&role, application_id)?;
 
+    if role.is_system {
+        return Err(Error::with_code(
+            StatusCode::FORBIDDEN,
+            "cannot modify system role permissions",
+        ));
+    }
+
     RolePermissions::set_role_permissions(role_id, &body.permissions, &database)
         .await
         .inspect_err(|e| {
