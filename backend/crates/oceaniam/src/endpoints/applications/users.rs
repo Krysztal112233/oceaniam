@@ -6,7 +6,7 @@ use axum::{
 };
 use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
-use oceaniam_api::{ApiResponse, ErrorResponse, PageParam, PagedResponse};
+use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{AuditPayload, CreateApplicationUserPayload};
 use oceaniam_common::helpers::gen_random_name;
 use oceaniam_common::sqid::Sqid;
@@ -17,6 +17,7 @@ use oceaniam_vo::applications::{
     CreateApplicationUserRequest, PatchApplicationUserCredentialsRequest,
     SearchApplicationUsersQuery,
 };
+use oceaniam_vo::auth::{EnrollTotpResponse, VerifyTotpRequest};
 use sea_orm::TransactionTrait;
 use tap::Tap;
 use tracing::{Span, error, field, info};
@@ -38,6 +39,9 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
         .routes(routes!(create_application_user))
         .routes(routes!(get_application_user))
         .routes(routes!(patch_application_user_credentials))
+        .routes(routes!(enroll_totp))
+        .routes(routes!(verify_totp_enrollment))
+        .routes(routes!(remove_totp))
 }
 
 /// Get application user list
@@ -601,4 +605,193 @@ pub async fn patch_application_user_credentials(
     Ok(ApiResponse::new(
         crate::conversion::users::user_model_to_vo(user),
     ))
+}
+
+/// Enroll in TOTP multi-factor authentication
+///
+/// Generates a TOTP secret and returns a provisioning URI for the user to scan with their
+/// authenticator app. The secret is cached temporarily — call the verify endpoint with the
+/// TOTP code shown in the authenticator app to complete enrollment.
+#[utoipa::path(
+    post,
+    path = "/tenants/{tenant_id}/applications/{application_id}/users/{user_id}/totp/enroll",
+    tag = "ApplicationUsers",
+    params(
+        ("Authorization" = String, Header, description = "Bearer token for backend administrator"),
+        ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
+        ("tenant_id" = String, Path, description = "Tenant ID"),
+        ("application_id" = String, Path, description = "Application ID"),
+        ("user_id" = String, Path, description = "User ID"),
+    ),
+    responses(
+        (status = 200, body = ApiResponse<EnrollTotpResponse>),
+        (status = 203, description = "Missing Authorization header and application secret header"),
+        (status = 400, description = "Bad request", body = ApiResponse<ErrorResponse>),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden - secret does not belong to this application"),
+        (status = 404, description = "Application or user not found", body = ApiResponse<ErrorResponse>),
+        (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
+    ),
+)]
+#[tracing::instrument(
+    level = "info",
+    name = "tenant_application_users.totp_enroll",
+    skip(_auth, applications, credentials, app),
+    fields(tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
+)]
+pub async fn enroll_totp(
+    _auth: AdminJwtOrApplicationSecretGuard,
+    State(AppState {
+        applications,
+        credentials,
+        ..
+    }): State<AppState<'_>>,
+    app: ResolvedApplication,
+    Path((_tenant_id, _application_id, user_id)): Path<(Sqid, Sqid, Sqid)>,
+) -> AppResult<EnrollTotpResponse> {
+    let application_id = app.id();
+    let user_id: Uuid = user_id.try_into()?;
+
+    Span::current().tap(|it| {
+        it.record("tenant_id", field::display(&app.tenant_id()))
+            .record("application_id", field::display(&application_id))
+            .record("user_id", field::display(&user_id));
+    });
+
+    let user = applications
+        .get_application_users(application_id)
+        .await?
+        .find_user_by(UserIdentifier::Id(user_id))
+        .await?;
+
+    let config = applications.get_configuration(application_id).await?;
+    let encryption_key = &config.auth.totp.encryption_key;
+    let issuer = config.auth.token.issuer.clone();
+    let account_name = user.email.clone().unwrap_or_else(|| user_id.to_string());
+
+    let response = credentials
+        .initiate_totp_enrollment(user_id, encryption_key, &issuer, &account_name)
+        .await?;
+
+    info!(%application_id, %user_id, "TOTP enrollment initiated");
+
+    Ok(ApiResponse::new(response))
+}
+
+/// Verify TOTP enrollment code
+///
+/// Completes TOTP enrollment by verifying the code from the user's authenticator app against the
+/// previously generated secret. Once verified, TOTP is enabled for this user and will be required
+/// during sign-in.
+#[utoipa::path(
+    post,
+    path = "/tenants/{tenant_id}/applications/{application_id}/users/{user_id}/totp/verify",
+    tag = "ApplicationUsers",
+    params(
+        ("Authorization" = String, Header, description = "Bearer token for backend administrator"),
+        ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
+        ("tenant_id" = String, Path, description = "Tenant ID"),
+        ("application_id" = String, Path, description = "Application ID"),
+        ("user_id" = String, Path, description = "User ID"),
+    ),
+    request_body = VerifyTotpRequest,
+    responses(
+        (status = 200, body = ApiResponse<Empty>),
+        (status = 203, description = "Missing Authorization header and application secret header"),
+        (status = 400, description = "Bad request or invalid code", body = ApiResponse<ErrorResponse>),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden - secret does not belong to this application"),
+        (status = 404, description = "Application or user not found", body = ApiResponse<ErrorResponse>),
+        (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
+    ),
+)]
+#[tracing::instrument(
+    level = "info",
+    name = "tenant_application_users.totp_verify",
+    skip(_auth, applications, credentials, body),
+    fields(tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
+)]
+pub async fn verify_totp_enrollment(
+    _auth: AdminJwtOrApplicationSecretGuard,
+    State(AppState {
+        applications,
+        credentials,
+        ..
+    }): State<AppState<'_>>,
+    app: ResolvedApplication,
+    Path((_tenant_id, _application_id, user_id)): Path<(Sqid, Sqid, Sqid)>,
+    Json(body): Json<VerifyTotpRequest>,
+) -> AppResult<Empty> {
+    let application_id = app.id();
+    let user_id: Uuid = user_id.try_into()?;
+
+    Span::current().tap(|it| {
+        it.record("tenant_id", field::display(&app.tenant_id()))
+            .record("application_id", field::display(&application_id))
+            .record("user_id", field::display(&user_id));
+    });
+
+    let config = applications.get_configuration(application_id).await?;
+    let encryption_key = &config.auth.totp.encryption_key;
+
+    credentials
+        .verify_totp_enrollment(user_id, &body.code, encryption_key)
+        .await?;
+
+    info!(%application_id, %user_id, "TOTP enrollment completed");
+
+    Ok(ApiResponse::empty())
+}
+
+/// Disable TOTP multi-factor authentication
+///
+/// Removes the TOTP secret from the user's credentials. After this, MFA will no longer be required
+/// during sign-in.
+#[utoipa::path(
+    delete,
+    path = "/tenants/{tenant_id}/applications/{application_id}/users/{user_id}/totp",
+    tag = "ApplicationUsers",
+    params(
+        ("Authorization" = String, Header, description = "Bearer token for backend administrator"),
+        ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
+        ("tenant_id" = String, Path, description = "Tenant ID"),
+        ("application_id" = String, Path, description = "Application ID"),
+        ("user_id" = String, Path, description = "User ID"),
+    ),
+    responses(
+        (status = 200, body = ApiResponse<Empty>),
+        (status = 203, description = "Missing Authorization header and application secret header"),
+        (status = 400, description = "Bad request", body = ApiResponse<ErrorResponse>),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden - secret does not belong to this application"),
+        (status = 404, description = "Application or user not found", body = ApiResponse<ErrorResponse>),
+        (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
+    ),
+)]
+#[tracing::instrument(
+    level = "info",
+    name = "tenant_application_users.totp_remove",
+    skip(_auth, credentials),
+    fields(tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
+)]
+pub async fn remove_totp(
+    _auth: AdminJwtOrApplicationSecretGuard,
+    State(AppState { credentials, .. }): State<AppState<'_>>,
+    app: ResolvedApplication,
+    Path((_tenant_id, _application_id, user_id)): Path<(Sqid, Sqid, Sqid)>,
+) -> AppResult<Empty> {
+    let application_id = app.id();
+    let user_id: Uuid = user_id.try_into()?;
+
+    Span::current().tap(|it| {
+        it.record("tenant_id", field::display(&app.tenant_id()))
+            .record("application_id", field::display(&application_id))
+            .record("user_id", field::display(&user_id));
+    });
+
+    credentials.remove_totp(user_id).await?;
+
+    info!(%application_id, %user_id, "TOTP disabled");
+
+    Ok(ApiResponse::empty())
 }
