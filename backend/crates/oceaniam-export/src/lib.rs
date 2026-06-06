@@ -1,7 +1,5 @@
 pub mod jwt;
+pub mod stubs;
 pub mod vo;
 
-#[derive(ts_rs::TS)]
-#[ts(export)]
-#[ts(as = "oceaniam_vo::response::ErrorResponse")]
-pub struct ErrorResponse;
+pub use stubs::ErrorResponse;
