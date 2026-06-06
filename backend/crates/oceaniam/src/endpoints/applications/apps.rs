@@ -81,7 +81,7 @@ pub async fn get_applications(
     info!(tenant_id = %tenant_id, "getting applications");
 
     let PagedResponse { items, page_info } =
-        Applications::get_applications(tenant_id, page, &database).await?;
+        Applications::get_applications(tenant_id, Some(page), &database).await?;
 
     Ok(ApiResponse::new(PagedResponse {
         items: items

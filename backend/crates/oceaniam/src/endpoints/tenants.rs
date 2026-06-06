@@ -77,7 +77,7 @@ pub async fn get_tenants(
             .record("per_page", page.per_page);
     });
 
-    let PagedResponse { items, page_info } = Tenants::get_tenants(page, &database)
+    let PagedResponse { items, page_info } = Tenants::get_tenants(Some(page), &database)
         .await
         .inspect_err(|e| error!(%operator_id, error = %e, "tenant list query failed"))?;
 
@@ -392,16 +392,17 @@ pub async fn get_tenant_users(
             .record("per_page", page.per_page);
     });
 
-    let PagedResponse { items, page_info } = Users::get_users_of_tenant(tenant_id, page, &database)
-        .await
-        .inspect_err(|e| {
-            error!(
-                %operator_id,
-                tenant_id = %tenant_id,
-                error = %e,
-                "tenant user list query failed"
-            )
-        })?;
+    let PagedResponse { items, page_info } =
+        Users::get_users_of_tenant(tenant_id, Some(page), &database)
+            .await
+            .inspect_err(|e| {
+                error!(
+                    %operator_id,
+                    tenant_id = %tenant_id,
+                    error = %e,
+                    "tenant user list query failed"
+                )
+            })?;
     let items: Vec<ApplicationUserVO> = items
         .into_iter()
         .map(crate::conversion::users::user_model_to_vo)

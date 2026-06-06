@@ -79,14 +79,13 @@ pub trait UserHelper {
 
     async fn get_users(
         application_id: Uuid,
-        page: impl Into<PageParam> + Send,
+        page: Option<PageParam>,
         sort_desc: bool,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<PagedResponse<model::users::Model>, Error> {
         use crate::model::{subjects::Column::ApplicationId, users};
 
-        let page = page.into();
-        let paginator = Self::order_users_by_created_at(
+        let base = Self::order_users_by_created_at(
             Subjects::find()
                 .reverse_join(Users)
                 .select_only()
@@ -94,8 +93,17 @@ pub trait UserHelper {
                 .filter(ApplicationId.eq(application_id)),
             sort_desc,
         )
-        .into_model::<model::users::Model>()
-        .paginate(database, page.per_page);
+        .into_model::<model::users::Model>();
+
+        let Some(page) = page else {
+            return base
+                .all(database)
+                .await
+                .map(PagedResponse::with_entire)
+                .map_err(Into::into);
+        };
+
+        let paginator = base.paginate(database, page.per_page);
         let users = paginator.fetch_page(page.page.saturating_sub(1)).await?;
         let total = paginator.num_items().await? as usize;
         let has_next = (page.as_offset() + users.len() as u64) < total as u64;
@@ -104,18 +112,6 @@ pub trait UserHelper {
             items: users,
             page_info: PageInfo { has_next, total },
         })
-    }
-
-    async fn get_all_users_of_application(
-        application_id: Uuid,
-        database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<Vec<model::users::Model>, Error> {
-        use crate::model::users::Column::*;
-
-        Ok(Users::find()
-            .filter(ApplicationId.eq(application_id))
-            .all(database)
-            .await?)
     }
 
     async fn get_user_of_application(
@@ -141,34 +137,32 @@ pub trait UserHelper {
             })
     }
 
-    async fn get_all_users_of_tenant(
-        tenant_id: Uuid,
-        database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<Vec<model::users::Model>, Error> {
-        use crate::model::applications::Column::*;
-
-        Ok(Users::find()
-            .find_also_related(Applications)
-            .filter(TenantId.eq(tenant_id))
-            .all(database)
-            .await?
-            .into_iter()
-            .map(|(user, _)| user)
-            .collect())
-    }
-
     async fn get_users_of_tenant(
         tenant_id: Uuid,
-        page: impl Into<PageParam> + Send,
+        page: Option<PageParam>,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<PagedResponse<model::users::Model>, Error> {
         use crate::model::applications::Column::*;
 
-        let page = page.into();
-        let paginator = Users::find()
-            .find_also_related(Applications)
-            .filter(TenantId.eq(tenant_id))
-            .paginate(database, page.per_page);
+        let base = || {
+            Users::find()
+                .find_also_related(Applications)
+                .filter(TenantId.eq(tenant_id))
+        };
+
+        let Some(page) = page else {
+            return base()
+                .all(database)
+                .await
+                .map(|rows| {
+                    PagedResponse::with_entire(
+                        rows.into_iter().map(|(user, _)| user).collect::<Vec<_>>(),
+                    )
+                })
+                .map_err(Into::into);
+        };
+
+        let paginator = base().paginate(database, page.per_page);
         let users = paginator
             .fetch_page(page.page.saturating_sub(1))
             .await?

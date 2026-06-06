@@ -84,43 +84,32 @@ pub trait ApplicationHelper {
     /// application from regular application listing.
     async fn get_applications(
         tenant_id: Uuid,
-        page: impl Into<PageParam> + Send,
+        page: Option<PageParam>,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<PagedResponse<model::applications::Model>, Error> {
         use crate::model::applications::Column::*;
-
-        let page = page.into();
 
         if is_system_tenant(tenant_id) {
             return Ok(PagedResponse::default());
         }
 
-        Applications::find()
+        let mut query = Applications::find()
             .filter(TenantId.eq(tenant_id))
-            .filter(Id.ne(consts::SYSTEM_APPLICATION_UUID))
+            .filter(Id.ne(consts::SYSTEM_APPLICATION_UUID));
+
+        let Some(page) = page else {
+            return query
+                .all(database)
+                .await
+                .map(PagedResponse::with_entire)
+                .map_err(Into::into);
+        };
+
+        query
             .paged(page)
             .paginate(database, page.per_page)
             .fetch_paged(page)
             .await
-    }
-
-    /// NOTE: This helper intentionally excludes the system tenant and system
-    /// application from regular application listing.
-    async fn get_all_applications(
-        tenant_id: Uuid,
-        database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<Vec<model::applications::Model>, Error> {
-        use crate::model::applications::Column::*;
-
-        if is_system_tenant(tenant_id) {
-            return Ok(Vec::new());
-        }
-
-        Ok(Applications::find()
-            .filter(TenantId.eq(tenant_id))
-            .filter(Id.ne(consts::SYSTEM_APPLICATION_UUID))
-            .all(database)
-            .await?)
     }
 
     /// NOTE: This helper intentionally excludes identifiers that belong to the

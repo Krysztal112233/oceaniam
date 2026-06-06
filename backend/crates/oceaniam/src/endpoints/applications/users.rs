@@ -100,7 +100,7 @@ pub async fn get_application_users(
 
     let PagedResponse { items, page_info } = Users::get_users(
         application_id,
-        page,
+        Some(page),
         matches!(query.sort_order, ApplicationUsersSortOrder::Desc),
         &database,
     )

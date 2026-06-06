@@ -96,33 +96,26 @@ pub trait TenantsHelper {
     /// NOTE: This helper intentionally excludes the system tenant from regular
     /// tenant listing.
     async fn get_tenants(
-        page: impl Into<PageParam> + Send,
+        page: Option<PageParam>,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<PagedResponse<model::tenants::Model>, Error> {
         use crate::model::tenants::Column::*;
 
-        let page = page.into();
+        let mut query = Tenants::find().filter(Id.ne(consts::SYSTEM_TENANT_UUID));
 
-        Tenants::find()
-            .filter(Id.ne(consts::SYSTEM_TENANT_UUID))
+        let Some(page) = page else {
+            return query
+                .all(database)
+                .await
+                .map(PagedResponse::with_entire)
+                .map_err(Into::into);
+        };
+
+        query
             .paged(page)
             .paginate(database, page.per_page)
             .fetch_paged(page)
             .await
-    }
-
-    /// NOTE: This helper intentionally excludes the system tenant from regular
-    /// tenant listing.
-    async fn get_all_tenants(
-        database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<PagedResponse<model::tenants::Model>, Error> {
-        use crate::model::tenants::Column::*;
-
-        Ok(Tenants::find()
-            .filter(Id.ne(consts::SYSTEM_TENANT_UUID))
-            .all(database)
-            .await
-            .map(PagedResponse::with_entire)?)
     }
 
     async fn list_all_tenants(
