@@ -5,11 +5,11 @@ use argon2::Argon2;
 use axum::http::StatusCode;
 use moka::future::{Cache, CacheBuilder};
 use oceaniam_credential::{CredentialVault, Totp};
-use oceaniam_vo::auth::EnrollTotpResponse;
 use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, credentials::CredentialsHelper},
     model::{self, prelude::Credentials},
 };
+use oceaniam_vo::auth::EnrollTotpResponse;
 use sea_orm::DatabaseConnection;
 use tracing::error;
 use uuid::Uuid;
@@ -240,12 +240,16 @@ impl ManagedCredentialVaults {
         code: &str,
         encryption_key: &str,
     ) -> Result<(), Error> {
-        let encrypted = self.pending_enrollments.remove(&subject_id).await.ok_or_else(|| {
-            Error::with_code(
-                StatusCode::BAD_REQUEST,
-                "TOTP enrollment session expired, please start again",
-            )
-        })?;
+        let encrypted = self
+            .pending_enrollments
+            .remove(&subject_id)
+            .await
+            .ok_or_else(|| {
+                Error::with_code(
+                    StatusCode::BAD_REQUEST,
+                    "TOTP enrollment session expired, please start again",
+                )
+            })?;
 
         let totp = Totp::from_encrypted(encrypted.clone(), encryption_key)?;
         let result = totp.verify(code)?;
@@ -257,7 +261,9 @@ impl ManagedCredentialVaults {
             ));
         }
 
-        let vault = self.get_credential_in_tx(subject_id, &self.database).await?;
+        let vault = self
+            .get_credential_in_tx(subject_id, &self.database)
+            .await?;
         let vault = vault.enable_totp(encrypted);
         vault.write_to(subject_id, &self.database).await?;
         self.credentials.insert(subject_id, vault.clone()).await;
@@ -266,7 +272,9 @@ impl ManagedCredentialVaults {
     }
 
     pub async fn remove_totp(&self, subject_id: Uuid) -> Result<(), Error> {
-        let vault = self.get_credential_in_tx(subject_id, &self.database).await?;
+        let vault = self
+            .get_credential_in_tx(subject_id, &self.database)
+            .await?;
         let vault = vault.remove_totp();
         vault.write_to(subject_id, &self.database).await?;
         self.credentials.insert(subject_id, vault.clone()).await;

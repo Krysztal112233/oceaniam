@@ -5,9 +5,7 @@ use oceaniam_auth::jwt::Claim;
 use oceaniam_common::consts;
 use oceaniam_database::config::application::ApplicationConfiguration;
 use oceaniam_database::helper::challenges::CreateChallengeOpts;
-use oceaniam_database::model::sea_orm_active_enums::{
-    ChallengeFactorType, ChallengePurposeType,
-};
+use oceaniam_database::model::sea_orm_active_enums::{ChallengeFactorType, ChallengePurposeType};
 use oceaniam_vo::auth::{
     AuthVO, SigninChallenge, SigninResponseOrChallenge, SignoutResponse, SignupResponse,
 };
@@ -157,13 +155,13 @@ pub async fn create_application_token(
             "mfa challenge created during signin"
         );
 
-        return Ok(ApiResponse::new(
-            SigninResponseOrChallenge::Challenge(SigninChallenge {
+        return Ok(ApiResponse::new(SigninResponseOrChallenge::Challenge(
+            SigninChallenge {
                 challenge_id: challenge.id.into(),
                 factor_type: "totp".to_string(),
                 expires_at: challenge.expires_at,
-            }),
-        ));
+            },
+        )));
     }
 
     let EncodedJwt { jwt, claim } = keyboxes
