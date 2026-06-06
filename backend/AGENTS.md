@@ -90,6 +90,9 @@ Before claiming work is complete, run these commands:
   unpaginated lists.
 - **`#[allow(unused)]`**: Used as a WIP marker for modules or structs that are not yet wired up to the endpoint layer.
 - **`crate::conversion` module**: Model→VO 转换统一放在 `crates/oceaniam/src/conversion/` 中，使用普通函数而非 `From` trait impl。`oceaniam-vo` 只包含纯数据类型（struct + derive），不包含业务逻辑或数据库依赖。新增端点需要 VO 转换时，优先在该模块中添加对应的转换函数。
+- **Transaction wrapping**: Multi-write operations (e.g., create entity + create related resources, delete-all + insert-many) must be wrapped in an explicit `database.begin()` / `tx.commit()` pair. Pass `&tx` as the connection parameter to all helpers within the transaction scope. If a helper does not accept a generic connection, expose a `_in_tx` variant (see below).
+- **State layer `_in_tx` pattern**: State managers that perform DB writes must expose two variants for multi-step operations: `method(&self, ..., &self.database)` (convenience, uses the raw connection) and `method_in_tx(&self, ..., transaction)` (for callers that need to share a transaction). Existing examples: `update_password` / `update_password_in_tx` (`state/credentials.rs`), `create_keybox` / `create_keybox_in_tx` (`state/keybox.rs`), `set_pass` / `set_pass_in_tx` (`state/challenge.rs`).
+- **`lib.rs` as pure re-exports**: Implementation logic must live in named sub-modules; `lib.rs` should contain only `mod` declarations and `pub use` re-exports. This keeps the public API surface explicit and avoids internal implementation details leaking into the crate root. See `oceaniam-credential/src/lib.rs` / `vault.rs` for the canonical example.
 
 ## Testing Infrastructure
 
