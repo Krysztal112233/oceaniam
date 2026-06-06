@@ -60,21 +60,7 @@ pub enum Error {
 impl Error {
     pub fn unimplemented_jwt_alogrithm(key_alg: Algorithm) -> Self {
         Self::UnimplementedJwtAlogrithm {
-            alg: match key_alg {
-                Algorithm::HS256 => "HS256",
-                Algorithm::HS384 => "HS384",
-                Algorithm::HS512 => "HS512",
-                Algorithm::ES256 => "ES256",
-                Algorithm::ES384 => "ES384",
-                Algorithm::RS256 => "RS256",
-                Algorithm::RS384 => "RS384",
-                Algorithm::RS512 => "RS512",
-                Algorithm::PS256 => "PS256",
-                Algorithm::PS384 => "PS384",
-                Algorithm::PS512 => "PS512",
-                Algorithm::EdDSA => "EdDSA",
-            }
-            .to_string(),
+            alg: format!("{key_alg:?}"),
             location: snafu::location!(),
         }
     }
