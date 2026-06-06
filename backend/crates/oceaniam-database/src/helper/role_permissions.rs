@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use uuid::Uuid;
 
@@ -14,6 +16,11 @@ pub trait RolePermissionsHelper {
         role_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<String>, Error>;
+
+    async fn get_role_permissions_map(
+        role_ids: &[Uuid],
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<HashMap<Uuid, Vec<String>>, Error>;
 
     async fn set_role_permissions(
         role_id: Uuid,
@@ -34,6 +41,28 @@ impl RolePermissionsHelper for RolePermissions {
             .await?;
 
         Ok(rows.into_iter().map(|r| r.permission).collect())
+    }
+
+    async fn get_role_permissions_map(
+        role_ids: &[Uuid],
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<HashMap<Uuid, Vec<String>>, Error> {
+        let rows = RolePermissions::find()
+            .filter(Column::RoleId.is_in(role_ids.iter().copied()))
+            .all(database)
+            .await?;
+
+        let mut map: HashMap<Uuid, Vec<String>> =
+            rows.into_iter().fold(HashMap::new(), |mut acc, r| {
+                acc.entry(r.role_id).or_default().push(r.permission);
+                acc
+            });
+
+        for &id in role_ids {
+            map.entry(id).or_default();
+        }
+
+        Ok(map)
     }
 
     async fn set_role_permissions(

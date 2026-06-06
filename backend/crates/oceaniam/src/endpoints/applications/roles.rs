@@ -122,15 +122,20 @@ pub async fn list_roles(
             error!(%application_id, error = %e, "failed to list application roles");
         })?;
 
-    let mut vos = Vec::with_capacity(roles.len());
-    for role in roles {
-        let permissions = RolePermissions::get_role_permissions(role.id, &database)
-            .await
-            .inspect_err(|e| {
-                error!(role_id = %role.id, error = %e, "failed to get role permissions");
-            })?;
-        vos.push(application_role_model_to_vo(role, permissions));
-    }
+    let role_ids: Vec<Uuid> = roles.iter().map(|r| r.id).collect();
+    let perm_map = RolePermissions::get_role_permissions_map(&role_ids, &database)
+        .await
+        .inspect_err(|e| {
+            error!(%application_id, error = %e, "failed to batch get role permissions");
+        })?;
+
+    let vos = roles
+        .into_iter()
+        .map(|role| {
+            let perms = perm_map.get(&role.id).cloned().unwrap_or_default();
+            application_role_model_to_vo(role, perms)
+        })
+        .collect::<Vec<_>>();
 
     Ok(ApiResponse::new(PagedResponse::with_entire(vos)))
 }
