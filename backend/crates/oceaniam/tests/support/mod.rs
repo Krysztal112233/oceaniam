@@ -226,7 +226,7 @@ fn generate_root_password() -> String {
 
 async fn prepare_isolation_schema(test_config: &BackendConfig) -> String {
     // Generate a unique schema name
-    let schema_name = format!("test_schema_{}", Uuid::new_v4().simple());
+    let schema_name = format!("test_schema_{}", Uuid::now_v7().simple());
 
     // Save the base DSN (without currentSchema parameter) for cleanup
     let base_dsn = test_config.database.dsn.clone();

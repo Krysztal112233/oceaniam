@@ -150,7 +150,7 @@ pub async fn create_role(
             .record("application_id", field::display(&application_id));
     });
 
-    let role_id = Uuid::new_v4();
+    let role_id = Uuid::now_v7();
     let role = model::application_roles::ActiveModel {
         id: Set(role_id),
         application_id: Set(application_id),
