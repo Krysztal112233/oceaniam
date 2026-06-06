@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::{
     error::Error,
-    key::{AsSecretField, FromSecretField, TryIntoJwk, TryIntoKeyModel},
+    key::{FromSecretField, TryIntoJwk, TryIntoKeyModel},
     key_alg::KeyAlg,
     keybox::{KeyOption, StandaloneKey, compute_key_status},
 };
@@ -84,14 +84,6 @@ impl SecretField {
         pem.zeroize();
 
         Ok(secret)
-    }
-}
-
-impl AsSecretField for RsaKey {
-    fn as_secret_field(&self) -> Result<Value, Error> {
-        Ok(serde_json::to_value(SecretField::from_rsa_private(
-            self.private.clone(),
-        )?)?)
     }
 }
 
@@ -267,16 +259,6 @@ mod tests {
                 )
                 .all(|it| it.is_ok())
         )
-    }
-
-    #[test]
-    fn test_rsa_as_secret_field() {
-        for alg in SUPPORTED_ALGORITHM.iter() {
-            let key = RsaKey::new(Uuid::now_v7(), KeyAlg::try_from(*alg).unwrap());
-            let secret = key.as_secret_field();
-            assert!(secret.is_ok());
-            assert!(RsaKey::from_secret_field(secret.unwrap()).is_ok());
-        }
     }
 
     #[test]
