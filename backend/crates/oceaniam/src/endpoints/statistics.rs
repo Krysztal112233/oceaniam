@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use axum::extract::State;
 use axum_extra::extract::OptionalQuery;
 use oceaniam_api::{ApiResponse, ErrorResponse};
-use oceaniam_database::helper::statistics::AuditsHelper;
+use oceaniam_database::helper::statistics::AuditStatisticsHelper;
 use oceaniam_database::helper::trend;
 use oceaniam_database::model::prelude::Audits;
 use oceaniam_vo::statistics::{OverviewVO, PlatformTrendsVO, TrendDataPoint, TrendQuery};

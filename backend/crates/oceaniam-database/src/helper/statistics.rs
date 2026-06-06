@@ -24,7 +24,7 @@ pub struct ApplicationCounts {
 }
 
 #[async_trait::async_trait]
-pub trait AuditsHelper {
+pub trait AuditStatisticsHelper {
     async fn count_tenants(database: &impl SafeTransactionConnectionTrait) -> Result<u64, Error> {
         Ok(Tenants::find().count(database).await?)
     }
@@ -180,7 +180,7 @@ pub trait AuditsHelper {
     }
 }
 
-impl AuditsHelper for Audits {}
+impl AuditStatisticsHelper for Audits {}
 
 #[cfg(test)]
 mod tests {

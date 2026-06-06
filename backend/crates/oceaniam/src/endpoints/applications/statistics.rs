@@ -1,7 +1,7 @@
 use axum::extract::{Path, State};
 use axum_extra::extract::OptionalQuery;
 use oceaniam_api::{ApiResponse, ErrorResponse, PageParam, PagedResponse};
-use oceaniam_database::helper::statistics::AuditsHelper;
+use oceaniam_database::helper::statistics::AuditStatisticsHelper;
 use oceaniam_database::helper::trend;
 use oceaniam_database::model::{prelude::Audits, sea_orm_active_enums::AuditType};
 use oceaniam_vo::statistics::{
