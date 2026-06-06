@@ -57,6 +57,28 @@ fn ensure_belongs_to_app(
     Ok(())
 }
 
+async fn ensure_subject_belongs_to_app(
+    subject_id: Uuid,
+    application_id: Uuid,
+    database: &impl oceaniam_database::helper::SafeTransactionConnectionTrait,
+) -> Result<(), Error> {
+    let subject = Subjects::find_by_id(subject_id)
+        .one(database)
+        .await
+        .inspect_err(|e| {
+            error!(%subject_id, error = %e, "failed to find subject");
+        })?
+        .ok_or_else(|| Error::with_code(StatusCode::NOT_FOUND, "subject not found"))?;
+
+    if subject.application_id != application_id {
+        return Err(Error::with_code(
+            StatusCode::FORBIDDEN,
+            "subject does not belong to this application",
+        ));
+    }
+    Ok(())
+}
+
 /// List all roles for the current application
 #[utoipa::path(
     get,
@@ -581,6 +603,8 @@ pub async fn get_subject_roles(
             .record("subject_id", field::display(&subject_id));
     });
 
+    ensure_subject_belongs_to_app(subject_id, application_id, &database).await?;
+
     let role_ids = SubjectRoles::get_subject_role_ids(subject_id, &database)
         .await
         .inspect_err(|e| {
@@ -652,6 +676,8 @@ pub async fn assign_role(
             .record("subject_id", field::display(&subject_id))
             .record("role_id", field::display(&role_id));
     });
+
+    ensure_subject_belongs_to_app(subject_id, application_id, &database).await?;
 
     let role = ApplicationRoles::find_by_id(role_id)
         .one(&database)
@@ -727,6 +753,8 @@ pub async fn unassign_role(
             .record("subject_id", field::display(&subject_id))
             .record("role_id", field::display(&role_id));
     });
+
+    ensure_subject_belongs_to_app(subject_id, application_id, &database).await?;
 
     let role = ApplicationRoles::find_by_id(role_id)
         .one(&database)
