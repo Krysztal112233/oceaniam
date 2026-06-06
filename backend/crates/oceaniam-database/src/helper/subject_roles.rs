@@ -13,26 +13,6 @@ pub trait SubjectRolesHelper {
     async fn get_subject_role_ids(
         subject_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<Vec<Uuid>, Error>;
-
-    async fn assign_role(
-        subject_id: Uuid,
-        role_id: Uuid,
-        database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<(), Error>;
-
-    async fn unassign_role(
-        subject_id: Uuid,
-        role_id: Uuid,
-        database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<(), Error>;
-}
-
-#[async_trait::async_trait]
-impl SubjectRolesHelper for SubjectRoles {
-    async fn get_subject_role_ids(
-        subject_id: Uuid,
-        database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<Uuid>, Error> {
         let rows = SubjectRoles::find()
             .filter(Column::SubjectId.eq(subject_id))
@@ -80,3 +60,6 @@ impl SubjectRolesHelper for SubjectRoles {
         Ok(())
     }
 }
+
+#[async_trait::async_trait]
+impl SubjectRolesHelper for SubjectRoles {}

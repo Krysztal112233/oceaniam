@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
 use uuid::Uuid;
 
 use crate::{
@@ -12,25 +12,6 @@ use crate::{
 
 #[async_trait::async_trait]
 pub trait RolePermissionsHelper {
-    async fn get_role_permissions(
-        role_id: Uuid,
-        database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<Vec<String>, Error>;
-
-    async fn get_role_permissions_map(
-        role_ids: &[Uuid],
-        database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<HashMap<Uuid, Vec<String>>, Error>;
-
-    async fn set_role_permissions(
-        role_id: Uuid,
-        permissions: &[String],
-        database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<(), Error>;
-}
-
-#[async_trait::async_trait]
-impl RolePermissionsHelper for RolePermissions {
     async fn get_role_permissions(
         role_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -79,8 +60,8 @@ impl RolePermissionsHelper for RolePermissions {
             let models: Vec<ActiveModel> = permissions
                 .iter()
                 .map(|p| ActiveModel {
-                    role_id: sea_orm::ActiveValue::Set(role_id),
-                    permission: sea_orm::ActiveValue::Set(p.clone()),
+                    role_id: ActiveValue::Set(role_id),
+                    permission: ActiveValue::Set(p.clone()),
                 })
                 .collect();
 
@@ -90,3 +71,5 @@ impl RolePermissionsHelper for RolePermissions {
         Ok(())
     }
 }
+
+impl RolePermissionsHelper for RolePermissions {}
