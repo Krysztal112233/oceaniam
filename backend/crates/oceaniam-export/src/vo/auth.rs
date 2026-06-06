@@ -37,3 +37,18 @@ pub struct SystemSigninRequest;
 #[ts(export)]
 #[ts(as = "oceaniam_vo::auth::SigninResponseOrChallenge")]
 pub struct SystemSigninResponse;
+
+#[derive(ts_rs::TS)]
+#[ts(export)]
+#[ts(as = "oceaniam_vo::auth::SigninChallenge")]
+pub struct SigninChallenge;
+
+#[derive(ts_rs::TS)]
+#[ts(export)]
+#[ts(as = "oceaniam_vo::auth::EnrollTotpResponse")]
+pub struct EnrollTotpResponse;
+
+#[derive(ts_rs::TS)]
+#[ts(export)]
+#[ts(as = "oceaniam_vo::auth::VerifyTotpRequest")]
+pub struct VerifyTotpRequest;

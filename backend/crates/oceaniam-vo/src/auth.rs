@@ -1,4 +1,6 @@
+use chrono::{DateTime, FixedOffset};
 use garde::Validate;
+use oceaniam_common::sqid::Sqid;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -34,8 +36,22 @@ pub struct SigninRequest {
     pub auth: AuthVO,
 }
 
+#[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
+pub struct SigninChallenge {
+    pub challenge_id: Sqid,
+    pub factor_type: String,
+    pub expires_at: DateTime<FixedOffset>,
+}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
+pub struct EnrollTotpResponse {
+    pub provisioning_uri: String,
+}
+
 #[derive(Debug, Deserialize, Serialize, ToSchema, ts_rs::TS)]
-pub struct SigninChallenge {}
+pub struct VerifyTotpRequest {
+    pub code: String,
+}
 
 #[derive(Debug, Deserialize, Serialize, ToSchema, ts_rs::TS)]
 #[serde(untagged)]
