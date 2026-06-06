@@ -152,21 +152,18 @@ async fn resolve_subject_permissions(
         return Ok(HashSet::new());
     }
 
-    let mut permissions = HashSet::new();
+    let perms_by_role = RolePermissions::get_role_permissions_map(&role_ids, db).await?;
 
-    for role_id in &role_ids {
-        let perms = RolePermissions::get_role_permissions_map(&[*role_id], db)
-            .await?
-            .remove(role_id)
-            .unwrap_or_default();
-        for p in perms {
-            let perm: Permission = p.parse().map_err(|_| crate::Error::Internal {
+    let permissions = role_ids
+        .iter()
+        .flat_map(|role_id| perms_by_role.get(role_id).into_iter().flatten())
+        .map(|p| {
+            p.parse::<Permission>().map_err(|_| crate::Error::Internal {
                 msg: format!("unknown permission: {p}"),
                 location: snafu::location!(),
-            })?;
-            permissions.insert(perm);
-        }
-    }
+            })
+        })
+        .collect::<Result<HashSet<_>, _>>()?;
 
     Ok(permissions)
 }
