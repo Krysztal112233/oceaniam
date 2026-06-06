@@ -1,7 +1,7 @@
 use chrono::Utc;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use oceaniam_auth::{jwks::Jwk, jwt::JwtCodec};
-use oceaniam_database::model::{key_boxes::Model as Key, sea_orm_active_enums::KeyStatus};
+use oceaniam_database::model::key_boxes::Model as Key;
 use rsa::{
     RsaPrivateKey,
     pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey},

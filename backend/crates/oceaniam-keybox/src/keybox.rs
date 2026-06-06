@@ -1,6 +1,5 @@
 use crate::error::Error;
 use chrono::{DateTime, FixedOffset, Utc};
-use std::collections::HashMap;
 use itertools::Itertools;
 use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, key_boxes::KeyBoxesHelper},
@@ -12,6 +11,7 @@ use oceaniam_database::{
 };
 use sea_orm::IntoActiveModel;
 use serde_json::Value;
+use std::collections::HashMap;
 use tracing::error;
 use uuid::Uuid;
 
@@ -221,10 +221,11 @@ impl KeyBox {
         self.add_key_with_option(rsa_key, KeyOption::default())?;
 
         // NOTE: the key was just inserted, it exists and is not expired
-        self.get_raw_key_unchecked(&key_id).ok_or_else(|| Error::Internal {
-            msg: "key was inserted but cannot be retrieved".into(),
-            location: snafu::location!(),
-        })
+        self.get_raw_key_unchecked(&key_id)
+            .ok_or_else(|| Error::Internal {
+                msg: "key was inserted but cannot be retrieved".into(),
+                location: snafu::location!(),
+            })
     }
 
     /// Returns all keys in the keybox
@@ -251,7 +252,8 @@ impl KeyBox {
                     return None;
                 }
 
-                let new_status = compute_key_status(&now, &key.activated_at, &key.retired_at, &key.expires_at);
+                let new_status =
+                    compute_key_status(&now, &key.activated_at, &key.retired_at, &key.expires_at);
 
                 (new_status != key.status).then_some((*id, new_status))
             })
@@ -297,12 +299,7 @@ impl KeyBox {
         &self,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<(), Error> {
-        let vec = self
-            .keys
-            .iter()
-            .map(|(_, model)| model)
-            .cloned()
-            .map(|it| it.into_active_model());
+        let vec = self.keys.values().cloned().map(|it| it.into_active_model());
 
         KeyBoxes::update_application_keys(self.tenant_id, vec, database).await?;
 
