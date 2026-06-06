@@ -195,21 +195,17 @@ pub async fn create_application_challenge(
 ///
 /// This is the second step of the application MFA challenge flow (after a challenge has been
 /// created by the application during sign-in). The caller provides the MFA verification payload
-/// (e.g. a TOTP code) as a JSON body.
+/// (e.g. a TOTP code) as a JSON body. No authentication is required because security is provided
+/// by the challenge itself (short TTL, max attempts).
 ///
 /// On successful verification the challenge is marked as `Consumed` and a signed application JWT is
 /// issued for the subject that owns the challenge. The token can be dispatched as a JSON body, as
 /// an `auth_token` cookie, or both, controlled by the `X-OceanIAM-Token-Dispatch` header.
-///
-/// Authentication is required via either a backend administrator Bearer JWT or the application's
-/// own `X-OceanIAM-Application-Secret`.
 #[utoipa::path(
         post,
         path = "/tenants/{tenant_id}/applications/{application_id}/challenges/{challenge_id}",
         tag = "ApplicationChallenges",
         params(
-            ("Authorization" = String, Header, description = "Bearer token for backend administrator"),
-            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("X-OceanIAM-Token-Dispatch" = Option<String>, Header, description = "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both."),
             ("tenant_id" = String, Path, description = "Tenant ID"),
             ("application_id" = String, Path, description = "Application ID"),
@@ -217,8 +213,6 @@ pub async fn create_application_challenge(
         ),
         request_body = Value,
         responses(
-            (status = 200, body = ApiResponse<SigninResponseOrChallenge>),
-            (status = 203, description = "Missing Authorization header and application secret header"),
             (status = 400, description = "Invalid ids or request body", body = ApiResponse<ErrorResponse>),
             (status = 401, description = "Unauthorized"),
             (status = 403, description = "Forbidden - secret does not belong to this application"),
@@ -233,7 +227,7 @@ pub async fn create_application_challenge(
     fields(application_id = field::Empty, challenge_id = field::Empty, user_id = field::Empty, token_dispatch = field::Empty)
 )]
 pub async fn create_application_challenge_attempt(
-    _: AdminJwtOrApplicationSecretGuard,
+    _: (),
     token_mtd: TokenDispatchMethodGuard,
     State(AppState {
         keyboxes,
