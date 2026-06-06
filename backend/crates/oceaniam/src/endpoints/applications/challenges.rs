@@ -8,13 +8,16 @@ use oceaniam_audit::types::{AuditPayload, SignJwtPayload};
 use oceaniam_auth::jwt::Claim;
 use oceaniam_common::sqid::Sqid;
 use oceaniam_database::{
-    config::application::ApplicationConfiguration, helper::challenges::ChallengesHelper,
+    config::application::ApplicationConfiguration,
+    helper::challenges::{ChallengesHelper, CreateChallengeOpts},
     model::prelude::Challenges,
+    model::sea_orm_active_enums::ChallengeFactorType,
 };
 use oceaniam_vo::{
     applications::ApplicationChallengeVO,
     auth::{SigninResponseOrChallenge, SignupResponse},
 };
+use serde::Deserialize;
 use serde_json::Value;
 use tap::Tap;
 use tracing::{Span, error, field, info};
@@ -30,9 +33,16 @@ use crate::{
     util::cookie::build_auth_cookie,
 };
 
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct CreateChallengeRequest {
+    pub subject_id: Uuid,
+    pub factor_type: Option<String>,
+}
+
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
     router
         .routes(routes!(get_application_challenge))
+        .routes(routes!(create_application_challenge))
         .routes(routes!(create_application_challenge_attempt))
 }
 
@@ -99,6 +109,82 @@ pub async fn get_application_challenge(
             ),
         ));
     }
+
+    Ok(ApiResponse::new(
+        crate::conversion::challenges::challenge_model_to_vo(challenge),
+    ))
+}
+
+/// Create a challenge for MFA verification
+///
+/// Creates a new challenge for the specified subject. The client can then present the challenge to
+/// the user and submit the verification via `POST .../challenges/{challenge_id}`.
+///
+/// Authentication is required via either a backend administrator Bearer JWT or the application's
+/// own `X-OceanIAM-Application-Secret`.
+#[utoipa::path(
+    post,
+    path = "/tenants/{tenant_id}/applications/{application_id}/challenges",
+    tag = "ApplicationChallenges",
+    params(
+        ("Authorization" = String, Header, description = "Bearer token for backend administrator"),
+        ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
+        ("tenant_id" = String, Path, description = "Tenant ID"),
+        ("application_id" = String, Path, description = "Application ID"),
+    ),
+    request_body = CreateChallengeRequest,
+    responses(
+        (status = 200, body = ApiResponse<ApplicationChallengeVO>),
+        (status = 400, description = "Invalid ids or request body"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden - secret does not belong to this application"),
+        (status = 404, description = "Application not found"),
+        (status = 500, description = "Internal server error"),
+    ),
+)]
+#[tracing::instrument(
+    level = "info",
+    name = "application_challenges.create",
+    skip(_auth, applications, body),
+    fields(application_id = field::Empty, subject_id = field::Empty, challenge_id = field::Empty)
+)]
+pub async fn create_application_challenge(
+    _auth: AdminJwtOrApplicationSecretGuard,
+    State(AppState { applications, .. }): State<AppState<'_>>,
+    app: ResolvedApplication,
+    Json(body): Json<CreateChallengeRequest>,
+) -> AppResult<ApplicationChallengeVO> {
+    let application_id = app.id();
+    Span::current().tap(|it| {
+        it.record("application_id", field::display(&application_id))
+            .record("subject_id", field::display(&body.subject_id));
+    });
+
+    let challenges = applications.challenges(application_id).await?;
+    let factor_type = body.factor_type.as_deref().unwrap_or("totp");
+    let factor = match factor_type {
+        "totp" => ChallengeFactorType::Totp,
+        _ => {
+            return Err(Error::with_code(
+                StatusCode::BAD_REQUEST,
+                format!("unsupported factor type: {factor_type}"),
+            ));
+        }
+    };
+
+    let challenge = challenges
+        .create_challenge(
+            body.subject_id,
+            CreateChallengeOpts {
+                factor_type: factor,
+                ..Default::default()
+            },
+        )
+        .await?;
+
+    Span::current().tap(|it| {
+        it.record("challenge_id", field::display(&challenge.id));
+    });
 
     Ok(ApiResponse::new(
         crate::conversion::challenges::challenge_model_to_vo(challenge),
