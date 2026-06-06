@@ -204,8 +204,8 @@ impl From<oceaniam_common::sqid::Error> for Error {
     }
 }
 
-impl From<oceaniam_keybox::error::Error> for Error {
-    fn from(e: oceaniam_keybox::error::Error) -> Self {
+impl From<oceaniam_keybox::Error> for Error {
+    fn from(e: oceaniam_keybox::Error) -> Self {
         Self::Internal {
             msg: e.to_string(),
             location: snafu::location!(),

@@ -20,7 +20,7 @@ use oceaniam_database::{
         sea_orm_active_enums::{KeyAlg, KeyStatus},
     },
 };
-use oceaniam_keybox::{KeyBox, key::rsa_key::RsaKey, keybox::KeyOption};
+use oceaniam_keybox::{KeyBox, KeyOption, RsaKey};
 use sea_orm::DatabaseConnection;
 use tap::Tap;
 use tracing::{debug, error};

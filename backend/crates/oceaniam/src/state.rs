@@ -19,7 +19,7 @@ use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, key_boxes::KeyBoxesHelper},
     model::prelude::KeyBoxes,
 };
-use oceaniam_keybox::{KeyBox, key::rsa_key::RsaKey};
+use oceaniam_keybox::{KeyBox, RsaKey};
 use oceaniam_permission::{PermissionResolver, resolver::builtin::BuiltinResolver};
 use sea_orm::DatabaseConnection;
 use tap::Tap;
@@ -161,8 +161,7 @@ async fn initial_system_keybox(
 
         let key = RsaKey::new(
             Uuid::now_v7(),
-            oceaniam_keybox::key_alg::KeyAlg::try_from(oceaniam_auth::consts::SYSTEM_KEY_ALO)
-                .unwrap(),
+            oceaniam_keybox::KeyAlg::try_from(oceaniam_auth::consts::SYSTEM_KEY_ALO).unwrap(),
         );
         keybox.add_key(key).inspect_err(|e| error!("{e}"))?;
 
