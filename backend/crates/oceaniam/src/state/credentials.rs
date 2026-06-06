@@ -4,7 +4,8 @@ use crate::error::Error;
 use argon2::Argon2;
 use axum::http::StatusCode;
 use moka::future::{Cache, CacheBuilder};
-use oceaniam_credential::CredentialVault;
+use oceaniam_credential::{CredentialVault, Totp};
+use oceaniam_vo::auth::EnrollTotpResponse;
 use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, credentials::CredentialsHelper},
     model::{self, prelude::Credentials},
@@ -22,6 +23,8 @@ pub struct ManagedCredentialVaults {
     credentials: Cache<Uuid, CredentialVault>,
 
     totp_anti_replay: TotpAntiReplay,
+
+    pending_enrollments: Cache<Uuid, String>,
 }
 
 impl ManagedCredentialVaults {
@@ -33,6 +36,10 @@ impl ManagedCredentialVaults {
                 .time_to_live(Duration::from_mins(30))
                 .build(),
             totp_anti_replay: TotpAntiReplay::default(),
+            pending_enrollments: CacheBuilder::default()
+                .max_capacity(1024)
+                .time_to_live(Duration::from_mins(5))
+                .build(),
         }
     }
 
@@ -203,6 +210,67 @@ impl ManagedCredentialVaults {
             .verify_password(password)
             .await
             .map_err(Error::from)
+    }
+}
+
+impl ManagedCredentialVaults {
+    pub async fn has_totp(&self, id: Uuid) -> Result<bool, Error> {
+        Ok(self.get_credential(id).await?.has_totp())
+    }
+
+    pub async fn initiate_totp_enrollment(
+        &self,
+        id: Uuid,
+        encryption_key: &str,
+        issuer: &str,
+        account_name: &str,
+    ) -> Result<EnrollTotpResponse, Error> {
+        let totp = Totp::generate(issuer, account_name)?;
+        let provisioning_uri = totp.provisioning_uri();
+        let encrypted = totp.to_encrypted(encryption_key)?;
+
+        self.pending_enrollments.insert(id, encrypted).await;
+
+        Ok(EnrollTotpResponse { provisioning_uri })
+    }
+
+    pub async fn verify_totp_enrollment(
+        &self,
+        id: Uuid,
+        code: &str,
+        encryption_key: &str,
+    ) -> Result<(), Error> {
+        let encrypted = self.pending_enrollments.remove(&id).await.ok_or_else(|| {
+            Error::with_code(
+                StatusCode::BAD_REQUEST,
+                "TOTP enrollment session expired, please start again",
+            )
+        })?;
+
+        let totp = Totp::from_encrypted(encrypted.clone(), encryption_key)?;
+        let result = totp.verify(code)?;
+
+        if !result.success {
+            return Err(Error::with_code(
+                StatusCode::BAD_REQUEST,
+                "Invalid TOTP code",
+            ));
+        }
+
+        let db = &self.database;
+        let vault = self.get_credential_in_tx(id, db).await?;
+        let vault = vault.enable_totp(encrypted);
+        vault.write_to(id, db).await?;
+
+        Ok(())
+    }
+
+    pub async fn remove_totp(&self, id: Uuid) -> Result<(), Error> {
+        let db = &self.database;
+        let vault = self.get_credential_in_tx(id, db).await?;
+        let vault = vault.remove_totp();
+        vault.write_to(id, db).await?;
+        Ok(())
     }
 }
 
