@@ -3,7 +3,7 @@
 use axum::extract::State;
 use axum_extra::extract::OptionalQuery;
 use oceaniam_api::{ApiResponse, ErrorResponse, PageParam, PagedResponse};
-use oceaniam_database::helper::statistics::AuditStatisticsHelper;
+use oceaniam_database::helper::statistics::{AuditLogFinderOpts, AuditStatisticsHelper};
 use oceaniam_database::model::{prelude::Audits, sea_orm_active_enums::AuditType};
 use oceaniam_vo::statistics::{AuditLogQuery, AuditLogVO};
 use tap::Tap;
@@ -66,7 +66,14 @@ async fn get_audit_logs(
     let audit_type = audit_type.and_then(|t| t.parse::<AuditType>().ok());
 
     let PagedResponse { items, page_info } =
-        Audits::get_audit_logs(page_param, audit_type, &database)
+        Audits::get_audit_logs(
+            page_param,
+            AuditLogFinderOpts {
+                app_id: None,
+                audit_type,
+            },
+            &database,
+        )
             .await
             .inspect_err(|e| error!(error = %e, "failed to query audit logs"))?;
 

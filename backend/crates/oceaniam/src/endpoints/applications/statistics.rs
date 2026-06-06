@@ -1,7 +1,7 @@
 use axum::extract::{Path, State};
 use axum_extra::extract::OptionalQuery;
 use oceaniam_api::{ApiResponse, ErrorResponse, PageParam, PagedResponse};
-use oceaniam_database::helper::statistics::AuditStatisticsHelper;
+use oceaniam_database::helper::statistics::{AuditLogFinderOpts, AuditStatisticsHelper};
 use oceaniam_database::helper::trend;
 use oceaniam_database::model::{prelude::Audits, sea_orm_active_enums::AuditType};
 use oceaniam_vo::statistics::{
@@ -170,7 +170,14 @@ async fn get_application_audits(
     let audit_type = audit_type.and_then(|t| t.parse::<AuditType>().ok());
 
     let PagedResponse { items, page_info } =
-        Audits::get_audit_logs_by_app(page_param, app_id, audit_type, &database)
+        Audits::get_audit_logs(
+            page_param,
+            AuditLogFinderOpts {
+                app_id: Some(app_id),
+                audit_type,
+            },
+            &database,
+        )
             .await
             .inspect_err(|e| error!(error = %e, "failed to query application audit logs"))?;
 

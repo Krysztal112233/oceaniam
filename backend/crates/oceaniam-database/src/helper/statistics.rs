@@ -23,6 +23,12 @@ pub struct ApplicationCounts {
     pub total_active_keys: u64,
 }
 
+#[derive(Debug, Default)]
+pub struct AuditLogFinderOpts {
+    pub app_id: Option<Uuid>,
+    pub audit_type: Option<AuditType>,
+}
+
 #[async_trait::async_trait]
 pub trait AuditStatisticsHelper {
     async fn count_tenants(database: &impl SafeTransactionConnectionTrait) -> Result<u64, Error> {
@@ -96,14 +102,21 @@ pub trait AuditStatisticsHelper {
     /// Paginated audit log, ordered by most recent first.
     async fn get_audit_logs(
         page: PageParam,
-        audit_type: Option<AuditType>,
+        opts: AuditLogFinderOpts,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<PagedResponse<crate::model::audits::Model>, Error> {
         use crate::model::audits::Column::*;
+        use sea_orm::sea_query::Expr;
 
         let mut query = Audits::find().order_by_desc(CreatedAt);
 
-        if let Some(atype) = audit_type {
+        if let Some(app_id) = opts.app_id {
+            let payload: serde_json::Value =
+                serde_json::json!({"data": {"application_id": app_id.to_string()}});
+            query = query.filter(Expr::col(Payload).contains(payload));
+        }
+
+        if let Some(atype) = opts.audit_type {
             query = query.filter(AuditType.eq(atype));
         }
 
@@ -146,38 +159,6 @@ pub trait AuditStatisticsHelper {
             .await?)
     }
 
-    /// Paginated audit log filtered by application, ordered by most recent first.
-    async fn get_audit_logs_by_app(
-        page: PageParam,
-        app_id: Uuid,
-        audit_type: Option<AuditType>,
-        database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<PagedResponse<crate::model::audits::Model>, Error> {
-        use crate::model::audits::Column::*;
-        use sea_orm::sea_query::Expr;
-
-        let payload: serde_json::Value =
-            serde_json::json!({"data": {"application_id": app_id.to_string()}});
-
-        let mut query = Audits::find()
-            .filter(Expr::col(Payload).contains(payload))
-            .order_by_desc(CreatedAt);
-
-        if let Some(atype) = audit_type {
-            query = query.filter(AuditType.eq(atype));
-        }
-
-        let page = page.into_clamped();
-        let paginator = query.paginate(database, page.per_page);
-        let items = paginator.fetch_page(page.page.saturating_sub(1)).await?;
-        let total = paginator.num_items().await? as usize;
-        let has_next = (page.as_offset() + items.len() as u64) < total as u64;
-
-        Ok(PagedResponse {
-            items,
-            page_info: PageInfo { has_next, total },
-        })
-    }
 }
 
 impl AuditStatisticsHelper for Audits {}
