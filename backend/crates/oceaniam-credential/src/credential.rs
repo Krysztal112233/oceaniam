@@ -67,6 +67,19 @@ impl Password {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct EncryptedTotp(pub(crate) String);
+
+impl EncryptedTotp {
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 #[derive(Debug)]
 pub struct Totp(totp_rs::TOTP);
 
@@ -98,7 +111,7 @@ impl Totp {
         self.0.get_url()
     }
 
-    pub fn from_encrypted(base64_string: String, key: &str) -> Result<Self, Error> {
+    pub fn from_encrypted(base64_string: &str, key: &str) -> Result<Self, Error> {
         let TotpStorage { nonce, payload } = {
             let decoded = STANDARD.decode(base64_string)?;
             serde_json::from_slice(&decoded)?
@@ -120,7 +133,7 @@ impl Totp {
         Ok(Self(totp))
     }
 
-    pub fn to_encrypted(self, key: &str) -> Result<String, Error> {
+    pub fn to_encrypted(self, key: &str) -> Result<EncryptedTotp, Error> {
         let nonce = XChaCha20Poly1305::generate_nonce(OsRng);
         let payload = {
             let cipher: XChaCha20Poly1305 = XChaCha20Poly1305::new_from_slice(key.as_bytes())?;
@@ -136,7 +149,9 @@ impl Totp {
             payload,
         };
 
-        Ok(STANDARD.encode(serde_json::to_vec(&totp_storage)?))
+        Ok(EncryptedTotp(
+            STANDARD.encode(serde_json::to_vec(&totp_storage)?),
+        ))
     }
 
     /// Verifies the provided TOTP token within the current skew window.
@@ -185,7 +200,8 @@ mod tests {
         let encrypted = Totp(original.clone())
             .to_encrypted(TEST_KEY)
             .expect("encryption should succeed");
-        let decrypted = Totp::from_encrypted(encrypted, TEST_KEY).expect("decryption should work");
+        let decrypted =
+            Totp::from_encrypted(encrypted.as_str(), TEST_KEY).expect("decryption should work");
 
         assert_eq!(decrypted.0, original);
     }
@@ -197,7 +213,7 @@ mod tests {
             .to_encrypted(TEST_KEY)
             .expect("encryption should succeed");
 
-        let result = Totp::from_encrypted(encrypted, "fedcba9876543210fedcba9876543210");
+        let result = Totp::from_encrypted(encrypted.as_str(), "fedcba9876543210fedcba9876543210");
 
         assert!(matches!(result, Err(Error::Aead { .. })));
     }

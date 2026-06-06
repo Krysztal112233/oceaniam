@@ -11,7 +11,7 @@ use crate::{credential::Password, error::Error};
 pub(crate) mod credential;
 pub mod error;
 
-pub use credential::{Totp, TotpVerifyResult};
+pub use credential::{EncryptedTotp, Totp, TotpVerifyResult};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct CredentialVault {
@@ -57,9 +57,9 @@ impl CredentialVault {
         Ok(Credentials::upsert_credential(id, phc.clone(), totp.clone(), database).await?)
     }
 
-    pub fn enable_totp(self, encrypted_totp: String) -> Self {
+    pub fn enable_totp(self, encrypted_totp: EncryptedTotp) -> Self {
         Self {
-            totp: Some(encrypted_totp),
+            totp: Some(encrypted_totp.0),
             ..self
         }
     }
@@ -92,7 +92,7 @@ impl CredentialVault {
             });
         };
 
-        Totp::from_encrypted(totp, key)?.verify(token.as_ref())
+        Totp::from_encrypted(&totp, key)?.verify(token.as_ref())
     }
 }
 
@@ -122,7 +122,7 @@ mod tests {
             .expect("TOTP should be encrypted");
         let vault = CredentialVault {
             phc: "unused".to_string(),
-            totp: Some(totp),
+            totp: Some(totp.0),
         };
 
         let verified = vault

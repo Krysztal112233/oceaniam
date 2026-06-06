@@ -4,7 +4,7 @@ use crate::error::Error;
 use argon2::Argon2;
 use axum::http::StatusCode;
 use moka::future::{Cache, CacheBuilder};
-use oceaniam_credential::{CredentialVault, Totp};
+use oceaniam_credential::{CredentialVault, EncryptedTotp, Totp};
 use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, credentials::CredentialsHelper},
     model::{self, prelude::Credentials},
@@ -24,7 +24,7 @@ pub struct ManagedCredentialVaults {
 
     totp_anti_replay: TotpAntiReplay,
 
-    pending_enrollments: Cache<Uuid, String>,
+    pending_enrollments: Cache<Uuid, EncryptedTotp>,
 }
 
 impl ManagedCredentialVaults {
@@ -251,7 +251,7 @@ impl ManagedCredentialVaults {
                 )
             })?;
 
-        let totp = Totp::from_encrypted(encrypted.clone(), encryption_key)?;
+        let totp = Totp::from_encrypted(encrypted.as_str(), encryption_key)?;
         let result = totp.verify(code)?;
 
         if !result.success {
