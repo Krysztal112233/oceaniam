@@ -138,10 +138,7 @@ pub trait ApplicationSecretsHelper {
             query = query.filter(SecretId.is_in(ids.iter().copied()));
         }
 
-        let bindings = query
-            .into_tuple::<(Uuid, Uuid)>()
-            .all(database)
-            .await?;
+        let bindings = query.into_tuple::<(Uuid, Uuid)>().all(database).await?;
 
         let mut grouped = HashMap::<Uuid, Vec<Uuid>>::new();
         for (secret_id, application_id) in bindings {

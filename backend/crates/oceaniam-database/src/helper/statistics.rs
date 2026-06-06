@@ -158,7 +158,6 @@ pub trait AuditStatisticsHelper {
             .count(database)
             .await?)
     }
-
 }
 
 impl AuditStatisticsHelper for Audits {}
