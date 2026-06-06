@@ -31,6 +31,12 @@ pub struct CreateUserResult {
     pub subject: model::subjects::Model,
 }
 
+#[derive(Debug, Default)]
+pub struct UserContactOpts {
+    pub email: Option<String>,
+    pub phone: Option<String>,
+}
+
 #[async_trait::async_trait]
 pub trait UserHelper {
     /// Creates the `subjects` and `users` rows for an application user.
@@ -237,50 +243,25 @@ pub trait UserHelper {
         })
     }
 
-    async fn find_by_email(
+    async fn find_contact_user(
         application_id: Uuid,
-        email: impl Into<String> + Send,
+        opts: UserContactOpts,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::users::Model, Error> {
         use model::users::Column::*;
 
-        match Users::find()
-            .filter(
-                Condition::all()
-                    .add(Email.eq(email.into()))
-                    .add(ApplicationId.eq(application_id)),
-            )
-            .one(database)
-            .await
-        {
-            Ok(Some(user)) => Ok(user),
-            Ok(None) => Err(Error::with_code(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                oceaniam_common::consts::USER_LOGIN_FAILED_MSG,
-            )),
-            Err(e) => Err(Error::Db {
-                source: e,
-                location: snafu::location!(),
-            }),
-        }
-    }
+        let condition = Condition::all()
+            .add(ApplicationId.eq(application_id))
+            .pipe(|it| match opts.email {
+                Some(email) => it.add(Email.eq(email)),
+                None => it,
+            })
+            .pipe(|it| match opts.phone {
+                Some(phone) => it.add(Phone.eq(phone)),
+                None => it,
+            });
 
-    async fn find_by_phone(
-        application_id: Uuid,
-        phone: impl Into<String> + Send,
-        database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<model::users::Model, Error> {
-        use model::users::Column::*;
-
-        match Users::find()
-            .filter(
-                Condition::all()
-                    .add(Phone.eq(phone.into()))
-                    .add(ApplicationId.eq(application_id)),
-            )
-            .one(database)
-            .await
-        {
+        match Users::find().filter(condition).one(database).await {
             Ok(Some(user)) => Ok(user),
             Ok(None) => Err(Error::with_code(
                 StatusCode::INTERNAL_SERVER_ERROR,

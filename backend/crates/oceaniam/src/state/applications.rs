@@ -11,7 +11,7 @@ use oceaniam_database::{
     helper::{
         SafeTransactionConnectionTrait,
         applications::{ApplicationHelper, CreateApplicationOptions},
-        users::{CreateUserOpts, CreateUserResult, UserHelper},
+        users::{CreateUserOpts, CreateUserResult, UserContactOpts, UserHelper},
     },
     model::{
         applications::Model as ApplicationModel,
@@ -445,10 +445,26 @@ impl ApplicationUsers {
             .try_get_with(user_identifier.clone(), async move {
                 let result = match user_identifier {
                     UserIdentifier::Email(mail) => {
-                        Users::find_by_email(self.application_id, mail, &self.database).await
+                        Users::find_contact_user(
+                            self.application_id,
+                            UserContactOpts {
+                                email: Some(mail),
+                                phone: None,
+                            },
+                            &self.database,
+                        )
+                        .await
                     }
                     UserIdentifier::Phone(phone) => {
-                        Users::find_by_phone(self.application_id, phone, &self.database).await
+                        Users::find_contact_user(
+                            self.application_id,
+                            UserContactOpts {
+                                email: None,
+                                phone: Some(phone),
+                            },
+                            &self.database,
+                        )
+                        .await
                     }
                     UserIdentifier::Id(uuid) => {
                         Users::get_user_of_application(self.application_id, uuid, &self.database)
