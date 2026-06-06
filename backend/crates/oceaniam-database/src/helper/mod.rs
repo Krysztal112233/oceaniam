@@ -1,3 +1,5 @@
+#![doc = include_str!("./README.md")]
+
 use crate::error::Error;
 use oceaniam_vo::pagination::{PageInfo, PageParam, PagedResponse};
 use sea_orm::{
