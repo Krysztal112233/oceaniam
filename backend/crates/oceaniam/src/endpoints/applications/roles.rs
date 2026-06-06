@@ -16,7 +16,7 @@ use oceaniam_vo::{
     },
     pagination::PagedResponse,
 };
-use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, TransactionTrait};
 use tap::Tap;
 use tracing::{Span, error, field, info};
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -180,18 +180,26 @@ pub async fn create_role(
         is_system: Set(false),
     };
 
+    let tx = database.begin().await.inspect_err(|e| {
+        error!(%application_id, error = %e, "failed to begin transaction");
+    })?;
+
     ApplicationRoles::insert(role)
-        .exec(&database)
+        .exec(&tx)
         .await
         .inspect_err(|e| {
             error!(%application_id, error = %e, "failed to create application role");
         })?;
 
-    RolePermissions::set_role_permissions(role_id, &body.permissions, &database)
+    RolePermissions::set_role_permissions(role_id, &body.permissions, &tx)
         .await
         .inspect_err(|e| {
             error!(%application_id, %role_id, error = %e, "failed to set role permissions");
         })?;
+
+    tx.commit().await.inspect_err(|e| {
+        error!(%application_id, %role_id, error = %e, "failed to commit transaction");
+    })?;
 
     info!(
         %application_id,
