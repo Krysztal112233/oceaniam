@@ -5,7 +5,6 @@ edition.workspace = true
 
 [dependencies]
 chrono.workspace = true
-im.workspace = true
 itertools.workspace = true
 jsonwebtoken.workspace = true
 tracing.workspace = true

@@ -2600,7 +2600,6 @@ name = "oceaniam-keybox"
 version = "0.1.0"
 dependencies = [
  "chrono",
- "im",
  "itertools",
  "jsonwebtoken",
  "oceaniam-auth",
