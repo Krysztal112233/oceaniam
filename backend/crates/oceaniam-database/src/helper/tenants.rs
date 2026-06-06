@@ -88,7 +88,7 @@ pub trait TenantsHelper {
     ) -> Result<PagedResponse<model::tenants::Model>, Error> {
         use crate::model::tenants::Column::*;
 
-        let mut query = Tenants::find().filter(Id.ne(consts::SYSTEM_TENANT_UUID));
+        let query = Tenants::find().filter(Id.ne(consts::SYSTEM_TENANT_UUID));
 
         let Some(page) = page else {
             return query

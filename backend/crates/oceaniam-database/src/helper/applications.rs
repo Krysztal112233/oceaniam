@@ -90,7 +90,7 @@ pub trait ApplicationHelper {
             return Ok(PagedResponse::default());
         }
 
-        let mut query = Applications::find()
+        let query = Applications::find()
             .filter(TenantId.eq(tenant_id))
             .filter(Id.ne(consts::SYSTEM_APPLICATION_UUID));
 
