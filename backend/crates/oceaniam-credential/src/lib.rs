@@ -56,6 +56,21 @@ impl CredentialVault {
 
         Ok(Credentials::upsert_credential(id, phc.clone(), totp.clone(), database).await?)
     }
+
+    pub fn enable_totp(self, encrypted_totp: String) -> Self {
+        Self {
+            totp: Some(encrypted_totp),
+            ..self
+        }
+    }
+
+    pub fn remove_totp(self) -> Self {
+        Self { totp: None, ..self }
+    }
+
+    pub fn has_totp(&self) -> bool {
+        self.totp.is_some()
+    }
 }
 
 impl CredentialVault {
