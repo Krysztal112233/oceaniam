@@ -135,3 +135,18 @@ impl From<aead::Error> for Error {
         }
     }
 }
+
+impl From<oceaniam_database::Error> for Error {
+    fn from(source: oceaniam_database::Error) -> Self {
+        match source {
+            oceaniam_database::Error::Db { source, location } => Error::Db { source, location },
+            oceaniam_database::Error::Json { source, location } => {
+                Error::SerdeJson { source, location }
+            }
+            oceaniam_database::Error::CustomMessage { msg, location, .. } => Error::Db {
+                source: sea_orm::DbErr::Custom(msg),
+                location,
+            },
+        }
+    }
+}

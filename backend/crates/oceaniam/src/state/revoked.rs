@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use crate::error::Error;
 use moka::future::{Cache, CacheBuilder};
 use oceaniam_database::{helper::revoked_jwts::RevokedJwtsHelper, model::prelude::RevokedJwts};
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
+use sea_orm::DatabaseConnection;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -27,14 +27,9 @@ impl RevokedJwt {
     pub async fn is_revoked(&self, jti: impl Into<Uuid> + Copy) -> Result<bool, Arc<Error>> {
         self.status
             .try_get_with(jti.into(), async {
-                match RevokedJwts::find_by_id(jti.into())
-                    .one(&self.database)
+                RevokedJwts::is_revoked(jti.into(), &self.database)
                     .await
-                {
-                    Ok(record) => Ok(record.is_some()),
-                    Err(DbErr::RecordNotFound(_)) => Ok(true),
-                    Err(e) => Err(Error::from(e)),
-                }
+                    .map_err(Into::into)
             })
             .await
     }

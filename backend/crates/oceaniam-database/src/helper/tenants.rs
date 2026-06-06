@@ -125,6 +125,17 @@ pub trait TenantsHelper {
             .map(PagedResponse::with_entire)?)
     }
 
+    async fn list_all_tenants(
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<Vec<model::tenants::Model>, Error> {
+        use crate::model::tenants::Column::*;
+
+        Ok(Tenants::find()
+            .filter(Id.ne(consts::SYSTEM_TENANT_UUID))
+            .all(database)
+            .await?)
+    }
+
     /// NOTE: This is the explicit escape hatch for internal code that still
     /// needs to access the reserved system tenant record.
     async fn get_system_tenant(

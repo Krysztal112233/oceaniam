@@ -6,10 +6,10 @@ use axum::http::StatusCode;
 use moka::future::{Cache, CacheBuilder};
 use oceaniam_credential::CredentialVault;
 use oceaniam_database::{
-    helper::SafeTransactionConnectionTrait,
+    helper::{SafeTransactionConnectionTrait, credentials::CredentialsHelper},
     model::{self, prelude::Credentials},
 };
-use sea_orm::{DatabaseConnection, EntityTrait};
+use sea_orm::DatabaseConnection;
 use tracing::error;
 use uuid::Uuid;
 
@@ -47,8 +47,7 @@ impl ManagedCredentialVaults {
     ) -> Result<CredentialVault, Arc<Error>> {
         self.credentials
             .try_get_with(id, async {
-                Credentials::find_by_id(id)
-                    .one(database)
+                Credentials::get_credential_by_id(id, database)
                     .await
                     .inspect_err(|e| error!("{e}"))?
                     .ok_or(Error::with_code(
@@ -85,7 +84,7 @@ impl ManagedCredentialVaults {
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<(), Error> {
-        Credentials::delete_by_id(id).exec(database).await?;
+        Credentials::delete_credential_by_id(id, database).await?;
         self.credentials.remove(&id).await;
 
         Ok(())

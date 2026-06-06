@@ -11,6 +11,7 @@ pub mod application_roles;
 pub mod applications;
 pub mod applications_secrets;
 pub mod audit_summary_by_application;
+pub mod audits;
 pub mod challenges;
 pub mod credentials;
 pub mod key_boxes;

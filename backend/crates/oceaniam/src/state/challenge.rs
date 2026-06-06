@@ -11,12 +11,12 @@ use oceaniam_database::{
         challenges::{ChallengesHelper, CreateChallengeOpts},
     },
     model::{
-        challenges::{ActiveModel as ChallengeActiveModel, Model as ChallengeModel},
+        challenges::Model as ChallengeModel,
         prelude::Challenges,
         sea_orm_active_enums::{ChallengeFactorType, ChallengeStatusType},
     },
 };
-use sea_orm::{ActiveModelTrait, ActiveValue::Set, DatabaseConnection, IntoActiveModel};
+use sea_orm::DatabaseConnection;
 use serde_json::Value;
 use tracing::{info, warn};
 use uuid::Uuid;
@@ -164,8 +164,7 @@ impl ManagedChallenges {
             id,
         };
 
-        let challenge = self
-            .cache
+        self.cache
             .try_get_with(record.clone(), async {
                 let challenge = Challenges::get_challenge(id, &self.database).await?;
 
@@ -181,13 +180,7 @@ impl ManagedChallenges {
             })
             .await?;
 
-        let challenge = ChallengeActiveModel {
-            status: Set(ChallengeStatusType::Consumed),
-            consumed_at: Set(Some(Utc::now().fixed_offset())),
-            ..challenge.into_active_model()
-        };
-
-        let updated_challenge = challenge.update(database).await?;
+        let updated_challenge = Challenges::consume_challenge(id, database).await?;
 
         self.cache.insert(record, updated_challenge).await;
 

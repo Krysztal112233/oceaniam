@@ -4,7 +4,7 @@ use crate::error::Error;
 use axum::http::StatusCode;
 use chrono::{Duration, Utc};
 use oceaniam_common::helpers::gen_random;
-use sea_orm::{ActiveModelTrait, ActiveValue::Set, EntityTrait};
+use sea_orm::{ActiveModelTrait, ActiveValue::Set, EntityTrait, IntoActiveModel};
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use uuid::Uuid;
@@ -103,6 +103,21 @@ pub trait ChallengesHelper {
             payload: Set(payload),
         }
         .insert(transaction)
+        .await?)
+    }
+
+    async fn consume_challenge(
+        id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::challenges::Model, Error> {
+        let challenge = Self::get_challenge(id, database).await?;
+
+        Ok(model::challenges::ActiveModel {
+            status: Set(ChallengeStatusType::Consumed),
+            consumed_at: Set(Some(Utc::now().fixed_offset())),
+            ..challenge.into_active_model()
+        }
+        .update(database)
         .await?)
     }
 }

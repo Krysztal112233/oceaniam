@@ -3,8 +3,11 @@ use std::{sync::Arc, time::Duration};
 use chrono::Utc;
 use crossbeam_queue::SegQueue;
 use oceaniam_audit::types::AuditPayload;
-use oceaniam_database::model::{self, prelude::Audits};
-use sea_orm::{DatabaseConnection, EntityTrait, IntoActiveModel};
+use oceaniam_database::{
+    helper::audits::{AuditsHelper, audit_model_to_active_model},
+    model::{self, prelude::Audits},
+};
+use sea_orm::DatabaseConnection;
 use tokio::time::sleep;
 use uuid::Uuid;
 
@@ -40,15 +43,13 @@ impl DatabaseAuditWriter {
 #[async_trait::async_trait]
 impl AuditWriter for DatabaseAuditWriter {
     async fn write(&self, payload: AuditPayload) {
-        self.queue.push(
-            model::audits::Model {
+        self.queue
+            .push(audit_model_to_active_model(model::audits::Model {
                 id: Uuid::now_v7(),
                 audit_type: payload.audit_type(),
                 payload: serde_json::to_value(payload).unwrap(),
                 created_at: Utc::now().into(),
-            }
-            .into_active_model(),
-        );
+            }));
     }
 }
 
@@ -61,7 +62,7 @@ fn drain(queue: &SegQueue<AuditActiveModel>, database: &DatabaseConnection) {
     if !buffer.is_empty() {
         let db = database.clone();
         tokio::spawn(async move {
-            Audits::insert_many(buffer).exec(&db).await.unwrap();
+            Audits::insert_many_audits(buffer, &db).await.unwrap();
         });
     }
 }

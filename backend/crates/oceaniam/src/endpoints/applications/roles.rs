@@ -6,7 +6,10 @@ use axum::{
 use oceaniam_api::ApiResponse;
 use oceaniam_common::sqid::Sqid;
 use oceaniam_database::{
-    helper::{role_permissions::RolePermissionsHelper, subject_roles::SubjectRolesHelper},
+    helper::{
+        application_roles::ApplicationRolesHelper, role_permissions::RolePermissionsHelper,
+        subject_roles::SubjectRolesHelper, subjects::SubjectsHelper,
+    },
     model::{self, prelude::*},
 };
 use oceaniam_vo::{
@@ -16,7 +19,7 @@ use oceaniam_vo::{
     },
     pagination::PagedResponse,
 };
-use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, TransactionTrait};
+use sea_orm::TransactionTrait;
 use tap::Tap;
 use tracing::{Span, error, field, info};
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -62,13 +65,11 @@ async fn ensure_subject_belongs_to_app(
     application_id: Uuid,
     database: &impl oceaniam_database::helper::SafeTransactionConnectionTrait,
 ) -> Result<(), Error> {
-    let subject = Subjects::find_by_id(subject_id)
-        .one(database)
+    let subject = Subjects::get_subject_by_id(subject_id, database)
         .await
         .inspect_err(|e| {
             error!(%subject_id, error = %e, "failed to find subject");
-        })?
-        .ok_or_else(|| Error::with_code(StatusCode::NOT_FOUND, "subject not found"))?;
+        })?;
 
     if subject.application_id != application_id {
         return Err(Error::with_code(
@@ -114,9 +115,7 @@ pub async fn list_roles(
             .record("application_id", field::display(&application_id));
     });
 
-    let roles = ApplicationRoles::find()
-        .filter(model::application_roles::Column::ApplicationId.eq(application_id))
-        .all(&database)
+    let roles = ApplicationRoles::get_roles_by_application(application_id, &database)
         .await
         .inspect_err(|e| {
             error!(%application_id, error = %e, "failed to list application roles");
@@ -178,23 +177,17 @@ pub async fn create_role(
     });
 
     let role_id = Uuid::now_v7();
-    let role = model::application_roles::ActiveModel {
-        id: Set(role_id),
-        application_id: Set(application_id),
-        name: Set(body.name.clone()),
-        is_system: Set(false),
-    };
 
     let tx = database.begin().await.inspect_err(|e| {
         error!(%application_id, error = %e, "failed to begin transaction");
     })?;
 
-    ApplicationRoles::insert(role)
-        .exec(&tx)
-        .await
-        .inspect_err(|e| {
-            error!(%application_id, error = %e, "failed to create application role");
-        })?;
+    let role =
+        ApplicationRoles::create_role(role_id, application_id, body.name.clone(), false, &tx)
+            .await
+            .inspect_err(|e| {
+                error!(%application_id, error = %e, "failed to create application role");
+            })?;
 
     RolePermissions::set_role_permissions(role_id, &body.permissions, &tx)
         .await
@@ -213,12 +206,7 @@ pub async fn create_role(
     );
 
     Ok(ApiResponse::new(application_role_model_to_vo(
-        model::application_roles::Model {
-            id: role_id,
-            application_id,
-            name: body.name,
-            is_system: false,
-        },
+        role,
         body.permissions,
     )))
 }
@@ -263,13 +251,11 @@ pub async fn get_role(
             .record("role_id", field::display(&role_id));
     });
 
-    let role = ApplicationRoles::find_by_id(role_id)
-        .one(&database)
+    let role = ApplicationRoles::get_role_by_id(role_id, &database)
         .await
         .inspect_err(|e| {
             error!(%application_id, %role_id, error = %e, "failed to get application role");
-        })?
-        .ok_or_else(|| Error::with_code(StatusCode::NOT_FOUND, "role not found"))?;
+        })?;
 
     ensure_belongs_to_app(&role, application_id)?;
 
@@ -327,14 +313,10 @@ pub async fn patch_role(
             .record("role_id", field::display(&role_id));
     });
 
-    let role = ApplicationRoles::find_by_id(role_id)
-        .one(&database)
+    let role = ApplicationRoles::get_role_by_id(role_id, &database)
         .await
         .inspect_err(|e| {
             error!(%application_id, %role_id, error = %e, "failed to get application role for patch");
-        })?
-        .ok_or_else(|| {
-            Error::with_code(StatusCode::NOT_FOUND, "role not found")
         })?;
 
     ensure_belongs_to_app(&role, application_id)?;
@@ -347,20 +329,14 @@ pub async fn patch_role(
     }
 
     if let Some(name) = body.name {
-        let mut active: model::application_roles::ActiveModel = role.clone().into();
-        active.name = Set(name);
-        ApplicationRoles::update(active)
-            .exec(&database)
+        ApplicationRoles::update_role_name(role_id, name, &database)
             .await
             .inspect_err(|e| {
                 error!(%application_id, %role_id, error = %e, "failed to update application role");
             })?;
     }
 
-    let updated = ApplicationRoles::find_by_id(role_id)
-        .one(&database)
-        .await?
-        .ok_or_else(|| Error::with_code(StatusCode::NOT_FOUND, "role not found after update"))?;
+    let updated = ApplicationRoles::get_role_by_id(role_id, &database).await?;
 
     let permissions = RolePermissions::get_role_permissions(role_id, &database)
         .await
@@ -414,14 +390,10 @@ pub async fn delete_role(
             .record("role_id", field::display(&role_id));
     });
 
-    let role = ApplicationRoles::find_by_id(role_id)
-        .one(&database)
+    let role = ApplicationRoles::get_role_by_id(role_id, &database)
         .await
         .inspect_err(|e| {
             error!(%application_id, %role_id, error = %e, "failed to get application role for delete");
-        })?
-        .ok_or_else(|| {
-            Error::with_code(StatusCode::NOT_FOUND, "role not found")
         })?;
 
     ensure_belongs_to_app(&role, application_id)?;
@@ -433,8 +405,7 @@ pub async fn delete_role(
         ));
     }
 
-    ApplicationRoles::delete_by_id(role_id)
-        .exec(&database)
+    ApplicationRoles::delete_role(role_id, &database)
         .await
         .inspect_err(|e| {
             error!(%application_id, %role_id, error = %e, "failed to delete application role");
@@ -489,13 +460,11 @@ pub async fn get_role_permissions(
             .record("role_id", field::display(&role_id));
     });
 
-    let role = ApplicationRoles::find_by_id(role_id)
-        .one(&database)
+    let role = ApplicationRoles::get_role_by_id(role_id, &database)
         .await
         .inspect_err(|e| {
             error!(%application_id, %role_id, error = %e, "failed to get application role");
-        })?
-        .ok_or_else(|| Error::with_code(StatusCode::NOT_FOUND, "role not found"))?;
+        })?;
 
     ensure_belongs_to_app(&role, application_id)?;
 
@@ -550,13 +519,11 @@ pub async fn set_role_permissions(
             .record("role_id", field::display(&role_id));
     });
 
-    let role = ApplicationRoles::find_by_id(role_id)
-        .one(&database)
+    let role = ApplicationRoles::get_role_by_id(role_id, &database)
         .await
         .inspect_err(|e| {
             error!(%application_id, %role_id, error = %e, "failed to get application role");
-        })?
-        .ok_or_else(|| Error::with_code(StatusCode::NOT_FOUND, "role not found"))?;
+        })?;
 
     ensure_belongs_to_app(&role, application_id)?;
 
@@ -638,10 +605,7 @@ pub async fn get_subject_roles(
         }));
     }
 
-    let roles = ApplicationRoles::find()
-        .filter(model::application_roles::Column::Id.is_in(role_ids))
-        .filter(model::application_roles::Column::ApplicationId.eq(application_id))
-        .all(&database)
+    let roles = ApplicationRoles::get_roles_by_ids(role_ids, application_id, &database)
         .await
         .inspect_err(|e| {
             error!(%application_id, %subject_id, error = %e, "failed to filter subject roles by application");
@@ -699,14 +663,10 @@ pub async fn assign_role(
 
     ensure_subject_belongs_to_app(subject_id, application_id, &database).await?;
 
-    let role = ApplicationRoles::find_by_id(role_id)
-        .one(&database)
+    let role = ApplicationRoles::get_role_by_id(role_id, &database)
         .await
         .inspect_err(|e| {
             error!(%application_id, %role_id, error = %e, "failed to get application role for assignment");
-        })?
-        .ok_or_else(|| {
-            Error::with_code(StatusCode::NOT_FOUND, "role not found")
         })?;
 
     ensure_belongs_to_app(&role, application_id)?;
@@ -776,14 +736,10 @@ pub async fn unassign_role(
 
     ensure_subject_belongs_to_app(subject_id, application_id, &database).await?;
 
-    let role = ApplicationRoles::find_by_id(role_id)
-        .one(&database)
+    let role = ApplicationRoles::get_role_by_id(role_id, &database)
         .await
         .inspect_err(|e| {
             error!(%application_id, %role_id, error = %e, "failed to get application role for unassignment");
-        })?
-        .ok_or_else(|| {
-            Error::with_code(StatusCode::NOT_FOUND, "role not found")
         })?;
 
     ensure_belongs_to_app(&role, application_id)?;

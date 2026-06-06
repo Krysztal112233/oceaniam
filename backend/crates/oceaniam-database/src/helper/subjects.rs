@@ -16,6 +16,18 @@ use crate::{
 
 #[async_trait::async_trait]
 pub trait SubjectsHelper {
+    async fn get_subject_by_id(
+        id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::subjects::Model, Error> {
+        Subjects::find_by_id(id)
+            .one(database)
+            .await?
+            .ok_or_else(|| {
+                Error::with_code(StatusCode::NOT_FOUND, format!("subject {id} not found"))
+            })
+    }
+
     async fn create_subjects(
         id: Uuid,
         application_id: Uuid,

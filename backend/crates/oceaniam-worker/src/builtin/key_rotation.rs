@@ -5,16 +5,12 @@ use chrono::{Duration, Utc};
 use linkme::distributed_slice;
 use oceaniam_audit::types::{AuditPayload, RotateKeyPayload};
 use oceaniam_database::{
-    helper::key_boxes::KeyBoxesHelper,
-    model::{
-        self,
-        prelude::{KeyBoxes, Tenants},
-        sea_orm_active_enums::KeyStatus,
-    },
+    helper::{audits::AuditsHelper, key_boxes::KeyBoxesHelper, tenants::TenantsHelper},
+    model::prelude::{Audits, KeyBoxes, Tenants},
+    model::sea_orm_active_enums::KeyStatus,
 };
 use oceaniam_keybox::KeyBox;
 use oceaniam_worker_runtime::Worker;
-use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait};
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
@@ -30,14 +26,14 @@ async fn log_key_rotation(
         new_key_id,
     });
 
-    let model = model::audits::ActiveModel {
-        id: ActiveValue::Set(Uuid::now_v7()),
-        audit_type: ActiveValue::Set(payload.audit_type()),
-        payload: ActiveValue::Set(payload.into_json().unwrap_or_default()),
-        created_at: ActiveValue::Set(Utc::now().into()),
-    };
-
-    if let Err(e) = model.insert(database).await {
+    if let Err(e) = Audits::insert_audit_event(
+        Uuid::now_v7(),
+        payload.audit_type(),
+        payload.into_json().unwrap_or_default(),
+        database,
+    )
+    .await
+    {
         error!(%tenant_id, %new_key_id, error = %e, "failed to write rotation audit event");
     }
 }
@@ -57,7 +53,7 @@ impl Worker<WorkerContext> for KeyRotationWorker {
     }
 
     async fn run(&self, context: &WorkerContext) -> Result<(), Error> {
-        let tenants = Tenants::find().all(&context.database).await?;
+        let tenants = Tenants::list_all_tenants(&context.database).await?;
 
         // TODO: make this configurable via ApplicationConfiguration fields. Each application should
         // be able to control whether auto-rotation is enabled, the threshold duration, and the

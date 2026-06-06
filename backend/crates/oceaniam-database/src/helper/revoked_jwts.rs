@@ -41,6 +41,13 @@ pub trait RevokedJwtsHelper {
             .stream(database)
             .await?)
     }
+
+    async fn is_revoked(
+        jti: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<bool, Error> {
+        Ok(RevokedJwts::find_by_id(jti).one(database).await?.is_some())
+    }
 }
 
 impl RevokedJwtsHelper for RevokedJwts {}

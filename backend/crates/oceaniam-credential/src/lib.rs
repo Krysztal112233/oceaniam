@@ -1,11 +1,9 @@
 use argon2::Argon2;
 use oceaniam_database::{
-    helper::SafeTransactionConnectionTrait,
+    helper::{SafeTransactionConnectionTrait, credentials::CredentialsHelper},
     model::{self, prelude::Credentials},
 };
-use sea_orm::{ActiveModelTrait, EntityTrait, IntoActiveModel};
 use serde::{Deserialize, Serialize};
-use tracing::error;
 use uuid::Uuid;
 
 use crate::{
@@ -58,28 +56,8 @@ impl CredentialVault {
     ) -> Result<model::credentials::Model, Error> {
         let Self { phc, totp } = self;
         let id = id.into();
-        let active_model = model::credentials::Model {
-            id,
-            phc: phc.clone(),
-            totp: totp.clone(),
-        }
-        .into_active_model();
 
-        let existing = Credentials::find_by_id(id)
-            .one(database)
-            .await
-            .inspect_err(|e| error!("{e}"))?;
-
-        Ok(match existing {
-            Some(_) => Credentials::update(active_model)
-                .exec(database)
-                .await
-                .inspect_err(|e| error!("{e}"))?,
-            None => active_model
-                .insert(database)
-                .await
-                .inspect_err(|e| error!("{e}"))?,
-        })
+        Ok(Credentials::upsert_credential(id, phc.clone(), totp.clone(), database).await?)
     }
 }
 
