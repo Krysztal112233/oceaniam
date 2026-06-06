@@ -20,6 +20,24 @@ use crate::{
     key_alg::KeyAlg,
 };
 
+/// Compute the key status based on lifecycle timestamps.
+///
+/// Does NOT check for revoked status — the caller must handle that.
+pub(crate) fn compute_key_status(
+    now: &DateTime<FixedOffset>,
+    activated_at: &DateTime<FixedOffset>,
+    retired_at: &DateTime<FixedOffset>,
+    expires_at: &DateTime<FixedOffset>,
+) -> KeyStatus {
+    if *now >= *expires_at || *now >= *retired_at {
+        KeyStatus::Retired
+    } else if *now >= *activated_at {
+        KeyStatus::Active
+    } else {
+        KeyStatus::Pending
+    }
+}
+
 /// A standalone key representation that contains the essential key information
 /// without the full metadata from the database model
 #[derive(Debug, Clone)]
@@ -233,13 +251,7 @@ impl KeyBox {
                     return None;
                 }
 
-                let new_status = if now >= key.expires_at || now >= key.retired_at {
-                    KeyStatus::Retired
-                } else if now >= key.activated_at {
-                    KeyStatus::Active
-                } else {
-                    KeyStatus::Pending
-                };
+                let new_status = compute_key_status(&now, &key.activated_at, &key.retired_at, &key.expires_at);
 
                 (new_status != key.status).then_some((*id, new_status))
             })
@@ -379,13 +391,7 @@ mod tests {
         } = option;
 
         let now: chrono::DateTime<chrono::FixedOffset> = Utc::now().into();
-        let status = if now >= expires_at || now >= retired_at {
-            KeyStatus::Retired
-        } else if now >= activated_at {
-            KeyStatus::Active
-        } else {
-            KeyStatus::Pending
-        };
+        let status = compute_key_status(&now, &activated_at, &retired_at, &expires_at);
 
         let key = Key {
             id,

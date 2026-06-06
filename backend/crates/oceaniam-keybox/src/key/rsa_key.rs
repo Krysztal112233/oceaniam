@@ -15,7 +15,7 @@ use crate::{
     error::Error,
     key::{AsSecretField, FromSecretField, TryIntoJwk, TryIntoKeyModel},
     key_alg::KeyAlg,
-    keybox::{KeyOption, StandaloneKey},
+    keybox::{KeyOption, StandaloneKey, compute_key_status},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -124,14 +124,7 @@ impl TryIntoKeyModel for RsaKey {
 
         let status = {
             let now: chrono::DateTime<chrono::FixedOffset> = Utc::now().into();
-
-            if now >= expires_at || now >= retired_at {
-                KeyStatus::Retired
-            } else if now >= activated_at {
-                KeyStatus::Active
-            } else {
-                KeyStatus::Pending
-            }
+            compute_key_status(&now, &activated_at, &retired_at, &expires_at)
         };
 
         Ok(Key {
