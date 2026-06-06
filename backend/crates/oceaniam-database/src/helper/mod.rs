@@ -15,6 +15,7 @@ pub mod audits;
 pub mod challenges;
 pub mod credentials;
 pub mod key_boxes;
+pub mod macros;
 pub mod revoked_jwts;
 pub mod role_permissions;
 pub mod statistics;

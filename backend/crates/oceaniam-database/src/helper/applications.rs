@@ -55,29 +55,26 @@ pub trait ApplicationHelper {
         .await?)
     }
 
-    /// NOTE: This helper intentionally treats the system application as not
-    /// visible from the regular application access path.
     async fn is_exist(
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<bool, Error> {
-        if is_system_application(id) {
-            return Ok(false);
-        }
-
-        Ok(Applications::find_by_id(id).one(database).await?.is_some())
+        crate::system_protected_is_exist!(
+            Applications,
+            consts::SYSTEM_APPLICATION_UUID,
+            id,
+            database
+        )
     }
 
-    /// NOTE: This helper is reserved for internal bootstrap and system-only
-    /// code paths that need the real existence of the reserved system
-    /// application.
     async fn is_system_application_exist(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<bool, Error> {
-        Ok(Applications::find_by_id(consts::SYSTEM_APPLICATION_UUID)
-            .one(database)
-            .await?
-            .is_some())
+        crate::system_protected_is_system_exist!(
+            Applications,
+            consts::SYSTEM_APPLICATION_UUID,
+            database
+        )
     }
 
     /// NOTE: This helper intentionally excludes the system tenant and system
@@ -130,48 +127,41 @@ pub trait ApplicationHelper {
             .await?)
     }
 
-    /// NOTE: This helper intentionally blocks direct reads of the system
-    /// application from the regular application access path.
     async fn get_application(
-        application_id: Uuid,
+        id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::applications::Model, Error> {
-        if is_system_application(application_id) {
-            return Err(application_not_found(application_id));
-        }
-
-        Applications::find_by_id(application_id)
-            .one(database)
-            .await
-            .map(|it| it.ok_or(application_not_found(application_id)))?
+        crate::system_protected_get!(
+            Applications,
+            consts::SYSTEM_APPLICATION_UUID,
+            id,
+            database,
+            application_not_found
+        )
     }
 
-    /// NOTE: This is the explicit escape hatch for internal code that still
-    /// needs to access the reserved system application record.
     async fn get_system_application(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::applications::Model, Error> {
-        Applications::find_by_id(consts::SYSTEM_APPLICATION_UUID)
-            .one(database)
-            .await
-            .map(|it| it.ok_or(application_not_found(consts::SYSTEM_APPLICATION_UUID)))?
+        crate::system_protected_get_system!(
+            Applications,
+            consts::SYSTEM_APPLICATION_UUID,
+            database,
+            application_not_found
+        )
     }
 
-    /// NOTE: This helper intentionally blocks deletion of the reserved system
-    /// application through the regular application lifecycle path.
     async fn delete_application(
-        application_id: Uuid,
+        id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<(), Error> {
-        if is_system_application(application_id) {
-            return Err(application_not_found(application_id));
-        }
-
-        Applications::delete_by_id(application_id)
-            .exec(database)
-            .await?;
-
-        Ok(())
+        crate::system_protected_delete!(
+            Applications,
+            consts::SYSTEM_APPLICATION_UUID,
+            id,
+            database,
+            application_not_found
+        )
     }
 
     async fn replace_configuration(

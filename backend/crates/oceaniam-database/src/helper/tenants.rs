@@ -15,20 +15,17 @@ use crate::{
 
 #[async_trait::async_trait]
 pub trait TenantsHelper {
-    /// NOTE: This helper intentionally blocks direct reads of the system tenant
-    /// from the regular tenant access path.
     async fn get_tenant(
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::tenants::Model, Error> {
-        if is_system_tenant(id) {
-            return Err(tenant_not_found(id));
-        }
-
-        Tenants::find_by_id(id)
-            .one(database)
-            .await?
-            .ok_or(tenant_not_found(id))
+        crate::system_protected_get!(
+            Tenants,
+            consts::SYSTEM_TENANT_UUID,
+            id,
+            database,
+            tenant_not_found
+        )
     }
 
     async fn create_tenant(
@@ -50,36 +47,26 @@ pub trait TenantsHelper {
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<bool, Error> {
-        if is_system_tenant(id) {
-            return Ok(false);
-        }
-
-        Ok(Tenants::find_by_id(id).one(database).await?.is_some())
+        crate::system_protected_is_exist!(Tenants, consts::SYSTEM_TENANT_UUID, id, database)
     }
 
-    /// NOTE: This helper is reserved for internal bootstrap and system-only
-    /// code paths that need the real existence of the reserved system tenant.
     async fn is_system_tenant_exist(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<bool, Error> {
-        Ok(Tenants::find_by_id(consts::SYSTEM_TENANT_UUID)
-            .one(database)
-            .await?
-            .is_some())
+        crate::system_protected_is_system_exist!(Tenants, consts::SYSTEM_TENANT_UUID, database)
     }
 
-    /// NOTE: This helper intentionally blocks deletion of the reserved system
-    /// tenant through the regular tenant lifecycle path.
     async fn delete_tenant(
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<(), Error> {
-        if is_system_tenant(id) {
-            return Err(tenant_not_found(id));
-        }
-
-        Tenants::delete_by_id(id).exec(database).await?;
-        Ok(())
+        crate::system_protected_delete!(
+            Tenants,
+            consts::SYSTEM_TENANT_UUID,
+            id,
+            database,
+            tenant_not_found
+        )
     }
 
     async fn update_comment(
