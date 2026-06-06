@@ -87,6 +87,17 @@ impl Totp {
         Self(totp)
     }
 
+    pub fn generate(issuer: &str, account_name: &str) -> Result<Self, Error> {
+        let mut totp = totp_rs::TOTP::default();
+        totp.issuer = Some(issuer.to_string());
+        totp.account_name = account_name.to_string();
+        Ok(Self(totp))
+    }
+
+    pub fn provisioning_uri(&self) -> String {
+        self.0.get_url()
+    }
+
     pub fn from_encrypted(base64_string: String, key: &str) -> Result<Self, Error> {
         let TotpStorage { nonce, payload } = {
             let decoded = STANDARD.decode(base64_string)?;
@@ -210,5 +221,29 @@ mod tests {
 
         assert!(result.success);
         assert_eq!(result.matched_step, Some(current_step));
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn totp_generate_creates_valid_totp() {
+        let totp =
+            Totp::generate("TestApp", "user@test.com").expect("TOTP generation should succeed");
+        let uri = totp.provisioning_uri();
+        assert!(uri.starts_with("otpauth://"));
+        assert!(uri.contains("TestApp"));
+        assert!(uri.contains("user%40test.com"));
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn totp_generated_token_verifies() {
+        let totp =
+            Totp::generate("TestApp", "user@test.com").expect("TOTP generation should succeed");
+        let token = totp
+            .0
+            .generate_current()
+            .expect("current TOTP token should be generated");
+        let result = totp.verify(&token).expect("verification should succeed");
+        assert!(result.success);
     }
 }

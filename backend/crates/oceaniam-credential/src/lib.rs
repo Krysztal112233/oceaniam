@@ -6,15 +6,12 @@ use oceaniam_database::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{
-    credential::{Password, Totp},
-    error::Error,
-};
+use crate::{credential::Password, error::Error};
 
 pub(crate) mod credential;
 pub mod error;
 
-pub use credential::TotpVerifyResult;
+pub use credential::{Totp, TotpVerifyResult};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct CredentialVault {
