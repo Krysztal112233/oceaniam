@@ -190,8 +190,6 @@ impl Secrets {
     ) -> Result<Vec<Uuid>, Error> {
         let secret = secret.into();
 
-        self.is_secret_exist(&secret).await?;
-
         Ok(self
             .caches
             .application_ids_by_secret
@@ -256,12 +254,6 @@ impl Secrets {
     /// Fast existence check for a secret ID via database query.
     async fn is_secret_id_exist(&self, secret_id: Uuid) -> Result<(), Error> {
         ApplicationSecrets::get_secret(secret_id, &self.database).await?;
-        Ok(())
-    }
-
-    /// Fast existence check for a secret value via database query.
-    async fn is_secret_exist(&self, secret: impl Into<String>) -> Result<(), Error> {
-        ApplicationSecrets::find_secret_can_be_used_for(secret.into(), &self.database).await?;
         Ok(())
     }
 

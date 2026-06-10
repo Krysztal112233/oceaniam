@@ -1,15 +1,17 @@
 use axum::extract::{Path, State};
+use axum::http::StatusCode;
 use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PagedResponse};
 use oceaniam_audit::types::{AuditPayload, RevokeKeyPayload, RotateKeyPayload};
 use oceaniam_common::sqid::Sqid;
-use oceaniam_vo::applications::{ApplicationKeyVO, RotateKeyResponse};
+use oceaniam_database::model::sea_orm_active_enums::KeyStatus;
+use oceaniam_vo::applications::ApplicationKeyVO;
 use tap::Tap;
 use tracing::{Span, error, field, info};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
 use crate::{
-    error::AppResult,
+    error::{AppResult, Error},
     middlewares::permission::{KeyRead, KeyRevoke, KeyRotate, PlatformPermissionGuard},
     state::AppState,
 };
@@ -98,7 +100,7 @@ pub async fn get_tenant_keys(
             ("tenant_id" = String, Path, description = "Tenant ID"),
         ),
         responses(
-            (status = 200, body = ApiResponse<RotateKeyResponse>),
+            (status = 200, body = ApiResponse<Empty>),
             (status = 400, description = "Invalid ids", body = ApiResponse<ErrorResponse>),
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
@@ -107,7 +109,7 @@ pub async fn get_tenant_keys(
     level = "info",
     name = "tenant_keys.rotate",
     skip(keyboxes, auditing, path),
-    fields(tenant_id = field::Empty, key_id = field::Empty)
+    fields(tenant_id = field::Empty)
 )]
 pub async fn rotate_tenant_key(
     _: PlatformPermissionGuard<KeyRotate>,
@@ -115,7 +117,7 @@ pub async fn rotate_tenant_key(
     State(AppState {
         keyboxes, auditing, ..
     }): State<AppState>,
-) -> AppResult<RotateKeyResponse> {
+) -> AppResult<()> {
     let tenant_id: Uuid = path.tenant_id.try_into().inspect_err(|e| {
         error!(error = %e, "failed to convert tenant_id");
     })?;
@@ -123,31 +125,38 @@ pub async fn rotate_tenant_key(
         it.record("tenant_id", field::display(&tenant_id));
     });
 
-    let new_key = keyboxes
+    keyboxes
         .rotate_key(tenant_id)
         .await
         .inspect_err(|e| error!(%tenant_id, error = %e, "key rotation failed"))?;
 
-    Span::current().tap(|it| {
-        it.record("key_id", field::display(&new_key.id));
-    });
+    let key_id = {
+        let keybox = keyboxes.get_keybox(tenant_id).await?;
+        keybox
+            .get_latest_raw_key(KeyStatus::Active)
+            .ok_or_else(|| {
+                Error::with_code(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "no active key after rotation",
+                )
+            })?
+            .key_id
+    };
 
     info!(
         %tenant_id,
-        key_id = %new_key.id,
+        %key_id,
         "key rotated successfully"
     );
 
     auditing
         .write(AuditPayload::from(RotateKeyPayload {
             application_id: tenant_id,
-            new_key_id: new_key.id,
+            new_key_id: key_id,
         }))
         .await;
 
-    Ok(ApiResponse::new(RotateKeyResponse {
-        key: crate::conversion::keys::key_model_to_vo(new_key),
-    }))
+    Ok(ApiResponse::new(()))
 }
 
 /// Revoke a specific key for a tenant

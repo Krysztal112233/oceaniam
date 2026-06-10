@@ -326,7 +326,10 @@ pub async fn delete_tenant(
     auth: PlatformPermissionGuard<TenantDelete>,
     Path(tenant_id): Path<Sqid>,
     State(AppState {
-        database, auditing, ..
+        database,
+        auditing,
+        keyboxes,
+        ..
     }): State<AppState>,
 ) -> AppResult<()> {
     let operator_id = auth.claim.sub;
@@ -346,6 +349,8 @@ pub async fn delete_tenant(
                 "tenant deletion failed"
             )
         })?;
+
+    keyboxes.invalidate(tenant_id).await;
 
     warn!(
         %tenant_id,

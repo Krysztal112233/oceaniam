@@ -15,7 +15,6 @@ use oceaniam_database::{
         SafeTransactionConnectionTrait, applications::ApplicationHelper, key_boxes::KeyBoxesHelper,
     },
     model::{
-        key_boxes::Model as KeyModel,
         prelude::{Applications, KeyBoxes},
         sea_orm_active_enums::{KeyAlg, KeyStatus},
     },
@@ -136,34 +135,26 @@ impl ManagedKeyBoxes {
         self.boxes.insert(tenant_id, keybox).await;
     }
 
+    pub async fn invalidate(&self, tenant_id: Uuid) {
+        self.boxes.invalidate(&tenant_id).await;
+        self.jwks.invalidate(&tenant_id).await;
+    }
+
     /// Ensures the tenant's keybox has at least one Active and one Pending
     /// key, then persists and invalidates caches so subsequent requests pick
     /// up the new state immediately.
     ///
     /// Delegates the invariant enforcement to [`KeyBox::rotate`].
-    pub async fn rotate_key(&self, tenant_id: Uuid) -> Result<KeyModel, Error> {
+    pub async fn rotate_key(&self, tenant_id: Uuid) -> Result<(), Error> {
         let mut keybox = self.get_keybox(tenant_id).await?;
         keybox.rotate()?;
-
-        let latest_active = keybox
-            .get_keys()
-            .values()
-            .filter(|k| k.status == KeyStatus::Active)
-            .max_by_key(|k| k.activated_at)
-            .cloned()
-            .ok_or_else(|| {
-                Error::with_code(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "no active key after rotation",
-                )
-            })?;
 
         keybox.write_to(&self.database).await?;
 
         self.boxes.insert(tenant_id, keybox).await;
         self.jwks.invalidate(&tenant_id).await;
 
-        Ok(latest_active)
+        Ok(())
     }
 
     pub async fn revoke_key(&self, tenant_id: Uuid, key_id: Uuid) -> Result<(), Error> {
