@@ -248,13 +248,20 @@ async function handleRotateKey(): Promise<void> {
 
     try {
         const client = getClient();
-        const response = await client.rotateTenantKey(normalizedTenantId);
-
-        newlyCreatedKey.value = response.key;
-        toast.success("新密钥已生成。");
+        await client.rotateTenantKey(normalizedTenantId);
 
         const keysResponse = await client.getTenantKeys(normalizedTenantId);
         keys.value = keysResponse.items;
+
+        const latestActive = keys.value
+            .filter((k: { status: string }) => k.status === "Active")
+            .sort(
+                (a: { activated_at: string }, b: { activated_at: string }) =>
+                    new Date(b.activated_at).getTime() -
+                    new Date(a.activated_at).getTime(),
+            )[0];
+        newlyCreatedKey.value = latestActive ?? null;
+        toast.success("新密钥已生成。");
     } catch (err) {
         const message = err instanceof Error ? err.message : "轮换密钥失败。";
         toast.error(message);

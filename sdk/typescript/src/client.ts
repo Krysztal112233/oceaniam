@@ -28,7 +28,6 @@ import { type AdministratorVO } from "./types/AdministratorVO";
 import { type AuthVO } from "./types/AuthVO";
 import { type ApplicationChallengeVO } from "./types/ApplicationChallengeVO";
 import { type ApplicationKeyVO } from "./types/ApplicationKeyVO";
-import { type RotateKeyResponse } from "./types/RotateKeyResponse";
 import { type CreateAdministratorRequest } from "./types/CreateAdministratorRequest";
 import { type CreateAdministratorResponse } from "./types/CreateAdministratorResponse";
 import { type PatchAdministratorRequest } from "./types/PatchAdministratorRequest";
@@ -863,8 +862,8 @@ export class OceanIamClient {
     });
   }
 
-  public async rotateTenantKey(tenantId: string): Promise<RotateKeyResponse> {
-    return this.request<RotateKeyResponse>({
+  public async rotateTenantKey(tenantId: string): Promise<void> {
+    await this.request<unknown>({
       method: "POST",
       url: this.endpoints.tenantKeys(tenantId),
     });
