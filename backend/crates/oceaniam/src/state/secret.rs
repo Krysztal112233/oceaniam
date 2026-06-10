@@ -264,16 +264,15 @@ impl Secrets<'_> {
         Ok(())
     }
 
-    /// Fast existence check for a secret ID via bloom filter, falling back to a
-    /// [`NOT_FOUND`](StatusCode::NOT_FOUND) error.
+    /// Fast existence check for a secret ID via bloom filter, falling back to a database query.
     async fn is_secret_id_exist(&self, secret_id: Uuid) -> Result<(), Error> {
         if self.filters.secret_id_filter().exists(&secret_id) {
             Ok(())
         } else {
-            Err(Error::with_code(
-                StatusCode::NOT_FOUND,
-                format!("secret_id={secret_id} doesn't exist"),
-            ))
+            // Bloom filter may be stale (recently marked dirty, rebuild hasn't run yet).
+            // Fall back to a direct database lookup.
+            ApplicationSecrets::get_secret(secret_id, &self.database).await?;
+            Ok(())
         }
     }
 

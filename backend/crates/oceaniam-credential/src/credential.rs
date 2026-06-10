@@ -7,7 +7,7 @@ use chacha20poly1305::{AeadCore, KeyInit, XChaCha20Poly1305, XNonce, aead::Aead}
 use oceaniam_common::consts;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
-use totp_rs::qrcodegen_image::image::EncodableLayout;
+use totp_rs::{TOTP, qrcodegen_image::image::EncodableLayout};
 
 use crate::error::Error;
 
@@ -102,9 +102,12 @@ impl Totp {
     }
 
     pub fn generate(issuer: &str, account_name: &str) -> Result<Self, Error> {
-        let mut totp = totp_rs::TOTP::default();
-        totp.issuer = Some(issuer.to_string());
-        totp.account_name = account_name.to_string();
+        let totp = TOTP {
+            issuer: Some(issuer.to_string()),
+            account_name: account_name.to_string(),
+            ..Default::default()
+        };
+
         Ok(Self(totp))
     }
 
@@ -146,7 +149,7 @@ impl Totp {
         };
 
         let totp_storage = TotpStorage {
-            nonce: STANDARD.encode(nonce.to_vec()),
+            nonce: STANDARD.encode(nonce),
             payload,
         };
 

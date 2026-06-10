@@ -324,12 +324,13 @@ pub async fn patch_tenant(
 )]
 pub async fn delete_tenant(
     auth: PlatformPermissionGuard<TenantDelete>,
-    Path(tenant_id): Path<Uuid>,
+    Path(tenant_id): Path<Sqid>,
     State(AppState {
         database, auditing, ..
     }): State<AppState<'_>>,
 ) -> AppResult<()> {
     let operator_id = auth.claim.sub;
+    let tenant_id: Uuid = tenant_id.try_into()?;
     Span::current().tap(|it| {
         it.record("operator_id", field::display(&operator_id))
             .record("tenant_id", field::display(&tenant_id));

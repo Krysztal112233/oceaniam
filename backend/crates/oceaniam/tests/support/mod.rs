@@ -66,6 +66,104 @@ impl TestApp {
 
         (tenant_id, application_id)
     }
+
+    pub async fn root_signin(&self) -> String {
+        let body = serde_json::json!({
+            "name": "root",
+            "password": self.root_password,
+        });
+        let resp: serde_json::Value = self
+            .client
+            .post(self.url("/auth/tokens"))
+            .json(&body)
+            .send()
+            .await
+            .expect("root signin request failed")
+            .json()
+            .await
+            .expect("root signin response parse failed");
+        resp["jwt"]
+            .as_str()
+            .expect("root signin response missing jwt")
+            .to_string()
+    }
+
+    pub async fn api_create_tenant(&self, token: &str) -> serde_json::Value {
+        let body = serde_json::json!({ "comment": null });
+        self.client
+            .post(self.url("/tenants"))
+            .header("Authorization", format!("Bearer {token}"))
+            .json(&body)
+            .send()
+            .await
+            .expect("create tenant request failed")
+            .json()
+            .await
+            .expect("create tenant response parse failed")
+    }
+
+    pub async fn api_delete_tenant(&self, token: &str, tenant_id: &str) -> reqwest::Response {
+        self.client
+            .delete(self.url(&format!("/tenants/{tenant_id}")))
+            .header("Authorization", format!("Bearer {token}"))
+            .send()
+            .await
+            .expect("delete tenant request failed")
+    }
+
+    pub async fn api_create_application(&self, token: &str, tenant_id: &str) -> serde_json::Value {
+        let body = serde_json::json!({ "comment": null });
+        self.client
+            .post(self.url(&format!("/tenants/{tenant_id}/applications")))
+            .header("Authorization", format!("Bearer {token}"))
+            .json(&body)
+            .send()
+            .await
+            .expect("create application request failed")
+            .json()
+            .await
+            .expect("create application response parse failed")
+    }
+
+    pub async fn api_delete_application(
+        &self,
+        token: &str,
+        tenant_id: &str,
+        application_id: &str,
+    ) -> reqwest::Response {
+        self.client
+            .delete(self.url(&format!(
+                "/tenants/{tenant_id}/applications/{application_id}"
+            )))
+            .header("Authorization", format!("Bearer {token}"))
+            .send()
+            .await
+            .expect("delete application request failed")
+    }
+
+    pub async fn api_create_user(
+        &self,
+        token: &str,
+        tenant_id: &str,
+        application_id: &str,
+    ) -> serde_json::Value {
+        let body = serde_json::json!({
+            "email": "test@example.com",
+            "password": "TestPassword123!",
+        });
+        self.client
+            .post(self.url(&format!(
+                "/tenants/{tenant_id}/applications/{application_id}/users"
+            )))
+            .header("Authorization", format!("Bearer {token}"))
+            .json(&body)
+            .send()
+            .await
+            .expect("create user request failed")
+            .json()
+            .await
+            .expect("create user response parse failed")
+    }
 }
 
 impl Drop for TestApp {
