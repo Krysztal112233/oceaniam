@@ -44,7 +44,7 @@ export async function login(username: string, password: string): Promise<void> {
 
         // Prefer the server-issued auth cookie; use JSON jwt only as a fallback.
         authStore.syncFromCookie();
-        if (!authStore.jwt && resp.jwt?.trim()) {
+        if (!authStore.jwt && "jwt" in resp && resp.jwt?.trim()) {
             authStore.setAuthToken(resp.jwt);
         }
 

@@ -96,6 +96,7 @@ pub struct TotpStorage {
 }
 
 impl Totp {
+    #[allow(dead_code)]
     pub(crate) fn new(totp: totp_rs::TOTP) -> Self {
         Self(totp)
     }

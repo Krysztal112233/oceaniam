@@ -1,4 +1,5 @@
 use oceaniam_vo::applications::*;
+use oceaniam_vo::auth::{EnrollTotpResponse, VerifyTotpRequest};
 use oceaniam_vo::pagination::PagedResponse;
 use reqwest::Method;
 
@@ -56,6 +57,55 @@ impl OceanIamClient {
             .auth_req(Method::POST, &path, AuthMode::BearerOrAppSecret)?
             .json(body);
         self.send_inner(req).await
+    }
+
+    pub async fn enroll_totp(
+        &self,
+        tenant_id: &str,
+        application_id: &str,
+        user_id: &str,
+    ) -> Result<EnrollTotpResponse, Error> {
+        let path = paths::fmt3(
+            paths::APP_USER_TOTP_ENROLL,
+            tenant_id,
+            application_id,
+            user_id,
+        );
+        let req = self.auth_req(Method::POST, &path, AuthMode::BearerOrAppSecret)?;
+        self.send_inner(req).await
+    }
+
+    pub async fn verify_totp_enrollment(
+        &self,
+        tenant_id: &str,
+        application_id: &str,
+        user_id: &str,
+        code: &str,
+    ) -> Result<(), Error> {
+        let path = paths::fmt3(
+            paths::APP_USER_TOTP_VERIFY,
+            tenant_id,
+            application_id,
+            user_id,
+        );
+        let body = VerifyTotpRequest {
+            code: code.to_string(),
+        };
+        let req = self
+            .auth_req(Method::POST, &path, AuthMode::BearerOrAppSecret)?
+            .json(&body);
+        self.send_empty(req).await
+    }
+
+    pub async fn remove_totp(
+        &self,
+        tenant_id: &str,
+        application_id: &str,
+        user_id: &str,
+    ) -> Result<(), Error> {
+        let path = paths::fmt3(paths::APP_USER_TOTP, tenant_id, application_id, user_id);
+        let req = self.auth_req(Method::DELETE, &path, AuthMode::BearerOrAppSecret)?;
+        self.send_empty(req).await
     }
 
     pub async fn patch_application_user_credentials(

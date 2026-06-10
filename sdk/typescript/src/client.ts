@@ -307,6 +307,14 @@ export class OceanIamClient {
     applicationUserCredentials: (tenantId: string, applicationId: string, userId: string): string =>
       `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/users/${encodeURIComponent(userId)}/credentials`,
 
+    // ApplicationUser TOTP
+    applicationUserTotpEnroll: (tenantId: string, applicationId: string, userId: string): string =>
+      `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/users/${encodeURIComponent(userId)}/totp/enroll`,
+    applicationUserTotpVerify: (tenantId: string, applicationId: string, userId: string): string =>
+      `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/users/${encodeURIComponent(userId)}/totp/verify`,
+    applicationUserTotp: (tenantId: string, applicationId: string, userId: string): string =>
+      `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/users/${encodeURIComponent(userId)}/totp`,
+
     // ApplicationUser (single user)
     applicationUser: (tenantId: string, applicationId: string, userId: string): string =>
       `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/users/${encodeURIComponent(userId)}`,
@@ -402,6 +410,18 @@ export class OceanIamClient {
       this.buildUrl(
         OceanIamClient.PATHS.applicationUserCredentials(tenantId, applicationId, userId),
       ),
+
+    // ApplicationUser TOTP
+    applicationUserTotpEnroll: (tenantId: string, applicationId: string, userId: string): string =>
+      this.buildUrl(
+        OceanIamClient.PATHS.applicationUserTotpEnroll(tenantId, applicationId, userId),
+      ),
+    applicationUserTotpVerify: (tenantId: string, applicationId: string, userId: string): string =>
+      this.buildUrl(
+        OceanIamClient.PATHS.applicationUserTotpVerify(tenantId, applicationId, userId),
+      ),
+    applicationUserTotp: (tenantId: string, applicationId: string, userId: string): string =>
+      this.buildUrl(OceanIamClient.PATHS.applicationUserTotp(tenantId, applicationId, userId)),
 
     // ApplicationUser (single user)
     applicationUser: (tenantId: string, applicationId: string, userId: string): string =>
@@ -854,6 +874,37 @@ export class OceanIamClient {
     await this.request<unknown>({
       method: "DELETE",
       url: this.endpoints.tenantKey(tenantId, keyId),
+    });
+  }
+
+  public async enrollTotp(
+    tenantId: string,
+    applicationId: string,
+    userId: string,
+  ): Promise<EnrollTotpResponse> {
+    return this.request<EnrollTotpResponse>({
+      method: "POST",
+      url: this.endpoints.applicationUserTotpEnroll(tenantId, applicationId, userId),
+    });
+  }
+
+  public async verifyTotpEnrollment(
+    tenantId: string,
+    applicationId: string,
+    userId: string,
+    code: string,
+  ): Promise<void> {
+    await this.request<unknown>({
+      method: "POST",
+      url: this.endpoints.applicationUserTotpVerify(tenantId, applicationId, userId),
+      body: { code },
+    });
+  }
+
+  public async removeTotp(tenantId: string, applicationId: string, userId: string): Promise<void> {
+    await this.request<unknown>({
+      method: "DELETE",
+      url: this.endpoints.applicationUserTotp(tenantId, applicationId, userId),
     });
   }
 
