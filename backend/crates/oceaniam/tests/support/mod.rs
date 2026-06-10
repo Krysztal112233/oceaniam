@@ -147,9 +147,27 @@ impl TestApp {
         tenant_id: &str,
         application_id: &str,
     ) -> serde_json::Value {
+        self.api_create_user_with_credentials(
+            token,
+            tenant_id,
+            application_id,
+            "test@example.com",
+            "TestPassword123!",
+        )
+        .await
+    }
+
+    pub async fn api_create_user_with_credentials(
+        &self,
+        token: &str,
+        tenant_id: &str,
+        application_id: &str,
+        email: &str,
+        password: &str,
+    ) -> serde_json::Value {
         let body = serde_json::json!({
-            "email": "test@example.com",
-            "password": "TestPassword123!",
+            "email": email,
+            "password": password,
         });
         self.client
             .post(self.url(&format!(

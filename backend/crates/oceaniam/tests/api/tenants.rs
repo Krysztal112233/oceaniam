@@ -45,7 +45,8 @@ async fn get_tenants_returns_created_tenant() {
 
 /// Tests `DELETE /tenants/{tenant_id}`.
 ///
-/// Creates a tenant, deletes it, and asserts the HTTP response is a success status code.
+/// Creates a tenant, deletes it, and asserts the HTTP response is a success status code
+/// and the tenant is no longer accessible.
 // NOTE: AI-generated test
 #[tokio::test]
 async fn create_and_delete_tenant() {
@@ -59,4 +60,13 @@ async fn create_and_delete_tenant() {
         delete_resp.status().is_success(),
         "delete tenant should return success"
     );
+
+    let get_resp = app
+        .client
+        .get(app.url(&format!("/tenants/{tenant_id}")))
+        .header("Authorization", format!("Bearer {token}"))
+        .send()
+        .await
+        .expect("get deleted tenant request failed");
+    assert_eq!(get_resp.status(), 404, "deleted tenant should return 404");
 }

@@ -102,11 +102,7 @@ async fn get_secret_by_id_returns_200() {
 }
 
 /// POST /secrets → DELETE /secrets/{id}
-/// Asserts: delete returns a success status code.
-///
-/// NOTE: This test is temporarily disabled because DELETE /secrets/{id} returns
-/// 404 despite the route being registered. Other DELETE endpoints (tenants,
-/// applications, keys) work correctly in the same test infrastructure.
+/// Asserts: delete returns a success status code, and a subsequent GET returns 404.
 // NOTE: AI-generated test
 #[tokio::test]
 async fn create_and_delete_secret() {
@@ -138,4 +134,13 @@ async fn create_and_delete_secret() {
         status.is_success(),
         "delete secret should return success (got {status})"
     );
+
+    let get_resp = app
+        .client
+        .get(app.url(&format!("/secrets/{secret_id}")))
+        .header("Authorization", format!("Bearer {token}"))
+        .send()
+        .await
+        .expect("get deleted secret request failed");
+    assert_eq!(get_resp.status(), 404, "deleted secret should return 404");
 }

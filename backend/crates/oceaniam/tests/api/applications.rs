@@ -58,7 +58,8 @@ async fn get_applications_returns_created_application() {
 
 /// Tests `DELETE /tenants/{tenant_id}/applications/{application_id}`.
 ///
-/// Creates an application, deletes it, and asserts the HTTP response is a success status code.
+/// Creates an application, deletes it, and asserts the HTTP response is a success status code
+/// and the application is no longer accessible.
 // NOTE: AI-generated test
 #[tokio::test]
 async fn create_and_delete_application() {
@@ -75,6 +76,21 @@ async fn create_and_delete_application() {
     assert!(
         delete_resp.status().is_success(),
         "delete application should return success"
+    );
+
+    let get_resp = app
+        .client
+        .get(app.url(&format!(
+            "/tenants/{tenant_id}/applications/{application_id}"
+        )))
+        .header("Authorization", format!("Bearer {token}"))
+        .send()
+        .await
+        .expect("get deleted application request failed");
+    assert_eq!(
+        get_resp.status(),
+        404,
+        "deleted application should return 404"
     );
 }
 
