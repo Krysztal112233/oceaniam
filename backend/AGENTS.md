@@ -48,11 +48,17 @@ These instructions apply to work performed inside the `backend` project.
 - When helping implement or modify endpoints in `crates/oceaniam/src/endpoints/`, update the corresponding `utoipa` annotations in the same change.
 - If an endpoint's path, method, parameters, request body, response body, tags, or security behavior changes, update the related `#[utoipa::path(...)]` attributes so the OpenAPI description stays accurate.
 - If a newly added or modified endpoint is exposed through the frontend SDK, update `sdk/typescript/src/client.ts` in the same change so the SDK client stays in sync with the backend API surface.
+- After updating `client.ts`, run `just export` from the workspace root to regenerate TypeScript type bindings and rebuild the SDK package.
 
 ## VO Export Sync
 
 - Any change to a value-object type in `crates/oceaniam-vo/src/` that carries `#[derive(ts_rs::TS)]` must have a corresponding export stub added or updated in `crates/oceaniam-export/src/vo/`.
 - The stub file mirrors the VO crate's module structure one-to-one.  A missing stub means the TypeScript type definition won't be generated.
+
+## Design References
+
+- `docs/design/ERROR_CODES.md` — HTTP status code conventions used across all endpoints.
+- `docs/design/SECURITY.md` — Password hashing, credential vault, and security design rationale.
 
 ## Database Constraints
 
@@ -93,6 +99,13 @@ Before claiming work is complete, run these commands:
 - **Transaction wrapping**: Multi-write operations (e.g., create entity + create related resources, delete-all + insert-many) must be wrapped in an explicit `database.begin()` / `tx.commit()` pair. Pass `&tx` as the connection parameter to all helpers within the transaction scope. If a helper does not accept a generic connection, expose a `_in_tx` variant (see below).
 - **State layer `_in_tx` pattern**: State managers that perform DB writes must expose two variants for multi-step operations: `method(&self, ..., &self.database)` (convenience, uses the raw connection) and `method_in_tx(&self, ..., transaction)` (for callers that need to share a transaction). Existing examples: `update_password` / `update_password_in_tx` (`state/credentials.rs`), `create_keybox` / `create_keybox_in_tx` (`state/keybox.rs`), `set_pass` / `set_pass_in_tx` (`state/challenge.rs`).
 - **`lib.rs` as pure re-exports**: Implementation logic must live in named sub-modules; `lib.rs` should contain only `mod` declarations and `pub use` re-exports. This keeps the public API surface explicit and avoids internal implementation details leaking into the crate root. See `oceaniam-credential/src/lib.rs` / `vault.rs` for the canonical example.
+
+## Worker Subsystem
+
+- Worker implementations live in `crates/oceaniam-worker/src/builtin/` as named sub-modules.
+- Register each worker via `#[distributed_slice(oceaniam_worker::REGISTERED_WORKERS)]` with a factory closure returning `Arc::new(MyWorker)`.
+- Implement `oceaniam_worker_runtime::Worker<WorkerContext>` with `name()`, `cron()`, and `run()`.
+- The worker binary (`oceaniam-worker`) and API server (`oceaniam`) are separate binary targets with no mutual dependency.
 
 ## Testing Infrastructure
 
