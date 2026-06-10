@@ -17,7 +17,7 @@ use crate::{endpoints, state::AppState};
 
 /// Build the OpenAPI spec without requiring a database connection.
 pub fn build_openapi_spec() -> utoipa::openapi::OpenApi {
-    let (_, mut openapi) = OpenApiRouter::<AppState<'static>>::new()
+    let (_, mut openapi) = OpenApiRouter::<AppState>::new()
         .pipe(endpoints::endpoint)
         .split_for_parts();
 
@@ -46,12 +46,12 @@ pub fn build_openapi_spec() -> utoipa::openapi::OpenApi {
     openapi
 }
 
-pub async fn build_state(config: &BackendConfig) -> Result<AppState<'static>, Error> {
+pub async fn build_state(config: &BackendConfig) -> Result<AppState, Error> {
     let database = crate::setup_database(&config.database).await?;
     AppState::new(database, config.clone()).await
 }
 
-pub fn app(state: AppState<'static>, cors: CorsConfig) -> Router {
+pub fn app(state: AppState, cors: CorsConfig) -> Router {
     let (router, mut openapi) = OpenApiRouter::new()
         .pipe(endpoints::endpoint)
         .split_for_parts();

@@ -29,7 +29,6 @@ use uuid::Uuid;
 use crate::state::audit::Auditing;
 use crate::state::challenge::ManagedChallenges;
 use crate::state::credentials::ManagedCredentialVaults;
-use crate::state::filters::ManagedFilters;
 use crate::state::secret::Secrets;
 
 fn build_argon2(configuration: &ApplicationConfiguration) -> Result<Argon2<'static>, Error> {
@@ -119,10 +118,10 @@ impl ApplicationScope {
 /// - **Challenges**: created per-application via [`ManagedChallenges`]; cached with a 30-min idle TTL.
 /// - **Secrets**: see [`Secrets`] for `app_xxx` binding.
 #[derive(Debug, Clone)]
-pub struct ManagedApplications<'a> {
+pub struct ManagedApplications {
     database: DatabaseConnection,
 
-    secrets: Secrets<'a>,
+    secrets: Secrets,
 
     applications: Cache<Uuid, Arc<ApplicationScope>>,
 
@@ -133,8 +132,6 @@ pub struct ManagedApplications<'a> {
 
     /// This field are shared with global states.
     shared_credential_vaults: ManagedCredentialVaults,
-
-    filters: ManagedFilters<'a>,
 
     auditing: Auditing,
 }
@@ -155,16 +152,15 @@ impl From<AuthVO> for UserIdentifier {
     }
 }
 
-impl ManagedApplications<'_> {
-    pub fn new<'a>(
-        filters: ManagedFilters<'a>,
+impl ManagedApplications {
+    pub fn new(
         credential: ManagedCredentialVaults,
         database: DatabaseConnection,
         auditing: Auditing,
-    ) -> ManagedApplications<'a> {
+    ) -> ManagedApplications {
         ManagedApplications {
             database: database.clone(),
-            secrets: Secrets::new(filters.clone(), database.clone()),
+            secrets: Secrets::new(database.clone()),
             applications: Cache::builder()
                 .time_to_idle(Duration::from_mins(30))
                 .build(),
@@ -174,7 +170,6 @@ impl ManagedApplications<'_> {
                 .build(),
 
             shared_credential_vaults: credential,
-            filters,
             auditing,
         }
     }
@@ -228,10 +223,6 @@ impl ManagedApplications<'_> {
             .inspect_err(|e| error!("{e}"))
             .inspect(|_| info!("application deleted successfully: id={application_id}"))?;
 
-        self.filters.application_id_filter().mark();
-        self.filters.secret_filter().mark();
-        self.filters.secret_id_filter().mark();
-
         self.applications.invalidate(&application_id).await;
         self.models.invalidate(&application_id).await;
 
@@ -254,8 +245,6 @@ impl ManagedApplications<'_> {
         )
         .await
         .inspect_err(|e| error!("{e}"))?;
-
-        self.filters.application_id_filter().mark();
 
         Ok(model)
     }
@@ -373,24 +362,19 @@ impl ManagedApplications<'_> {
     }
 
     async fn is_application_exist(&self, application_id: Uuid) -> Result<(), Error> {
-        if self.filters.application_id_filter().exists(&application_id) {
-            return Ok(());
-        }
-
         if Applications::is_exist(application_id, &self.database).await? {
-            self.filters.application_id_filter().mark();
-            return Ok(());
+            Ok(())
+        } else {
+            Err(Error::with_code(
+                StatusCode::NOT_FOUND,
+                format!("application_id={application_id} doesn't exist"),
+            ))
         }
-
-        Err(Error::with_code(
-            StatusCode::NOT_FOUND,
-            format!("application_id={application_id} doesn't exist"),
-        ))
     }
 }
 
-impl<'a> ManagedApplications<'a> {
-    pub fn secrets(&self) -> &Secrets<'a> {
+impl ManagedApplications {
+    pub fn secrets(&self) -> &Secrets {
         &self.secrets
     }
 

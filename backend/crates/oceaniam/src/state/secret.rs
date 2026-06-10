@@ -6,13 +6,14 @@ use moka::future::Cache;
 use oceaniam_api::{PageParam, PagedResponse};
 use oceaniam_common::helpers::gen_random_with_charset;
 use oceaniam_database::{
-    helper::applications_secrets::ApplicationSecretsHelper,
-    model::{application_secrets::Model as SecretModel, prelude::ApplicationSecrets},
+    helper::{applications::ApplicationHelper, applications_secrets::ApplicationSecretsHelper},
+    model::{
+        application_secrets::Model as SecretModel,
+        prelude::{ApplicationSecrets, Applications},
+    },
 };
 use sea_orm::DatabaseConnection;
 use uuid::Uuid;
-
-use crate::state::filters::ManagedFilters;
 
 /// If [crate::state::applications::ApplicationUsers::application_id] doesn't existed in database, the entire functions of this
 /// structure will be noop
@@ -48,22 +49,19 @@ impl SecretCaches {
 /// Manages application `app_xxx` secrets used by external applications to authenticate against the
 /// OceanIAM API.
 ///
-/// Provides caching via [`SecretCaches`] and bloom-filter-based fast existence checks via
-/// [`ManagedFilters`] for secrets and secret IDs.
+/// Provides caching via [`SecretCaches`] for secrets.
 #[derive(Debug, Clone)]
-pub struct Secrets<'a> {
+pub struct Secrets {
     database: DatabaseConnection,
     caches: SecretCaches,
-    filters: ManagedFilters<'a>,
 }
 
-impl Secrets<'_> {
-    /// Creates a new [`Secrets`] manager with the given filter backend and database connection.
-    pub fn new<'a>(filters: ManagedFilters<'a>, database: DatabaseConnection) -> Secrets<'a> {
+impl Secrets {
+    /// Creates a new [`Secrets`] manager with the given database connection.
+    pub fn new(database: DatabaseConnection) -> Secrets {
         Secrets {
             database,
             caches: SecretCaches::new(),
-            filters,
         }
     }
 
@@ -77,9 +75,6 @@ impl Secrets<'_> {
         self.cache_secret_model(&model).await;
         self.cache_secret_application_ids(model.id, Vec::new())
             .await;
-
-        self.filters.secret_filter().mark();
-        self.filters.secret_id_filter().mark();
 
         Ok(model)
     }
@@ -236,9 +231,6 @@ impl Secrets<'_> {
         self.refresh(application_id).await?;
         self.invalidate_secret_bindings(secret_id).await;
 
-        self.filters.secret_id_filter().mark();
-        self.filters.secret_filter().mark();
-
         Ok(())
     }
 
@@ -258,43 +250,24 @@ impl Secrets<'_> {
 
         self.invalidate_secret(secret_id).await;
 
-        self.filters.secret_id_filter().mark();
-        self.filters.secret_filter().mark();
-
         Ok(())
     }
 
-    /// Fast existence check for a secret ID via bloom filter, falling back to a database query.
+    /// Fast existence check for a secret ID via database query.
     async fn is_secret_id_exist(&self, secret_id: Uuid) -> Result<(), Error> {
-        if self.filters.secret_id_filter().exists(&secret_id) {
-            Ok(())
-        } else {
-            // Bloom filter may be stale (recently marked dirty, rebuild hasn't run yet).
-            // Fall back to a direct database lookup.
-            ApplicationSecrets::get_secret(secret_id, &self.database).await?;
-            Ok(())
-        }
+        ApplicationSecrets::get_secret(secret_id, &self.database).await?;
+        Ok(())
     }
 
-    /// Fast existence check for a secret value via bloom filter, falling back to a
-    /// [`NOT_FOUND`](StatusCode::NOT_FOUND) error.
+    /// Fast existence check for a secret value via database query.
     async fn is_secret_exist(&self, secret: impl Into<String>) -> Result<(), Error> {
-        let secret = secret.into();
-
-        if self.filters.secret_filter().exists(&secret) {
-            Ok(())
-        } else {
-            Err(Error::with_code(
-                StatusCode::NOT_FOUND,
-                format!("secret={} doesn't exist", "*".repeat(secret.len())),
-            ))
-        }
+        ApplicationSecrets::find_secret_can_be_used_for(secret.into(), &self.database).await?;
+        Ok(())
     }
 
-    /// Fast existence check for an application ID via bloom filter, falling back to a
-    /// [`NOT_FOUND`](StatusCode::NOT_FOUND) error.
+    /// Fast existence check for an application ID via database query.
     async fn is_application_exist(&self, application_id: Uuid) -> Result<(), Error> {
-        if self.filters.application_id_filter().exists(&application_id) {
+        if Applications::is_exist(application_id, &self.database).await? {
             Ok(())
         } else {
             Err(Error::with_code(

@@ -28,12 +28,12 @@ pub struct PlatformAuthGuard {
 #[derive(Debug, Clone)]
 pub struct AuthenticatedOperator(pub Option<Uuid>);
 
-impl FromRequestParts<AppState<'_>> for AuthenticatedOperator {
+impl FromRequestParts<AppState> for AuthenticatedOperator {
     type Rejection = Infallible;
 
     async fn from_request_parts(
         parts: &mut Parts,
-        state: &AppState<'_>,
+        state: &AppState,
     ) -> Result<Self, Self::Rejection> {
         match PlatformAuthGuard::from_request_parts(parts, state).await {
             Ok(guard) => Ok(Self(Some(guard.token.claims.sub))),
@@ -42,7 +42,7 @@ impl FromRequestParts<AppState<'_>> for AuthenticatedOperator {
     }
 }
 
-impl FromRequestParts<AppState<'_>> for PlatformAuthGuard {
+impl FromRequestParts<AppState> for PlatformAuthGuard {
     type Rejection = StatusCode;
 
     async fn from_request_parts(
@@ -52,7 +52,7 @@ impl FromRequestParts<AppState<'_>> for PlatformAuthGuard {
             platform_jwt_validator,
             revoked_jwt,
             ..
-        }: &AppState<'_>,
+        }: &AppState,
     ) -> Result<Self, Self::Rejection> {
         let (token, header) = jwt::extract_bearer_token(parts)?;
 
@@ -94,7 +94,7 @@ pub struct ApplicationAuthGuard {
     pub application_id: Uuid,
 }
 
-impl FromRequestParts<AppState<'_>> for ApplicationAuthGuard {
+impl FromRequestParts<AppState> for ApplicationAuthGuard {
     type Rejection = StatusCode;
 
     async fn from_request_parts(
@@ -104,7 +104,7 @@ impl FromRequestParts<AppState<'_>> for ApplicationAuthGuard {
             applications,
             revoked_jwt,
             ..
-        }: &AppState<'_>,
+        }: &AppState,
     ) -> Result<Self, Self::Rejection> {
         let (token, header) = jwt::extract_bearer_token(parts)?;
 
@@ -240,13 +240,10 @@ impl TokenDispatchMethodGuard {
     }
 }
 
-impl FromRequestParts<AppState<'_>> for TokenDispatchMethodGuard {
+impl FromRequestParts<AppState> for TokenDispatchMethodGuard {
     type Rejection = Infallible;
 
-    async fn from_request_parts(
-        parts: &mut Parts,
-        _: &AppState<'_>,
-    ) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(parts: &mut Parts, _: &AppState) -> Result<Self, Self::Rejection> {
         Ok(Self::from_headers(&parts.headers))
     }
 }

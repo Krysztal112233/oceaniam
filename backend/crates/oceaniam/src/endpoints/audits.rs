@@ -16,7 +16,7 @@ use crate::{
     state::AppState,
 };
 
-pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
+pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router.routes(routes!(get_audit_logs))
 }
 
@@ -48,7 +48,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
 async fn get_audit_logs(
     _: PlatformPermissionGuard<TenantRead>,
     OptionalQuery(query): OptionalQuery<AuditLogQuery>,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
 ) -> AppResult<PagedResponse<AuditLogVO>> {
     let AuditLogQuery {
         page,

@@ -20,12 +20,12 @@ impl ApplicationSecretGuard {
     }
 }
 
-impl FromRequestParts<AppState<'_>> for ApplicationSecretGuard {
+impl FromRequestParts<AppState> for ApplicationSecretGuard {
     type Rejection = StatusCode;
 
     async fn from_request_parts(
         parts: &mut Parts,
-        AppState { applications, .. }: &AppState<'_>,
+        AppState { applications, .. }: &AppState,
     ) -> Result<Self, Self::Rejection> {
         let header_present = parts.headers.contains_key("X-OceanIAM-Application-Secret");
         let span = tracing::debug_span!("app_secret.extract", header_present);
@@ -67,12 +67,12 @@ impl FromRequestParts<AppState<'_>> for ApplicationSecretGuard {
 #[derive(Debug, Clone)]
 pub struct MatchedApplicationSecretGuard;
 
-impl FromRequestParts<AppState<'_>> for MatchedApplicationSecretGuard {
+impl FromRequestParts<AppState> for MatchedApplicationSecretGuard {
     type Rejection = StatusCode;
 
     async fn from_request_parts(
         parts: &mut Parts,
-        state: &AppState<'_>,
+        state: &AppState,
     ) -> Result<Self, Self::Rejection> {
         let secret: ApplicationSecretGuard =
             ApplicationSecretGuard::from_request_parts(parts, state).await?;

@@ -45,7 +45,7 @@ pub async fn create_secret(
         applications,
         auditing,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
 ) -> AppResult<SecretVO> {
     let operator_id = auth.claim.sub;
     let model = applications
@@ -98,7 +98,7 @@ pub async fn create_secret(
 pub async fn get_secrets(
     _: PlatformPermissionGuard<SecretRead>,
     OptionalQuery(query): OptionalQuery<PageParam>,
-    State(AppState { applications, .. }): State<AppState<'_>>,
+    State(AppState { applications, .. }): State<AppState>,
 ) -> AppResult<PagedResponse<SecretVO>> {
     let page: PageParam = query.unwrap_or_default().into_clamped();
 
@@ -167,7 +167,7 @@ pub async fn get_secrets(
 pub async fn get_secret(
     _: PlatformPermissionGuard<SecretRead>,
     Path(secret_id): Path<Sqid>,
-    State(AppState { applications, .. }): State<AppState<'_>>,
+    State(AppState { applications, .. }): State<AppState>,
 ) -> AppResult<SecretVO> {
     let secret_id: Uuid = secret_id
         .try_into()
@@ -216,7 +216,7 @@ pub async fn delete_secret(
         applications,
         auditing,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
     Path(secret_id): Path<Sqid>,
 ) -> AppResult<Empty> {
     let operator_id = auth.claim.sub;
@@ -247,7 +247,7 @@ pub async fn delete_secret(
     Ok(ApiResponse::new(Empty::default()))
 }
 
-pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
+pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(routes!(create_secret))
         .routes(routes!(get_secrets))

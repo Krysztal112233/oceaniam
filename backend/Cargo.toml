@@ -71,7 +71,7 @@ utoipa = { version = "*", features = ["chrono", "url", "uuid", "axum_extras"] }
 utoipa-axum = "*"
 utoipa-scalar = { version = "*", features = ["axum"] }
 uuid = { version = "1.18", features = ["v7"] }
-xorf = "0.12"
+
 yew = { version = "0.22", features = ["csr"] }
 zeroize = "1.8"
 

@@ -27,7 +27,7 @@ use crate::{
     util::cookie::build_auth_cookie,
 };
 
-pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
+pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(routes!(create_application_token))
         .routes(routes!(delete_application_token))
@@ -76,7 +76,7 @@ pub async fn create_application_token(
         auditing,
         config,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
     app: ResolvedApplication,
     Json(auth): Json<AuthVO>,
 ) -> AppResult<SigninResponseOrChallenge> {
@@ -239,7 +239,7 @@ pub async fn delete_application_token(
         revoked_jwt,
         auditing,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
     app: ResolvedApplication,
 ) -> Result<ApiResponse<SignoutResponse>, Error> {
     let jti = auth.token.claims.jti;
@@ -320,7 +320,7 @@ pub async fn refresh_application_token(
         auditing,
         config,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
     app: ResolvedApplication,
 ) -> AppResult<SigninResponseOrChallenge> {
     let jti = auth.token.claims.jti;

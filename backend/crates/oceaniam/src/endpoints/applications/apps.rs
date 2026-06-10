@@ -31,7 +31,7 @@ use crate::{
     state::AppState,
 };
 
-pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
+pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(routes!(get_applications))
         .routes(routes!(create_application))
@@ -68,7 +68,7 @@ pub async fn get_applications(
     _: PlatformPermissionGuard<ApplicationRead>,
     Path(tenant_id): Path<Sqid>,
     OptionalQuery(query): OptionalQuery<PageParam>,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
 ) -> AppResult<PagedResponse<ApplicationVO>> {
     let page = query.unwrap_or_default().into_clamped();
     let tenant_id: Uuid = tenant_id.try_into()?;
@@ -122,7 +122,7 @@ pub async fn create_application(
         applications,
         auditing,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
     Json(CreateApplicationRequest { comment }): Json<CreateApplicationRequest>,
 ) -> AppResult<CreateApplicationResponse> {
     let tenant_id: Uuid = tenant_id.try_into()?;
@@ -223,7 +223,7 @@ pub async fn patch_application(
         applications,
         auditing,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
     app: ResolvedApplication,
     Json(patch): Json<PatchApplicationRequest>,
 ) -> AppResult<ApplicationDetailVO> {
@@ -281,7 +281,7 @@ pub async fn delete_application(
         applications,
         auditing,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
     app: ResolvedApplication,
 ) -> AppResult<()> {
     let application_id = app.id();

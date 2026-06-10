@@ -30,6 +30,7 @@ enum Commands {
 }
 
 #[tokio::main]
+#[allow(clippy::result_large_err)]
 async fn main() -> Result<(), Error> {
     let cli = Cli::parse();
 
@@ -94,7 +95,7 @@ async fn generate_openapi(output: impl AsRef<Path>) -> Result<(), Error> {
 
     let content = serde_json::to_string_pretty(&openapi)?;
 
-    let _ = fs::write(output, content)?;
+    fs::write(output, content)?;
 
     Ok(())
 }

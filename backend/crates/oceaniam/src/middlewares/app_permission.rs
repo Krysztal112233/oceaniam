@@ -45,12 +45,12 @@ pub struct AppPermissionGuard<P: AppPermission> {
     _permission: PhantomData<P>,
 }
 
-impl<P: AppPermission> FromRequestParts<AppState<'_>> for AppPermissionGuard<P> {
+impl<P: AppPermission> FromRequestParts<AppState> for AppPermissionGuard<P> {
     type Rejection = Error;
 
     async fn from_request_parts(
         parts: &mut Parts,
-        state: &AppState<'_>,
+        state: &AppState,
     ) -> Result<Self, Self::Rejection> {
         let auth = ApplicationAuthGuard::from_request_parts(parts, state)
             .await

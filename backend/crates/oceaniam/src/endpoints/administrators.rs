@@ -40,7 +40,7 @@ use crate::{
     state::{AppState, credentials::ManagedCredentialVaults},
 };
 
-pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
+pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(routes!(get_administrators))
         .routes(routes!(get_administrator_self))
@@ -72,7 +72,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
 pub async fn get_administrators(
     _: PlatformPermissionGuard<AdministratorRead>,
     OptionalQuery(query): OptionalQuery<PageParam>,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
 ) -> AppResult<PagedResponse<AdministratorVO>> {
     let page = query.unwrap_or_default().into_clamped();
     Span::current().tap(|it| {
@@ -112,7 +112,7 @@ pub async fn get_administrators(
 )]
 pub async fn get_administrator_self(
     auth: PlatformAuthGuard,
-    State(state): State<AppState<'_>>,
+    State(state): State<AppState>,
 ) -> AppResult<AdministratorProfileVO> {
     let operator_id = auth.token.claims.sub;
     Span::current().tap(|it| {
@@ -186,7 +186,7 @@ pub async fn create_administrator(
         credentials,
         auditing,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
     Garde(Json(CreateAdministratorRequest { name })): Garde<Json<CreateAdministratorRequest>>,
 ) -> AppResult<CreateAdministratorResponse> {
     let operator_id = auth.claim.sub;
@@ -290,7 +290,7 @@ pub async fn patch_administrator(
         auditing,
         credentials,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
     Garde(Json(payload)): Garde<Json<PatchAdministratorRequest>>,
 ) -> AppResult<AdministratorVO> {
     let operator_id = auth.claim.sub;

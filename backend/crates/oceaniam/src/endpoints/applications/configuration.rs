@@ -16,7 +16,7 @@ use crate::{
     state::AppState,
 };
 
-pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
+pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(routes!(get_application_configuration))
         .routes(routes!(patch_application_configuration))
@@ -51,7 +51,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
 )]
 pub async fn get_application_configuration(
     _: AdminJwtOrApplicationSecretGuard,
-    State(AppState { applications, .. }): State<AppState<'_>>,
+    State(AppState { applications, .. }): State<AppState>,
     app: ResolvedApplication,
 ) -> AppResult<GetApplicationConfigurationResponse> {
     let application_id = app.id();
@@ -108,7 +108,7 @@ pub async fn patch_application_configuration(
         applications,
         auditing,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
     app: ResolvedApplication,
     Json(patch): Json<PatchApplicationConfigurationRequest>,
 ) -> AppResult<Empty> {

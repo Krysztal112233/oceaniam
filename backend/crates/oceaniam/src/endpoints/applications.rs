@@ -48,12 +48,12 @@ impl ResolvedApplication {
     }
 }
 
-impl FromRequestParts<AppState<'_>> for ResolvedApplication {
+impl FromRequestParts<AppState> for ResolvedApplication {
     type Rejection = Error;
 
     async fn from_request_parts(
         parts: &mut Parts,
-        state: &AppState<'_>,
+        state: &AppState,
     ) -> Result<Self, Self::Rejection> {
         let Path(path) = Path::<TenantApplicationPath>::from_request_parts(parts, state)
             .await
@@ -93,7 +93,7 @@ impl FromRequestParts<AppState<'_>> for ResolvedApplication {
     }
 }
 
-pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
+pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .pipe(apps::endpoint)
         .pipe(challenges::endpoint)

@@ -68,12 +68,12 @@ pub struct PlatformPermissionGuard<P: PlatformPermission> {
     _permission: std::marker::PhantomData<P>,
 }
 
-impl<P: PlatformPermission> FromRequestParts<AppState<'_>> for PlatformPermissionGuard<P> {
+impl<P: PlatformPermission> FromRequestParts<AppState> for PlatformPermissionGuard<P> {
     type Rejection = Error;
 
     async fn from_request_parts(
         parts: &mut Parts,
-        state: &AppState<'_>,
+        state: &AppState,
     ) -> Result<Self, Self::Rejection> {
         let PlatformAuthGuard { token } = PlatformAuthGuard::from_request_parts(parts, state)
             .await

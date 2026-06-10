@@ -18,7 +18,7 @@ use crate::{
     error::AppResult, middlewares::application::AdminJwtOrApplicationSecretGuard, state::AppState,
 };
 
-pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
+pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(routes!(get_application_statistics))
         .routes(routes!(get_application_statistics_trends))
@@ -47,7 +47,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
 async fn get_application_statistics(
     _: AdminJwtOrApplicationSecretGuard,
     Path(TenantApplicationPath { application_id, .. }): Path<TenantApplicationPath>,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
 ) -> AppResult<ApplicationStatisticsVO> {
     let app_id: Uuid = application_id.try_into().inspect_err(|e| {
         error!(error = %e, "failed to convert application_id");
@@ -88,7 +88,7 @@ async fn get_application_statistics_trends(
     _: AdminJwtOrApplicationSecretGuard,
     Path(TenantApplicationPath { application_id, .. }): Path<TenantApplicationPath>,
     OptionalQuery(query): OptionalQuery<TrendQuery>,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
 ) -> AppResult<ApplicationTrendsVO> {
     let TrendQuery { granularity, range } = query.unwrap_or_default();
 
@@ -148,7 +148,7 @@ async fn get_application_audits(
     _: AdminJwtOrApplicationSecretGuard,
     Path(TenantApplicationPath { application_id, .. }): Path<TenantApplicationPath>,
     OptionalQuery(query): OptionalQuery<AuditLogQuery>,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
 ) -> AppResult<PagedResponse<AuditLogVO>> {
     let AuditLogQuery {
         page,

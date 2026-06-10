@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::state::{
     applications::ManagedApplications, audit::Auditing, credentials::ManagedCredentialVaults,
-    filters::ManagedFilters, keybox::ManagedKeyBoxes, revoked::RevokedJwt,
+    keybox::ManagedKeyBoxes, revoked::RevokedJwt,
 };
 
 use crate::error::Error;
@@ -28,13 +28,12 @@ pub mod applications;
 pub mod audit;
 pub mod challenge;
 pub mod credentials;
-pub mod filters;
 pub mod keybox;
 pub mod revoked;
 pub mod secret;
 
 #[derive(Debug, Clone)]
-pub struct AppState<'a> {
+pub struct AppState {
     pub database: DatabaseConnection,
 
     /// WARN: Only for system authentications.
@@ -58,9 +57,7 @@ pub struct AppState<'a> {
     pub credentials: ManagedCredentialVaults,
 
     /// Application relative actions
-    pub applications: ManagedApplications<'a>,
-
-    pub filters: ManagedFilters<'a>,
+    pub applications: ManagedApplications,
 
     pub auditing: Auditing,
 
@@ -70,14 +67,13 @@ pub struct AppState<'a> {
     pub config: BackendConfig,
 }
 
-impl AppState<'static> {
+impl AppState {
     pub async fn new(database: DatabaseConnection, config: BackendConfig) -> Result<Self, Error> {
         let keybox = ManagedKeyBoxes::new(database.clone());
 
         initial_system_keybox(keybox.clone(), &database).await?;
 
         let credentials = ManagedCredentialVaults::new(database.clone());
-        let filters = ManagedFilters::new(database.clone());
         let auditing = Auditing::with_database(database.clone());
         let system_permissions = Arc::new(BuiltinResolver::new(database.clone()));
 
@@ -104,16 +100,9 @@ impl AppState<'static> {
             revoked_jwt: RevokedJwt::new(database.clone()),
             credentials: credentials.clone(),
 
-            applications: ManagedApplications::new(
-                filters.clone(),
-                credentials,
-                database.clone(),
-                auditing.clone(),
-            ),
+            applications: ManagedApplications::new(credentials, database.clone(), auditing.clone()),
 
             auditing,
-
-            filters,
 
             _unit: (),
 
@@ -168,7 +157,7 @@ async fn initial_system_keybox(
     Ok(())
 }
 
-impl FromRef<AppState<'_>> for () {
+impl FromRef<AppState> for () {
     fn from_ref(input: &AppState) -> Self {
         input._unit
     }

@@ -35,7 +35,7 @@ use crate::{
     util::cookie::build_auth_cookie,
 };
 
-pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
+pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(routes!(create_auth_user))
         .routes(routes!(create_auth_token))
@@ -85,7 +85,7 @@ pub async fn create_auth_token(
         keyboxes,
         auditing,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
 
     Json(auth): Json<SystemSigninRequest>,
 ) -> AppResult<SigninResponseOrChallenge> {
@@ -175,7 +175,7 @@ pub async fn delete_auth_token(
         revoked_jwt,
         auditing,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
 ) -> AppResult<SignoutResponse> {
     Span::current().tap(|it| {
         it.record("sub", field::display(&auth.token.claims.sub))
@@ -233,7 +233,7 @@ pub async fn delete_auth_token(
 #[tracing::instrument(level = "info", name = "auth.signup", skip(revoked_jwt, auth))]
 #[allow(unused)]
 pub async fn create_auth_user(
-    State(AppState { revoked_jwt, .. }): State<AppState<'_>>,
+    State(AppState { revoked_jwt, .. }): State<AppState>,
 
     Json(auth): Json<SystemSigninRequest>,
 ) -> AppResult<()> {
@@ -301,7 +301,7 @@ pub async fn refresh_auth_token(
         auditing,
         config,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
 ) -> AppResult<SigninResponseOrChallenge> {
     let jti = auth.token.claims.jti;
     Span::current().tap(|it| {

@@ -25,7 +25,7 @@ pub(crate) struct KeyPath {
     key_id: Sqid,
 }
 
-pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
+pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(routes!(get_tenant_keys))
         .routes(routes!(rotate_tenant_key))
@@ -58,7 +58,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
 pub async fn get_tenant_keys(
     _: PlatformPermissionGuard<KeyRead>,
     Path(path): Path<KeysPath>,
-    State(AppState { keyboxes, .. }): State<AppState<'_>>,
+    State(AppState { keyboxes, .. }): State<AppState>,
 ) -> AppResult<PagedResponse<ApplicationKeyVO>> {
     let tenant_id: Uuid = path.tenant_id.try_into().inspect_err(|e| {
         error!(error = %e, "failed to convert tenant_id");
@@ -114,7 +114,7 @@ pub async fn rotate_tenant_key(
     Path(path): Path<KeysPath>,
     State(AppState {
         keyboxes, auditing, ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
 ) -> AppResult<RotateKeyResponse> {
     let tenant_id: Uuid = path.tenant_id.try_into().inspect_err(|e| {
         error!(error = %e, "failed to convert tenant_id");
@@ -178,7 +178,7 @@ pub async fn revoke_tenant_key(
     Path(path): Path<KeyPath>,
     State(AppState {
         keyboxes, auditing, ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
 ) -> AppResult<()> {
     let tenant_id: Uuid = path.tenant_id.try_into().inspect_err(|e| {
         error!(error = %e, "failed to convert tenant_id");

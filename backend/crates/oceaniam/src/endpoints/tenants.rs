@@ -33,7 +33,7 @@ use crate::middlewares::permission::{
 };
 use crate::state::AppState;
 
-pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
+pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(routes!(create_tenant))
         .routes(routes!(delete_tenant))
@@ -68,7 +68,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
 pub async fn get_tenants(
     auth: PlatformPermissionGuard<TenantRead>,
     OptionalQuery(query): OptionalQuery<PageParam>,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
 ) -> AppResult<PagedResponse<TenantVO>> {
     let page = query.unwrap_or_default().into_clamped();
     let operator_id = auth.claim.sub;
@@ -123,7 +123,7 @@ pub async fn get_tenants(
 pub async fn get_tenant(
     auth: PlatformPermissionGuard<TenantRead>,
     Path(tenant_id): Path<Sqid>,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
 ) -> AppResult<TenantVO> {
     let operator_id = auth.claim.sub;
     let uuid = tenant_id.try_into()?;
@@ -179,7 +179,7 @@ pub async fn create_tenant(
         auditing,
         keyboxes,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
 
     Json(CreateTenantRequest { comment }): Json<CreateTenantRequest>,
 ) -> AppResult<TenantVO> {
@@ -263,7 +263,7 @@ pub async fn patch_tenant(
     Path(tenant_id): Path<Sqid>,
     State(AppState {
         database, auditing, ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
     Json(PatchTenantRequest { comment }): Json<PatchTenantRequest>,
 ) -> AppResult<TenantVO> {
     let operator_id = auth.claim.sub;
@@ -327,7 +327,7 @@ pub async fn delete_tenant(
     Path(tenant_id): Path<Sqid>,
     State(AppState {
         database, auditing, ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
 ) -> AppResult<()> {
     let operator_id = auth.claim.sub;
     let tenant_id: Uuid = tenant_id.try_into()?;
@@ -389,7 +389,7 @@ pub async fn get_tenant_users(
     auth: PlatformPermissionGuard<TenantRead>,
     Path(tenant_id): Path<Sqid>,
     OptionalQuery(query): OptionalQuery<PageParam>,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
 ) -> AppResult<PagedResponse<ApplicationUserVO>> {
     let page = query.unwrap_or_default().into_clamped();
     let operator_id = auth.claim.sub;
@@ -451,7 +451,7 @@ pub async fn get_tenant_users(
 )]
 pub async fn get_tenant_jwks(
     Path(tenant_id): Path<Sqid>,
-    State(AppState { keyboxes, .. }): State<AppState<'_>>,
+    State(AppState { keyboxes, .. }): State<AppState>,
 ) -> AppResult<JwkSet> {
     let tenant_id: Uuid = tenant_id
         .try_into()

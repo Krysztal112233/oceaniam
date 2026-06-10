@@ -39,7 +39,7 @@ pub struct CreateChallengeRequest {
     pub factor_type: Option<String>,
 }
 
-pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
+pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(routes!(get_application_challenge))
         .routes(routes!(create_application_challenge))
@@ -83,7 +83,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
 )]
 pub async fn get_application_challenge(
     _: AdminJwtOrApplicationSecretGuard,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
     app: ResolvedApplication,
     Path((_tid, _aid, challenge_id)): Path<(Sqid, Sqid, Uuid)>,
 ) -> AppResult<ApplicationChallengeVO> {
@@ -150,7 +150,7 @@ pub async fn get_application_challenge(
 )]
 pub async fn create_application_challenge(
     _auth: AdminJwtOrApplicationSecretGuard,
-    State(AppState { applications, .. }): State<AppState<'_>>,
+    State(AppState { applications, .. }): State<AppState>,
     app: ResolvedApplication,
     Json(body): Json<CreateChallengeRequest>,
 ) -> AppResult<ApplicationChallengeVO> {
@@ -235,7 +235,7 @@ pub async fn create_application_challenge_attempt(
         auditing,
         config,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
     app: ResolvedApplication,
     Path((_tid, _aid, challenge_id)): Path<(Sqid, Sqid, Uuid)>,
     Json(payload): Json<Value>,

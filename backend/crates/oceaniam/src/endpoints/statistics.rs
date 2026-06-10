@@ -19,7 +19,7 @@ use crate::{
     state::AppState,
 };
 
-pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
+pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(routes!(get_statistics))
         .routes(routes!(get_statistics_trends))
@@ -44,7 +44,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
 #[tracing::instrument(level = "info", name = "statistics", skip(database))]
 async fn get_statistics(
     _: PlatformPermissionGuard<TenantRead>,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
 ) -> AppResult<OverviewVO> {
     let overview: OverviewVO = crate::conversion::statistics::platform_counts_to_overview(
         Audits::platform_counts(&database)
@@ -77,7 +77,7 @@ async fn get_statistics(
 async fn get_statistics_trends(
     _: PlatformPermissionGuard<TenantRead>,
     OptionalQuery(query): OptionalQuery<TrendQuery>,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
 ) -> AppResult<PlatformTrendsVO> {
     let TrendQuery { granularity, range } = query.unwrap_or_default();
 

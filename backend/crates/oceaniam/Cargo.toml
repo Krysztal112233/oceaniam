@@ -39,7 +39,7 @@ utoipa-axum.workspace = true
 utoipa-scalar.workspace = true
 utoipa.workspace = true
 uuid.workspace = true
-xorf.workspace = true
+
 
 oceaniam-api.workspace = true
 oceaniam-audit.workspace = true

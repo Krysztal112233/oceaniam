@@ -33,7 +33,7 @@ use crate::{
     state::AppState,
 };
 
-pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
+pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(routes!(list_roles))
         .routes(routes!(create_role))
@@ -107,7 +107,7 @@ async fn ensure_subject_belongs_to_app(
 pub async fn list_roles(
     _auth: AppPermissionGuard<AppUserRead>,
     app: ResolvedApplication,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
 ) -> AppResult<PagedResponse<ApplicationRoleVO>> {
     let application_id = app.id();
     Span::current().tap(|it| {
@@ -167,7 +167,7 @@ pub async fn list_roles(
 pub async fn create_role(
     _auth: AppPermissionGuard<AppUserRead>,
     app: ResolvedApplication,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
     Json(body): Json<CreateApplicationRoleRequest>,
 ) -> AppResult<ApplicationRoleVO> {
     let application_id = app.id();
@@ -240,7 +240,7 @@ pub async fn create_role(
 pub async fn get_role(
     _auth: AppPermissionGuard<AppUserRead>,
     app: ResolvedApplication,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
     Path((_tenant_id, _application_id, role_id)): Path<(Sqid, Sqid, Sqid)>,
 ) -> AppResult<ApplicationRoleVO> {
     let application_id = app.id();
@@ -303,7 +303,7 @@ pub async fn get_role(
 pub async fn patch_role(
     _auth: AppPermissionGuard<AppUserRead>,
     app: ResolvedApplication,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
     Path((_tenant_id, _application_id, role_id)): Path<(Sqid, Sqid, Sqid)>,
     Json(body): Json<PatchApplicationRoleRequest>,
 ) -> AppResult<ApplicationRoleVO> {
@@ -383,7 +383,7 @@ pub async fn patch_role(
 pub async fn delete_role(
     _auth: AppPermissionGuard<AppUserRead>,
     app: ResolvedApplication,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
     Path((_tenant_id, _application_id, role_id)): Path<(Sqid, Sqid, Sqid)>,
 ) -> AppResult<()> {
     let application_id = app.id();
@@ -453,7 +453,7 @@ pub async fn delete_role(
 pub async fn get_role_permissions(
     _auth: AppPermissionGuard<AppUserRead>,
     app: ResolvedApplication,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
     Path((_tenant_id, _application_id, role_id)): Path<(Sqid, Sqid, Sqid)>,
 ) -> AppResult<RolePermissionsVO> {
     let application_id = app.id();
@@ -513,7 +513,7 @@ pub async fn get_role_permissions(
 pub async fn set_role_permissions(
     _auth: AppPermissionGuard<AppUserRead>,
     app: ResolvedApplication,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
     Path((_tenant_id, _application_id, role_id)): Path<(Sqid, Sqid, Sqid)>,
     Json(body): Json<SetRolePermissionsRequest>,
 ) -> AppResult<RolePermissionsVO> {
@@ -589,7 +589,7 @@ pub async fn set_role_permissions(
 pub async fn get_subject_roles(
     _auth: AppPermissionGuard<AppUserRead>,
     app: ResolvedApplication,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
     Path((_tenant_id, _application_id, subject_id)): Path<(Sqid, Sqid, Sqid)>,
 ) -> AppResult<SubjectRolesVO> {
     let application_id = app.id();
@@ -657,7 +657,7 @@ pub async fn get_subject_roles(
 pub async fn assign_role(
     _auth: AppPermissionGuard<AppUserRead>,
     app: ResolvedApplication,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
     Path((_tenant_id, _application_id, subject_id)): Path<(Sqid, Sqid, Sqid)>,
     Json(body): Json<AssignRoleRequest>,
 ) -> AppResult<SubjectRolesVO> {
@@ -731,7 +731,7 @@ pub async fn assign_role(
 pub async fn unassign_role(
     _auth: AppPermissionGuard<AppUserRead>,
     app: ResolvedApplication,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
     Path((_tenant_id, _application_id, subject_id, role_id)): Path<(Sqid, Sqid, Sqid, Sqid)>,
 ) -> AppResult<()> {
     let application_id = app.id();

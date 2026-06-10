@@ -32,7 +32,7 @@ use crate::{
     state::{AppState, applications::UserIdentifier},
 };
 
-pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRouter<AppState<'a>> {
+pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(routes!(get_application_users))
         .routes(routes!(search_application_users))
@@ -76,7 +76,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState<'a>>) -> OpenApiRout
 pub async fn get_application_users(
     _auth: AdminJwtOrApplicationSecretGuard,
     operator: AuthenticatedOperator,
-    State(AppState { database, .. }): State<AppState<'_>>,
+    State(AppState { database, .. }): State<AppState>,
     app: ResolvedApplication,
     OptionalQuery(query): OptionalQuery<ApplicationUsersListQuery>,
 ) -> AppResult<PagedResponse<ApplicationUserVO>> {
@@ -169,7 +169,7 @@ pub async fn search_application_users(
         applications,
         database,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
     app: ResolvedApplication,
     Garde(Query(search_options)): Garde<Query<SearchApplicationUsersQuery>>,
 ) -> AppResult<PagedResponse<ApplicationUserVO>> {
@@ -347,7 +347,7 @@ pub async fn search_application_users(
 pub async fn get_application_user(
     _auth: AdminJwtOrApplicationSecretGuard,
     operator: AuthenticatedOperator,
-    State(AppState { applications, .. }): State<AppState<'_>>,
+    State(AppState { applications, .. }): State<AppState>,
     app: ResolvedApplication,
     Path((_tenant_id, _application_id, user_id)): Path<(Sqid, Sqid, Sqid)>,
 ) -> AppResult<ApplicationUserVO> {
@@ -426,7 +426,7 @@ pub async fn create_application_user(
         auditing,
         database,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
     app: ResolvedApplication,
     Garde(Json(CreateApplicationUserRequest {
         email,
@@ -541,7 +541,7 @@ pub async fn patch_application_user_credentials(
         credentials,
         database,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
     app: ResolvedApplication,
     Path((_tenant_id, _application_id, user_id)): Path<(Sqid, Sqid, Sqid)>,
     Garde(Json(PatchApplicationUserCredentialsRequest { password })): Garde<
@@ -645,7 +645,7 @@ pub async fn enroll_totp(
         applications,
         credentials,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
     app: ResolvedApplication,
     Path((_tenant_id, _application_id, user_id)): Path<(Sqid, Sqid, Sqid)>,
 ) -> AppResult<EnrollTotpResponse> {
@@ -717,7 +717,7 @@ pub async fn verify_totp_enrollment(
         applications,
         credentials,
         ..
-    }): State<AppState<'_>>,
+    }): State<AppState>,
     app: ResolvedApplication,
     Path((_tenant_id, _application_id, user_id)): Path<(Sqid, Sqid, Sqid)>,
     Json(body): Json<VerifyTotpRequest>,
@@ -776,7 +776,7 @@ pub async fn verify_totp_enrollment(
 )]
 pub async fn remove_totp(
     _auth: AdminJwtOrApplicationSecretGuard,
-    State(AppState { credentials, .. }): State<AppState<'_>>,
+    State(AppState { credentials, .. }): State<AppState>,
     app: ResolvedApplication,
     Path((_tenant_id, _application_id, user_id)): Path<(Sqid, Sqid, Sqid)>,
 ) -> AppResult<Empty> {
