@@ -15,7 +15,7 @@ use crate::{
     error::Error,
     key::{FromSecretField, TryIntoJwk, TryIntoKeyModel},
     key_alg::KeyAlg,
-    keybox::{KeyOption, StandaloneKey, compute_key_status},
+    keybox::{KeyOption, RawKey, compute_key_status},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,7 +108,7 @@ impl TryIntoKeyModel for RsaKey {
             expires_at,
         }: crate::keybox::KeyOption,
     ) -> Result<oceaniam_database::model::key_boxes::Model, Error> {
-        let StandaloneKey {
+        let RawKey {
             key_id: id,
             key_alg,
             secret,
@@ -155,7 +155,7 @@ impl TryFrom<Key> for RsaKey {
     }
 }
 
-impl TryFrom<RsaKey> for StandaloneKey {
+impl TryFrom<RsaKey> for RawKey {
     type Error = Error;
 
     fn try_from(
@@ -165,7 +165,7 @@ impl TryFrom<RsaKey> for StandaloneKey {
             private: secret,
         }: RsaKey,
     ) -> Result<Self, Self::Error> {
-        Ok(StandaloneKey {
+        Ok(RawKey {
             key_id: id,
             key_alg,
             secret: serde_json::to_value(SecretField::from_rsa_private(secret)?)?,
@@ -173,15 +173,15 @@ impl TryFrom<RsaKey> for StandaloneKey {
     }
 }
 
-impl TryFrom<StandaloneKey> for RsaKey {
+impl TryFrom<RawKey> for RsaKey {
     type Error = Error;
 
     fn try_from(
-        StandaloneKey {
+        RawKey {
             key_id: id,
             key_alg,
             secret,
-        }: StandaloneKey,
+        }: RawKey,
     ) -> Result<Self, Self::Error> {
         Ok(Self {
             key_id: id,
@@ -265,7 +265,7 @@ mod tests {
     fn test_rsa_as_standalone_key() {
         for alg in SUPPORTED_ALGORITHM.iter() {
             let key = RsaKey::new(Uuid::now_v7(), KeyAlg::try_from(*alg).unwrap());
-            assert!(StandaloneKey::try_from(key).is_ok())
+            assert!(RawKey::try_from(key).is_ok())
         }
     }
 

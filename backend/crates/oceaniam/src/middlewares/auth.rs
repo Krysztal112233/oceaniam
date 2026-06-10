@@ -48,17 +48,21 @@ impl FromRequestParts<AppState<'_>> for PlatformAuthGuard {
     async fn from_request_parts(
         parts: &mut Parts,
         AppState {
-            platform_jwks: system_jwks,
-            platform_jwt_validator: system_jwt_validator,
+            platform_jwks,
+            platform_jwt_validator,
             revoked_jwt,
             ..
         }: &AppState<'_>,
     ) -> Result<Self, Self::Rejection> {
         let (token, header) = jwt::extract_bearer_token(parts)?;
 
-        let Ok(token) =
-            jwt::validate::<SystemClaim>(&header, system_jwks.jwks(), token, system_jwt_validator)
-                .await
+        let Ok(token) = jwt::validate::<SystemClaim>(
+            &header,
+            platform_jwks.jwks(),
+            token,
+            platform_jwt_validator,
+        )
+        .await
         else {
             return Err(StatusCode::BAD_REQUEST);
         };

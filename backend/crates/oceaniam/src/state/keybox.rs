@@ -20,7 +20,7 @@ use oceaniam_database::{
         sea_orm_active_enums::{KeyAlg, KeyStatus},
     },
 };
-use oceaniam_keybox::{KeyBox, KeyOption, RsaKey};
+use oceaniam_keybox::{KeyBox, RsaKey};
 use sea_orm::DatabaseConnection;
 use tap::Tap;
 use tracing::{debug, error};
@@ -80,12 +80,7 @@ impl ManagedKeyBoxes {
                 if keybox.get_keys().is_empty() {
                     debug!(%tenant_id, "keybox is empty, auto-creating default keybox");
                     let mut keybox = KeyBox::new(tenant_id);
-                    keybox
-                        .add_key_with_option(
-                            RsaKey::new(Uuid::now_v7(), KeyAlg::Ps512),
-                            KeyOption::default(),
-                        )
-                        .inspect_err(|e| error!("{e}"))?;
+                    keybox.rotate().inspect_err(|e| error!("{e}"))?;
                     keybox
                         .write_to(&database)
                         .await
@@ -127,12 +122,7 @@ impl ManagedKeyBoxes {
     ) -> Result<KeyBox, Error> {
         let mut keybox = KeyBox::new(tenant_id);
 
-        keybox
-            .add_key_with_option(
-                RsaKey::new(Uuid::now_v7(), KeyAlg::Ps512),
-                KeyOption::default(),
-            )
-            .inspect_err(|e| error!("{e}"))?;
+        keybox.rotate().inspect_err(|e| error!("{e}"))?;
 
         keybox
             .write_to(transaction)
@@ -146,21 +136,34 @@ impl ManagedKeyBoxes {
         self.boxes.insert(tenant_id, keybox).await;
     }
 
-    /// Generates a new key for the given tenant and persists it.
+    /// Ensures the tenant's keybox has at least one Active and one Pending
+    /// key, then persists and invalidates caches so subsequent requests pick
+    /// up the new state immediately.
     ///
-    /// Delegates the in-memory key generation to [`KeyBox::rotate_key`], then
-    /// writes all keys to the database and invalidates both the keybox cache
-    /// and the JWKS cache so subsequent requests pick up the new key immediately.
+    /// Delegates the invariant enforcement to [`KeyBox::rotate`].
     pub async fn rotate_key(&self, tenant_id: Uuid) -> Result<KeyModel, Error> {
         let mut keybox = self.get_keybox(tenant_id).await?;
-        let new_key = keybox.rotate_key()?;
+        keybox.rotate()?;
+
+        let latest_active = keybox
+            .get_keys()
+            .values()
+            .filter(|k| k.status == KeyStatus::Active)
+            .max_by_key(|k| k.activated_at)
+            .cloned()
+            .ok_or_else(|| {
+                Error::with_code(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "no active key after rotation",
+                )
+            })?;
 
         keybox.write_to(&self.database).await?;
 
         self.boxes.insert(tenant_id, keybox).await;
         self.jwks.invalidate(&tenant_id).await;
 
-        Ok(new_key)
+        Ok(latest_active)
     }
 
     pub async fn revoke_key(&self, tenant_id: Uuid, key_id: Uuid) -> Result<(), Error> {

@@ -71,7 +71,7 @@ impl Worker<WorkerContext> for KeyRotationWorker {
             let keys_map = keys.into_iter().map(|k| (k.id, k)).collect();
             let mut keybox = KeyBox::with_keys(tenant.id, keys_map);
 
-            if keybox.refresh_statuses() {
+            if keybox.update_keys_status() {
                 debug!(tenant_id = %tenant.id, "key statuses refreshed");
                 if let Err(e) = keybox.write_to(&context.database).await {
                     error!(%tenant.id, error = %e, "failed to persist refreshed key statuses");
@@ -89,13 +89,18 @@ impl Worker<WorkerContext> for KeyRotationWorker {
                 });
 
             if should_rotate {
-                match keybox.rotate_key() {
-                    Ok(new_key) => {
+                match keybox.rotate() {
+                    Ok(()) => {
                         if let Err(e) = keybox.write_to(&context.database).await {
                             error!(%tenant.id, error = %e, "failed to persist rotated key");
                         } else {
-                            info!(%tenant.id, new_key_id = %new_key.id, "key rotation completed");
-                            log_key_rotation(tenant.id, new_key.id, &context.database).await;
+                            let latest_active = keybox
+                                .get_latest_raw_key(KeyStatus::Active)
+                                .and_then(|raw| keybox.get_raw_key_unchecked(&raw.key_id));
+                            if let Some(ref new_key) = latest_active {
+                                info!(%tenant.id, new_key_id = %new_key.id, "key rotation completed");
+                                log_key_rotation(tenant.id, new_key.id, &context.database).await;
+                            }
                         }
                     }
                     Err(e) => {

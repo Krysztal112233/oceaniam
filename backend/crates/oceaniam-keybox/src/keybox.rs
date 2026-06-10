@@ -41,16 +41,18 @@ pub(crate) fn compute_key_status(
 /// A standalone key representation that contains the essential key information
 /// without the full metadata from the database model
 #[derive(Debug, Clone)]
-pub struct StandaloneKey {
+pub struct RawKey {
     /// Unique identifier for the key
     pub key_id: Uuid,
+
     /// The algorithm used by this key (e.g., RS256, RS512, etc.)
     pub key_alg: KeyAlg,
+
     /// The secret key material stored as JSON value
     pub secret: Value,
 }
 
-impl From<Key> for StandaloneKey {
+impl From<Key> for RawKey {
     /// Converts a database Key model into a StandaloneKey
     ///
     /// Extracts the essential key information while discarding metadata
@@ -63,7 +65,7 @@ impl From<Key> for StandaloneKey {
             ..
         }: Key,
     ) -> Self {
-        StandaloneKey {
+        RawKey {
             key_id: id,
             key_alg: key_alg.into(),
             secret,
@@ -170,7 +172,7 @@ impl KeyBox {
     /// # Safety
     ///
     /// This function doesn't check if the key is expired.
-    pub fn get_raw_key(&self, key_id: &Uuid) -> Option<StandaloneKey> {
+    pub fn get_raw_key(&self, key_id: &Uuid) -> Option<RawKey> {
         self.get_raw_key_unchecked(key_id).map(Into::into)
     }
 
@@ -186,7 +188,7 @@ impl KeyBox {
     /// `Some(Err(e))` if conversion fails, or `None` if key doesn't exist
     pub fn get_key<T>(&self, key_id: &Uuid) -> Option<Result<T, Error>>
     where
-        T: TryFrom<StandaloneKey, Error = Error>,
+        T: TryFrom<RawKey, Error = Error>,
     {
         self.get_raw_key(key_id).map(T::try_from)
     }
@@ -233,6 +235,49 @@ impl KeyBox {
         &self.keys
     }
 
+    /// Gets the latest key with the specified status
+    ///
+    /// Returns the key with the most recent `activated_at` timestamp
+    /// that matches the given status
+    pub fn get_latest_raw_key(&self, status: KeyStatus) -> Option<RawKey> {
+        self.keys
+            .values()
+            .filter(|it| it.status == status)
+            .sorted_by(|a, b| Ord::cmp(&b.activated_at, &a.activated_at))
+            .cloned()
+            .map(RawKey::from)
+            .next()
+    }
+
+    /// Gets the latest key with the specified status and converts it to the target type
+    pub fn get_latest_key<T>(&self, status: KeyStatus) -> Option<Result<T, Error>>
+    where
+        T: TryFrom<RawKey, Error = Error>,
+    {
+        self.get_latest_raw_key(status).map(T::try_from)
+    }
+
+    /// Writes all keys in this keybox to the database
+    ///
+    /// Persists all key changes to the database for the application
+    pub async fn write_to(
+        &self,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<(), Error> {
+        let vec = self.keys.values().cloned().map(|it| it.into_active_model());
+
+        KeyBoxes::update_application_keys(self.tenant_id, vec, database).await?;
+
+        Ok(())
+    }
+
+    /// Returns the tenant ID this keybox belongs to
+    pub fn tenant_id(&self) -> Uuid {
+        self.tenant_id
+    }
+}
+
+impl KeyBox {
     /// Refreshes each key's status based on its timestamps and current time.
     ///
     /// A previously [`Active`](KeyStatus::Active) key becomes [`Retired`](KeyStatus::Retired) once
@@ -240,7 +285,7 @@ impl KeyBox {
     /// changed.
     ///
     /// Returns `true` if any status was updated.
-    pub fn refresh_statuses(&mut self) -> bool {
+    pub fn update_keys_status(&mut self) -> bool {
         let now: DateTime<FixedOffset> = Utc::now().into();
         let mut changed = false;
 
@@ -270,45 +315,46 @@ impl KeyBox {
         changed
     }
 
-    /// Gets the latest key with the specified status
-    ///
-    /// Returns the key with the most recent `activated_at` timestamp
-    /// that matches the given status
-    pub fn get_latest_raw_key(&self, status: KeyStatus) -> Option<StandaloneKey> {
-        self.keys
-            .values()
-            .filter(|it| it.status == status)
-            .sorted_by(|a, b| Ord::cmp(&b.activated_at, &a.activated_at))
-            .cloned()
-            .map(StandaloneKey::from)
-            .next()
-    }
+    pub fn rotate(&mut self) -> Result<(), Error> {
+        self.update_keys_status();
 
-    /// Gets the latest key with the specified status and converts it to the target type
-    pub fn get_latest_key<T>(&self, status: KeyStatus) -> Option<Result<T, Error>>
-    where
-        T: TryFrom<StandaloneKey, Error = Error>,
-    {
-        self.get_latest_raw_key(status).map(T::try_from)
-    }
+        let now: DateTime<FixedOffset> = Utc::now().into();
+        let interval = chrono::Duration::days(30);
 
-    /// Writes all keys in this keybox to the database
-    ///
-    /// Persists all key changes to the database for the application
-    pub async fn write_to(
-        &self,
-        database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<(), Error> {
-        let vec = self.keys.values().cloned().map(|it| it.into_active_model());
+        // `KeyAlg` lookup order: Active → Pending → Retired → PS512 (fallback)
+        let algorithm = self
+            .get_latest_raw_key(KeyStatus::Active)
+            .or_else(|| self.get_latest_raw_key(KeyStatus::Pending))
+            .or_else(|| self.get_latest_raw_key(KeyStatus::Retired))
+            .map(|it| it.key_alg)
+            .unwrap_or(sea_orm_active_enums::KeyAlg::Ps512.into());
 
-        KeyBoxes::update_application_keys(self.tenant_id, vec, database).await?;
+        let has_active = self.get_latest_raw_key(KeyStatus::Active).is_some();
+        let has_pending = self.get_latest_raw_key(KeyStatus::Pending).is_some();
+
+        if !has_active {
+            let options = KeyOption {
+                created_at: now,
+                activated_at: now,
+                retired_at: now + interval,
+                expires_at: now + interval * 2,
+            };
+            let key = RsaKey::new(Uuid::now_v7(), algorithm.clone());
+            self.add_key_with_option(key, options)?;
+        }
+
+        if !has_pending {
+            let options = KeyOption {
+                created_at: now,
+                activated_at: now + interval,
+                retired_at: now + interval * 2,
+                expires_at: now + interval * 3,
+            };
+            let key = RsaKey::new(Uuid::now_v7(), algorithm);
+            self.add_key_with_option(key, options)?;
+        }
 
         Ok(())
-    }
-
-    /// Returns the tenant ID this keybox belongs to
-    pub fn tenant_id(&self) -> Uuid {
-        self.tenant_id
     }
 }
 
@@ -361,7 +407,7 @@ mod tests {
         RsaKey::new(Uuid::now_v7(), InnerKeyAlg::Rs512)
     }
 
-    fn create_rsa_standalone_key() -> StandaloneKey {
+    fn create_rsa_standalone_key() -> RawKey {
         RsaKey::new(Uuid::now_v7(), InnerKeyAlg::Rs512)
             .try_into()
             .unwrap()
@@ -373,8 +419,8 @@ mod tests {
     }
 
     // NOTE: AI-generated test
-    fn put_key_direct(keybox: &mut KeyBox, key: StandaloneKey, option: KeyOption) {
-        let StandaloneKey {
+    fn put_key_direct(keybox: &mut KeyBox, key: RawKey, option: KeyOption) {
+        let RawKey {
             key_id: id,
             key_alg,
             secret,
@@ -607,6 +653,111 @@ mod tests {
                 }),
             )
             .unwrap();
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn test_rotate_creates_active_and_pending_when_empty() {
+        let mut keybox = KeyBox::new(Uuid::now_v7());
+
+        keybox.rotate().unwrap();
+
+        assert!(
+            keybox.get_latest_raw_key(KeyStatus::Active).is_some(),
+            "expected an Active key after rotate on empty keybox"
+        );
+        assert!(
+            keybox.get_latest_raw_key(KeyStatus::Pending).is_some(),
+            "expected a Pending key after rotate on empty keybox"
+        );
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn test_rotate_adds_only_pending_when_active_exists() {
+        let mut keybox = KeyBox::new(Uuid::now_v7());
+        keybox.add_key(create_rsa_key()).unwrap();
+        let key_count_before = keybox.get_keys().len();
+
+        keybox.rotate().unwrap();
+
+        let key_count_after = keybox.get_keys().len();
+        assert!(
+            key_count_after > key_count_before,
+            "expected a new Pending key to be added"
+        );
+        assert!(
+            keybox.get_latest_raw_key(KeyStatus::Active).is_some(),
+            "expected an Active key to still exist"
+        );
+        assert!(
+            keybox.get_latest_raw_key(KeyStatus::Pending).is_some(),
+            "expected a Pending key to exist"
+        );
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn test_rotate_adds_only_active_when_pending_exists() {
+        let mut keybox = KeyBox::new(Uuid::now_v7());
+        let now: DateTime<FixedOffset> = Utc::now().into();
+        let raw_key = create_rsa_standalone_key();
+        put_key_direct(
+            &mut keybox,
+            raw_key,
+            KeyOption {
+                created_at: now,
+                activated_at: now + Duration::hours(1),
+                retired_at: now + Duration::days(31),
+                expires_at: now + Duration::days(61),
+            },
+        );
+        let key_count_before = keybox.get_keys().len();
+
+        keybox.rotate().unwrap();
+
+        let key_count_after = keybox.get_keys().len();
+        assert!(
+            key_count_after > key_count_before,
+            "expected a new Active key to be added"
+        );
+        assert!(
+            keybox.get_latest_raw_key(KeyStatus::Active).is_some(),
+            "expected an Active key to exist"
+        );
+        assert!(
+            keybox.get_latest_raw_key(KeyStatus::Pending).is_some(),
+            "expected a Pending key to still exist"
+        );
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn test_rotate_is_noop_when_active_and_pending_exist() {
+        let mut keybox = KeyBox::new(Uuid::now_v7());
+        keybox.add_key(create_rsa_key()).unwrap();
+        // Add an extra key that will remain Pending (activated_at in the future)
+        let now: DateTime<FixedOffset> = Utc::now().into();
+        let extra_key = create_rsa_standalone_key();
+        put_key_direct(
+            &mut keybox,
+            extra_key,
+            KeyOption {
+                created_at: now,
+                activated_at: now + Duration::hours(24),
+                retired_at: now + Duration::days(31),
+                expires_at: now + Duration::days(61),
+            },
+        );
+        let key_count_before = keybox.get_keys().len();
+
+        keybox.rotate().unwrap();
+
+        assert_eq!(
+            keybox.get_keys().len(),
+            key_count_before,
+            "expected no new keys when Active and Pending already exist"
+        );
     }
 
     #[test]

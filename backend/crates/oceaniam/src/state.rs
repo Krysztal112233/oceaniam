@@ -7,7 +7,6 @@ use crate::state::{
 
 use crate::error::Error;
 use axum::extract::FromRef;
-use im::HashMap;
 use oceaniam_auth::{
     Algorithm, Validation,
     jwks::{JwkSet, ManagedJwkSet},
@@ -19,12 +18,11 @@ use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, key_boxes::KeyBoxesHelper},
     model::prelude::KeyBoxes,
 };
-use oceaniam_keybox::{KeyBox, RsaKey};
+use oceaniam_keybox::KeyBox;
 use oceaniam_permission::{PermissionResolver, resolver::builtin::BuiltinResolver};
 use sea_orm::DatabaseConnection;
 use tap::Tap;
 use tracing::{error, info, warn};
-use uuid::Uuid;
 
 pub mod applications;
 pub mod audit;
@@ -146,30 +144,25 @@ async fn initial_system_keybox(
     keybox: ManagedKeyBoxes,
     database: &impl SafeTransactionConnectionTrait,
 ) -> Result<(), Error> {
-    let keys: HashMap<_, _> = KeyBoxes::get_system_keys(database)
-        .await?
-        .into_iter()
-        .map(|it| (it.id, it))
-        .collect();
+    match keybox.get_keybox(consts::SYSTEM_TENANT_UUID).await {
+        Ok(kb) => {
+            let count = kb.get_keys().len();
+            info!(%count, "system keybox is ready");
+        }
+        Err(e) => {
+            error!("could not find any system keys, creating directly: {e}");
 
-    let keybox = keybox.get_keybox(consts::SYSTEM_TENANT_UUID).await;
+            let mut kb = KeyBox::new(consts::SYSTEM_TENANT_UUID);
+            kb.rotate().inspect_err(|e| error!("{e}"))?;
 
-    if keys.is_empty() || keybox.is_err() {
-        info!("could not find any system keys. a new system key will be generated.");
+            info!(
+                "the system keybox has been generated and is about to be written to the database."
+            );
 
-        let mut keybox = KeyBox::new(consts::SYSTEM_TENANT_UUID);
+            kb.write_to(database).await?;
 
-        let key = RsaKey::new(
-            Uuid::now_v7(),
-            oceaniam_keybox::KeyAlg::try_from(oceaniam_auth::consts::SYSTEM_KEY_ALO).unwrap(),
-        );
-        keybox.add_key(key).inspect_err(|e| error!("{e}"))?;
-
-        info!("the system key has been generated and is about to be written to the database.");
-
-        keybox.clone().write_to(database).await?;
-
-        info!("system key has been written to database!");
+            info!("system keybox has been written to database!");
+        }
     }
 
     Ok(())
