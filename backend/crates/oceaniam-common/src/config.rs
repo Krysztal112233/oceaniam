@@ -41,6 +41,8 @@ pub struct BackendConfig {
 
     #[serde(default)]
     pub cookie: CookieConfig,
+
+    pub master_key: String,
 }
 
 impl BackendConfig {

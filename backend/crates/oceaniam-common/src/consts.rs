@@ -17,3 +17,7 @@ pub static MAX_CPU_BOUND_SEMAPHORE: LazyLock<Semaphore> =
     LazyLock::new(|| Semaphore::new(num_cpus::get()));
 
 pub const USER_LOGIN_FAILED_MSG: &str = "user not found or password invalid";
+
+/// The current Key Encryption Key (KEK) version. Used by envelope encryption
+/// to tag encrypted blobs so future KEK rotation can identify the generation.
+pub const KEK_VERSION_CURRENT: u32 = 1;
