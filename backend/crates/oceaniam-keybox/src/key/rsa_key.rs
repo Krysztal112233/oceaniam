@@ -1,6 +1,10 @@
 use chrono::Utc;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use oceaniam_auth::{jwks::Jwk, jwt::JwtCodec};
+use oceaniam_common::{
+    consts,
+    crypto::{EncryptedBlob, MasterKey},
+};
 use oceaniam_database::model::key_boxes::Model as Key;
 use rsa::{
     RsaPrivateKey,
@@ -23,7 +27,7 @@ pub struct RsaKey {
     key_id: Uuid,
     key_alg: KeyAlg,
 
-    private: RsaPrivateKey,
+    pub(crate) private: RsaPrivateKey,
 }
 
 impl RsaKey {
@@ -49,6 +53,10 @@ impl RsaKey {
     pub fn key_id(&self) -> Uuid {
         self.key_id
     }
+
+    pub fn key_alg(&self) -> KeyAlg {
+        self.key_alg.clone()
+    }
 }
 
 impl TryIntoJwk for RsaKey {
@@ -67,33 +75,70 @@ impl TryIntoJwk for RsaKey {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct SecretField {
-    /// This field are encoded with [rsa::pkcs8] format.
-    pem: String,
+pub struct SecretField {
+    /// base64-encoded 24-byte XChaCha20 nonce.
+    pub nonce: String,
+    /// base64-encoded ciphertext (encrypted PKCS#8 PEM + Poly1305 tag).
+    pub ciphertext: String,
+    /// KEK version that produced this ciphertext.
+    pub key_version: u32,
 }
 
 impl SecretField {
-    pub fn from_rsa_private(private: RsaPrivateKey) -> Result<Self, Error> {
-        let mut pem = private.to_pkcs8_pem(rsa::pkcs8::LineEnding::LF).unwrap();
+    pub fn from_rsa_private(private: RsaPrivateKey, master_key: &MasterKey) -> Result<Self, Error> {
+        use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
 
-        let secret = SecretField {
-            pem: pem.to_string(),
-        };
+        let mut pem = private.to_pkcs8_pem(rsa::pkcs8::LineEnding::LF)?;
 
-        // NOTE: Wipe out from memory
+        let blob = master_key.encrypt(pem.as_bytes(), consts::KEK_VERSION_CURRENT)?;
+
+        // zeroize the PEM buffer
         pem.zeroize();
 
-        Ok(secret)
+        Ok(Self {
+            nonce: B64.encode(blob.nonce),
+            ciphertext: B64.encode(&blob.ciphertext),
+            key_version: blob.key_version,
+        })
     }
 }
 
 impl FromSecretField for RsaKey {
     type Type = RsaPrivateKey;
 
-    fn from_secret_field(value: Value) -> Result<Self::Type, Error> {
-        let SecretField { pem } = serde_json::from_value::<SecretField>(value)?;
+    fn from_secret_field(value: Value, master_key: &MasterKey) -> Result<Self::Type, Error> {
+        use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
 
-        Ok(RsaPrivateKey::from_pkcs8_pem(&pem)?)
+        let field: SecretField = serde_json::from_value(value)?;
+
+        let nonce: [u8; 24] = B64
+            .decode(&field.nonce)
+            .map_err(|e| Error::Internal {
+                msg: format!("nonce base64 decode: {e}"),
+                location: snafu::location!(),
+            })?
+            .try_into()
+            .map_err(|_| Error::Internal {
+                msg: "nonce must be exactly 24 bytes".to_string(),
+                location: snafu::location!(),
+            })?;
+
+        let blob = EncryptedBlob {
+            nonce,
+            ciphertext: B64.decode(&field.ciphertext).map_err(|e| Error::Internal {
+                msg: format!("ciphertext base64 decode: {e}"),
+                location: snafu::location!(),
+            })?,
+            key_version: field.key_version,
+        };
+
+        let pem_bytes = master_key.decrypt(&blob)?;
+        let pem_str = String::from_utf8(pem_bytes).map_err(|e| Error::Internal {
+            msg: format!("decrypted PEM is not valid UTF-8: {e}"),
+            location: snafu::location!(),
+        })?;
+
+        Ok(RsaPrivateKey::from_pkcs8_pem(&pem_str)?)
     }
 }
 
@@ -101,6 +146,7 @@ impl TryIntoKeyModel for RsaKey {
     fn try_into_key_model(
         self,
         tenant_id: Uuid,
+        master_key: &MasterKey,
         KeyOption {
             created_at,
             activated_at,
@@ -108,11 +154,8 @@ impl TryIntoKeyModel for RsaKey {
             expires_at,
         }: crate::keybox::KeyOption,
     ) -> Result<oceaniam_database::model::key_boxes::Model, Error> {
-        let RawKey {
-            key_id: id,
-            key_alg,
-            secret,
-        } = self.try_into()?;
+        let secret =
+            serde_json::to_value(SecretField::from_rsa_private(self.private, master_key)?)?;
 
         let status = {
             let now: chrono::DateTime<chrono::FixedOffset> = Utc::now().into();
@@ -120,8 +163,8 @@ impl TryIntoKeyModel for RsaKey {
         };
 
         Ok(Key {
-            id,
-            key_alg: key_alg.into(),
+            id: self.key_id,
+            key_alg: self.key_alg.into(),
             status,
             created_at,
             activated_at,
@@ -134,59 +177,51 @@ impl TryIntoKeyModel for RsaKey {
     }
 }
 
-impl TryFrom<Key> for RsaKey {
-    type Error = Error;
-
-    fn try_from(
-        Key {
+impl RsaKey {
+    /// Decrypt the private key from a DB `Key` model.
+    pub fn from_key(key: Key, master_key: &MasterKey) -> Result<Self, Error> {
+        let Key {
             id: key_id,
             key_alg,
             secret,
             ..
-        }: Key,
-    ) -> Result<Self, Self::Error> {
+        } = key;
         let key_alg = KeyAlg::from(key_alg);
 
         Ok(Self {
             key_id,
             key_alg,
-            private: Self::from_secret_field(secret)?,
+            private: Self::from_secret_field(secret, master_key)?,
         })
     }
-}
 
-impl TryFrom<RsaKey> for RawKey {
-    type Error = Error;
-
-    fn try_from(
-        RsaKey {
+    /// Encrypt this key into a `RawKey` for storage.
+    pub fn into_raw_key(self, master_key: &MasterKey) -> Result<RawKey, Error> {
+        let RsaKey {
             key_id: id,
             key_alg,
             private: secret,
-        }: RsaKey,
-    ) -> Result<Self, Self::Error> {
+        } = self;
+
         Ok(RawKey {
             key_id: id,
             key_alg,
-            secret: serde_json::to_value(SecretField::from_rsa_private(secret)?)?,
+            secret: serde_json::to_value(SecretField::from_rsa_private(secret, master_key)?)?,
         })
     }
-}
 
-impl TryFrom<RawKey> for RsaKey {
-    type Error = Error;
-
-    fn try_from(
-        RawKey {
+    /// Decrypt the private key from a `RawKey`.
+    pub fn from_raw_key(raw: RawKey, master_key: &MasterKey) -> Result<Self, Error> {
+        let RawKey {
             key_id: id,
             key_alg,
             secret,
-        }: RawKey,
-    ) -> Result<Self, Self::Error> {
+        } = raw;
+
         Ok(Self {
             key_id: id,
             key_alg,
-            private: Self::from_secret_field(secret)?,
+            private: Self::from_secret_field(secret, master_key)?,
         })
     }
 }
@@ -261,12 +296,80 @@ mod tests {
         )
     }
 
+    // NOTE: AI-generated test
     #[test]
     fn test_rsa_as_standalone_key() {
+        let mk =
+            MasterKey::from_hex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .unwrap();
         for alg in SUPPORTED_ALGORITHM.iter() {
             let key = RsaKey::new(Uuid::now_v7(), KeyAlg::try_from(*alg).unwrap());
-            assert!(RawKey::try_from(key).is_ok())
+            assert!(key.into_raw_key(&mk).is_ok())
         }
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn secret_field_round_trip_preserves_key() {
+        use rsa::traits::PublicKeyParts;
+
+        let mk =
+            MasterKey::from_hex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .unwrap();
+        let original = RsaKey::new(Uuid::now_v7(), KeyAlg::try_from(Algorithm::RS512).unwrap());
+
+        let raw = original.clone().into_raw_key(&mk).unwrap();
+        let recovered = RsaKey::from_raw_key(raw, &mk).unwrap();
+
+        // Compare by modulus (RsaPrivateKey doesn't impl Eq)
+        let orig_n = original.private.n();
+        let recv_n = recovered.private.n();
+        assert_eq!(orig_n, recv_n);
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn secret_field_output_is_valid_base64() {
+        let mk =
+            MasterKey::from_hex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .unwrap();
+        use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
+
+        let key = RsaKey::new(Uuid::now_v7(), KeyAlg::try_from(Algorithm::RS512).unwrap());
+        let raw = key.into_raw_key(&mk).unwrap();
+
+        let secret: SecretField = serde_json::from_value(raw.secret).unwrap();
+        assert!(B64.decode(&secret.nonce).is_ok());
+        assert!(B64.decode(&secret.ciphertext).is_ok());
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn secret_field_key_version_is_one() {
+        let mk =
+            MasterKey::from_hex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .unwrap();
+        let key = RsaKey::new(Uuid::now_v7(), KeyAlg::try_from(Algorithm::RS512).unwrap());
+        let raw = key.into_raw_key(&mk).unwrap();
+
+        let secret: SecretField = serde_json::from_value(raw.secret).unwrap();
+        assert_eq!(secret.key_version, 1);
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn two_encryptions_produce_different_nonces() {
+        let mk =
+            MasterKey::from_hex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .unwrap();
+        let key = RsaKey::new(Uuid::now_v7(), KeyAlg::try_from(Algorithm::RS512).unwrap());
+
+        let raw1 = key.clone().into_raw_key(&mk).unwrap();
+        let raw2 = key.into_raw_key(&mk).unwrap();
+
+        let s1: SecretField = serde_json::from_value(raw1.secret).unwrap();
+        let s2: SecretField = serde_json::from_value(raw2.secret).unwrap();
+        assert_ne!(s1.nonce, s2.nonce);
     }
 
     #[test]

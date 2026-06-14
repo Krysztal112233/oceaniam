@@ -1,6 +1,7 @@
 use crate::error::Error;
 use chrono::{DateTime, FixedOffset, Utc};
 use itertools::Itertools;
+use oceaniam_common::crypto::MasterKey;
 use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, key_boxes::KeyBoxesHelper},
     model::{
@@ -110,17 +111,23 @@ pub struct KeyBox {
 
     /// Stores all keys with [Key::id] as the key
     keys: HashMap<Uuid, Key>,
+
+    master_key: MasterKey,
 }
 
 impl KeyBox {
     /// Creates a new empty KeyBox for the specified tenant
-    pub fn new(tenant_id: Uuid) -> Self {
-        Self::with_keys(tenant_id, HashMap::default())
+    pub fn new(tenant_id: Uuid, master_key: MasterKey) -> Self {
+        Self::with_keys(tenant_id, HashMap::default(), master_key)
     }
 
     /// Creates a KeyBox with the specified keys
-    pub fn with_keys(tenant_id: Uuid, keys: HashMap<Uuid, Key>) -> Self {
-        Self { tenant_id, keys }
+    pub fn with_keys(tenant_id: Uuid, keys: HashMap<Uuid, Key>, master_key: MasterKey) -> Self {
+        Self {
+            tenant_id,
+            keys,
+            master_key,
+        }
     }
 
     /// Adds a new key with default options.
@@ -145,7 +152,7 @@ impl KeyBox {
     where
         T: TryIntoKeyModel,
     {
-        let key = key.try_into_key_model(self.tenant_id, options)?;
+        let key = key.try_into_key_model(self.tenant_id, &self.master_key, options)?;
 
         if self.keys.contains_key(&key.id) {
             return Err(Error::KeyAlreadyExists {
@@ -176,7 +183,7 @@ impl KeyBox {
         self.get_raw_key_unchecked(key_id).map(Into::into)
     }
 
-    /// Gets a key by key_id and converts it to the specified type
+    /// Gets a key by key_id and decrypts it to an `RsaKey`.
     ///
     /// # Arguments
     ///
@@ -184,13 +191,11 @@ impl KeyBox {
     ///
     /// # Returns
     ///
-    /// Returns `Some(Ok(key))` if the key exists and can be converted,
-    /// `Some(Err(e))` if conversion fails, or `None` if key doesn't exist
-    pub fn get_key<T>(&self, key_id: &Uuid) -> Option<Result<T, Error>>
-    where
-        T: TryFrom<RawKey, Error = Error>,
-    {
-        self.get_raw_key(key_id).map(T::try_from)
+    /// Returns `Some(Ok(key))` if the key exists and can be decrypted,
+    /// `Some(Err(e))` if decryption fails, or `None` if key doesn't exist
+    pub fn get_key(&self, key_id: &Uuid) -> Option<Result<RsaKey, Error>> {
+        self.get_raw_key(key_id)
+            .map(|raw| RsaKey::from_raw_key(raw, &self.master_key))
     }
 
     /// Revokes the specified key by setting its status to `Revoked`
@@ -249,12 +254,10 @@ impl KeyBox {
             .next()
     }
 
-    /// Gets the latest key with the specified status and converts it to the target type
-    pub fn get_latest_key<T>(&self, status: KeyStatus) -> Option<Result<T, Error>>
-    where
-        T: TryFrom<RawKey, Error = Error>,
-    {
-        self.get_latest_raw_key(status).map(T::try_from)
+    /// Gets the latest key with the specified status and decrypts it to an `RsaKey`.
+    pub fn get_latest_key(&self, status: KeyStatus) -> Option<Result<RsaKey, Error>> {
+        self.get_latest_raw_key(status)
+            .map(|raw| RsaKey::from_raw_key(raw, &self.master_key))
     }
 
     /// Writes all keys in this keybox to the database
@@ -364,6 +367,7 @@ impl From<KeyBox> for oceaniam_auth::jwks::JwkSet {
     /// Only includes non-revoked RSA keys. Other key types are ignored.
     /// Failed conversions are logged but don't stop the process.
     fn from(value: KeyBox) -> Self {
+        let master_key = value.master_key.clone();
         let keys = value
             .keys
             .values()
@@ -375,9 +379,10 @@ impl From<KeyBox> for oceaniam_auth::jwks::JwkSet {
                 | sea_orm_active_enums::KeyAlg::Rs512
                 | sea_orm_active_enums::KeyAlg::Ps256
                 | sea_orm_active_enums::KeyAlg::Ps384
-                | sea_orm_active_enums::KeyAlg::Ps512 => RsaKey::try_from(it)
+                | sea_orm_active_enums::KeyAlg::Ps512 => RsaKey::from_key(it, &master_key)
                     .inspect_err(|e| error!("{e}"))
-                    .map(|it| it.try_into_jwk()),
+                    .map(|it| it.try_into_jwk())
+                    .ok(),
             })
             .flatten()
             .collect();
@@ -400,16 +405,24 @@ mod tests {
         jwks::JwkSet,
         jwt::{ClaimHelper, JwtCodec, SystemClaim},
     };
+    use oceaniam_common::crypto::MasterKey;
     use oceaniam_database::model::sea_orm_active_enums::KeyAlg as InnerKeyAlg;
     use tap::Tap;
+
+    // NOTE: AI-generated test
+    fn test_master_key() -> MasterKey {
+        MasterKey::from_hex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+            .unwrap()
+    }
 
     fn create_rsa_key() -> RsaKey {
         RsaKey::new(Uuid::now_v7(), InnerKeyAlg::Rs512)
     }
 
     fn create_rsa_standalone_key() -> RawKey {
+        let mk = test_master_key();
         RsaKey::new(Uuid::now_v7(), InnerKeyAlg::Rs512)
-            .try_into()
+            .into_raw_key(&mk)
             .unwrap()
     }
 
@@ -455,7 +468,7 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn test_put_key_without_activated_at_is_active() {
-        let mut keybox = KeyBox::new(Uuid::now_v7());
+        let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
         let key = create_rsa_standalone_key();
         let key_id = key.key_id;
 
@@ -479,7 +492,7 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn test_put_key_with_past_activated_at_is_active() {
-        let mut keybox = KeyBox::new(Uuid::now_v7());
+        let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
         let key = create_rsa_standalone_key();
         let key_id = key.key_id;
         let now = now_fixed();
@@ -503,7 +516,7 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn test_put_key_with_future_activated_at_is_pending() {
-        let mut keybox = KeyBox::new(Uuid::now_v7());
+        let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
         let key = create_rsa_standalone_key();
         let key_id = key.key_id;
         let now = now_fixed();
@@ -527,7 +540,7 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn test_put_key_with_past_expires_at_is_retired() {
-        let mut keybox = KeyBox::new(Uuid::now_v7());
+        let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
         let key = create_rsa_standalone_key();
         let key_id = key.key_id;
         let now = now_fixed();
@@ -551,7 +564,7 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn test_put_key_with_past_retired_at_is_retired() {
-        let mut keybox = KeyBox::new(Uuid::now_v7());
+        let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
         let key = create_rsa_standalone_key();
         let key_id = key.key_id;
         let now = now_fixed();
@@ -575,7 +588,7 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn test_expires_at_takes_precedence_over_activated_at() {
-        let mut keybox = KeyBox::new(Uuid::now_v7());
+        let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
         let key = create_rsa_standalone_key();
         let key_id = key.key_id;
         let now = now_fixed();
@@ -601,7 +614,7 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn test_retired_at_takes_precedence_over_activated_at() {
-        let mut keybox = KeyBox::new(Uuid::now_v7());
+        let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
         let key = create_rsa_standalone_key();
         let key_id = key.key_id;
         let now = now_fixed();
@@ -625,7 +638,7 @@ mod tests {
 
     #[test]
     fn test_keybox_usage() {
-        let mut keybox = KeyBox::new(Uuid::nil());
+        let mut keybox = KeyBox::new(Uuid::nil(), test_master_key());
 
         let key = create_rsa_key();
 
@@ -636,7 +649,7 @@ mod tests {
             panic!("EXPECT ACTIVE KEY BUT CANNOT GET IT")
         };
 
-        let rsa_key = RsaKey::try_from(key).unwrap();
+        let rsa_key = RsaKey::from_raw_key(key, &test_master_key()).unwrap();
 
         let jwt = rsa_key
             .encode(
@@ -658,7 +671,7 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn test_rotate_creates_active_and_pending_when_empty() {
-        let mut keybox = KeyBox::new(Uuid::now_v7());
+        let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
 
         keybox.rotate().unwrap();
 
@@ -675,7 +688,7 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn test_rotate_adds_only_pending_when_active_exists() {
-        let mut keybox = KeyBox::new(Uuid::now_v7());
+        let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
         keybox.add_key(create_rsa_key()).unwrap();
         let key_count_before = keybox.get_keys().len();
 
@@ -699,7 +712,7 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn test_rotate_adds_only_active_when_pending_exists() {
-        let mut keybox = KeyBox::new(Uuid::now_v7());
+        let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
         let now: DateTime<FixedOffset> = Utc::now().into();
         let raw_key = create_rsa_standalone_key();
         put_key_direct(
@@ -734,7 +747,7 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn test_rotate_is_noop_when_active_and_pending_exist() {
-        let mut keybox = KeyBox::new(Uuid::now_v7());
+        let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
         keybox.add_key(create_rsa_key()).unwrap();
         // Add an extra key that will remain Pending (activated_at in the future)
         let now: DateTime<FixedOffset> = Utc::now().into();
@@ -762,7 +775,7 @@ mod tests {
 
     #[test]
     fn test_keybox_into_jwks() {
-        let mut keybox = KeyBox::new(Uuid::nil());
+        let mut keybox = KeyBox::new(Uuid::nil(), test_master_key());
 
         // Put key
         keybox.add_key(create_rsa_key()).unwrap();

@@ -55,6 +55,12 @@ pub enum Error {
 
     #[snafu(display("{msg} at {location}"))]
     Internal { msg: String, location: Location },
+
+    #[snafu(display("{source} at {location}"))]
+    Crypto {
+        source: oceaniam_common::crypto::CryptoError,
+        location: Location,
+    },
 }
 
 impl Error {
@@ -135,6 +141,15 @@ impl From<oceaniam_database::Error> for Error {
                 msg,
                 location: snafu::location!(),
             },
+        }
+    }
+}
+
+impl From<oceaniam_common::crypto::CryptoError> for Error {
+    fn from(source: oceaniam_common::crypto::CryptoError) -> Self {
+        Error::Crypto {
+            source,
+            location: snafu::location!(),
         }
     }
 }
