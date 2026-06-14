@@ -1,10 +1,10 @@
 use oceaniam_database::config::application::{
     ApplicationConfiguration, Argon2Configuration as DbArgon2Configuration, AuthConfiguration,
-    PasswordConfiguration, RegistrationConfiguration, TokenConfiguration, TotpConfiguration,
+    PasswordConfiguration, RegistrationConfiguration, TokenConfiguration,
 };
 use oceaniam_vo::applications::{
     ApplicationConfigurationVO, Argon2Configuration, AuthConfigurationVO, PasswordConfigurationVO,
-    RegistrationConfigurationVO, TokenConfigurationVO, TotpConfigurationVO,
+    RegistrationConfigurationVO, TokenConfigurationVO,
 };
 
 pub fn token_configuration_to_vo(config: TokenConfiguration) -> TokenConfigurationVO {
@@ -32,21 +32,11 @@ pub fn password_configuration_to_vo(config: PasswordConfiguration) -> PasswordCo
     }
 }
 
-pub fn totp_configuration_to_vo(config: TotpConfiguration) -> TotpConfigurationVO {
-    let TotpConfiguration { encryption_key } = config;
-    TotpConfigurationVO { encryption_key }
-}
-
 pub fn auth_configuration_to_vo(config: AuthConfiguration) -> AuthConfigurationVO {
-    let AuthConfiguration {
-        token,
-        password,
-        totp,
-    } = config;
+    let AuthConfiguration { token, password } = config;
     AuthConfigurationVO {
         token: token_configuration_to_vo(token),
         password: password_configuration_to_vo(password),
-        totp: totp_configuration_to_vo(totp),
     }
 }
 

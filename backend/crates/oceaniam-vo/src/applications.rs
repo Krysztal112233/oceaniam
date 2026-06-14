@@ -38,12 +38,6 @@ pub struct PasswordConfigurationVO {
 pub struct AuthConfigurationVO {
     pub token: TokenConfigurationVO,
     pub password: PasswordConfigurationVO,
-    pub totp: TotpConfigurationVO,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
-pub struct TotpConfigurationVO {
-    pub encryption_key: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
@@ -66,12 +60,6 @@ pub struct PatchTokenConfigurationVO {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
 pub struct PatchAuthConfigurationVO {
     pub token: Option<PatchTokenConfigurationVO>,
-    pub totp: Option<PatchTotpConfigurationVO>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
-pub struct PatchTotpConfigurationVO {
-    pub encryption_key: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
