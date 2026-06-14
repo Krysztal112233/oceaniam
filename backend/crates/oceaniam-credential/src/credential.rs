@@ -115,7 +115,7 @@ impl Totp {
         self.0.get_url()
     }
 
-    pub fn from_encrypted(base64_string: &str, key: &str) -> Result<Self, Error> {
+    pub fn from_encrypted(base64_string: &str, key: &[u8]) -> Result<Self, Error> {
         let TotpStorage { nonce, payload } = {
             let decoded = STANDARD.decode(base64_string)?;
             serde_json::from_slice(&decoded)?
@@ -126,7 +126,7 @@ impl Totp {
         // Well...WTF.
         #[allow(deprecated)]
         let totp = {
-            let cipher: XChaCha20Poly1305 = XChaCha20Poly1305::new_from_slice(key.as_bytes())?;
+            let cipher: XChaCha20Poly1305 = XChaCha20Poly1305::new_from_slice(key)?;
             let ciphertext = STANDARD.decode(payload)?;
             let totp_payload_decrypted =
                 cipher.decrypt(XNonce::from_slice(&nonce), ciphertext.as_bytes())?;
@@ -137,10 +137,10 @@ impl Totp {
         Ok(Self(totp))
     }
 
-    pub fn to_encrypted(self, key: &str) -> Result<EncryptedTotp, Error> {
+    pub fn to_encrypted(self, key: &[u8]) -> Result<EncryptedTotp, Error> {
         let nonce = XChaCha20Poly1305::generate_nonce(OsRng);
         let payload = {
-            let cipher: XChaCha20Poly1305 = XChaCha20Poly1305::new_from_slice(key.as_bytes())?;
+            let cipher: XChaCha20Poly1305 = XChaCha20Poly1305::new_from_slice(key)?;
 
             let plaintext = serde_json::to_string(&self.0)?;
             let ciphertext = cipher.encrypt(&nonce, plaintext.as_bytes())?;
@@ -189,7 +189,7 @@ impl Totp {
 mod tests {
     use super::*;
 
-    const TEST_KEY: &str = "0123456789abcdef0123456789abcdef";
+    const TEST_KEY: &[u8] = b"0123456789abcdef0123456789abcdef";
 
     #[inline(always)]
     fn test_totp() -> totp_rs::TOTP {
@@ -217,7 +217,7 @@ mod tests {
             .to_encrypted(TEST_KEY)
             .expect("encryption should succeed");
 
-        let result = Totp::from_encrypted(encrypted.as_str(), "fedcba9876543210fedcba9876543210");
+        let result = Totp::from_encrypted(encrypted.as_str(), b"fedcba9876543210fedcba9876543210");
 
         assert!(matches!(result, Err(Error::Aead { .. })));
     }

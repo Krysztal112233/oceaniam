@@ -150,3 +150,17 @@ impl From<oceaniam_database::Error> for Error {
         }
     }
 }
+
+impl From<oceaniam_common::crypto::CryptoError> for Error {
+    fn from(source: oceaniam_common::crypto::CryptoError) -> Self {
+        use oceaniam_common::crypto::CryptoError;
+        match source {
+            CryptoError::AuthenticationFailed { location }
+            | CryptoError::Encryption { location } => Error::Aead { location },
+            CryptoError::InvalidKeyLength { location }
+            | CryptoError::MissingEnvVar { location, .. } => Error::InvalidLength { location },
+            CryptoError::HexDecode { location, .. } => Error::InvalidLength { location },
+            CryptoError::Base64 { source, location } => Error::Base64 { source, location },
+        }
+    }
+}

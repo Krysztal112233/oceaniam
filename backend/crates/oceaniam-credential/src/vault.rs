@@ -81,7 +81,7 @@ impl CredentialVault {
     pub fn verify_totp(
         &self,
         token: impl AsRef<str>,
-        key: &str,
+        key: &[u8],
     ) -> Result<TotpVerifyResult, Error> {
         let Some(totp) = self.totp.clone() else {
             return Ok(TotpVerifyResult {
@@ -106,7 +106,7 @@ impl From<model::credentials::Model> for CredentialVault {
 mod tests {
     use super::*;
 
-    const TEST_KEY: &str = "0123456789abcdef0123456789abcdef";
+    const TEST_KEY: &[u8] = b"0123456789abcdef0123456789abcdef";
 
     // NOTE: AI-generated test
     #[test]
