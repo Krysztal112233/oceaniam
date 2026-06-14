@@ -26,6 +26,12 @@ pub enum CryptoError {
         source: base64::DecodeError,
         location: Location,
     },
+
+    #[snafu(display("environment variable {var} is not set at {location}"))]
+    MissingEnvVar {
+        var: &'static str,
+        location: Location,
+    },
 }
 
 impl From<hex::FromHexError> for CryptoError {
@@ -64,8 +70,14 @@ pub struct EncryptedBlob {
 
 /// The Key Encryption Key (KEK). Held in memory for the process lifetime,
 /// zeroized on drop.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct MasterKey(Zeroizing<[u8; 32]>);
+
+impl std::fmt::Debug for MasterKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MasterKey").finish_non_exhaustive()
+    }
+}
 
 impl MasterKey {
     /// Parse a 64-char hex string (32 bytes) into a `MasterKey`.
@@ -84,7 +96,8 @@ impl MasterKey {
     /// Read the KEK from the `OCEANIAM__MASTER_KEY` environment variable.
     pub fn from_env() -> Result<Self, CryptoError> {
         let raw =
-            std::env::var("OCEANIAM__MASTER_KEY").map_err(|_| CryptoError::InvalidKeyLength {
+            std::env::var("OCEANIAM__MASTER_KEY").map_err(|_| CryptoError::MissingEnvVar {
+                var: "OCEANIAM__MASTER_KEY",
                 location: snafu::location!(),
             })?;
         Self::from_hex(&raw)
@@ -304,5 +317,32 @@ mod tests {
             std::env::remove_var("OCEANIAM__MASTER_KEY");
         }
         assert!(MasterKey::from_env().is_err());
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn from_env_missing_returns_missing_env_var() {
+        unsafe {
+            std::env::remove_var("OCEANIAM__MASTER_KEY");
+        }
+        let result = MasterKey::from_env();
+        assert!(matches!(
+            result,
+            Err(CryptoError::MissingEnvVar { var, .. }) if var == "OCEANIAM__MASTER_KEY"
+        ));
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn debug_output_does_not_leak_key_bytes() {
+        let key = test_key();
+        let debug_str = format!("{:?}", key);
+        // The test_key's first byte is 0x01 = 1, so the decimal string "1" appears.
+        // A leaked debug would contain array-like "[1, 35, 69, ...]".
+        // Redacted form should be "MasterKey { .. }".
+        assert!(
+            !debug_str.contains('[') && !debug_str.contains("1,"),
+            "Debug output leaked key material: {debug_str}"
+        );
     }
 }
