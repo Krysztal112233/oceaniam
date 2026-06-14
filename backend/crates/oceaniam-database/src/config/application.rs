@@ -11,20 +11,6 @@ pub struct ApplicationConfiguration {
 pub struct AuthConfiguration {
     pub token: TokenConfiguration,
     pub password: PasswordConfiguration,
-    pub totp: TotpConfiguration,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TotpConfiguration {
-    pub encryption_key: String,
-}
-
-impl Default for TotpConfiguration {
-    fn default() -> Self {
-        Self {
-            encryption_key: uuid::Uuid::now_v7().simple().to_string(),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
