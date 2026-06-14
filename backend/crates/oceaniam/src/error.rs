@@ -213,6 +213,15 @@ impl From<oceaniam_keybox::Error> for Error {
     }
 }
 
+impl From<oceaniam_common::crypto::CryptoError> for Error {
+    fn from(source: oceaniam_common::crypto::CryptoError) -> Self {
+        Self::Internal {
+            msg: source.to_string(),
+            location: snafu::location!(),
+        }
+    }
+}
+
 impl From<oceaniam_credential::error::Error> for Error {
     fn from(e: oceaniam_credential::error::Error) -> Self {
         match e {

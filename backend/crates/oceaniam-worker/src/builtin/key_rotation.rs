@@ -69,7 +69,7 @@ impl Worker<WorkerContext> for KeyRotationWorker {
             }
 
             let keys_map = keys.into_iter().map(|k| (k.id, k)).collect();
-            let mut keybox = KeyBox::with_keys(tenant.id, keys_map);
+            let mut keybox = KeyBox::with_keys(tenant.id, keys_map, (*context.master_key).clone());
 
             if keybox.update_keys_status() {
                 debug!(tenant_id = %tenant.id, "key statuses refreshed");

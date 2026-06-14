@@ -665,12 +665,11 @@ pub async fn enroll_totp(
         .await?;
 
     let config = applications.get_configuration(application_id).await?;
-    let encryption_key = &config.auth.totp.encryption_key;
     let issuer = config.auth.token.issuer.clone();
     let account_name = user.email.clone().unwrap_or_else(|| user_id.to_string());
 
     let response = credentials
-        .initiate_totp_enrollment(user_id, encryption_key, &issuer, &account_name)
+        .initiate_totp_enrollment(user_id, &issuer, &account_name)
         .await?;
 
     info!(%application_id, %user_id, "TOTP enrollment initiated");
@@ -708,16 +707,12 @@ pub async fn enroll_totp(
 #[tracing::instrument(
     level = "info",
     name = "tenant_application_users.totp_verify",
-    skip(_auth, applications, credentials, body),
+    skip(_auth, credentials, body),
     fields(tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
 )]
 pub async fn verify_totp_enrollment(
     _auth: AdminJwtOrApplicationSecretGuard,
-    State(AppState {
-        applications,
-        credentials,
-        ..
-    }): State<AppState>,
+    State(AppState { credentials, .. }): State<AppState>,
     app: ResolvedApplication,
     Path((_tenant_id, _application_id, user_id)): Path<(Sqid, Sqid, Sqid)>,
     Json(body): Json<VerifyTotpRequest>,
@@ -731,11 +726,8 @@ pub async fn verify_totp_enrollment(
             .record("user_id", field::display(&user_id));
     });
 
-    let config = applications.get_configuration(application_id).await?;
-    let encryption_key = &config.auth.totp.encryption_key;
-
     credentials
-        .verify_totp_enrollment(user_id, &body.code, encryption_key)
+        .verify_totp_enrollment(user_id, &body.code)
         .await?;
 
     info!(%application_id, %user_id, "TOTP enrollment completed");

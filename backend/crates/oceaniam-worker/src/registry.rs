@@ -1,6 +1,8 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use linkme::distributed_slice;
+use oceaniam_common::crypto::MasterKey;
 use oceaniam_worker_runtime::Worker;
 use sea_orm::DatabaseConnection;
 
@@ -9,6 +11,7 @@ use crate::error::Error;
 #[derive(Clone)]
 pub struct WorkerContext {
     pub database: DatabaseConnection,
+    pub master_key: Arc<MasterKey>,
 }
 
 pub type OceaniamWorker = dyn Worker<WorkerContext, Error = Error>;

@@ -214,6 +214,10 @@ impl Drop for TestApp {
 }
 
 // NOTE: !!!HARD CODED CONFIGURATION!!!
+// Deterministic test KEK (32 bytes of zeros in hex) — not secret, tests only.
+const TEST_MASTER_KEY_HEX: &str =
+    "0000000000000000000000000000000000000000000000000000000000000000";
+
 fn test_config() -> BackendConfig {
     BackendConfig {
         addr: "0.0.0.0:0".to_owned(),
@@ -228,6 +232,7 @@ fn test_config() -> BackendConfig {
         },
         workers: HashMap::new(),
         cookie: CookieConfig::default(),
+        master_key: TEST_MASTER_KEY_HEX.to_owned(),
     }
 }
 
@@ -269,6 +274,12 @@ pub async fn spawn_app_with_isolated_schema() -> TestApp {
 
     // Run migrations in the new schema
     {
+        // SAFETY: test-only. Set KEK env var before migration runs so the
+        // envelope_encrypt_keys migration can encrypt existing key_boxes rows.
+        unsafe {
+            std::env::set_var("OCEANIAM__MASTER_KEY", &test_config.master_key);
+        }
+
         let migrate_db = Database::connect(
             ConnectOptions::new(&test_config.database.dsn)
                 .set_schema_search_path(format!("{schema_name},public"))

@@ -14,6 +14,7 @@ use oceaniam_auth::{
 };
 use oceaniam_common::config::BackendConfig;
 use oceaniam_common::consts;
+use oceaniam_common::crypto::MasterKey;
 use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, key_boxes::KeyBoxesHelper},
     model::prelude::KeyBoxes,
@@ -65,15 +66,21 @@ pub struct AppState {
 
     /// Application configuration.
     pub config: BackendConfig,
+
+    pub master_key: Arc<MasterKey>,
 }
 
 impl AppState {
-    pub async fn new(database: DatabaseConnection, config: BackendConfig) -> Result<Self, Error> {
-        let keybox = ManagedKeyBoxes::new(database.clone());
+    pub async fn new(
+        database: DatabaseConnection,
+        config: BackendConfig,
+        master_key: Arc<MasterKey>,
+    ) -> Result<Self, Error> {
+        let keybox = ManagedKeyBoxes::new(database.clone(), master_key.clone());
 
-        initial_system_keybox(keybox.clone(), &database).await?;
+        initial_system_keybox(keybox.clone(), &database, (*master_key).clone()).await?;
 
-        let credentials = ManagedCredentialVaults::new(database.clone());
+        let credentials = ManagedCredentialVaults::new(database.clone(), master_key.clone());
         let auditing = Auditing::with_database(database.clone());
         let system_permissions = Arc::new(BuiltinResolver::new(database.clone()));
 
@@ -81,7 +88,7 @@ impl AppState {
             database: database.clone(),
             keyboxes: keybox,
 
-            platform_jwks: initial_system_jwks(database.clone()).await?,
+            platform_jwks: initial_system_jwks(database.clone(), (*master_key).clone()).await?,
             platform_permissions: system_permissions,
             platform_jwt_validator: JwtValidator::new(
                 Validation::default()
@@ -107,11 +114,16 @@ impl AppState {
             _unit: (),
 
             config,
+
+            master_key,
         })
     }
 }
 
-async fn initial_system_jwks(database: DatabaseConnection) -> Result<ManagedJwkSet, Error> {
+async fn initial_system_jwks(
+    database: DatabaseConnection,
+    master_key: MasterKey,
+) -> Result<ManagedJwkSet, Error> {
     let keys = KeyBoxes::get_system_keys(&database)
         .await?
         .into_iter()
@@ -120,6 +132,7 @@ async fn initial_system_jwks(database: DatabaseConnection) -> Result<ManagedJwkS
     let system_jwks = ManagedJwkSet::new(JwkSet::from(KeyBox::with_keys(
         consts::SYSTEM_TENANT_UUID,
         keys,
+        master_key,
     )));
 
     if system_jwks.jwks().keys.is_empty() {
@@ -132,6 +145,7 @@ async fn initial_system_jwks(database: DatabaseConnection) -> Result<ManagedJwkS
 async fn initial_system_keybox(
     keybox: ManagedKeyBoxes,
     database: &impl SafeTransactionConnectionTrait,
+    master_key: MasterKey,
 ) -> Result<(), Error> {
     match keybox.get_keybox(consts::SYSTEM_TENANT_UUID).await {
         Ok(kb) => {
@@ -141,7 +155,7 @@ async fn initial_system_keybox(
         Err(e) => {
             error!("could not find any system keys, creating directly: {e}");
 
-            let mut kb = KeyBox::new(consts::SYSTEM_TENANT_UUID);
+            let mut kb = KeyBox::new(consts::SYSTEM_TENANT_UUID, master_key);
             kb.rotate().inspect_err(|e| error!("{e}"))?;
 
             info!(

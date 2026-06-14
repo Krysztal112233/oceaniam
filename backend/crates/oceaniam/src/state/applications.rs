@@ -99,7 +99,6 @@ impl ApplicationScope {
                     self.database.clone(),
                     self.auditing.clone(),
                     self.shared_credential_vaults.clone(),
-                    self.configuration.auth.totp.encryption_key.clone(),
                 ))
             })
             .clone()

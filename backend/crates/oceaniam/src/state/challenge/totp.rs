@@ -8,7 +8,6 @@ use crate::state::credentials::ManagedCredentialVaults;
 #[derive(Debug, Clone)]
 pub(crate) struct TotpValidator {
     pub credentials: ManagedCredentialVaults,
-    pub encryption_key: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -24,7 +23,7 @@ impl MfaValidator for TotpValidator {
 
         let ok = self
             .credentials
-            .verify_totp(ctx.subject_id, &payload.code, &self.encryption_key)
+            .verify_totp(ctx.subject_id, &payload.code)
             .await?;
 
         if ok {

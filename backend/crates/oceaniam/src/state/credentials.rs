@@ -20,6 +20,8 @@ use crate::state::credentials::replay::TotpAntiReplay;
 pub struct ManagedCredentialVaults {
     database: DatabaseConnection,
 
+    master_key: oceaniam_common::crypto::MasterKey,
+
     credentials: Cache<Uuid, CredentialVault>,
 
     totp_anti_replay: TotpAntiReplay,
@@ -28,9 +30,13 @@ pub struct ManagedCredentialVaults {
 }
 
 impl ManagedCredentialVaults {
-    pub fn new(database: DatabaseConnection) -> Self {
+    pub fn new(
+        database: DatabaseConnection,
+        master_key: Arc<oceaniam_common::crypto::MasterKey>,
+    ) -> Self {
         Self {
             database,
+            master_key: (*master_key).clone(),
             credentials: CacheBuilder::default()
                 .max_capacity(102400)
                 .time_to_live(Duration::from_mins(30))
@@ -175,12 +181,11 @@ impl ManagedCredentialVaults {
         &self,
         subject_id: Uuid,
         token: impl AsRef<str>,
-        key: &str,
     ) -> Result<bool, Error> {
         let verification = self
             .get_credential(subject_id)
             .await?
-            .verify_totp(token, key)
+            .verify_totp(token, self.master_key.as_bytes())
             .map_err(Error::from)?;
 
         // Failed to match token
@@ -221,25 +226,19 @@ impl ManagedCredentialVaults {
     pub async fn initiate_totp_enrollment(
         &self,
         id: Uuid,
-        encryption_key: &str,
         issuer: &str,
         account_name: &str,
     ) -> Result<EnrollTotpResponse, Error> {
         let totp = Totp::generate(issuer, account_name)?;
         let provisioning_uri = totp.provisioning_uri();
-        let encrypted = totp.to_encrypted(encryption_key)?;
+        let encrypted = totp.to_encrypted(self.master_key.as_bytes())?;
 
         self.pending_enrollments.insert(id, encrypted).await;
 
         Ok(EnrollTotpResponse { provisioning_uri })
     }
 
-    pub async fn verify_totp_enrollment(
-        &self,
-        subject_id: Uuid,
-        code: &str,
-        encryption_key: &str,
-    ) -> Result<(), Error> {
+    pub async fn verify_totp_enrollment(&self, subject_id: Uuid, code: &str) -> Result<(), Error> {
         let encrypted = self
             .pending_enrollments
             .remove(&subject_id)
@@ -251,7 +250,7 @@ impl ManagedCredentialVaults {
                 )
             })?;
 
-        let totp = Totp::from_encrypted(encrypted.as_str(), encryption_key)?;
+        let totp = Totp::from_encrypted(encrypted.as_str(), self.master_key.as_bytes())?;
         let result = totp.verify(code)?;
 
         if !result.success {

@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::error::Error;
@@ -9,6 +10,7 @@ use oceaniam_auth::{
     jwt::{ClaimHelper, JwtCodec, SystemClaim},
 };
 use oceaniam_common::consts;
+use oceaniam_common::crypto::MasterKey;
 use oceaniam_database::{
     config::application::ApplicationConfiguration,
     helper::{
@@ -28,6 +30,8 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct ManagedKeyBoxes {
     database: DatabaseConnection,
+
+    master_key: MasterKey,
 
     boxes: Cache<Uuid, KeyBox>,
 
@@ -49,9 +53,10 @@ pub struct EncodedJwt<T> {
 
 #[allow(unused)]
 impl ManagedKeyBoxes {
-    pub fn new(database: DatabaseConnection) -> Self {
+    pub fn new(database: DatabaseConnection, master_key: Arc<MasterKey>) -> Self {
         Self {
             database,
+            master_key: (*master_key).clone(),
             boxes: CacheBuilder::default()
                 .time_to_live(Duration::from_secs(4))
                 .build(),
@@ -63,10 +68,11 @@ impl ManagedKeyBoxes {
 
     pub async fn get_keybox(&self, tenant_id: Uuid) -> Result<KeyBox, Error> {
         let database = self.database.clone();
+        let master_key = self.master_key.clone();
 
         Ok(self
             .boxes
-            .try_get_with::<_, Error>(tenant_id, async {
+            .try_get_with::<_, Error>(tenant_id, async move {
                 let keys = KeyBoxes::get_tenant_keys(tenant_id, &database)
                     .await
                     .inspect_err(|e| error!("{e}"))?
@@ -74,11 +80,11 @@ impl ManagedKeyBoxes {
                     .map(|it| (it.id, it))
                     .collect();
 
-                let keybox = KeyBox::with_keys(tenant_id, keys);
+                let keybox = KeyBox::with_keys(tenant_id, keys, master_key.clone());
 
                 if keybox.get_keys().is_empty() {
                     debug!(%tenant_id, "keybox is empty, auto-creating default keybox");
-                    let mut keybox = KeyBox::new(tenant_id);
+                    let mut keybox = KeyBox::new(tenant_id, master_key);
                     keybox.rotate().inspect_err(|e| error!("{e}"))?;
                     keybox
                         .write_to(&database)
@@ -119,7 +125,7 @@ impl ManagedKeyBoxes {
         tenant_id: Uuid,
         transaction: &impl SafeTransactionConnectionTrait,
     ) -> Result<KeyBox, Error> {
-        let mut keybox = KeyBox::new(tenant_id);
+        let mut keybox = KeyBox::new(tenant_id, self.master_key.clone());
 
         keybox.rotate().inspect_err(|e| error!("{e}"))?;
 
@@ -213,7 +219,7 @@ impl ManagedKeyBoxes {
             | KeyAlg::Ps512
             | KeyAlg::Rs256
             | KeyAlg::Rs384
-            | KeyAlg::Rs512 => h(RsaKey::try_from(key)
+            | KeyAlg::Rs512 => h(RsaKey::from_raw_key(key, &self.master_key)
                 .inspect_err(|e| error!("failed to convert key to rsakey: {}", e))?),
         };
 

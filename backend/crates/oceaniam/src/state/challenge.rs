@@ -61,15 +61,11 @@ impl ManagedChallenges {
         database: DatabaseConnection,
         auditing: Auditing,
         credentials: ManagedCredentialVaults,
-        encryption_key: String,
     ) -> Self {
         let mut validators: HashMap<ChallengeFactorType, SharedMfaValidator> = HashMap::new();
         validators.insert(
             ChallengeFactorType::Totp,
-            Arc::new(totp::TotpValidator {
-                credentials,
-                encryption_key,
-            }),
+            Arc::new(totp::TotpValidator { credentials }),
         );
 
         Self {

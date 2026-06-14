@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use mimalloc::MiMalloc;
 use oceaniam_common::config::BackendConfig;
 use oceaniam_database::setup::{connect, init_system};
@@ -36,8 +38,24 @@ async fn main() -> Result<(), Error> {
         .await
         .inspect_err(|e| error!(error = %e, "failed to init system data"))?;
 
+    let master_key =
+        oceaniam_common::crypto::MasterKey::from_hex(&config.master_key).map_err(|e| {
+            error!(error = %e, "failed to parse `OCEANIAM__MASTER_KEY`");
+            Error::Internal {
+                msg: format!("invalid master key: {e}"),
+                location: snafu::location!(),
+            }
+        })?;
+
     let workers = collect_workers();
-    let ctrl = WorkerRuntime::new(WorkerContext { database }, workers).start()?;
+    let ctrl = WorkerRuntime::new(
+        WorkerContext {
+            database,
+            master_key: Arc::new(master_key),
+        },
+        workers,
+    )
+    .start()?;
 
     let mut terminate =
         signal(SignalKind::terminate()).expect("failed to install SIGTERM signal handler");
