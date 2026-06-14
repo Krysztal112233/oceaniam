@@ -58,7 +58,86 @@ pub async fn build_state(config: &BackendConfig) -> Result<AppState, Error> {
             }
         })?;
 
-    AppState::new(database, config.clone(), std::sync::Arc::new(master_key)).await
+    let state = AppState::new(
+        database.clone(),
+        config.clone(),
+        std::sync::Arc::new(master_key.clone()),
+    )
+    .await?;
+
+    health_check_kek(&database, &master_key).await?;
+
+    Ok(state)
+}
+
+/// Verify the KEK is correct by decrypting one existing key (if any).
+/// Fresh installs (empty `key_boxes`) skip this check.
+async fn health_check_kek(
+    database: &sea_orm::DatabaseConnection,
+    master_key: &oceaniam_common::crypto::MasterKey,
+) -> Result<(), Error> {
+    use oceaniam_database::model::key_boxes::Entity as KeyBoxes;
+    use sea_orm::{EntityTrait, PaginatorTrait};
+
+    let count = KeyBoxes::find().count(database).await?;
+
+    if count == 0 {
+        tracing::info!("`key_boxes` empty; skipping KEK health check");
+        return Ok(());
+    }
+
+    let row = KeyBoxes::find()
+        .one(database)
+        .await?
+        .ok_or_else(|| Error::Internal {
+            msg: "`key_boxes` COUNT > 0 but no row returned".to_string(),
+            location: snafu::location!(),
+        })?;
+
+    use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
+    let field: oceaniam_keybox::SecretField =
+        serde_json::from_value(row.secret).map_err(|e| Error::Internal {
+            msg: format!("failed to deserialize `SecretField`: {e}"),
+            location: snafu::location!(),
+        })?;
+
+    let blob = oceaniam_common::crypto::EncryptedBlob {
+        nonce: B64
+            .decode(&field.nonce)
+            .map_err(|e| Error::Internal {
+                msg: format!("nonce base64 decode: {e}"),
+                location: snafu::location!(),
+            })?
+            .try_into()
+            .map_err(|_| Error::Internal {
+                msg: "nonce must be 24 bytes".to_string(),
+                location: snafu::location!(),
+            })?,
+        ciphertext: B64.decode(&field.ciphertext).map_err(|e| Error::Internal {
+            msg: format!("ciphertext base64 decode: {e}"),
+            location: snafu::location!(),
+        })?,
+        key_version: field.key_version,
+    };
+
+    match master_key.decrypt(&blob) {
+        Ok(_) => {
+            tracing::info!("KEK health check passed");
+            Ok(())
+        }
+        Err(e) => {
+            tracing::error!(
+                error = %e,
+                "KEK health check FAILED — `OCEANIAM__MASTER_KEY` does not match the key used during migration"
+            );
+            Err(Error::Internal {
+                msg: "KEK mismatch: `OCEANIAM__MASTER_KEY` does not match encrypted data. \
+                      Verify it matches the key used during migration."
+                    .to_string(),
+                location: snafu::location!(),
+            })
+        }
+    }
 }
 
 pub fn app(state: AppState, cors: CorsConfig) -> Router {

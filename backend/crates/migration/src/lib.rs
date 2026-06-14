@@ -66,6 +66,7 @@ mod m20260515_144335_create_permission_tables;
 mod m20260520_122848_create_trend_summary_tables;
 mod m20260529_031818_alter_key_boxes_tenant_id;
 mod m20260605_173700_create_rbac_tables;
+mod m20260614_082902_envelope_encrypt_keys;
 
 pub struct Migrator;
 
@@ -142,6 +143,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260520_122848_create_trend_summary_tables::Migration),
             Box::new(m20260529_031818_alter_key_boxes_tenant_id::Migration),
             Box::new(m20260605_173700_create_rbac_tables::Migration),
+            Box::new(m20260614_082902_envelope_encrypt_keys::Migration),
         ]
     }
 }

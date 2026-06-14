@@ -2219,9 +2219,14 @@ name = "migration"
 version = "0.1.0"
 dependencies = [
  "argon2",
+ "base64",
+ "chacha20poly1305",
+ "dotenvy",
+ "hex",
  "rand 0.8.6",
  "sea-orm",
  "sea-orm-migration",
+ "serde_json",
  "tokio",
  "uuid",
 ]
@@ -2422,6 +2427,7 @@ dependencies = [
  "axum-extra",
  "axum-valid",
  "backon",
+ "base64",
  "chrono",
  "clap",
  "config",

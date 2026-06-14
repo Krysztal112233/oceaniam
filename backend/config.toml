@@ -1,4 +1,7 @@
 addr = "0.0.0.0:8000"
+# Local development placeholder only. Production must inject
+# OCEANIAM__MASTER_KEY with a real 64-char hex key.
+master_key = "0000000000000000000000000000000000000000000000000000000000000000"
 
 [database]
 dsn = "postgresql://postgres:postgres@localhost:5432/postgres"

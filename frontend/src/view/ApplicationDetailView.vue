@@ -177,10 +177,6 @@ async function handleConfigurationSubmit(
                         issuer: nextConfiguration.auth.token.issuer,
                         audience: nextConfiguration.auth.token.audience,
                     },
-                    totp: {
-                        encryption_key:
-                            nextConfiguration.auth.totp.encryption_key,
-                    },
                 },
                 registration: {
                     enabled: nextConfiguration.registration.enabled,

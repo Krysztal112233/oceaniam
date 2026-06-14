@@ -11,3 +11,5 @@
 ## Exclude environment relative
 .env
 .opencode
+reports
+docs/superpowers

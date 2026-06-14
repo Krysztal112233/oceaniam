@@ -247,6 +247,8 @@ fn test_config() -> BackendConfig {
 /// # Returns
 /// A `TestApp` instance that automatically cleans up its schema when dropped.
 pub async fn spawn_app_with_isolated_schema() -> TestApp {
+    dotenvy::dotenv().ok();
+
     let mut test_config = test_config();
     let base_dsn = test_config.database.dsn.clone();
 
