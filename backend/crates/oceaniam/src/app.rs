@@ -51,7 +51,7 @@ pub async fn build_state(config: &BackendConfig) -> Result<AppState, Error> {
 
     let master_key =
         oceaniam_common::crypto::MasterKey::from_hex(&config.master_key).map_err(|e| {
-            tracing::error!(error = %e, "failed to parse `OCEANIAM__MASTER_KEY`");
+            tracing::error!(error = %e, "failed to parse `OCEANIAM_MASTER_KEY`");
             Error::Internal {
                 msg: format!("invalid master key: {e}"),
                 location: snafu::location!(),
@@ -128,10 +128,10 @@ async fn health_check_kek(
         Err(e) => {
             tracing::error!(
                 error = %e,
-                "KEK health check FAILED — `OCEANIAM__MASTER_KEY` does not match the key used during migration"
+                "KEK health check FAILED — `OCEANIAM_MASTER_KEY` does not match the key used during migration"
             );
             Err(Error::Internal {
-                msg: "KEK mismatch: `OCEANIAM__MASTER_KEY` does not match encrypted data. \
+                msg: "KEK mismatch: `OCEANIAM_MASTER_KEY` does not match encrypted data. \
                       Verify it matches the key used during migration."
                     .to_string(),
                 location: snafu::location!(),

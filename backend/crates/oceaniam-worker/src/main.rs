@@ -40,7 +40,7 @@ async fn main() -> Result<(), Error> {
 
     let master_key =
         oceaniam_common::crypto::MasterKey::from_hex(&config.master_key).map_err(|e| {
-            error!(error = %e, "failed to parse `OCEANIAM__MASTER_KEY`");
+            error!(error = %e, "failed to parse `OCEANIAM_MASTER_KEY`");
             Error::Internal {
                 msg: format!("invalid master key: {e}"),
                 location: snafu::location!(),

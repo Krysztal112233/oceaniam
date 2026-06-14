@@ -93,13 +93,15 @@ impl MasterKey {
         Ok(Self(Zeroizing::new(arr)))
     }
 
-    /// Read the KEK from the `OCEANIAM__MASTER_KEY` environment variable.
+    /// Read the KEK from the `OCEANIAM_MASTER_KEY` environment variable.
+    ///
+    /// NOTE: This helper is test-only. Runtime code should read the configured
+    /// `BackendConfig::master_key` value and parse it with `MasterKey::from_hex`.
     pub fn from_env() -> Result<Self, CryptoError> {
-        let raw =
-            std::env::var("OCEANIAM__MASTER_KEY").map_err(|_| CryptoError::MissingEnvVar {
-                var: "OCEANIAM__MASTER_KEY",
-                location: snafu::location!(),
-            })?;
+        let raw = std::env::var("OCEANIAM_MASTER_KEY").map_err(|_| CryptoError::MissingEnvVar {
+            var: "OCEANIAM_MASTER_KEY",
+            location: snafu::location!(),
+        })?;
         Self::from_hex(&raw)
     }
 
@@ -303,7 +305,7 @@ mod tests {
         // SAFETY: test-only env mutation. serial with other from_env tests.
         unsafe {
             std::env::set_var(
-                "OCEANIAM__MASTER_KEY",
+                "OCEANIAM_MASTER_KEY",
                 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
             );
         }
@@ -314,7 +316,7 @@ mod tests {
     #[test]
     fn from_env_missing_returns_err() {
         unsafe {
-            std::env::remove_var("OCEANIAM__MASTER_KEY");
+            std::env::remove_var("OCEANIAM_MASTER_KEY");
         }
         assert!(MasterKey::from_env().is_err());
     }
@@ -323,12 +325,12 @@ mod tests {
     #[test]
     fn from_env_missing_returns_missing_env_var() {
         unsafe {
-            std::env::remove_var("OCEANIAM__MASTER_KEY");
+            std::env::remove_var("OCEANIAM_MASTER_KEY");
         }
         let result = MasterKey::from_env();
         assert!(matches!(
             result,
-            Err(CryptoError::MissingEnvVar { var, .. }) if var == "OCEANIAM__MASTER_KEY"
+            Err(CryptoError::MissingEnvVar { var, .. }) if var == "OCEANIAM_MASTER_KEY"
         ));
     }
 

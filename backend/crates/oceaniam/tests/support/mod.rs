@@ -279,7 +279,7 @@ pub async fn spawn_app_with_isolated_schema() -> TestApp {
         // SAFETY: test-only. Set KEK env var before migration runs so the
         // envelope_encrypt_keys migration can encrypt existing key_boxes rows.
         unsafe {
-            std::env::set_var("OCEANIAM__MASTER_KEY", &test_config.master_key);
+            std::env::set_var("OCEANIAM_MASTER_KEY", &test_config.master_key);
         }
 
         let migrate_db = Database::connect(

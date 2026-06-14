@@ -18,19 +18,19 @@ RUN apt-get update && \
 
 FROM base AS backend
 COPY --from=backend-builder /builder/target/release/oceaniam /app/
-# Required runtime env: OCEANIAM__MASTER_KEY (64-char hex, 32 bytes)
+# Required runtime env: OCEANIAM_MASTER_KEY (64-char hex, 32 bytes)
 # Generate with: openssl rand -hex 32
 CMD [ "./oceaniam" ]
 
 FROM base AS worker
 COPY --from=backend-builder /builder/target/release/oceaniam-worker /app/
-# Required runtime env: OCEANIAM__MASTER_KEY (64-char hex, 32 bytes)
+# Required runtime env: OCEANIAM_MASTER_KEY (64-char hex, 32 bytes)
 # Generate with: openssl rand -hex 32
 CMD [ "./oceaniam-worker" ]
 
 FROM base AS migration
 COPY --from=backend-builder /builder/target/release/migration /app/
-# Required runtime env: OCEANIAM__MASTER_KEY (64-char hex, 32 bytes)
+# Required runtime env: OCEANIAM_MASTER_KEY (64-char hex, 32 bytes)
 # Generate with: openssl rand -hex 32
 CMD [ "./migration" ]
 
