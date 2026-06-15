@@ -24,6 +24,7 @@ use uuid::Uuid;
 use super::audit::Auditing;
 use crate::state::credentials::ManagedCredentialVaults;
 
+mod email_totp;
 mod totp;
 
 #[async_trait::async_trait]
@@ -34,6 +35,7 @@ pub trait MfaValidator: Sync + Send + Debug {
 #[derive(Debug, Clone)]
 pub struct ValidationContext {
     pub input: Value,
+    pub payload: Option<Value>,
     pub subject_id: Uuid,
 }
 
@@ -63,6 +65,10 @@ impl ManagedChallenges {
         credentials: ManagedCredentialVaults,
     ) -> Self {
         let mut validators: HashMap<ChallengeFactorType, SharedMfaValidator> = HashMap::new();
+        validators.insert(
+            ChallengeFactorType::EmailTotp,
+            Arc::new(email_totp::EmailTotpValidator),
+        );
         validators.insert(
             ChallengeFactorType::Totp,
             Arc::new(totp::TotpValidator { credentials }),
@@ -206,6 +212,7 @@ impl ManagedChallenges {
             .validate(ValidationContext {
                 subject_id: challenge.subject_id,
                 input: payload,
+                payload: challenge.payload.clone(),
             })
             .await
             .map_err(|e| {

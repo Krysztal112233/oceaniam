@@ -80,6 +80,8 @@ pub enum AuditType {
 pub enum ChallengeFactorType {
     #[sea_orm(string_value = "totp")]
     Totp,
+    #[sea_orm(string_value = "email_totp")]
+    EmailTotp,
 }
 #[derive(
     Debug,

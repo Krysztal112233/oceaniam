@@ -12,7 +12,7 @@ pub(crate) struct TotpValidator {
 
 #[derive(Debug, Deserialize)]
 struct ChallengePayload {
-    pub code: String,
+    code: String,
 }
 
 #[async_trait::async_trait]

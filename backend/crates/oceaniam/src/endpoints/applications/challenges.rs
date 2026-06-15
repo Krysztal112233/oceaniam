@@ -37,6 +37,7 @@ use crate::{
 pub struct CreateChallengeRequest {
     pub subject_id: Uuid,
     pub factor_type: Option<String>,
+    pub payload: Option<Value>,
 }
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
@@ -163,6 +164,7 @@ pub async fn create_application_challenge(
     let challenges = applications.challenges(application_id).await?;
     let factor_type = body.factor_type.as_deref().unwrap_or("totp");
     let factor = match factor_type {
+        "email_totp" => ChallengeFactorType::EmailTotp,
         "totp" => ChallengeFactorType::Totp,
         _ => {
             return Err(Error::with_code(
@@ -177,6 +179,7 @@ pub async fn create_application_challenge(
             body.subject_id,
             CreateChallengeOpts {
                 factor_type: factor,
+                payload: body.payload,
                 ..Default::default()
             },
         )
