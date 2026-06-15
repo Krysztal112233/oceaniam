@@ -13,3 +13,6 @@
 .opencode
 reports
 docs/superpowers
+
+## Exclude git worktrees
+.worktrees
