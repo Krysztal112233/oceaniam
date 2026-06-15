@@ -39,6 +39,7 @@ impl OceanIamClient {
         self.send_inner(req).await
     }
 
+    #[deprecated(note = "POST /auth/users is reserved but not implemented by the backend")]
     pub async fn system_signup(&self, name: &str, password: &str) -> Result<SignupResponse, Error> {
         let body = SystemSigninRequest::Name {
             name: name.to_string(),

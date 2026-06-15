@@ -204,8 +204,6 @@ impl ManagedApplications {
         application_id: Uuid,
         user_identifier: impl Into<UserIdentifier> + Send,
     ) -> Result<UserModel, Error> {
-        self.is_application_exist(application_id).await?;
-
         self.get_application_users(application_id)
             .await?
             .find_user_by(user_identifier.into())
@@ -264,8 +262,6 @@ impl ManagedApplications {
         application_id: Uuid,
         patch: PatchApplicationConfigurationRequest,
     ) -> Result<ApplicationConfiguration, Error> {
-        self.is_application_exist(application_id).await?;
-
         let patched_configuration = self.get_configuration(application_id).await?.tap_mut(|it| {
             if let Some(auth) = patch.auth
                 && let Some(token) = auth.token
@@ -306,8 +302,6 @@ impl ManagedApplications {
         application_id: Uuid,
         patch: PatchApplicationRequest,
     ) -> Result<ApplicationModel, Error> {
-        self.is_application_exist(application_id).await?;
-
         let is_missing = matches!(patch.comment, PatchValue::Missing);
 
         let result: ApplicationModel = match patch.comment {
@@ -333,8 +327,6 @@ impl ManagedApplications {
         &self,
         application_id: Uuid,
     ) -> Result<Arc<ApplicationScope>, Error> {
-        self.is_application_exist(application_id).await?;
-
         let database = self.database.clone();
         let shared_credential_vaults = self.shared_credential_vaults.clone();
         let auditing = self.auditing.clone();

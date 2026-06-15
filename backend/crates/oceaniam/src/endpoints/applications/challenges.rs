@@ -13,10 +13,7 @@ use oceaniam_database::{
     model::prelude::Challenges,
     model::sea_orm_active_enums::ChallengeFactorType,
 };
-use oceaniam_vo::{
-    applications::ApplicationChallengeVO,
-    auth::{SigninResponseOrChallenge, SignupResponse},
-};
+use oceaniam_vo::{applications::ApplicationChallengeVO, auth::SigninResponseOrChallenge};
 use serde::Deserialize;
 use serde_json::Value;
 use tap::Tap;
@@ -30,7 +27,7 @@ use crate::{
     middlewares::{application::AdminJwtOrApplicationSecretGuard, auth::TokenDispatchMethodGuard},
     state::AppState,
     state::keybox::{EncodedJwt, SignJwtOptions},
-    util::cookie::build_auth_cookie,
+    util::token_response::dispatch_signin_response,
 };
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
@@ -230,7 +227,6 @@ pub async fn create_application_challenge(
     fields(application_id = field::Empty, challenge_id = field::Empty, user_id = field::Empty, token_dispatch = field::Empty)
 )]
 pub async fn create_application_challenge_attempt(
-    _: (),
     token_mtd: TokenDispatchMethodGuard,
     State(AppState {
         keyboxes,
@@ -301,14 +297,5 @@ pub async fn create_application_challenge_attempt(
         }))
         .await;
 
-    let cookie = build_auth_cookie(&jwt, config.cookie.secure);
-    let resp = ApiResponse::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
-
-    let resp = match token_mtd {
-        TokenDispatchMethodGuard::Cookie => ApiResponse::empty().with_cookie(cookie)?,
-        TokenDispatchMethodGuard::Json => resp,
-        TokenDispatchMethodGuard::Both => resp.with_cookie(cookie)?,
-    };
-
-    Ok(resp)
+    dispatch_signin_response(jwt, &token_mtd, config.cookie.secure)
 }

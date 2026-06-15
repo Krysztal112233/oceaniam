@@ -22,17 +22,15 @@ use oceaniam_common::consts;
 use oceaniam_database::{
     helper::administrators::AdministratorsHelper, model::prelude::Administrators,
 };
-use oceaniam_vo::auth::{
-    SigninResponseOrChallenge, SignoutResponse, SignupResponse, SystemSigninRequest,
-};
+use oceaniam_vo::auth::{SigninResponseOrChallenge, SignoutResponse, SystemSigninRequest};
 use tap::Tap;
 use tracing::{Span, error, field};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use crate::{
-    middlewares::{self, auth::TokenDispatchMethodGuard},
+    middlewares,
     state::{AppState, keybox::EncodedJwt},
-    util::cookie::build_auth_cookie,
+    util::token_response::dispatch_signin_response,
 };
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
@@ -84,6 +82,7 @@ pub async fn create_auth_token(
         database,
         keyboxes,
         auditing,
+        config,
         ..
     }): State<AppState>,
 
@@ -134,9 +133,7 @@ pub async fn create_auth_token(
         }))
         .await;
 
-    Ok(ApiResponse::new(SigninResponseOrChallenge::Signup(
-        SignupResponse { jwt },
-    )))
+    dispatch_signin_response(jwt, &token_mtd, config.cookie.secure)
 }
 
 /// Delete auth token (signout)
@@ -207,40 +204,34 @@ pub async fn delete_auth_token(
 
 /// Create auth user (signup)
 ///
-/// Creates a new user account with the provided credentials.
+/// Placeholder endpoint retained for compatibility.
 ///
 /// # Note
 ///
-/// **TODO**: This is a placeholder implementation. Account creation logic needs to be implemented.
+/// System account creation is not implemented yet. The route remains reserved, but requests
+/// return 501 instead of reporting a successful no-op.
 ///
 /// # Errors
 ///
 /// Returns 400 if request body is invalid
-/// Returns 409 if username already exists
-/// Returns 500 if database operation fails
+/// Returns 501 because system account creation is not implemented
 #[utoipa::path(
         post,
         path = "/auth/users",
         tag = "SystemAuthentication",
         request_body = SystemSigninRequest,
         responses(
-            (status = 201, description = "User account created successfully", body = ApiResponse<SignupResponse>),
             (status = 400, description = "Invalid request body"),
-            (status = 409, description = "Username already exists"),
+            (status = 501, description = "System account creation is not implemented", body = ApiResponse<ErrorResponse>),
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
-#[tracing::instrument(level = "info", name = "auth.signup", skip(revoked_jwt, auth))]
-#[allow(unused)]
-pub async fn create_auth_user(
-    State(AppState { revoked_jwt, .. }): State<AppState>,
-
-    Json(auth): Json<SystemSigninRequest>,
-) -> AppResult<()> {
-    let _ = &revoked_jwt;
-    Span::current();
-
-    Ok(ApiResponse::new(()))
+#[tracing::instrument(level = "info", name = "auth.signup", skip(_auth))]
+pub async fn create_auth_user(Json(_auth): Json<SystemSigninRequest>) -> AppResult<()> {
+    Err(Error::with_code(
+        StatusCode::NOT_IMPLEMENTED,
+        "system account creation is not implemented",
+    ))
 }
 
 /// Refresh auth token
@@ -347,14 +338,5 @@ pub async fn refresh_auth_token(
         }))
         .await;
 
-    let cookie = build_auth_cookie(&jwt, config.cookie.secure);
-    let resp = ApiResponse::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
-
-    let resp = match token_mtd {
-        TokenDispatchMethodGuard::Json => resp,
-        TokenDispatchMethodGuard::Both => resp.with_cookie(cookie)?,
-        TokenDispatchMethodGuard::Cookie => ApiResponse::empty().with_cookie(cookie)?,
-    };
-
-    Ok(resp)
+    dispatch_signin_response(jwt, &token_mtd, config.cookie.secure)
 }

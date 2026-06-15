@@ -1,37 +1,35 @@
 use axum::{Json, extract::State, http::StatusCode};
-use oceaniam_api::{ApiResponse, ErrorResponse};
-use oceaniam_audit::types::{AuditPayload, RefreshJwtPayload, RevokeJwtPayload, SignJwtPayload};
+use oceaniam_api::ApiResponse;
+use oceaniam_audit::types::{AuditPayload, SignJwtPayload};
 use oceaniam_auth::jwt::Claim;
 use oceaniam_common::consts;
 use oceaniam_database::config::application::ApplicationConfiguration;
 use oceaniam_database::helper::challenges::CreateChallengeOpts;
 use oceaniam_database::model::sea_orm_active_enums::{ChallengeFactorType, ChallengePurposeType};
-use oceaniam_vo::auth::{
-    AuthVO, SigninChallenge, SigninResponseOrChallenge, SignoutResponse, SignupResponse,
-};
+use oceaniam_vo::auth::{AuthVO, SigninChallenge, SigninResponseOrChallenge};
 use tap::Tap;
-use tracing::{Span, error, field, info, warn};
+use tracing::{Span, error, field, info};
 use utoipa_axum::{router::OpenApiRouter, routes};
 
 use super::ResolvedApplication;
 use crate::{
     error::{AppResult, Error},
-    middlewares::{
-        application::MatchedApplicationSecretGuard,
-        auth::{ApplicationAuthGuard, TokenDispatchMethodGuard},
-    },
+    middlewares::{application::MatchedApplicationSecretGuard, auth::TokenDispatchMethodGuard},
     state::{
         AppState,
         keybox::{EncodedJwt, SignJwtOptions},
     },
-    util::cookie::build_auth_cookie,
+    util::token_response::dispatch_signin_response,
 };
+
+mod refresh;
+mod signout;
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(routes!(create_application_token))
-        .routes(routes!(delete_application_token))
-        .routes(routes!(refresh_application_token))
+        .routes(routes!(signout::delete_application_token))
+        .routes(routes!(refresh::refresh_application_token))
 }
 
 /// Create application token
@@ -193,215 +191,5 @@ pub async fn create_application_token(
         }))
         .await;
 
-    let cookie = build_auth_cookie(&jwt, config.cookie.secure);
-    let resp = ApiResponse::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
-
-    let resp = match token_mtd {
-        TokenDispatchMethodGuard::Cookie => ApiResponse::empty().with_cookie(cookie)?,
-        TokenDispatchMethodGuard::Json => resp,
-        TokenDispatchMethodGuard::Both => resp.with_cookie(cookie)?,
-    };
-
-    Ok(resp)
-}
-
-/// Delete application token
-#[utoipa::path(
-        delete,
-        path = "/tenants/{tenant_id}/applications/{application_id}/tokens",
-        tag = "ApplicationTokens",
-        params(
-            ("Authorization" = String, Header, description = "Bearer token"),
-            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
-            ("tenant_id" = String, Path, description = "Tenant ID"),
-            ("application_id" = String, Path, description = "Application ID"),
-        ),
-        responses(
-            (status = 200, body = ApiResponse<SignoutResponse>),
-            (status = 203, description = "Missing Authorization header"),
-            (status = 400, description = "Invalid, expired, or revoked token", body = ApiResponse<ErrorResponse>),
-            (status = 401, description = "Unauthorized"),
-            (status = 403, description = "Forbidden - secret does not belong to this application"),
-            (status = 404, description = "Application not found"),
-            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
-        ),
-    )]
-#[tracing::instrument(
-    level = "info",
-    name = "tenant_application_tokens.delete",
-    skip(auth, revoked_jwt, auditing),
-    fields(user_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, jti = field::Empty)
-)]
-pub async fn delete_application_token(
-    _: MatchedApplicationSecretGuard,
-    auth: ApplicationAuthGuard,
-    State(AppState {
-        revoked_jwt,
-        auditing,
-        ..
-    }): State<AppState>,
-    app: ResolvedApplication,
-) -> Result<ApiResponse<SignoutResponse>, Error> {
-    let jti = auth.token.claims.jti;
-    let user_id = auth.token.claims.sub;
-    let app_id = app.id();
-    Span::current().tap(|it| {
-        it.record("user_id", field::display(&user_id))
-            .record("tenant_id", field::display(&app.tenant_id()))
-            .record("application_id", field::display(&app_id))
-            .record("jti", field::display(&jti));
-    });
-
-    info!(%user_id, application_id = %app_id, %jti, "signout requested");
-
-    revoked_jwt.set_revoked(jti).await.inspect_err(|e| {
-        error!(
-            %user_id,
-            application_id = %app_id,
-            %jti,
-            error = %e,
-            "failed to revoke jwt during signout"
-        )
-    })?;
-
-    auditing
-        .write(AuditPayload::from(RevokeJwtPayload {
-            subject_id: user_id,
-            jti,
-            application_id: Some(app_id),
-        }))
-        .await;
-
-    Ok(ApiResponse::new(SignoutResponse::default()))
-}
-
-/// Refresh application token
-#[utoipa::path(
-        post,
-        path = "/tenants/{tenant_id}/applications/{application_id}/tokens/refresh",
-        tag = "ApplicationTokens",
-        params(
-            ("Authorization" = String, Header, description = "Bearer token to refresh"),
-            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
-            ("X-OceanIAM-Token-Dispatch" = Option<String>, Header, description = "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both."),
-            ("tenant_id" = String, Path, description = "Tenant ID"),
-            ("application_id" = String, Path, description = "Application ID"),
-        ),
-        responses(
-            (status = 200, body = ApiResponse<SigninResponseOrChallenge>),
-            (status = 203, description = "Missing Authorization header"),
-            (status = 400, description = "Invalid, expired, or revoked token", body = ApiResponse<ErrorResponse>),
-            (status = 401, description = "Unauthorized"),
-            (status = 403, description = "Forbidden - secret does not belong to this application"),
-            (status = 404, description = "Application not found"),
-            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
-        ),
-    )]
-#[tracing::instrument(
-    level = "info",
-    name = "tenant_application_tokens.refresh",
-    skip(auth, token_mtd, revoked_jwt, keyboxes, applications, auditing),
-    fields(
-        user_id = field::Empty,
-        tenant_id = field::Empty,
-        application_id = field::Empty,
-        old_jti = field::Empty,
-        token_dispatch = field::Empty
-    )
-)]
-pub async fn refresh_application_token(
-    auth: ApplicationAuthGuard,
-    token_mtd: TokenDispatchMethodGuard,
-    _: MatchedApplicationSecretGuard,
-    State(AppState {
-        revoked_jwt,
-        keyboxes,
-        applications,
-        auditing,
-        config,
-        ..
-    }): State<AppState>,
-    app: ResolvedApplication,
-) -> AppResult<SigninResponseOrChallenge> {
-    let jti = auth.token.claims.jti;
-    let user_id = auth.token.claims.sub;
-    let application_id = app.id();
-
-    Span::current().tap(|it| {
-        it.record("user_id", field::display(&user_id))
-            .record("tenant_id", field::display(&app.tenant_id()))
-            .record("application_id", field::display(&application_id))
-            .record("old_jti", field::display(&jti))
-            .record("token_dispatch", field::debug(&token_mtd));
-    });
-
-    let ApplicationConfiguration {
-        auth: authentication,
-        ..
-    } = applications.get_configuration(application_id).await?;
-
-    info!(%user_id, %application_id, old_jti = %jti, "token refresh requested");
-
-    if revoked_jwt.is_revoked(jti).await? {
-        warn!(
-            %user_id,
-            %application_id,
-            old_jti = %jti,
-            "token refresh rejected: jwt already revoked"
-        );
-        return Err(Error::with_code(
-            StatusCode::BAD_REQUEST,
-            format!("jwt of jti={jti} has been revoked"),
-        ));
-    }
-
-    revoked_jwt.set_revoked(jti).await.inspect_err(|e| {
-        error!(
-            %user_id,
-            %application_id,
-            old_jti = %jti,
-            error = %e,
-            "failed to revoke old jwt during refresh"
-        )
-    })?;
-
-    let EncodedJwt { jwt, claim } = keyboxes
-        .sign_jwt::<Claim>(
-            user_id,
-            SignJwtOptions {
-                tenant_id: app.tenant_id(),
-                iss: authentication.token.issuer,
-                aud: authentication.token.audience,
-            },
-        )
-        .await
-        .inspect_err(|e| {
-            error!(
-                %user_id,
-                %application_id,
-                old_jti = %jti,
-                error = %e,
-                "failed to sign new jwt during refresh"
-            )
-        })?;
-
-    auditing
-        .write(AuditPayload::from(RefreshJwtPayload {
-            application_id,
-            subject_id: user_id,
-            old_jti: jti,
-            new_jti: claim.jti,
-        }))
-        .await;
-
-    let cookie = build_auth_cookie(&jwt, config.cookie.secure);
-    let resp = ApiResponse::new(SigninResponseOrChallenge::Signup(SignupResponse { jwt }));
-
-    let resp = match token_mtd {
-        TokenDispatchMethodGuard::Cookie => ApiResponse::empty().with_cookie(cookie)?,
-        TokenDispatchMethodGuard::Json => resp,
-        TokenDispatchMethodGuard::Both => resp.with_cookie(cookie)?,
-    };
-
-    Ok(resp)
+    dispatch_signin_response(jwt, &token_mtd, config.cookie.secure)
 }
