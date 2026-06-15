@@ -66,8 +66,6 @@ pub struct AppState {
 
     /// Application configuration.
     pub config: BackendConfig,
-
-    pub master_key: Arc<MasterKey>,
 }
 
 impl AppState {
@@ -114,8 +112,6 @@ impl AppState {
             _unit: (),
 
             config,
-
-            master_key,
         })
     }
 }
