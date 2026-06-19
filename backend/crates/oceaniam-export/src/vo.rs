@@ -3,7 +3,6 @@ pub mod application_roles;
 pub mod applications;
 pub mod auth;
 pub mod pagination;
-pub mod sqid;
 pub mod statistics;
 pub mod tenants;
 

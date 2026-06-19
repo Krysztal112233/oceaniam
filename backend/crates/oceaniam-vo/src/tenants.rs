@@ -1,4 +1,3 @@
-use oceaniam_common::sqid::Sqid;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -14,6 +13,6 @@ pub struct PatchTenantRequest {
 
 #[derive(Debug, Deserialize, ToSchema, Serialize, ts_rs::TS)]
 pub struct TenantVO {
-    pub id: Sqid,
+    pub id: String,
     pub comment: Option<String>,
 }

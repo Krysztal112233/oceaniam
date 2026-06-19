@@ -1,6 +1,8 @@
 use oceaniam_database::model;
 use oceaniam_vo::applications::ApplicationKeyVO;
 
+use super::sqid::uuid_to_sqid;
+
 pub fn key_model_to_vo(model: model::key_boxes::Model) -> ApplicationKeyVO {
     let model::key_boxes::Model {
         id,
@@ -14,7 +16,7 @@ pub fn key_model_to_vo(model: model::key_boxes::Model) -> ApplicationKeyVO {
         ..
     } = model;
     ApplicationKeyVO {
-        key_id: id.into(),
+        key_id: uuid_to_sqid(id),
         algorithm: key_alg.to_string(),
         status: status.to_string(),
         created_at,

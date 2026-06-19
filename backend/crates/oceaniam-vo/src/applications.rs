@@ -1,8 +1,9 @@
 use chrono::{DateTime, FixedOffset};
 use garde::Validate;
-use oceaniam_common::{patch::PatchValue, sqid::Sqid, validation::forbid_search_wildcards};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+
+use crate::patch::PatchValue;
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
 pub struct CreateApplicationRequest {
@@ -11,8 +12,8 @@ pub struct CreateApplicationRequest {
 
 #[derive(Debug, Deserialize, Serialize, ToSchema, ts_rs::TS)]
 pub struct CreateApplicationResponse {
-    pub tenant_id: Sqid,
-    pub application_id: Sqid,
+    pub tenant_id: String,
+    pub application_id: String,
     pub comment: Option<String>,
 }
 
@@ -87,24 +88,24 @@ pub struct GetApplicationConfigurationResponse {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs :: TS, ToSchema)]
 pub struct ApplicationDetailVO {
-    pub id: Sqid,
+    pub id: String,
     pub comment: Option<String>,
-    pub tenant_id: Sqid,
+    pub tenant_id: String,
     pub configuration: ApplicationConfigurationVO,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs :: TS, ToSchema)]
 pub struct ApplicationVO {
-    pub id: Sqid,
+    pub id: String,
     pub comment: Option<String>,
-    pub tenant_id: Sqid,
+    pub tenant_id: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
 pub struct ApplicationChallengeVO {
-    pub id: uuid::Uuid,
-    pub application_id: Sqid,
-    pub subject_id: uuid::Uuid,
+    pub id: String,
+    pub application_id: String,
+    pub subject_id: String,
     pub factor_type: String,
     pub purpose: String,
     pub status: String,
@@ -196,7 +197,7 @@ pub struct SearchApplicationUsersQuery {
     #[garde(custom(forbid_search_wildcards))]
     pub by_phone: Option<String>,
     #[garde(skip)]
-    pub by_id: Option<Sqid>,
+    pub by_id: Option<String>,
 }
 
 impl Default for SearchApplicationUsersQuery {
@@ -215,7 +216,7 @@ impl Default for SearchApplicationUsersQuery {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
 pub struct ApplicationUserVO {
-    pub id: Sqid,
+    pub id: String,
     pub email: Option<String>,
     pub phone: Option<String>,
     pub nickname: String,
@@ -223,26 +224,16 @@ pub struct ApplicationUserVO {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
 pub struct SecretVO {
-    pub id: Sqid,
+    pub id: String,
     pub secret: String,
     pub created_at: String,
     pub revoked_at: Option<String>,
-    pub application_ids: Vec<Sqid>,
-}
-
-impl SecretVO {
-    pub fn with_application_ids(
-        mut self,
-        application_ids: impl IntoIterator<Item = uuid::Uuid>,
-    ) -> Self {
-        self.application_ids = application_ids.into_iter().map(Into::into).collect();
-        self
-    }
+    pub application_ids: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
 pub struct ApplicationKeyVO {
-    pub key_id: Sqid,
+    pub key_id: String,
     pub algorithm: String,
     pub status: String,
     pub created_at: DateTime<FixedOffset>,
@@ -255,4 +246,16 @@ pub struct ApplicationKeyVO {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
 pub struct RotateKeyResponse {
     pub key: ApplicationKeyVO,
+}
+
+fn forbid_search_wildcards(value: &Option<String>, _: &()) -> garde::Result {
+    if let Some(value) = value.as_deref()
+        && (value.contains('%') || value.contains('_') || value.contains('\\'))
+    {
+        return Err(garde::Error::new(
+            "must not contain expressions that expand `LIKE/ILIKE` search scope",
+        ));
+    }
+
+    Ok(())
 }

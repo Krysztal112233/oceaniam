@@ -22,7 +22,6 @@ async fn create_email_totp_challenge_then_verify_returns_jwt() {
         .expect("user id should be a Sqid")
         .try_into()
         .expect("user id should decode to a UUID");
-    let subject_uuid_string = subject_uuid.to_string();
     let body = serde_json::json!({
         "subject_id": subject_uuid,
         "factor_type": "email_totp",
@@ -53,10 +52,7 @@ async fn create_email_totp_challenge_then_verify_returns_jwt() {
         serde_json::from_str(&body).expect("create challenge response parse failed");
 
     assert_eq!(challenge["factor_type"].as_str(), Some("email_totp"));
-    assert_eq!(
-        challenge["subject_id"].as_str(),
-        Some(subject_uuid_string.as_str())
-    );
+    assert_eq!(challenge["subject_id"].as_str(), Some(subject_id));
 
     let challenge_id = challenge["id"]
         .as_str()

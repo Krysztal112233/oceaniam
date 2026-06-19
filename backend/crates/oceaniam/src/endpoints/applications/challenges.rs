@@ -83,8 +83,9 @@ pub async fn get_application_challenge(
     _: AdminJwtOrApplicationSecretGuard,
     State(AppState { database, .. }): State<AppState>,
     app: ResolvedApplication,
-    Path((_tid, _aid, challenge_id)): Path<(Sqid, Sqid, Uuid)>,
+    Path((_tid, _aid, challenge_id)): Path<(Sqid, Sqid, Sqid)>,
 ) -> AppResult<ApplicationChallengeVO> {
+    let challenge_id: Uuid = challenge_id.try_into()?;
     let application_id = app.id();
     Span::current().tap(|it| {
         it.record("tenant_id", field::display(&app.tenant_id()))
@@ -236,9 +237,10 @@ pub async fn create_application_challenge_attempt(
         ..
     }): State<AppState>,
     app: ResolvedApplication,
-    Path((_tid, _aid, challenge_id)): Path<(Sqid, Sqid, Uuid)>,
+    Path((_tid, _aid, challenge_id)): Path<(Sqid, Sqid, Sqid)>,
     Json(payload): Json<Value>,
 ) -> AppResult<SigninResponseOrChallenge> {
+    let challenge_id: Uuid = challenge_id.try_into()?;
     let application_id = app.id();
     let challenges = applications.challenges(application_id).await.inspect_err(
         |e| error!(%application_id, %challenge_id, error = %e, "failed to get challenges manager"),

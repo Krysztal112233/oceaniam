@@ -2,7 +2,7 @@ use std::{collections::HashMap, net::SocketAddr, sync::OnceLock};
 
 use migration::{Migrator, MigratorTrait};
 use oceaniam::app::{app, build_state};
-use oceaniam_common::config::{BackendConfig, CookieConfig, CorsConfig, DatabaseConfig};
+use oceaniam_common::config::{BackendConfig, CookieConfig};
 use oceaniam_database::{
     helper::{applications::ApplicationHelper, tenants::TenantsHelper},
     model::prelude::{Applications, Tenants},
@@ -221,18 +221,10 @@ const TEST_MASTER_KEY_HEX: &str =
 fn test_config() -> BackendConfig {
     BackendConfig {
         addr: "0.0.0.0:0".to_owned(),
-        database: DatabaseConfig {
-            dsn: "postgresql://postgres:postgres@localhost:5432/postgres".to_string(),
-            slow_statements_logging_threshold: None,
-            max_connections: None,
-            min_connections: None,
-        },
-        cors: CorsConfig {
-            allow_origin: "*".to_string(),
-        },
         workers: HashMap::new(),
         cookie: CookieConfig::default(),
         master_key: TEST_MASTER_KEY_HEX.to_owned(),
+        ..BackendConfig::new().unwrap()
     }
 }
 

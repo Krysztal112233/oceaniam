@@ -2,8 +2,6 @@ use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use oceaniam_common::sqid::Sqid;
-
 #[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
 #[ts(rename_all = "snake_case")]
 pub struct OverviewVO {
@@ -24,7 +22,7 @@ pub struct ApplicationStatisticsVO {
 #[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
 #[ts(rename_all = "snake_case")]
 pub struct AuditLogVO {
-    pub id: Sqid,
+    pub id: String,
     pub audit_type: String,
     pub payload: serde_json::Value,
     pub created_at: DateTime<FixedOffset>,

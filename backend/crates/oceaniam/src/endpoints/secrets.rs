@@ -1,6 +1,6 @@
 //! Secret management-related API endpoints
 
-use crate::error::AppResult;
+use crate::{conversion::secrets::with_application_ids, error::AppResult};
 use axum::extract::{Path, State};
 use axum_extra::extract::OptionalQuery;
 use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse};
@@ -134,8 +134,10 @@ pub async fn get_secrets(
                 .get(&secret.id)
                 .cloned()
                 .unwrap_or_default();
-            crate::conversion::secrets::secret_with_masked(secret)
-                .with_application_ids(application_ids)
+            with_application_ids(
+                crate::conversion::secrets::secret_with_masked(secret),
+                application_ids,
+            )
         })
         .collect();
 
@@ -182,10 +184,10 @@ pub async fn get_secret(
         .get_secret_application_ids(secret_id)
         .await?;
 
-    Ok(ApiResponse::new(
-        crate::conversion::secrets::secret_with_masked(secret)
-            .with_application_ids(application_ids),
-    ))
+    Ok(ApiResponse::new(with_application_ids(
+        crate::conversion::secrets::secret_with_masked(secret),
+        application_ids,
+    )))
 }
 
 #[utoipa::path(

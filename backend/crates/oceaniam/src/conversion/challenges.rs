@@ -4,11 +4,13 @@ use oceaniam_database::model::{
 };
 use oceaniam_vo::applications::ApplicationChallengeVO;
 
+use super::sqid::uuid_to_sqid;
+
 pub fn challenge_model_to_vo(model: model::challenges::Model) -> ApplicationChallengeVO {
     ApplicationChallengeVO {
-        id: model.id,
-        application_id: model.application_id.into(),
-        subject_id: model.subject_id,
+        id: uuid_to_sqid(model.id),
+        application_id: uuid_to_sqid(model.application_id),
+        subject_id: uuid_to_sqid(model.subject_id),
         factor_type: challenge_factor_type_to_str(&model.factor_type).to_owned(),
         purpose: challenge_purpose_type_to_str(&model.purpose).to_owned(),
         status: challenge_status_type_to_str(&model.status).to_owned(),

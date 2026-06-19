@@ -13,6 +13,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 
 use super::ResolvedApplication;
 use crate::{
+    conversion::sqid::uuid_to_sqid,
     error::{AppResult, Error},
     middlewares::{application::MatchedApplicationSecretGuard, auth::TokenDispatchMethodGuard},
     state::{
@@ -155,7 +156,7 @@ pub async fn create_application_token(
 
         return Ok(ApiResponse::new(SigninResponseOrChallenge::Challenge(
             SigninChallenge {
-                challenge_id: challenge.id.into(),
+                challenge_id: uuid_to_sqid(challenge.id),
                 factor_type: "totp".to_string(),
                 expires_at: challenge.expires_at,
             },

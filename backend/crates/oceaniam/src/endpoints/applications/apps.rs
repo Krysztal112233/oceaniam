@@ -151,11 +151,9 @@ pub async fn create_application(
         }))
         .await;
 
-    Ok(ApiResponse::new(CreateApplicationResponse {
-        tenant_id: tenant_id.into(),
-        application_id: id.into(),
-        comment,
-    }))
+    Ok(ApiResponse::new(
+        crate::conversion::applications::create_application_response(id, tenant_id, comment),
+    ))
 }
 
 /// Get application detail

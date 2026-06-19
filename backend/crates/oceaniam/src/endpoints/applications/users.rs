@@ -257,7 +257,9 @@ pub async fn search_application_users(
                         "failed to get application users helper"
                     )
                 })?
-                .find_user_by(UserIdentifier::Id(by_id.try_into()?))
+                .find_user_by(UserIdentifier::Id(crate::conversion::sqid::sqid_to_uuid(
+                    &by_id,
+                )?))
                 .await
                 .inspect_err(|e| {
                     error!(

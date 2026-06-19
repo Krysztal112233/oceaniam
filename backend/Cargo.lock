@@ -2653,7 +2653,6 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "garde",
- "oceaniam-common",
  "serde",
  "serde_json",
  "strum 0.28.0",

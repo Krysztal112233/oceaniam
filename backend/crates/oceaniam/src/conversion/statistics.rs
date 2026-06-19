@@ -3,6 +3,8 @@ use oceaniam_database::{
 };
 use oceaniam_vo::statistics::{ApplicationStatisticsVO, AuditLogVO, OverviewVO};
 
+use super::sqid::uuid_to_sqid;
+
 pub fn platform_counts_to_overview(counts: PlatformCounts) -> OverviewVO {
     OverviewVO {
         total_tenants: counts.total_tenants,
@@ -22,7 +24,7 @@ pub fn application_counts_to_statistics(counts: ApplicationCounts) -> Applicatio
 
 pub fn audit_log_model_to_vo(model: model::audits::Model) -> AuditLogVO {
     AuditLogVO {
-        id: model.id.into(),
+        id: uuid_to_sqid(model.id),
         audit_type: model.audit_type.to_string(),
         payload: model.payload,
         created_at: model.created_at,

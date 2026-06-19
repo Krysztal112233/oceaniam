@@ -6,18 +6,17 @@ import { type ApplicationTrendsVO } from "./types/ApplicationTrendsVO";
 import { type AuditLogVO } from "./types/AuditLogVO";
 import { type OverviewVO } from "./types/OverviewVO";
 import { type PlatformTrendsVO } from "./types/PlatformTrendsVO";
-import { type TrendDataPoint } from "./types/TrendDataPoint";
 import { type AdministratorProfileVO } from "./types/AdministratorProfileVO";
 import { type CreateApplicationRequest } from "./types/CreateApplicationRequest";
 import { type CreateApplicationResponse } from "./types/CreateApplicationResponse";
 import { type CreateApplicationUserRequest } from "./types/CreateApplicationUserRequest";
+import { type EnrollTotpResponse } from "./types/EnrollTotpResponse";
 import { type GetApplicationConfigurationResponse } from "./types/GetApplicationConfigurationResponse";
 import { type PatchApplicationRequest } from "./types/PatchApplicationRequest";
 import { type PatchApplicationConfigurationRequest } from "./types/PatchApplicationConfigurationRequest";
 import { type PatchApplicationUserCredentialsRequest } from "./types/PatchApplicationUserCredentialsRequest";
 import { type CreateTenantRequest } from "./types/CreateTenantRequest";
 import { type PagedResponse } from "./pagination";
-import { type Sqid } from "./types/Sqid";
 import { type SignoutResponse } from "./types/SignoutResponse";
 import { type SystemSigninRequest } from "./types/SystemSigninRequest";
 import { type SystemSigninResponse } from "./types/SystemSigninResponse";
@@ -36,7 +35,7 @@ import { type PatchTenantRequest } from "./types/PatchTenantRequest";
 export type TokenGetter = () => string | null | undefined | Promise<string | null | undefined>;
 
 export type GetApplicationsQuery = {
-  tenant_id: Sqid;
+  tenant_id: string;
 } & PaginationQuery;
 
 export type ApplicationUsersSortOrder = "asc" | "desc";
@@ -61,6 +60,7 @@ export type SearchApplicationUsersQuery = PaginationQuery & {
   by_email?: string;
   by_id?: string;
   by_phone?: string;
+  sort_order?: ApplicationUsersSortOrder;
 };
 export type GetSecretsQuery = PaginationQuery;
 export type AuditLogQuery = PaginationQuery & {

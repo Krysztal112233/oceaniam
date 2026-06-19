@@ -1,6 +1,5 @@
 use chrono::{DateTime, FixedOffset};
 use garde::Validate;
-use oceaniam_common::sqid::Sqid;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -38,7 +37,7 @@ pub struct SigninRequest {
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
 pub struct SigninChallenge {
-    pub challenge_id: Sqid,
+    pub challenge_id: String,
     pub factor_type: String,
     pub expires_at: DateTime<FixedOffset>,
 }

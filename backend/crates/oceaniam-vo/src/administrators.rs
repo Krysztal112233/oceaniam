@@ -1,13 +1,12 @@
 use std::collections::HashSet;
 
 use garde::Validate;
-use oceaniam_common::sqid::Sqid;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
 pub struct AdministratorVO {
-    pub id: Sqid,
+    pub id: String,
     pub name: String,
 }
 
@@ -34,7 +33,7 @@ pub struct CreateAdministratorResponse {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
 #[ts(rename_all = "snake_case")]
 pub struct AdministratorProfileVO {
-    pub id: Sqid,
+    pub id: String,
     pub name: String,
     pub role: Option<String>,
     pub permissions: HashSet<String>,
