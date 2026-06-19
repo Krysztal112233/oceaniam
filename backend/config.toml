@@ -4,7 +4,6 @@ addr = "0.0.0.0:8000"
 master_key = "0000000000000000000000000000000000000000000000000000000000000000"
 
 [database]
-dsn = "postgresql://postgres:postgres@localhost:5432/postgres"
 slow_statements_logging_threshold = 200
 max_connections = 128
 min_connections = 4

@@ -10,8 +10,8 @@ impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .get_connection()
-            .execute_unprepared(&format!(
-                "CREATE INDEX IF NOT EXISTS {IDX_USERS_NICKNAME_TRGM} ON users USING gin (nickname gin_trgm_ops)"
+            .execute_unprepared(include_str!(
+                "./m20260410_030629_create_idx_users_app_lower_nickname/up.sql"
             ))
             .await?;
 
