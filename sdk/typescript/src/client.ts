@@ -738,10 +738,7 @@ export class OceanIamClient {
     });
   }
 
-  public async bindSecretToApplication(
-    secretId: string,
-    applicationId: string,
-  ): Promise<void> {
+  public async bindSecretToApplication(secretId: string, applicationId: string): Promise<void> {
     await this.request<unknown>({
       method: "POST",
       url: this.endpoints.secretBindings(secretId),
@@ -749,10 +746,7 @@ export class OceanIamClient {
     });
   }
 
-  public async unbindSecretFromApplication(
-    secretId: string,
-    applicationId: string,
-  ): Promise<void> {
+  public async unbindSecretFromApplication(secretId: string, applicationId: string): Promise<void> {
     await this.request<unknown>({
       method: "DELETE",
       url: this.endpoints.secretBinding(secretId, applicationId),

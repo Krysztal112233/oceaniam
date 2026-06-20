@@ -168,8 +168,7 @@ async function handleUnbindSecret(appId: string): Promise<void> {
             selectedAppId.value = firstUnbound.id;
         }
     } catch (err) {
-        const message =
-            err instanceof Error ? err.message : "解除绑定失败。";
+        const message = err instanceof Error ? err.message : "解除绑定失败。";
         toast.error(message);
     } finally {
         const next = new Set(bindLoading.value);
@@ -358,9 +357,7 @@ watch(
                             v-model="selectedAppId"
                             class="select select-bordered select-sm flex-1"
                         >
-                            <option value="" disabled>
-                                选择应用...
-                            </option>
+                            <option value="" disabled>选择应用...</option>
                             <option
                                 v-for="app in unboundApplications"
                                 :key="app.id"
