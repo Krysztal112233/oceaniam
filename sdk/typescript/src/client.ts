@@ -336,6 +336,10 @@ export class OceanIamClient {
     // Secrets (backend: endpoints/secrets.rs)
     secrets: "/secrets",
     secret: (secretId: string): string => `/secrets/${encodeURIComponent(secretId)}`,
+    secretBindings: (secretId: string): string =>
+      `/secrets/${encodeURIComponent(secretId)}/bindings`,
+    secretBinding: (secretId: string, applicationId: string): string =>
+      `/secrets/${encodeURIComponent(secretId)}/bindings/${encodeURIComponent(applicationId)}`,
 
     // Statistics (backend: endpoints/statistics.rs)
     statistics: "/statistics",
@@ -449,6 +453,10 @@ export class OceanIamClient {
     // Secrets
     secrets: (): string => this.buildUrl(OceanIamClient.PATHS.secrets),
     secret: (secretId: string): string => this.buildUrl(OceanIamClient.PATHS.secret(secretId)),
+    secretBindings: (secretId: string): string =>
+      this.buildUrl(OceanIamClient.PATHS.secretBindings(secretId)),
+    secretBinding: (secretId: string, applicationId: string): string =>
+      this.buildUrl(OceanIamClient.PATHS.secretBinding(secretId, applicationId)),
 
     // Statistics
     statistics: (): string => this.buildUrl(OceanIamClient.PATHS.statistics),
@@ -727,6 +735,27 @@ export class OceanIamClient {
     await this.request<unknown>({
       method: "DELETE",
       url: this.endpoints.secret(secretId),
+    });
+  }
+
+  public async bindSecretToApplication(
+    secretId: string,
+    applicationId: string,
+  ): Promise<void> {
+    await this.request<unknown>({
+      method: "POST",
+      url: this.endpoints.secretBindings(secretId),
+      body: { application_id: applicationId },
+    });
+  }
+
+  public async unbindSecretFromApplication(
+    secretId: string,
+    applicationId: string,
+  ): Promise<void> {
+    await this.request<unknown>({
+      method: "DELETE",
+      url: this.endpoints.secretBinding(secretId, applicationId),
     });
   }
 

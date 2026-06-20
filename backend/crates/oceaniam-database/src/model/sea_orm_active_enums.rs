@@ -58,6 +58,10 @@ pub enum AuditType {
     RotateKey,
     #[sea_orm(string_value = "revoke_key")]
     RevokeKey,
+    #[sea_orm(string_value = "bind_application_secret")]
+    BindApplicationSecret,
+    #[sea_orm(string_value = "unbind_application_secret")]
+    UnbindApplicationSecret,
 }
 #[derive(
     Debug,

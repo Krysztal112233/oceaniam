@@ -1,16 +1,22 @@
 //! Secret management-related API endpoints
 
-use crate::{conversion::secrets::with_application_ids, error::AppResult};
+use crate::{
+    conversion::secrets::with_application_ids,
+    error::{AppResult, Error},
+};
 use axum::extract::{Path, State};
+use axum::{Json, http::StatusCode};
 use axum_extra::extract::OptionalQuery;
 use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{
-    AuditPayload, CreateApplicationSecretPayload, DeleteApplicationSecretPayload,
+    AuditPayload, BindApplicationSecretPayload, CreateApplicationSecretPayload,
+    DeleteApplicationSecretPayload, UnbindApplicationSecretPayload,
 };
 use oceaniam_common::sqid::Sqid;
 use oceaniam_vo::applications::SecretVO;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
+use serde::Deserialize;
 use tap::Tap;
 use tracing::{Span, error, field, info};
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -20,6 +26,11 @@ use crate::{
     middlewares::permission::{PlatformPermissionGuard, SecretCreate, SecretDelete, SecretRead},
     state::AppState,
 };
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct BindSecretRequest {
+    application_id: String,
+}
 
 #[utoipa::path(
         post,
@@ -249,10 +260,152 @@ pub async fn delete_secret(
     Ok(ApiResponse::new(Empty::default()))
 }
 
+#[utoipa::path(
+        post,
+        path = "/secrets/{secret_id}/bindings",
+        tag = "Secrets",
+        params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+            ("secret_id" = String, Path, description = "Secret ID"),
+        ),
+        request_body = BindSecretRequest,
+        responses(
+            (status = 200, description = "Secret bound to application", body = ApiResponse<Empty>),
+            (status = 203, description = "Missing Authorization header"),
+            (status = 400, description = "Invalid token or bad request", body = ApiResponse<ErrorResponse>),
+            (status = 404, description = "Secret or application not found", body = ApiResponse<ErrorResponse>),
+            (status = 409, description = "Binding already exists", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
+        ),
+    )]
+#[tracing::instrument(
+    level = "info",
+    name = "secrets.bind",
+    skip(auth, applications, auditing, secret_id),
+    fields(secret_id = field::Empty, application_id = field::Empty)
+)]
+pub async fn bind_secret_to_application(
+    auth: PlatformPermissionGuard<SecretCreate>,
+    State(AppState {
+        applications,
+        auditing,
+        ..
+    }): State<AppState>,
+    Path(secret_id): Path<Sqid>,
+    Json(body): Json<BindSecretRequest>,
+) -> AppResult<Empty> {
+    let operator_id = auth.claim.sub;
+    let secret_id: Uuid = secret_id
+        .try_into()
+        .inspect_err(|e| error!(error = %e, "failed to convert secret_id"))?;
+    let application_id: Sqid = body.application_id.parse().map_err(|e| {
+        Error::with_code(
+            StatusCode::BAD_REQUEST,
+            format!("invalid application_id: {e}"),
+        )
+    })?;
+    let application_id: Uuid = application_id
+        .try_into()
+        .inspect_err(|e| error!(error = %e, "failed to convert application_id"))?;
+
+    Span::current().tap(|it| {
+        it.record("secret_id", field::display(&secret_id))
+            .record("application_id", field::display(&application_id));
+    });
+
+    applications
+        .secrets()
+        .bind_secret(secret_id, application_id)
+        .await
+        .inspect_err(|e| {
+            error!(secret_id = %secret_id, application_id = %application_id, error = %e, "failed to bind secret to application");
+        })?;
+
+    info!(secret_id = %secret_id, application_id = %application_id, "secret bound to application");
+
+    auditing
+        .write(AuditPayload::from(BindApplicationSecretPayload {
+            operator_id,
+            secret_id,
+            application_id,
+        }))
+        .await;
+
+    Ok(ApiResponse::new(Empty::default()))
+}
+
+#[utoipa::path(
+        delete,
+        path = "/secrets/{secret_id}/bindings/{application_id}",
+        tag = "Secrets",
+        params(
+            ("Authorization" = String, Header, description = "Bearer token"),
+            ("secret_id" = String, Path, description = "Secret ID"),
+            ("application_id" = String, Path, description = "Application ID"),
+        ),
+        responses(
+            (status = 200, description = "Secret unbound from application", body = ApiResponse<Empty>),
+            (status = 203, description = "Missing Authorization header"),
+            (status = 400, description = "Invalid token or bad request", body = ApiResponse<ErrorResponse>),
+            (status = 404, description = "Binding not found", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
+        ),
+    )]
+#[tracing::instrument(
+    level = "info",
+    name = "secrets.unbind",
+    skip(auth, applications, auditing, secret_id, application_id),
+    fields(secret_id = field::Empty, application_id = field::Empty)
+)]
+pub async fn unbind_secret_from_application(
+    auth: PlatformPermissionGuard<SecretDelete>,
+    State(AppState {
+        applications,
+        auditing,
+        ..
+    }): State<AppState>,
+    Path((secret_id, application_id)): Path<(Sqid, Sqid)>,
+) -> AppResult<Empty> {
+    let operator_id = auth.claim.sub;
+    let secret_id: Uuid = secret_id
+        .try_into()
+        .inspect_err(|e| error!(error = %e, "failed to convert secret_id"))?;
+    let application_id: Uuid = application_id
+        .try_into()
+        .inspect_err(|e| error!(error = %e, "failed to convert application_id"))?;
+
+    Span::current().tap(|it| {
+        it.record("secret_id", field::display(&secret_id))
+            .record("application_id", field::display(&application_id));
+    });
+
+    applications
+        .secrets()
+        .delete_secret(application_id, secret_id)
+        .await
+        .inspect_err(|e| {
+            error!(secret_id = %secret_id, application_id = %application_id, error = %e, "failed to unbind secret from application");
+        })?;
+
+    info!(secret_id = %secret_id, application_id = %application_id, "secret unbound from application");
+
+    auditing
+        .write(AuditPayload::from(UnbindApplicationSecretPayload {
+            operator_id,
+            secret_id,
+            application_id,
+        }))
+        .await;
+
+    Ok(ApiResponse::new(Empty::default()))
+}
+
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(routes!(create_secret))
         .routes(routes!(get_secrets))
         .routes(routes!(get_secret))
         .routes(routes!(delete_secret))
+        .routes(routes!(bind_secret_to_application))
+        .routes(routes!(unbind_secret_from_application))
 }

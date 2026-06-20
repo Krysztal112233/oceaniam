@@ -219,6 +219,19 @@ impl Secrets {
             .await?)
     }
 
+    /// Binds an existing unbound secret to an application, invalidating relevant caches.
+    pub async fn bind_secret(&self, secret_id: Uuid, application_id: Uuid) -> Result<(), Error> {
+        self.is_application_exist(application_id).await?;
+        self.is_secret_id_exist(secret_id).await?;
+
+        ApplicationSecrets::create_binding(secret_id, application_id, &self.database).await?;
+
+        self.invalidate_secret_bindings(secret_id).await;
+        self.invalidate_application_secrets(application_id).await;
+
+        Ok(())
+    }
+
     /// Unbinds a secret from an application and refreshes the application's secret cache.
     pub async fn delete_secret(&self, application_id: Uuid, secret_id: Uuid) -> Result<(), Error> {
         self.is_application_exist(application_id).await?;

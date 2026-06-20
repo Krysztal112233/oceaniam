@@ -34,6 +34,8 @@ pub enum AuditPayload {
 
     CreateApplicationSecret(CreateApplicationSecretPayload),
     DeleteApplicationSecret(DeleteApplicationSecretPayload),
+    BindApplicationSecret(BindApplicationSecretPayload),
+    UnbindApplicationSecret(UnbindApplicationSecretPayload),
 
     CreateChallenge(CreateChallengePayload),
     VerifyChallenge(VerifyChallengePayload),
@@ -65,6 +67,8 @@ impl AuditPayload {
             Self::VerifyChallenge(_) => AuditType::VerifyChallenge,
             Self::RotateKey(_) => AuditType::RotateKey,
             Self::RevokeKey(_) => AuditType::RevokeKey,
+            Self::BindApplicationSecret(_) => AuditType::BindApplicationSecret,
+            Self::UnbindApplicationSecret(_) => AuditType::UnbindApplicationSecret,
         }
     }
 
@@ -166,6 +170,18 @@ impl From<CreateApplicationSecretPayload> for AuditPayload {
 impl From<DeleteApplicationSecretPayload> for AuditPayload {
     fn from(value: DeleteApplicationSecretPayload) -> Self {
         Self::DeleteApplicationSecret(value)
+    }
+}
+
+impl From<BindApplicationSecretPayload> for AuditPayload {
+    fn from(value: BindApplicationSecretPayload) -> Self {
+        Self::BindApplicationSecret(value)
+    }
+}
+
+impl From<UnbindApplicationSecretPayload> for AuditPayload {
+    fn from(value: UnbindApplicationSecretPayload) -> Self {
+        Self::UnbindApplicationSecret(value)
     }
 }
 
@@ -328,4 +344,18 @@ pub struct RotateKeyPayload {
 pub struct RevokeKeyPayload {
     pub application_id: Uuid,
     pub key_id: Uuid,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BindApplicationSecretPayload {
+    pub operator_id: Uuid,
+    pub secret_id: Uuid,
+    pub application_id: Uuid,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UnbindApplicationSecretPayload {
+    pub operator_id: Uuid,
+    pub secret_id: Uuid,
+    pub application_id: Uuid,
 }

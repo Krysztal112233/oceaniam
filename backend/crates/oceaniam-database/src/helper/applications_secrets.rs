@@ -178,6 +178,41 @@ pub trait ApplicationSecretsHelper {
             .await?)
     }
 
+    async fn create_binding(
+        secret_id: Uuid,
+        application_id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<(), Error> {
+        use model::application_secret_bindings::Column::*;
+
+        let existing = ApplicationSecretBindings::find()
+            .filter(
+                Condition::all()
+                    .add(ApplicationId.eq(application_id))
+                    .add(SecretId.eq(secret_id)),
+            )
+            .one(database)
+            .await?;
+
+        if existing.is_some() {
+            return Err(Error::with_code(
+                StatusCode::CONFLICT,
+                format!(
+                    "binding between secret={secret_id} and application={application_id} already exists"
+                ),
+            ));
+        }
+
+        model::application_secret_bindings::ActiveModel {
+            secret_id: sea_orm::ActiveValue::Set(secret_id),
+            application_id: sea_orm::ActiveValue::Set(application_id),
+        }
+        .insert(database)
+        .await?;
+
+        Ok(())
+    }
+
     async fn delete_secret(
         application_id: Uuid,
         secret_id: Uuid,
