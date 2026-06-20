@@ -43,6 +43,9 @@ pub const TENANT_KEY: &str = concatcp!(TENANT_KEYS, "/{}");
 pub const STATISTICS: &str = "/statistics";
 pub const APP_STATISTICS: &str = concatcp!(TENANT_APP, "/statistics");
 
+// Application Secrets
+pub const APP_SECRETS: &str = concatcp!(TENANT_APP, "/secrets");
+
 // Audits
 pub const APP_AUDITS: &str = concatcp!(TENANT_APP, "/audits");
 pub const AUDITS: &str = "/audits";

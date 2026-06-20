@@ -65,4 +65,14 @@ impl OceanIamClient {
         let req = self.auth_req(Method::DELETE, &path, AuthMode::Bearer)?;
         self.send_empty(req).await
     }
+
+    pub async fn get_application_secrets(
+        &self,
+        tenant_id: &str,
+        application_id: &str,
+    ) -> Result<PagedResponse<SecretVO>, Error> {
+        let path = paths::fmt2(paths::APP_SECRETS, tenant_id, application_id);
+        let req = self.auth_req(Method::GET, &path, AuthMode::Bearer)?;
+        self.send_inner(req).await
+    }
 }

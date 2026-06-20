@@ -340,6 +340,8 @@ export class OceanIamClient {
       `/secrets/${encodeURIComponent(secretId)}/bindings`,
     secretBinding: (secretId: string, applicationId: string): string =>
       `/secrets/${encodeURIComponent(secretId)}/bindings/${encodeURIComponent(applicationId)}`,
+    applicationSecrets: (tenantId: string, applicationId: string): string =>
+      `/tenants/${encodeURIComponent(tenantId)}/applications/${encodeURIComponent(applicationId)}/secrets`,
 
     // Statistics (backend: endpoints/statistics.rs)
     statistics: "/statistics",
@@ -750,6 +752,16 @@ export class OceanIamClient {
     await this.request<unknown>({
       method: "DELETE",
       url: this.endpoints.secretBinding(secretId, applicationId),
+    });
+  }
+
+  public async getApplicationSecrets(
+    tenantId: string,
+    applicationId: string,
+  ): Promise<PagedResponse<SecretVO>> {
+    return this.request<PagedResponse<SecretVO>>({
+      method: "GET",
+      url: this.endpoints.applicationSecrets(tenantId, applicationId),
     });
   }
 
