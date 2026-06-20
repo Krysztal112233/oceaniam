@@ -4,7 +4,7 @@ use chrono::Utc;
 use oceaniam_vo::pagination::{PageParam, PagedResponse};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, PaginatorTrait,
-    QueryFilter, QuerySelect,
+    QueryFilter, QuerySelect, TryInsertResult,
 };
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -183,18 +183,16 @@ pub trait ApplicationSecretsHelper {
         application_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<(), Error> {
-        use model::application_secret_bindings::Column::*;
-
-        let existing = ApplicationSecretBindings::find()
-            .filter(
-                Condition::all()
-                    .add(ApplicationId.eq(application_id))
-                    .add(SecretId.eq(secret_id)),
-            )
-            .one(database)
+        let result =
+            ApplicationSecretBindings::insert(model::application_secret_bindings::ActiveModel {
+                secret_id: sea_orm::ActiveValue::Set(secret_id),
+                application_id: sea_orm::ActiveValue::Set(application_id),
+            })
+            .on_conflict_do_nothing()
+            .exec(database)
             .await?;
 
-        if existing.is_some() {
+        if matches!(result, TryInsertResult::Conflicted) {
             return Err(Error::with_code(
                 StatusCode::CONFLICT,
                 format!(
@@ -202,13 +200,6 @@ pub trait ApplicationSecretsHelper {
                 ),
             ));
         }
-
-        model::application_secret_bindings::ActiveModel {
-            secret_id: sea_orm::ActiveValue::Set(secret_id),
-            application_id: sea_orm::ActiveValue::Set(application_id),
-        }
-        .insert(database)
-        .await?;
 
         Ok(())
     }
