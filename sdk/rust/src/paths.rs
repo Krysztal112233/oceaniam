@@ -50,6 +50,8 @@ pub const AUDITS: &str = "/audits";
 // Secrets
 pub const SECRETS: &str = "/secrets";
 pub const SECRET: &str = concatcp!(SECRETS, "/{}");
+pub const SECRET_BINDINGS: &str = concatcp!(SECRET, "/bindings");
+pub const SECRET_BINDING: &str = concatcp!(SECRET_BINDINGS, "/{}");
 
 /// Replace `{}` placeholders with runtime arguments.
 /// Number of `{}` in template must match the number of args.
