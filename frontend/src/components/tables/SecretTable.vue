@@ -11,11 +11,14 @@ const props = defineProps<{
     canGoToPreviousPage: boolean;
     canGoToNextPage: boolean;
     loading?: boolean;
+    deleteSecretId?: string | null;
 }>();
 
 const emit = defineEmits<{
     previousPage: [];
     nextPage: [];
+    detail: [secretId: string];
+    delete: [secretId: string];
 }>();
 
 const rows = computed(() =>
@@ -72,6 +75,7 @@ function formatApplicationIds(applicationIds: string[]): string[] {
                         <th class="whitespace-nowrap">Created At</th>
                         <th class="whitespace-nowrap">Status</th>
                         <th>Applications</th>
+                        <th class="whitespace-nowrap">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -121,6 +125,28 @@ function formatApplicationIds(applicationIds: string[]): string[] {
                                 >
                                     {{ applicationId }}
                                 </span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="flex gap-1">
+                                <button
+                                    type="button"
+                                    class="btn btn-ghost btn-xs"
+                                    @click="emit('detail', row.id)"
+                                >
+                                    详情
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn btn-error btn-outline btn-xs"
+                                    :disabled="deleteSecretId === row.id"
+                                    :class="{
+                                        loading: deleteSecretId === row.id,
+                                    }"
+                                    @click="emit('delete', row.id)"
+                                >
+                                    删除
+                                </button>
                             </div>
                         </td>
                     </tr>

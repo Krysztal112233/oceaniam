@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import type { SecretVO } from "@oceaniam/sdk";
 import { useToast } from "vue-toastification";
 import CreateSecretModal from "../components/modals/CreateSecretModal.vue";
+import ConfirmDeleteSecretModal from "../components/modals/ConfirmDeleteSecretModal.vue";
 import SecretTable from "../components/tables/SecretTable.vue";
 import EntityListPage from "../components/layout/EntityListPage.vue";
 import { useTenantStore } from "../stores/tenant";
 import { getClient } from "../utils/api-client";
 
 const route = useRoute();
+const router = useRouter();
 const tenantStore = useTenantStore();
 const toast = useToast();
 const {
@@ -26,6 +28,10 @@ const secretsError = ref<string | null>(null);
 const createSecretLoading = ref(false);
 const createSecretError = ref<string | null>(null);
 const isCreateDialogOpen = ref(false);
+const isDeleteDialogOpen = ref(false);
+const deleteSecretId = ref<string | null>(null);
+const deleteSecretError = ref<string | null>(null);
+const deleteSecretLoading = ref(false);
 const createdSecret = ref<SecretVO | null>(null);
 const requestId = ref(0);
 const currentPage = ref(1);
@@ -100,6 +106,51 @@ function openCreateDialog(): void {
 
 function closeCreateDialog(): void {
     isCreateDialogOpen.value = false;
+}
+
+function openDeleteDialog(secretId: string): void {
+    deleteSecretId.value = secretId;
+    deleteSecretError.value = null;
+    isDeleteDialogOpen.value = true;
+}
+
+function closeDeleteDialog(): void {
+    isDeleteDialogOpen.value = false;
+    deleteSecretId.value = null;
+}
+
+function handleViewDetail(secretId: string): void {
+    const targetTenantId = tenantId.value || currentTenantId.value;
+    if (!targetTenantId) return;
+
+    void router.push({
+        name: "api-secret-detail",
+        params: { tenantId: targetTenantId, secretId },
+    });
+}
+
+async function handleDeleteSecret(secretId: string): Promise<void> {
+    deleteSecretLoading.value = true;
+    deleteSecretError.value = null;
+
+    try {
+        await getClient().deleteSecret(secretId);
+        toast.success("API Secret 已删除");
+
+        if (createdSecret.value?.id === secretId) {
+            createdSecret.value = null;
+        }
+
+        isDeleteDialogOpen.value = false;
+        deleteSecretId.value = null;
+        await loadApiSecrets(tenantId.value || currentTenantId.value);
+    } catch (err) {
+        deleteSecretError.value =
+            err instanceof Error ? err.message : "删除 API Secret 失败。";
+        toast.error(deleteSecretError.value);
+    } finally {
+        deleteSecretLoading.value = false;
+    }
 }
 
 async function loadApiSecrets(nextTenantId: string): Promise<void> {
@@ -303,8 +354,11 @@ watch(
                     :can-go-to-previous-page="canGoToPreviousPage"
                     :can-go-to-next-page="canGoToNextPage"
                     :loading="secretsLoading"
+                    :delete-secret-id="deleteSecretId"
                     @previous-page="goToPreviousPage"
                     @next-page="goToNextPage"
+                    @detail="handleViewDetail"
+                    @delete="openDeleteDialog"
                 />
             </div>
         </div>
@@ -317,5 +371,14 @@ watch(
         :error="createSecretError"
         @close="closeCreateDialog"
         @submit="handleCreateSecret"
+    />
+
+    <ConfirmDeleteSecretModal
+        :open="isDeleteDialogOpen"
+        :secret-id="deleteSecretId ?? ''"
+        :loading="deleteSecretLoading"
+        :error="deleteSecretError"
+        @close="closeDeleteDialog"
+        @confirm="handleDeleteSecret"
     />
 </template>

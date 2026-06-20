@@ -7,6 +7,7 @@ import ApplicationsView from "./view/ApplicationsView.vue";
 import UsersEntryView from "./view/UsersEntryView.vue";
 import ApiSecretsEntryView from "./view/ApiSecretsEntryView.vue";
 import ApiSecretsView from "./view/ApiSecretsView.vue";
+import ApiSecretDetailView from "./view/ApiSecretDetailView.vue";
 import AuditsView from "./view/AuditsView.vue";
 import StatisticsView from "./view/StatisticsView.vue";
 import UsersView from "./view/UsersView.vue";
@@ -48,6 +49,11 @@ const routes = [
         path: "/tenants/:tenantId/api-secrets",
         component: ApiSecretsView,
         name: "api-secrets",
+    },
+    {
+        path: "/tenants/:tenantId/api-secrets/:secretId",
+        component: ApiSecretDetailView,
+        name: "api-secret-detail",
     },
     { path: "/audits", component: AuditsView, name: "audits" },
     { path: "/statistics", component: StatisticsView, name: "statistics" },
