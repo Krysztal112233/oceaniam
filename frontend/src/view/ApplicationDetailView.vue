@@ -6,6 +6,7 @@ import type {
     ApplicationConfigurationVO,
     ApplicationKeyVO,
     ApplicationVO,
+    SecretVO,
 } from "@oceaniam/sdk";
 import EntityListPage from "../components/layout/EntityListPage.vue";
 import { useTenantStore } from "../stores/tenant";
@@ -34,7 +35,9 @@ const loadingKeys = ref(false);
 const creatingKey = ref(false);
 const revokingKeyId = ref<string | null>(null);
 const newlyCreatedKey = ref<ApplicationKeyVO | null>(null);
-const activeTab = ref<"config" | "keys">("config");
+const secrets = ref<SecretVO[]>([]);
+const loadingSecrets = ref(false);
+const activeTab = ref<"config" | "keys" | "secrets">("config");
 
 const tenantId = computed(() => {
     const raw = route.params.tenantId;
@@ -81,6 +84,7 @@ async function loadApplicationDetail(): Promise<void> {
     application.value = null;
     configuration.value = null;
     keys.value = [];
+    secrets.value = [];
     error.value = null;
 
     if (!normalizedTenantId || !normalizedApplicationId) {
@@ -94,6 +98,7 @@ async function loadApplicationDetail(): Promise<void> {
     requestId.value = currentRequestId;
     loading.value = true;
     loadingKeys.value = true;
+    loadingSecrets.value = true;
 
     try {
         const client = getClient();
@@ -143,6 +148,31 @@ async function loadApplicationDetail(): Promise<void> {
     } finally {
         if (currentRequestId === requestId.value) {
             loadingKeys.value = false;
+        }
+    }
+
+    try {
+        const client = getClient();
+        const response = await client.getApplicationSecrets(
+            normalizedTenantId,
+            normalizedApplicationId,
+        );
+
+        if (currentRequestId !== requestId.value) {
+            return;
+        }
+
+        secrets.value = response.items;
+    } catch (err) {
+        if (currentRequestId !== requestId.value) {
+            return;
+        }
+
+        console.error("加载 API 密钥列表失败:", err);
+        secrets.value = [];
+    } finally {
+        if (currentRequestId === requestId.value) {
+            loadingSecrets.value = false;
         }
     }
 }
@@ -441,6 +471,14 @@ watch(
                 >
                     密钥管理
                 </button>
+                <button
+                    role="tab"
+                    class="tab"
+                    :class="{ 'tab-active': activeTab === 'secrets' }"
+                    @click="activeTab = 'secrets'"
+                >
+                    API 密钥
+                </button>
             </div>
 
             <div v-show="activeTab === 'config'" class="pt-4">
@@ -507,6 +545,79 @@ watch(
                             @rotate="handleRotateKey"
                             @revoke="handleRevokeKey"
                         />
+                    </div>
+                </section>
+            </div>
+
+            <div v-show="activeTab === 'secrets'">
+                <section class="rounded-box border border-base-200 bg-base-100">
+                    <div class="flex flex-col gap-4 px-5 py-5">
+                        <div class="space-y-1">
+                            <h3 class="text-base font-medium text-base-content">
+                                API 密钥
+                            </h3>
+                            <p class="text-sm text-base-content/60">
+                                当前 Application 绑定的 API 密钥列表。
+                            </p>
+                        </div>
+
+                        <div v-if="loadingSecrets" class="space-y-3">
+                            <div class="skeleton h-12 w-full"></div>
+                            <div class="skeleton h-12 w-full"></div>
+                        </div>
+
+                        <div
+                            v-else-if="secrets.length === 0"
+                            class="text-sm text-base-content/60"
+                        >
+                            暂未绑定 API 密钥。
+                        </div>
+
+                        <div v-else class="overflow-x-auto">
+                            <table class="table table-zebra min-w-220">
+                                <thead>
+                                    <tr class="text-sm text-base-content/70">
+                                        <th>Secret ID</th>
+                                        <th>Secret</th>
+                                        <th>创建时间</th>
+                                        <th>状态</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr
+                                        v-for="secret in secrets"
+                                        :key="secret.id"
+                                        class="hover"
+                                    >
+                                        <td class="font-mono text-xs">
+                                            {{ secret.id }}
+                                        </td>
+                                        <td class="font-mono text-xs">
+                                            {{ secret.secret }}
+                                        </td>
+                                        <td class="text-sm">
+                                            {{ secret.created_at }}
+                                        </td>
+                                        <td>
+                                            <span
+                                                class="badge badge-sm"
+                                                :class="
+                                                    secret.revoked_at
+                                                        ? 'badge-error badge-soft'
+                                                        : 'badge-success badge-soft'
+                                                "
+                                            >
+                                                {{
+                                                    secret.revoked_at
+                                                        ? "已撤销"
+                                                        : "有效"
+                                                }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </section>
             </div>
