@@ -459,6 +459,8 @@ export class OceanIamClient {
       this.buildUrl(OceanIamClient.PATHS.secretBindings(secretId)),
     secretBinding: (secretId: string, applicationId: string): string =>
       this.buildUrl(OceanIamClient.PATHS.secretBinding(secretId, applicationId)),
+    applicationSecrets: (tenantId: string, applicationId: string): string =>
+      this.buildUrl(OceanIamClient.PATHS.applicationSecrets(tenantId, applicationId)),
 
     // Statistics
     statistics: (): string => this.buildUrl(OceanIamClient.PATHS.statistics),
