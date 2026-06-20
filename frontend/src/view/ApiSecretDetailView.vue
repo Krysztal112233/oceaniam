@@ -22,6 +22,9 @@ const isDeleteDialogOpen = ref(false);
 const deleteSecretError = ref<string | null>(null);
 const deleteSecretLoading = ref(false);
 
+const bindLoading = ref<Set<string>>(new Set());
+const selectedAppId = ref<string>("");
+
 const tenantId = computed(() => {
     const raw = route.params.tenantId;
     return typeof raw === "string" ? raw : "";
@@ -30,6 +33,21 @@ const tenantId = computed(() => {
 const secretId = computed(() => {
     const raw = route.params.secretId;
     return typeof raw === "string" ? raw : "";
+});
+
+const applicationComments = computed<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    for (const app of tenantStore.applications) {
+        map[app.id] = app.comment ?? app.id;
+    }
+    return map;
+});
+
+const boundAppIds = computed(() => secret.value?.application_ids ?? []);
+
+const unboundApplications = computed(() => {
+    const bound = new Set(boundAppIds.value);
+    return tenantStore.applications.filter((app) => !bound.has(app.id));
 });
 
 const summaryText = computed(() => {
@@ -98,6 +116,8 @@ async function loadSecretDetail(): Promise<void> {
         }
 
         secret.value = secretResponse;
+        const firstUnbound = unboundApplications.value[0];
+        selectedAppId.value = firstUnbound?.id ?? "";
     } catch (err) {
         if (currentRequestId !== requestId.value) {
             return;
@@ -109,6 +129,52 @@ async function loadSecretDetail(): Promise<void> {
         if (currentRequestId === requestId.value) {
             loading.value = false;
         }
+    }
+}
+
+async function handleBindSecret(): Promise<void> {
+    const appId = selectedAppId.value;
+    if (!appId) return;
+
+    bindLoading.value = new Set([...bindLoading.value, appId]);
+
+    try {
+        await getClient().bindSecretToApplication(secretId.value, appId);
+        toast.success("Secret 已绑定到应用。");
+        selectedAppId.value = "";
+        secret.value = await getClient().getSecret(secretId.value);
+        const firstUnbound = unboundApplications.value[0];
+        selectedAppId.value = firstUnbound?.id ?? "";
+    } catch (err) {
+        const message =
+            err instanceof Error ? err.message : "绑定 Secret 失败。";
+        toast.error(message);
+    } finally {
+        const next = new Set(bindLoading.value);
+        next.delete(appId);
+        bindLoading.value = next;
+    }
+}
+
+async function handleUnbindSecret(appId: string): Promise<void> {
+    bindLoading.value = new Set([...bindLoading.value, appId]);
+
+    try {
+        await getClient().unbindSecretFromApplication(secretId.value, appId);
+        toast.success("Secret 已解除绑定。");
+        secret.value = await getClient().getSecret(secretId.value);
+        const firstUnbound = unboundApplications.value[0];
+        if (!selectedAppId.value && firstUnbound) {
+            selectedAppId.value = firstUnbound.id;
+        }
+    } catch (err) {
+        const message =
+            err instanceof Error ? err.message : "解除绑定失败。";
+        toast.error(message);
+    } finally {
+        const next = new Set(bindLoading.value);
+        next.delete(appId);
+        bindLoading.value = next;
     }
 }
 
@@ -245,20 +311,75 @@ watch(
                     <div class="text-sm text-base-content/60 font-medium">
                         关联应用
                     </div>
+
                     <div
-                        v-if="secret.application_ids.length === 0"
+                        v-if="boundAppIds.length === 0"
                         class="mt-2 text-sm text-base-content/60"
                     >
                         未关联应用
                     </div>
-                    <div v-else class="mt-2 flex flex-wrap gap-2">
-                        <span
-                            v-for="appId in secret.application_ids"
+
+                    <div v-else class="mt-2 space-y-2">
+                        <div
+                            v-for="appId in boundAppIds"
                             :key="appId"
-                            class="badge badge-outline"
+                            class="flex items-center gap-2 rounded-lg border border-base-200 px-3 py-2"
                         >
-                            {{ appId }}
-                        </span>
+                            <div class="flex-1 text-sm">
+                                <span class="font-mono text-base-content">
+                                    {{ appId }}
+                                </span>
+                                <span
+                                    v-if="applicationComments[appId]"
+                                    class="ml-1 text-base-content/60"
+                                >
+                                    ({{ applicationComments[appId] }})
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                class="btn btn-error btn-outline btn-xs"
+                                :class="{
+                                    loading: bindLoading.has(appId),
+                                }"
+                                :disabled="bindLoading.has(appId)"
+                                @click="handleUnbindSecret(appId)"
+                            >
+                                解绑
+                            </button>
+                        </div>
+                    </div>
+
+                    <div
+                        v-if="unboundApplications.length > 0"
+                        class="mt-3 flex items-center gap-2"
+                    >
+                        <select
+                            v-model="selectedAppId"
+                            class="select select-bordered select-sm flex-1"
+                        >
+                            <option value="" disabled>
+                                选择应用...
+                            </option>
+                            <option
+                                v-for="app in unboundApplications"
+                                :key="app.id"
+                                :value="app.id"
+                            >
+                                {{ app.id }}
+                                <template v-if="app.comment">
+                                    ({{ app.comment }})
+                                </template>
+                            </option>
+                        </select>
+                        <button
+                            type="button"
+                            class="btn btn-primary btn-sm"
+                            :disabled="!selectedAppId"
+                            @click="handleBindSecret"
+                        >
+                            绑定
+                        </button>
                     </div>
                 </div>
 
