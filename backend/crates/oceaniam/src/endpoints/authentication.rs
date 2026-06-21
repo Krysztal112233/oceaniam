@@ -30,7 +30,7 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 use crate::{
     middlewares,
     state::{AppState, keybox::EncodedJwt},
-    util::token_response::dispatch_signin_response,
+    util::{cookie::clear_auth_cookie, token_response::dispatch_signin_response},
 };
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
@@ -171,6 +171,7 @@ pub async fn delete_auth_token(
     State(AppState {
         revoked_jwt,
         auditing,
+        config,
         ..
     }): State<AppState>,
 ) -> AppResult<SignoutResponse> {
@@ -199,7 +200,8 @@ pub async fn delete_auth_token(
         }))
         .await;
 
-    Ok(ApiResponse::new(SignoutResponse::default()))
+    let clear = clear_auth_cookie(config.cookie.secure);
+    Ok(ApiResponse::new(SignoutResponse::default()).with_cookie(clear)?)
 }
 
 /// Create auth user (signup)

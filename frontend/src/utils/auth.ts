@@ -42,24 +42,17 @@ export async function login(username: string, password: string): Promise<void> {
             "Both",
         );
 
-        // Prefer the server-issued auth cookie; use JSON jwt only as a fallback.
-        authStore.syncFromCookie();
-        if (!authStore.jwt && "jwt" in resp && resp.jwt?.trim()) {
+        if ("jwt" in resp && resp.jwt) {
             authStore.setAuthToken(resp.jwt);
+            authStore.username = normalizedUsername;
         }
-
-        authStore.isLoggedIn = Boolean(authStore.jwt);
-        authStore.username = normalizedUsername;
-        authStore.expiresAt = null;
 
         authState.user = {
             username: normalizedUsername,
             displayName: normalizedUsername,
         };
     } catch (error) {
-        authStore.isLoggedIn = false;
-        authStore.username = null;
-        authStore.expiresAt = null;
+        authStore.setAuthToken(null);
         authState.user = null;
         authState.error =
             error instanceof Error ? error.message : "Login failed.";
@@ -84,10 +77,6 @@ export async function logout(): Promise<void> {
         // Keep local logout deterministic even if remote revocation fails.
     } finally {
         authStore.setAuthToken(null);
-        authStore.isLoggedIn = false;
-        authStore.username = null;
-        authStore.expiresAt = null;
-
         authState.user = null;
         authState.loading = false;
     }

@@ -1,5 +1,4 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
 
 const AUTH_TOKEN_COOKIE_NAME = "auth_token";
 
@@ -51,17 +50,16 @@ function readCookie(name: string): string | null {
     return null;
 }
 
-// NOTE: AI-generated function
 function writeAuthCookie(token: string | null): void {
     if (typeof document === "undefined") return;
 
     const normalized = token?.trim();
     if (!normalized) {
-        document.cookie = `${AUTH_TOKEN_COOKIE_NAME}=; Max-Age=0; Path=/`;
+        document.cookie = `${AUTH_TOKEN_COOKIE_NAME}=; Max-Age=0; Path=/; Secure; SameSite=Lax`;
         return;
     }
 
-    document.cookie = `${AUTH_TOKEN_COOKIE_NAME}=${encodeURIComponent(normalized)}; Path=/`;
+    document.cookie = `${AUTH_TOKEN_COOKIE_NAME}=${encodeURIComponent(normalized)}; Path=/; Secure; SameSite=Lax`;
 }
 
 export const useAuthStore = defineStore("auth", {
@@ -80,36 +78,36 @@ export const useAuthStore = defineStore("auth", {
             }
         }
 
-        const isLoggedIn = ref(Boolean(validJwt));
-        const username = ref<string | null>(null);
-        const jwt = ref<string | null>(validJwt);
-        const expiresAt = ref<number | null>(initialExpiresAt);
-
-        function syncFromCookie(): void {
-            const token = readCookie(AUTH_TOKEN_COOKIE_NAME);
-            jwt.value = token;
-            isLoggedIn.value = Boolean(token);
-            if (!token) {
-                username.value = null;
-                expiresAt.value = null;
-            } else {
-                expiresAt.value = decodeJwtExp(token);
-            }
-        }
-
-        function setAuthToken(token: string | null): void {
-            writeAuthCookie(token);
-            syncFromCookie();
-        }
-
         return {
-            isLoggedIn,
-            expiresAt,
-            username,
-            jwt,
-            syncFromCookie,
-            setAuthToken,
+            isLoggedIn: Boolean(validJwt),
+            username: null as string | null,
+            jwt: validJwt,
+            expiresAt: initialExpiresAt,
         };
+    },
+    actions: {
+        syncFromCookie(): void {
+            const token = readCookie(AUTH_TOKEN_COOKIE_NAME);
+            this.jwt = token;
+            this.isLoggedIn = Boolean(token);
+            if (!token) {
+                this.username = null;
+                this.expiresAt = null;
+            } else {
+                this.expiresAt = decodeJwtExp(token);
+            }
+        },
+        setAuthToken(token: string | null): void {
+            writeAuthCookie(token);
+            this.jwt = token;
+            this.isLoggedIn = Boolean(token);
+            if (!token) {
+                this.username = null;
+                this.expiresAt = null;
+            } else {
+                this.expiresAt = decodeJwtExp(token);
+            }
+        },
     },
     persist: true,
 });
