@@ -70,7 +70,7 @@ pub trait AdministratorsHelper {
             .map(|it| match it {
                 Some(inner) => Ok(inner),
                 None => Err(Error::with_code(
-                    StatusCode::NOT_FOUND,
+                    StatusCode::UNAUTHORIZED,
                     consts::USER_LOGIN_FAILED_MSG,
                 )),
             })??)

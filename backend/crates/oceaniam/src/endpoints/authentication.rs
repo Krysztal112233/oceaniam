@@ -12,7 +12,7 @@
 //!
 //! - JWT tokens have a limited lifetime (5 days by default)
 //! - Revoked tokens are tracked in database and cannot be reused
-//! - All authentication failures return 401 to prevent username enumeration attacks
+//! - All authentication failures return 401 to prevent username enumeration
 
 use crate::error::{AppResult, Error};
 use axum::{Json, extract::State, http::StatusCode};
@@ -49,7 +49,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
 ///
 /// # Errors
 ///
-/// Returns 401 if credentials are invalid (wrong password or user not found)
+/// Returns 401 if credentials are invalid (all failures return 401 to prevent enumeration)
 /// Returns 500 if system keybox is unavailable or cannot generate token
 #[utoipa::path(
         post,

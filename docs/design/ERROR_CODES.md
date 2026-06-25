@@ -23,16 +23,11 @@ Also used for malformed request paths, missing search parameters, or unparseable
 ### 401 Unauthorized — Authentication Required
 
 - Missing or invalid `X-OceanIAM-Application-Secret` header.
-- Platform login with wrong password.
+- Platform login with invalid credentials (user not found or wrong password — both return 401 to prevent enumeration).
+- Application-scoped login with invalid credentials (user not found or wrong password — both return 401 to prevent enumeration).
 - TOTP / MFA challenge verification failure.
 
 These are cases where valid credentials exist but were not provided, or where the provided credentials are provably wrong (as opposed to "looks wrong", which falls under 400). The caller should re-authenticate.
-
-> [!NOTE]
-> Application-scoped login (email/phone + password) does **not** return 401
-> on wrong credentials — it returns 500 with a generic message
-> (`USER_LOGIN_FAILED_MSG`) to prevent email/phone enumeration. That is a
-> deliberate anti-enumeration measure, not a bug.
 
 ### 403 Forbidden — Insufficient Permissions
 
@@ -49,4 +44,4 @@ Returned when creating an administrator with a name that already exists.
 ### 500 Internal Server Error — Unexpected Failure
 
 - Infrastructure failures: keybox, credential vault, bloom filter, JWT library, Argon2 parameter construction.
-- Database connection or constraint errors. Login failure masking: `find_by_email`, `find_by_phone`, and application-scoped password verification all return 500 with `USER_LOGIN_FAILED_MSG` when the credentials do not match. This way the caller cannot distinguish "user was not found" from "password was wrong".
+- Database connection or constraint errors.

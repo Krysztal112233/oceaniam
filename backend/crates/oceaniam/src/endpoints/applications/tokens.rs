@@ -48,7 +48,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
         responses(
             (status = 200, body = ApiResponse<SigninResponseOrChallenge>),
             (status = 400, description = "Bad request"),
-            (status = 401, description = "Unauthorized"),
+            (status = 401, description = "Invalid credentials (all failures return 401 to prevent enumeration)"),
             (status = 403, description = "Forbidden - secret does not belong to this application"),
             (status = 404, description = "Application not found"),
             (status = 500, description = "Internal server error"),
@@ -129,7 +129,7 @@ pub async fn create_application_token(
 
     if !verify_result {
         return Err(Error::with_code(
-            StatusCode::INTERNAL_SERVER_ERROR,
+            StatusCode::UNAUTHORIZED,
             consts::USER_LOGIN_FAILED_MSG,
         ));
     }

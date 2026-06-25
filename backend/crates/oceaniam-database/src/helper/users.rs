@@ -258,7 +258,7 @@ pub trait UserHelper {
         match Users::find().filter(condition).one(database).await {
             Ok(Some(user)) => Ok(user),
             Ok(None) => Err(Error::with_code(
-                StatusCode::INTERNAL_SERVER_ERROR,
+                StatusCode::UNAUTHORIZED,
                 oceaniam_common::consts::USER_LOGIN_FAILED_MSG,
             )),
             Err(e) => Err(Error::Db {

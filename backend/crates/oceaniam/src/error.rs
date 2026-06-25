@@ -118,24 +118,24 @@ impl IntoResponse for Error {
     fn into_response(self) -> axum::response::Response {
         let error_id = Span::current().id().map_or(0, |id| id.into_u64());
 
-        tracing::error!(
-            error_id,
-            error = %self,
-            "unhandled error"
-        );
-
-        let status = match self {
-            Self::CustomMessage { code, .. } => {
-                StatusCode::from_u16(code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR)
+        let (status, msg) = match self {
+            Self::CustomMessage { code, msg, .. } => (
+                StatusCode::from_u16(code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+                msg,
+            ),
+            _ => {
+                let status = StatusCode::INTERNAL_SERVER_ERROR;
+                (status, status.to_string())
             }
-            _ => StatusCode::INTERNAL_SERVER_ERROR,
         };
+
+        tracing::error!(error_id, msg = %msg, "unhandled error");
 
         (
             status,
             Json(ApiErrorResponse {
                 payload: Some(ErrorResponseBody {
-                    msg: status.to_string(),
+                    msg,
                     error_id: format!("{:016x}", error_id),
                 }),
             }),
