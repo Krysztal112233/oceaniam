@@ -7,6 +7,7 @@ import {
     type SearchApplicationUsersQuery,
 } from "@oceaniam/sdk";
 import { useToast } from "vue-toastification";
+import ChangePasswordModal from "../components/modals/ChangePasswordModal.vue";
 import CreateUserModal from "../components/modals/CreateUserModal.vue";
 import EntityListPage from "../components/layout/EntityListPage.vue";
 import { useAuthStore } from "../stores/auth";
@@ -50,6 +51,11 @@ const currentPage = ref(1);
 const perPage = 25;
 const totalUsers = ref(0);
 const hasNextPage = ref(false);
+
+const isPasswordDialogOpen = ref(false);
+const passwordChangeLoading = ref(false);
+const passwordChangeError = ref<string | null>(null);
+const selectedUserForPassword = ref<UserItem | null>(null);
 
 const canOpenCreateDialog = computed(
     () =>
@@ -275,6 +281,55 @@ async function handleCreateUser(
     }
 }
 
+function openChangePasswordDialog(user: UserItem): void {
+    passwordChangeError.value = null;
+    selectedUserForPassword.value = user;
+    isPasswordDialogOpen.value = true;
+}
+
+function closeChangePasswordDialog(): void {
+    if (passwordChangeLoading.value) {
+        return;
+    }
+
+    isPasswordDialogOpen.value = false;
+    passwordChangeError.value = null;
+    selectedUserForPassword.value = null;
+}
+
+async function handleChangePassword(password: string): Promise<void> {
+    const normalizedTenantId = tenantId.value.trim();
+    const normalizedApplicationId = applicationId.value.trim();
+    const user = selectedUserForPassword.value;
+
+    if (!normalizedTenantId || !normalizedApplicationId || !user) {
+        passwordChangeError.value = "缺少必要的上下文信息。";
+        return;
+    }
+
+    passwordChangeLoading.value = true;
+    passwordChangeError.value = null;
+
+    try {
+        await getClient().patchApplicationUserCredentials(
+            normalizedTenantId,
+            normalizedApplicationId,
+            user.id,
+            { password },
+        );
+
+        isPasswordDialogOpen.value = false;
+        selectedUserForPassword.value = null;
+        toast.success("密码已更新");
+    } catch (err) {
+        passwordChangeError.value =
+            err instanceof Error ? err.message : "修改密码失败。";
+        toast.error(passwordChangeError.value);
+    } finally {
+        passwordChangeLoading.value = false;
+    }
+}
+
 async function goToPreviousPage(): Promise<void> {
     if (!canGoToPreviousPage.value || usersLoading.value) {
         return;
@@ -492,6 +547,7 @@ watch(
                                         </th>
                                         <th class="whitespace-nowrap">Email</th>
                                         <th class="whitespace-nowrap">Phone</th>
+                                        <th class="whitespace-nowrap">操作</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -509,6 +565,19 @@ watch(
                                         </td>
                                         <td class="whitespace-nowrap">
                                             {{ user.phone || "-" }}
+                                        </td>
+                                        <td class="whitespace-nowrap">
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-ghost"
+                                                @click="
+                                                    openChangePasswordDialog(
+                                                        user,
+                                                    )
+                                                "
+                                            >
+                                                修改密码
+                                            </button>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -549,12 +618,6 @@ watch(
                             </div>
                         </div>
                     </div>
-
-                    <div class="mt-4 alert alert-warning alert-soft">
-                        <span>
-                            当前不提供详情、编辑或删除入口，避免暴露尚未实现的无效操作。
-                        </span>
-                    </div>
                 </div>
             </section>
         </div>
@@ -568,5 +631,17 @@ watch(
         :applications="[{ id: applicationId, label: applicationId }]"
         @close="closeCreateDialog"
         @submit="handleCreateUser"
+    />
+
+    <ChangePasswordModal
+        :open="isPasswordDialogOpen"
+        :tenant-id="tenantId"
+        :application-id="applicationId"
+        :user-id="selectedUserForPassword?.id ?? ''"
+        :nickname="selectedUserForPassword?.nickname ?? ''"
+        :loading="passwordChangeLoading"
+        :error="passwordChangeError"
+        @close="closeChangePasswordDialog"
+        @submit="handleChangePassword"
     />
 </template>
