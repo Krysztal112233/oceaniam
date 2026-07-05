@@ -23,10 +23,15 @@ fmt:
     cd ./frontend && pnpm fmt
     cd ./sdk/rust && cargo fmt
     cd ./sdk/typescript && pnpm fmt
+    cd ./sdk/dart && fvm dart format .
 
 build:
     cd ./backend && cargo build --all -r
     cd ./frontend && pnpm build
+    cd ./sdk/dart && fvm dart run build_runner build
+
+build-flutter:
+    cd ./sdk/dart && fvm dart run build_runner build
 
 check:
     cd ./backend && cargo test --all -r
