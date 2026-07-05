@@ -1,0 +1,19 @@
+name: oceaniam_sdk
+version: 0.1.0
+description: Dart SDK for OceanIAM ORBAC IAM platform
+repository: https://github.com/Krysztal112233/oceaniam
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  http: ^1.2.0
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+
+dev_dependencies:
+  build_runner: ^2.4.14
+  freezed: ^2.5.8
+  json_serializable: ^6.9.4
+  lints: ^4.0.0
+  test: ^1.25.15
