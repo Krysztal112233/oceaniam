@@ -1,0 +1,34 @@
+import 'package:flutter/material.dart';
+
+class AdminPageScaffold extends StatelessWidget {
+  final String title;
+  final List<Widget>? actions;
+  final Widget child;
+
+  const AdminPageScaffold({
+    super.key,
+    required this.title,
+    required this.child,
+    this.actions,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 16, 8),
+          child: Row(
+            children: [
+              Text(title, style: Theme.of(context).textTheme.headlineSmall),
+              const Spacer(),
+              ...?actions,
+            ],
+          ),
+        ),
+        Expanded(child: child),
+      ],
+    );
+  }
+}
