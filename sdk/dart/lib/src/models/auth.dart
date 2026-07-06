@@ -17,7 +17,7 @@ class SigninRequest with _$SigninRequest {
 @freezed
 class SigninResponse with _$SigninResponse {
   const factory SigninResponse({
-    required String token,
+    required String jwt,
   }) = _SigninResponse;
 
   factory SigninResponse.fromJson(Map<String, dynamic> json) =>
@@ -27,7 +27,7 @@ class SigninResponse with _$SigninResponse {
 @freezed
 class RefreshTokenResponse with _$RefreshTokenResponse {
   const factory RefreshTokenResponse({
-    required String token,
+    required String jwt,
   }) = _RefreshTokenResponse;
 
   factory RefreshTokenResponse.fromJson(Map<String, dynamic> json) =>

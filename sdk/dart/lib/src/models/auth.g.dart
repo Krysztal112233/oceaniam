@@ -20,23 +20,23 @@ Map<String, dynamic> _$$SigninRequestImplToJson(_$SigninRequestImpl instance) =>
 
 _$SigninResponseImpl _$$SigninResponseImplFromJson(Map<String, dynamic> json) =>
     _$SigninResponseImpl(
-      token: json['token'] as String,
+      jwt: json['jwt'] as String,
     );
 
 Map<String, dynamic> _$$SigninResponseImplToJson(
         _$SigninResponseImpl instance) =>
     <String, dynamic>{
-      'token': instance.token,
+      'jwt': instance.jwt,
     };
 
 _$RefreshTokenResponseImpl _$$RefreshTokenResponseImplFromJson(
         Map<String, dynamic> json) =>
     _$RefreshTokenResponseImpl(
-      token: json['token'] as String,
+      jwt: json['jwt'] as String,
     );
 
 Map<String, dynamic> _$$RefreshTokenResponseImplToJson(
         _$RefreshTokenResponseImpl instance) =>
     <String, dynamic>{
-      'token': instance.token,
+      'jwt': instance.jwt,
     };
