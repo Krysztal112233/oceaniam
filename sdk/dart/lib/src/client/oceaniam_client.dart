@@ -745,7 +745,7 @@ class OceanIAMClient {
 
   Future<PlatformTrends> getPlatformTrends({
     String? granularity,
-    String? range,
+    int? range,
   }) async {
     var path = '/statistics/trends';
     final params = <String>[];
@@ -771,7 +771,7 @@ class OceanIAMClient {
     String tenantId,
     String applicationId, {
     String? granularity,
-    String? range,
+    int? range,
   }) async {
     var path =
         '/tenants/$tenantId/applications/$applicationId/statistics/trends';

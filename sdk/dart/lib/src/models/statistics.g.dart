@@ -26,21 +26,21 @@ Map<String, dynamic> _$$OverviewImplToJson(_$OverviewImpl instance) =>
 
 _$TrendDataPointImpl _$$TrendDataPointImplFromJson(Map<String, dynamic> json) =>
     _$TrendDataPointImpl(
-      date: json['date'] as String,
+      bucket: DateTime.parse(json['bucket'] as String),
       count: (json['count'] as num).toInt(),
     );
 
 Map<String, dynamic> _$$TrendDataPointImplToJson(
         _$TrendDataPointImpl instance) =>
     <String, dynamic>{
-      'date': instance.date,
+      'bucket': instance.bucket.toIso8601String(),
       'count': instance.count,
     };
 
 _$PlatformTrendsImpl _$$PlatformTrendsImplFromJson(Map<String, dynamic> json) =>
     _$PlatformTrendsImpl(
       granularity: json['granularity'] as String,
-      range: json['range'] as String,
+      range: (json['range'] as num).toInt(),
       tenants: (json['tenants'] as List<dynamic>)
           .map((e) => TrendDataPoint.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -84,7 +84,7 @@ _$ApplicationTrendsImpl _$$ApplicationTrendsImplFromJson(
         Map<String, dynamic> json) =>
     _$ApplicationTrendsImpl(
       granularity: json['granularity'] as String,
-      range: json['range'] as String,
+      range: (json['range'] as num).toInt(),
       newUsers: (json['new_users'] as List<dynamic>)
           .map((e) => TrendDataPoint.fromJson(e as Map<String, dynamic>))
           .toList(),
