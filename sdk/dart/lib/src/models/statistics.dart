@@ -21,7 +21,7 @@ class Overview with _$Overview {
 @freezed
 class TrendDataPoint with _$TrendDataPoint {
   const factory TrendDataPoint({
-    required String date,
+    required DateTime bucket,
     required int count,
   }) = _TrendDataPoint;
 
@@ -33,7 +33,7 @@ class TrendDataPoint with _$TrendDataPoint {
 class PlatformTrends with _$PlatformTrends {
   const factory PlatformTrends({
     required String granularity,
-    required String range,
+    required int range,
     required List<TrendDataPoint> tenants,
     required List<TrendDataPoint> applications,
     required List<TrendDataPoint> users,
@@ -59,7 +59,7 @@ class ApplicationStatistics with _$ApplicationStatistics {
 class ApplicationTrends with _$ApplicationTrends {
   const factory ApplicationTrends({
     required String granularity,
-    required String range,
+    required int range,
     @JsonKey(name: 'new_users') required List<TrendDataPoint> newUsers,
   }) = _ApplicationTrends;
 

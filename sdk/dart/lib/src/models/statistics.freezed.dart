@@ -277,7 +277,7 @@ TrendDataPoint _$TrendDataPointFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$TrendDataPoint {
-  String get date => throw _privateConstructorUsedError;
+  DateTime get bucket => throw _privateConstructorUsedError;
   int get count => throw _privateConstructorUsedError;
 
   /// Serializes this TrendDataPoint to a JSON map.
@@ -296,7 +296,7 @@ abstract class $TrendDataPointCopyWith<$Res> {
           TrendDataPoint value, $Res Function(TrendDataPoint) then) =
       _$TrendDataPointCopyWithImpl<$Res, TrendDataPoint>;
   @useResult
-  $Res call({String date, int count});
+  $Res call({DateTime bucket, int count});
 }
 
 /// @nodoc
@@ -314,14 +314,14 @@ class _$TrendDataPointCopyWithImpl<$Res, $Val extends TrendDataPoint>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? date = null,
+    Object? bucket = null,
     Object? count = null,
   }) {
     return _then(_value.copyWith(
-      date: null == date
-          ? _value.date
-          : date // ignore: cast_nullable_to_non_nullable
-              as String,
+      bucket: null == bucket
+          ? _value.bucket
+          : bucket // ignore: cast_nullable_to_non_nullable
+              as DateTime,
       count: null == count
           ? _value.count
           : count // ignore: cast_nullable_to_non_nullable
@@ -338,7 +338,7 @@ abstract class _$$TrendDataPointImplCopyWith<$Res>
       __$$TrendDataPointImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({String date, int count});
+  $Res call({DateTime bucket, int count});
 }
 
 /// @nodoc
@@ -354,14 +354,14 @@ class __$$TrendDataPointImplCopyWithImpl<$Res>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? date = null,
+    Object? bucket = null,
     Object? count = null,
   }) {
     return _then(_$TrendDataPointImpl(
-      date: null == date
-          ? _value.date
-          : date // ignore: cast_nullable_to_non_nullable
-              as String,
+      bucket: null == bucket
+          ? _value.bucket
+          : bucket // ignore: cast_nullable_to_non_nullable
+              as DateTime,
       count: null == count
           ? _value.count
           : count // ignore: cast_nullable_to_non_nullable
@@ -373,19 +373,19 @@ class __$$TrendDataPointImplCopyWithImpl<$Res>
 /// @nodoc
 @JsonSerializable()
 class _$TrendDataPointImpl implements _TrendDataPoint {
-  const _$TrendDataPointImpl({required this.date, required this.count});
+  const _$TrendDataPointImpl({required this.bucket, required this.count});
 
   factory _$TrendDataPointImpl.fromJson(Map<String, dynamic> json) =>
       _$$TrendDataPointImplFromJson(json);
 
   @override
-  final String date;
+  final DateTime bucket;
   @override
   final int count;
 
   @override
   String toString() {
-    return 'TrendDataPoint(date: $date, count: $count)';
+    return 'TrendDataPoint(bucket: $bucket, count: $count)';
   }
 
   @override
@@ -393,13 +393,13 @@ class _$TrendDataPointImpl implements _TrendDataPoint {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$TrendDataPointImpl &&
-            (identical(other.date, date) || other.date == date) &&
+            (identical(other.bucket, bucket) || other.bucket == bucket) &&
             (identical(other.count, count) || other.count == count));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, date, count);
+  int get hashCode => Object.hash(runtimeType, bucket, count);
 
   /// Create a copy of TrendDataPoint
   /// with the given fields replaced by the non-null parameter values.
@@ -420,14 +420,14 @@ class _$TrendDataPointImpl implements _TrendDataPoint {
 
 abstract class _TrendDataPoint implements TrendDataPoint {
   const factory _TrendDataPoint(
-      {required final String date,
+      {required final DateTime bucket,
       required final int count}) = _$TrendDataPointImpl;
 
   factory _TrendDataPoint.fromJson(Map<String, dynamic> json) =
       _$TrendDataPointImpl.fromJson;
 
   @override
-  String get date;
+  DateTime get bucket;
   @override
   int get count;
 
@@ -446,7 +446,7 @@ PlatformTrends _$PlatformTrendsFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$PlatformTrends {
   String get granularity => throw _privateConstructorUsedError;
-  String get range => throw _privateConstructorUsedError;
+  int get range => throw _privateConstructorUsedError;
   List<TrendDataPoint> get tenants => throw _privateConstructorUsedError;
   List<TrendDataPoint> get applications => throw _privateConstructorUsedError;
   List<TrendDataPoint> get users => throw _privateConstructorUsedError;
@@ -470,7 +470,7 @@ abstract class $PlatformTrendsCopyWith<$Res> {
   @useResult
   $Res call(
       {String granularity,
-      String range,
+      int range,
       List<TrendDataPoint> tenants,
       List<TrendDataPoint> applications,
       List<TrendDataPoint> users,
@@ -507,7 +507,7 @@ class _$PlatformTrendsCopyWithImpl<$Res, $Val extends PlatformTrends>
       range: null == range
           ? _value.range
           : range // ignore: cast_nullable_to_non_nullable
-              as String,
+              as int,
       tenants: null == tenants
           ? _value.tenants
           : tenants // ignore: cast_nullable_to_non_nullable
@@ -538,7 +538,7 @@ abstract class _$$PlatformTrendsImplCopyWith<$Res>
   @useResult
   $Res call(
       {String granularity,
-      String range,
+      int range,
       List<TrendDataPoint> tenants,
       List<TrendDataPoint> applications,
       List<TrendDataPoint> users,
@@ -573,7 +573,7 @@ class __$$PlatformTrendsImplCopyWithImpl<$Res>
       range: null == range
           ? _value.range
           : range // ignore: cast_nullable_to_non_nullable
-              as String,
+              as int,
       tenants: null == tenants
           ? _value._tenants
           : tenants // ignore: cast_nullable_to_non_nullable
@@ -615,7 +615,7 @@ class _$PlatformTrendsImpl implements _PlatformTrends {
   @override
   final String granularity;
   @override
-  final String range;
+  final int range;
   final List<TrendDataPoint> _tenants;
   @override
   List<TrendDataPoint> get tenants {
@@ -700,7 +700,7 @@ class _$PlatformTrendsImpl implements _PlatformTrends {
 abstract class _PlatformTrends implements PlatformTrends {
   const factory _PlatformTrends(
           {required final String granularity,
-          required final String range,
+          required final int range,
           required final List<TrendDataPoint> tenants,
           required final List<TrendDataPoint> applications,
           required final List<TrendDataPoint> users,
@@ -713,7 +713,7 @@ abstract class _PlatformTrends implements PlatformTrends {
   @override
   String get granularity;
   @override
-  String get range;
+  int get range;
   @override
   List<TrendDataPoint> get tenants;
   @override
@@ -925,7 +925,7 @@ ApplicationTrends _$ApplicationTrendsFromJson(Map<String, dynamic> json) {
 /// @nodoc
 mixin _$ApplicationTrends {
   String get granularity => throw _privateConstructorUsedError;
-  String get range => throw _privateConstructorUsedError;
+  int get range => throw _privateConstructorUsedError;
   @JsonKey(name: 'new_users')
   List<TrendDataPoint> get newUsers => throw _privateConstructorUsedError;
 
@@ -947,7 +947,7 @@ abstract class $ApplicationTrendsCopyWith<$Res> {
   @useResult
   $Res call(
       {String granularity,
-      String range,
+      int range,
       @JsonKey(name: 'new_users') List<TrendDataPoint> newUsers});
 }
 
@@ -978,7 +978,7 @@ class _$ApplicationTrendsCopyWithImpl<$Res, $Val extends ApplicationTrends>
       range: null == range
           ? _value.range
           : range // ignore: cast_nullable_to_non_nullable
-              as String,
+              as int,
       newUsers: null == newUsers
           ? _value.newUsers
           : newUsers // ignore: cast_nullable_to_non_nullable
@@ -997,7 +997,7 @@ abstract class _$$ApplicationTrendsImplCopyWith<$Res>
   @useResult
   $Res call(
       {String granularity,
-      String range,
+      int range,
       @JsonKey(name: 'new_users') List<TrendDataPoint> newUsers});
 }
 
@@ -1026,7 +1026,7 @@ class __$$ApplicationTrendsImplCopyWithImpl<$Res>
       range: null == range
           ? _value.range
           : range // ignore: cast_nullable_to_non_nullable
-              as String,
+              as int,
       newUsers: null == newUsers
           ? _value._newUsers
           : newUsers // ignore: cast_nullable_to_non_nullable
@@ -1050,7 +1050,7 @@ class _$ApplicationTrendsImpl implements _ApplicationTrends {
   @override
   final String granularity;
   @override
-  final String range;
+  final int range;
   final List<TrendDataPoint> _newUsers;
   @override
   @JsonKey(name: 'new_users')
@@ -1101,7 +1101,7 @@ class _$ApplicationTrendsImpl implements _ApplicationTrends {
 abstract class _ApplicationTrends implements ApplicationTrends {
   const factory _ApplicationTrends(
       {required final String granularity,
-      required final String range,
+      required final int range,
       @JsonKey(name: 'new_users')
       required final List<TrendDataPoint> newUsers}) = _$ApplicationTrendsImpl;
 
@@ -1111,7 +1111,7 @@ abstract class _ApplicationTrends implements ApplicationTrends {
   @override
   String get granularity;
   @override
-  String get range;
+  int get range;
   @override
   @JsonKey(name: 'new_users')
   List<TrendDataPoint> get newUsers;
