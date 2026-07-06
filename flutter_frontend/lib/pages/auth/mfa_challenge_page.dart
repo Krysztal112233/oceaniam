@@ -33,7 +33,7 @@ class _MfaChallengePageState extends State<MfaChallengePage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(FluentIcons.shield_check_24_regular, size: 40),
+                const Icon(FluentIcons.shield_checkmark_24_regular, size: 40),
                 const SizedBox(height: 12),
                 Text(
                   'Two-factor verification',

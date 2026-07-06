@@ -68,21 +68,21 @@ class _AdminShellState extends ConsumerState<AdminShell> {
   Widget _pageFor(int index) {
     switch (index) {
       case 0:
-        return const DashboardPage();
+        return const DashboardPage(key: ValueKey('page-dashboard'));
       case 1:
-        return const TenantsPage();
+        return const TenantsPage(key: ValueKey('page-tenants'));
       case 2:
-        return const SecretsPage();
+        return const SecretsPage(key: ValueKey('page-secrets'));
       case 3:
-        return const AdministratorsPage();
+        return const AdministratorsPage(key: ValueKey('page-admins'));
       case 4:
-        return const AuditsPage();
+        return const AuditsPage(key: ValueKey('page-audits'));
       case 5:
-        return const AdministratorMePage();
+        return const AdministratorMePage(key: ValueKey('page-profile'));
       case 6:
-        return const SettingsPage();
+        return const SettingsPage(key: ValueKey('page-settings'));
       default:
-        return const SizedBox.shrink();
+        return const SizedBox.shrink(key: ValueKey('page-empty'));
     }
   }
 
@@ -128,7 +128,17 @@ class _AdminShellState extends ConsumerState<AdminShell> {
             ),
           ),
           const VerticalDivider(thickness: 1, width: 1),
-          Expanded(child: _pageFor(_selectedIndex)),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              transitionBuilder: (child, animation) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+              child: _pageFor(_selectedIndex),
+            ),
+          ),
         ],
       ),
     );
