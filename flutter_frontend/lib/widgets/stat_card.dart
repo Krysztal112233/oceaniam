@@ -1,18 +1,29 @@
 import 'package:flutter/material.dart';
 
-import '../models/stat.dart';
-
+/// 概览统计卡片：图标 + 标签 + 数值 + 描述。
 class StatCard extends StatelessWidget {
-  final Stat stat;
+  final IconData icon;
+  final String label;
+  final String value;
+  final String? description;
+  final Color? iconColor;
 
-  const StatCard(this.stat, {super.key});
+  const StatCard({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.description,
+    this.iconColor,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
-        side: BorderSide(color: Theme.of(context).dividerColor),
+        side: BorderSide(color: theme.dividerColor),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
@@ -24,15 +35,22 @@ class StatCard extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  stat.icon,
+                  icon,
                   size: 20,
-                  color: Theme.of(context).colorScheme.primary,
+                  color: iconColor ?? theme.colorScheme.primary,
                 ),
                 const SizedBox(width: 8),
-                Text(stat.label, style: Theme.of(context).textTheme.labelLarge),
+                Text(label, style: theme.textTheme.labelLarge),
               ],
             ),
-            Text(stat.value, style: Theme.of(context).textTheme.headlineMedium),
+            Text(value, style: theme.textTheme.headlineMedium),
+            if (description != null)
+              Text(
+                description!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
           ],
         ),
       ),
