@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../pages/dashboard/dashboard_page.dart';
@@ -8,18 +9,22 @@ import '../pages/administrators/administrators_page.dart';
 import '../pages/administrators/administrator_me_page.dart';
 import '../pages/audits/audits_page.dart';
 import '../pages/settings_page.dart';
+import '../providers/auth_controller.dart';
+import '../theme/theme_controller.dart';
+import '../widgets/theme_toggle.dart';
 
 /// 管理后台外壳：顶栏 + NavigationRail + 内容区。
 ///
 /// nav 项按当前管理员权限集动态显示/隐藏（TODO: 接入 /administrators/me）。
-class AdminShell extends StatefulWidget {
+/// NavigationRail 底部（trailing）放置主题切换按钮，持久化到 SharedPreferences。
+class AdminShell extends ConsumerStatefulWidget {
   const AdminShell({super.key});
 
   @override
-  State<AdminShell> createState() => _AdminShellState();
+  ConsumerState<AdminShell> createState() => _AdminShellState();
 }
 
-class _AdminShellState extends State<AdminShell> {
+class _AdminShellState extends ConsumerState<AdminShell> {
   int _selectedIndex = 0;
 
   static const _destinations = [
@@ -84,9 +89,21 @@ class _AdminShellState extends State<AdminShell> {
   @override
   Widget build(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width >= 900;
+    final themeMode = ref.watch(themeControllerProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('OceanIAM Admin', key: Key('appbar-title')),
+        actions: [
+          IconButton(
+            key: const Key('signout-button'),
+            tooltip: 'Sign out',
+            icon: const Icon(FluentIcons.arrow_exit_20_regular),
+            onPressed: () async {
+              await ref.read(authControllerProvider.notifier).signout();
+            },
+          ),
+        ],
       ),
       body: Row(
         children: [
@@ -99,6 +116,16 @@ class _AdminShellState extends State<AdminShell> {
                 ? NavigationRailLabelType.none
                 : NavigationRailLabelType.all,
             destinations: _destinations,
+            trailing: Expanded(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: ThemeToggle(
+                  mode: themeMode,
+                  onChanged: (m) =>
+                      ref.read(themeControllerProvider.notifier).setMode(m),
+                ),
+              ),
+            ),
           ),
           const VerticalDivider(thickness: 1, width: 1),
           Expanded(child: _pageFor(_selectedIndex)),

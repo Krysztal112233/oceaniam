@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../widgets/admin_page_scaffold.dart';
 
@@ -26,9 +25,9 @@ class SettingsPage extends StatelessWidget {
             onChanged: null,
           ),
           ListTile(
-            leading: Icon(FluentIcons.color_background_24_regular),
+            leading: Icon(Icons.info_outline),
             title: Text('Theme'),
-            trailing: Text('System'),
+            subtitle: Text('Switch from the navigation rail footer'),
           ),
         ],
       ),

@@ -36,6 +36,16 @@ dependencies:
   cupertino_icons: ^1.0.8
   fluentui_system_icons: ^1.1.273
 
+  # State management + persistence
+  flutter_riverpod: ^2.5.1
+  riverpod: ^2.5.1
+  riverpod_annotation: ^2.3.5
+  shared_preferences: ^2.5.5
+
+  # OceanIAM Dart SDK (path dependency)
+  oceaniam_sdk:
+    path: ../sdk/dart
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -46,6 +56,10 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+
+  # Riverpod codegen
+  riverpod_generator: ^2.4.0
+  build_runner: ^2.4.14
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
