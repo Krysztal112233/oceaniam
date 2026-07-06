@@ -23,6 +23,7 @@ fmt:
     cd ./frontend && pnpm fmt
     cd ./sdk/rust && cargo fmt
     cd ./sdk/typescript && pnpm fmt
+    cd ./flutter_frontend && fvm dart format .
     cd ./sdk/dart && fvm dart format .
 
 build:
@@ -32,6 +33,8 @@ build:
 
 build-flutter:
     cd ./sdk/dart && fvm dart run build_runner build
+    cd ./flutter_frontend/ && fvm dart run build_runner build
+    cd ./flutter_frontend/ && fvm flutter build web --release
 
 check:
     cd ./backend && cargo test --all -r

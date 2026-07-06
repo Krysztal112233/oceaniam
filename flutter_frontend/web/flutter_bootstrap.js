@@ -12,5 +12,8 @@ _flutter.loader.load({
     // overlay (enabled in main.dart via SemanticsBinding.ensureSemantics)
     // to expose an ARIA DOM tree that browser automation can drive.
     renderer: 'canvaskit',
+    // 加载本地随构建拷贝的 canvaskit，而非 gstatic.com CDN，
+    // 便于离线/受限网络环境（headless Firefox 自动化）。
+    canvasKitBaseUrl: '/canvaskit/',
   },
 });
