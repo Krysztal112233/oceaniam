@@ -188,7 +188,7 @@ SigninResponse _$SigninResponseFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$SigninResponse {
-  String get token => throw _privateConstructorUsedError;
+  String get jwt => throw _privateConstructorUsedError;
 
   /// Serializes this SigninResponse to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -206,7 +206,7 @@ abstract class $SigninResponseCopyWith<$Res> {
           SigninResponse value, $Res Function(SigninResponse) then) =
       _$SigninResponseCopyWithImpl<$Res, SigninResponse>;
   @useResult
-  $Res call({String token});
+  $Res call({String jwt});
 }
 
 /// @nodoc
@@ -224,12 +224,12 @@ class _$SigninResponseCopyWithImpl<$Res, $Val extends SigninResponse>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? token = null,
+    Object? jwt = null,
   }) {
     return _then(_value.copyWith(
-      token: null == token
-          ? _value.token
-          : token // ignore: cast_nullable_to_non_nullable
+      jwt: null == jwt
+          ? _value.jwt
+          : jwt // ignore: cast_nullable_to_non_nullable
               as String,
     ) as $Val);
   }
@@ -243,7 +243,7 @@ abstract class _$$SigninResponseImplCopyWith<$Res>
       __$$SigninResponseImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({String token});
+  $Res call({String jwt});
 }
 
 /// @nodoc
@@ -259,12 +259,12 @@ class __$$SigninResponseImplCopyWithImpl<$Res>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? token = null,
+    Object? jwt = null,
   }) {
     return _then(_$SigninResponseImpl(
-      token: null == token
-          ? _value.token
-          : token // ignore: cast_nullable_to_non_nullable
+      jwt: null == jwt
+          ? _value.jwt
+          : jwt // ignore: cast_nullable_to_non_nullable
               as String,
     ));
   }
@@ -273,17 +273,17 @@ class __$$SigninResponseImplCopyWithImpl<$Res>
 /// @nodoc
 @JsonSerializable()
 class _$SigninResponseImpl implements _SigninResponse {
-  const _$SigninResponseImpl({required this.token});
+  const _$SigninResponseImpl({required this.jwt});
 
   factory _$SigninResponseImpl.fromJson(Map<String, dynamic> json) =>
       _$$SigninResponseImplFromJson(json);
 
   @override
-  final String token;
+  final String jwt;
 
   @override
   String toString() {
-    return 'SigninResponse(token: $token)';
+    return 'SigninResponse(jwt: $jwt)';
   }
 
   @override
@@ -291,12 +291,12 @@ class _$SigninResponseImpl implements _SigninResponse {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$SigninResponseImpl &&
-            (identical(other.token, token) || other.token == token));
+            (identical(other.jwt, jwt) || other.jwt == jwt));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, token);
+  int get hashCode => Object.hash(runtimeType, jwt);
 
   /// Create a copy of SigninResponse
   /// with the given fields replaced by the non-null parameter values.
@@ -316,14 +316,14 @@ class _$SigninResponseImpl implements _SigninResponse {
 }
 
 abstract class _SigninResponse implements SigninResponse {
-  const factory _SigninResponse({required final String token}) =
+  const factory _SigninResponse({required final String jwt}) =
       _$SigninResponseImpl;
 
   factory _SigninResponse.fromJson(Map<String, dynamic> json) =
       _$SigninResponseImpl.fromJson;
 
   @override
-  String get token;
+  String get jwt;
 
   /// Create a copy of SigninResponse
   /// with the given fields replaced by the non-null parameter values.
@@ -339,7 +339,7 @@ RefreshTokenResponse _$RefreshTokenResponseFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$RefreshTokenResponse {
-  String get token => throw _privateConstructorUsedError;
+  String get jwt => throw _privateConstructorUsedError;
 
   /// Serializes this RefreshTokenResponse to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -357,7 +357,7 @@ abstract class $RefreshTokenResponseCopyWith<$Res> {
           $Res Function(RefreshTokenResponse) then) =
       _$RefreshTokenResponseCopyWithImpl<$Res, RefreshTokenResponse>;
   @useResult
-  $Res call({String token});
+  $Res call({String jwt});
 }
 
 /// @nodoc
@@ -376,12 +376,12 @@ class _$RefreshTokenResponseCopyWithImpl<$Res,
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? token = null,
+    Object? jwt = null,
   }) {
     return _then(_value.copyWith(
-      token: null == token
-          ? _value.token
-          : token // ignore: cast_nullable_to_non_nullable
+      jwt: null == jwt
+          ? _value.jwt
+          : jwt // ignore: cast_nullable_to_non_nullable
               as String,
     ) as $Val);
   }
@@ -395,7 +395,7 @@ abstract class _$$RefreshTokenResponseImplCopyWith<$Res>
       __$$RefreshTokenResponseImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({String token});
+  $Res call({String jwt});
 }
 
 /// @nodoc
@@ -411,12 +411,12 @@ class __$$RefreshTokenResponseImplCopyWithImpl<$Res>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? token = null,
+    Object? jwt = null,
   }) {
     return _then(_$RefreshTokenResponseImpl(
-      token: null == token
-          ? _value.token
-          : token // ignore: cast_nullable_to_non_nullable
+      jwt: null == jwt
+          ? _value.jwt
+          : jwt // ignore: cast_nullable_to_non_nullable
               as String,
     ));
   }
@@ -425,17 +425,17 @@ class __$$RefreshTokenResponseImplCopyWithImpl<$Res>
 /// @nodoc
 @JsonSerializable()
 class _$RefreshTokenResponseImpl implements _RefreshTokenResponse {
-  const _$RefreshTokenResponseImpl({required this.token});
+  const _$RefreshTokenResponseImpl({required this.jwt});
 
   factory _$RefreshTokenResponseImpl.fromJson(Map<String, dynamic> json) =>
       _$$RefreshTokenResponseImplFromJson(json);
 
   @override
-  final String token;
+  final String jwt;
 
   @override
   String toString() {
-    return 'RefreshTokenResponse(token: $token)';
+    return 'RefreshTokenResponse(jwt: $jwt)';
   }
 
   @override
@@ -443,12 +443,12 @@ class _$RefreshTokenResponseImpl implements _RefreshTokenResponse {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$RefreshTokenResponseImpl &&
-            (identical(other.token, token) || other.token == token));
+            (identical(other.jwt, jwt) || other.jwt == jwt));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, token);
+  int get hashCode => Object.hash(runtimeType, jwt);
 
   /// Create a copy of RefreshTokenResponse
   /// with the given fields replaced by the non-null parameter values.
@@ -469,14 +469,14 @@ class _$RefreshTokenResponseImpl implements _RefreshTokenResponse {
 }
 
 abstract class _RefreshTokenResponse implements RefreshTokenResponse {
-  const factory _RefreshTokenResponse({required final String token}) =
+  const factory _RefreshTokenResponse({required final String jwt}) =
       _$RefreshTokenResponseImpl;
 
   factory _RefreshTokenResponse.fromJson(Map<String, dynamic> json) =
       _$RefreshTokenResponseImpl.fromJson;
 
   @override
-  String get token;
+  String get jwt;
 
   /// Create a copy of RefreshTokenResponse
   /// with the given fields replaced by the non-null parameter values.

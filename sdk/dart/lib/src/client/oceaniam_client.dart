@@ -240,7 +240,7 @@ class OceanIAMClient {
       extraHeaders: {'X-OceanIAM-Token-Dispatch': 'json'},
     );
     final response = SigninResponse.fromJson(data);
-    _jwt = response.token;
+    _jwt = response.jwt;
     return response;
   }
 
@@ -252,10 +252,10 @@ class OceanIAMClient {
     }
   }
 
-  Future<SigninResponse> refreshToken() async {
+  Future<RefreshTokenResponse> refreshToken() async {
     final data = await _request('POST', '/auth/tokens/refresh');
-    final response = SigninResponse.fromJson(data);
-    _jwt = response.token;
+    final response = RefreshTokenResponse.fromJson(data);
+    _jwt = response.jwt;
     return response;
   }
 
