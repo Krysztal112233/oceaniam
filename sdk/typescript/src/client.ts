@@ -646,6 +646,17 @@ export class OceanIamClient {
     });
   }
 
+  public async deleteApplicationUser(
+    tenantId: string,
+    applicationId: string,
+    userId: string,
+  ): Promise<void> {
+    await this.request<unknown>({
+      method: "DELETE",
+      url: this.endpoints.applicationUser(tenantId, applicationId, userId),
+    });
+  }
+
   public async applicationUserSignin(
     tenantId: string,
     applicationId: string,

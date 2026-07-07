@@ -1,3 +1,6 @@
+use oceaniam_common::sqid::Sqid;
+use uuid::Uuid;
+
 use crate::support::spawn_app_with_isolated_schema;
 
 /// Tests `POST /tenants/{tenant_id}/applications/{application_id}/users`.
@@ -58,5 +61,77 @@ async fn get_users_returns_created_user() {
     assert!(
         items.iter().any(|u| u["id"].as_str() == Some(&user_id)),
         "created user should appear in the list"
+    );
+}
+
+/// Tests `DELETE /tenants/{tenant_id}/applications/{application_id}/users/{user_id}`.
+///
+/// Creates a user, deletes it, and asserts the HTTP response is a success status code
+/// and the user is no longer accessible (GET returns 404).
+// NOTE: AI-generated test
+#[tokio::test]
+async fn create_and_delete_application_user() {
+    let app = spawn_app_with_isolated_schema().await;
+    let token = app.root_signin().await;
+    let tenant = app.api_create_tenant(&token).await;
+    let tenant_id = tenant["id"].as_str().unwrap();
+    let app_resp = app.api_create_application(&token, tenant_id).await;
+    let application_id = app_resp["application_id"].as_str().unwrap().to_string();
+
+    let user = app
+        .api_create_user(&token, tenant_id, &application_id)
+        .await;
+    let user_id = user["id"].as_str().unwrap().to_string();
+
+    let delete_resp = app
+        .api_delete_application_user(&token, tenant_id, &application_id, &user_id)
+        .await;
+    assert!(
+        delete_resp.status().is_success(),
+        "delete application user should return success (got {})",
+        delete_resp.status()
+    );
+
+    let get_resp = app
+        .client
+        .get(app.url(&format!(
+            "/tenants/{tenant_id}/applications/{application_id}/users/{user_id}"
+        )))
+        .header("Authorization", format!("Bearer {token}"))
+        .send()
+        .await
+        .expect("get deleted user request failed");
+    assert_eq!(
+        get_resp.status(),
+        404,
+        "deleted application user should return 404"
+    );
+}
+
+/// Tests `DELETE /tenants/{tenant_id}/applications/{application_id}/users/{user_id}`.
+///
+/// Asserts: deleting a user that does not exist returns 404.
+// NOTE: AI-generated test
+#[tokio::test]
+async fn delete_nonexistent_application_user_returns_404() {
+    let app = spawn_app_with_isolated_schema().await;
+    let token = app.root_signin().await;
+    let tenant = app.api_create_tenant(&token).await;
+    let tenant_id = tenant["id"].as_str().unwrap();
+    let app_resp = app.api_create_application(&token, tenant_id).await;
+    let application_id = app_resp["application_id"].as_str().unwrap().to_string();
+
+    // Use a valid-looking but non-existent user ID (Sqid-encoded random UUID).
+    let fake_user_id = Uuid::now_v7();
+    let fake_user_sqid: Sqid = fake_user_id.into();
+
+    let delete_resp = app
+        .api_delete_application_user(&token, tenant_id, &application_id, fake_user_sqid.as_ref())
+        .await;
+    assert_eq!(
+        delete_resp.status(),
+        404,
+        "deleting a nonexistent application user should return 404 (got {})",
+        delete_resp.status()
     );
 }

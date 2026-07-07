@@ -284,6 +284,20 @@ pub trait UserHelper {
                 .order_by_asc(crate::model::subjects::Column::Id)
         }
     }
+
+    /// Deletes a `users` row by its ID.
+    ///
+    /// Ordering matters: `users.id -> subjects.id` is `ON DELETE NO ACTION`, so the `users`
+    /// row must be removed *before* the matching `credentials` row (whose cascade removes
+    /// the `subjects` and `subject_roles` rows). The caller is responsible for deleting the
+    /// credential within the same transaction.
+    async fn delete_user(
+        id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<(), Error> {
+        Users::delete_by_id(id).exec(database).await?;
+        Ok(())
+    }
 }
 
 impl UserHelper for Users {}

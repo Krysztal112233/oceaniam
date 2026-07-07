@@ -507,4 +507,67 @@ impl ApplicationUsers {
 
         Ok(user)
     }
+
+    pub async fn delete_user(&self, application_id: Uuid, user_id: Uuid) -> Result<(), Error> {
+        self.delete_user_in_tx(application_id, user_id, &self.database)
+            .await
+    }
+
+    /// Deletes a user within a shared transaction.
+    ///
+    /// Deletion order is critical: `users.id -> subjects.id` is `ON DELETE NO ACTION`, so the
+    /// `users` row must be removed first. The credential is then dropped via
+    /// [`ManagedCredentialVaults::drop_credential_in_tx`], which cascades to `subjects` and
+    /// `subject_roles` at the database level and evicts the credential cache. Finally the
+    /// per-application user cache entries (`Id`, `Email`, `Phone`) are invalidated.
+    pub async fn delete_user_in_tx(
+        &self,
+        application_id: Uuid,
+        user_id: Uuid,
+        transaction: &impl SafeTransactionConnectionTrait,
+    ) -> Result<(), Error> {
+        info!(
+            "deleting application user: user_id={}, application_id={}",
+            user_id, application_id
+        );
+
+        let tx = transaction.begin().await?;
+
+        // Fetch the user model first so we can invalidate email/phone cache entries.
+        // Reuse the moka cache (handler should have already populated it); avoids an extra DB hit.
+        let user = self.find_user_by(UserIdentifier::Id(user_id)).await?;
+
+        Users::delete_user(user_id, &tx).await.inspect_err(|e| {
+            error!(
+                "failed to delete user: user_id={}, application_id={}, error={}",
+                user_id, application_id, e
+            );
+        })?;
+
+        self.shared_credential_vaults
+            .drop_credential_in_tx(user_id, &tx)
+            .await
+            .inspect_err(|e| {
+                error!(
+                    "failed to delete credential for user: user_id={}, application_id={}, error={}",
+                    user_id, application_id, e
+                );
+            })?;
+        tx.commit().await?;
+
+        self.cache.remove(&UserIdentifier::Id(user_id)).await;
+        if let Some(email) = user.email {
+            self.cache.remove(&UserIdentifier::Email(email)).await;
+        }
+        if let Some(phone) = user.phone {
+            self.cache.remove(&UserIdentifier::Phone(phone)).await;
+        }
+
+        info!(
+            "application user deleted successfully: user_id={}, application_id={}",
+            user_id, application_id
+        );
+
+        Ok(())
+    }
 }

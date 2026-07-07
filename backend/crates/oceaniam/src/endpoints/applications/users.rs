@@ -7,7 +7,9 @@ use axum::{
 use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
 use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse};
-use oceaniam_audit::types::{AuditPayload, CreateApplicationUserPayload};
+use oceaniam_audit::types::{
+    AuditPayload, CreateApplicationUserPayload, DeleteApplicationUserPayload,
+};
 use oceaniam_common::helpers::gen_random_name;
 use oceaniam_common::sqid::Sqid;
 use oceaniam_database::helper::users::{CreateUserOpts, UserHelper};
@@ -39,6 +41,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
         .routes(routes!(create_application_user))
         .routes(routes!(get_application_user))
         .routes(routes!(patch_application_user_credentials))
+        .routes(routes!(delete_application_user))
         .routes(routes!(enroll_totp))
         .routes(routes!(verify_totp_enrollment))
         .routes(routes!(remove_totp))
@@ -607,6 +610,105 @@ pub async fn patch_application_user_credentials(
     Ok(ApiResponse::new(
         crate::conversion::users::user_model_to_vo(user),
     ))
+}
+
+/// Delete application user
+#[utoipa::path(
+        delete,
+        path = "/tenants/{tenant_id}/applications/{application_id}/users/{user_id}",
+        tag = "ApplicationUsers",
+        params(
+            ("Authorization" = String, Header, description = "Bearer token for backend administrator"),
+            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
+            ("tenant_id" = String, Path, description = "Tenant ID"),
+            ("application_id" = String, Path, description = "Application ID"),
+            ("user_id" = String, Path, description = "User ID"),
+        ),
+        responses(
+            (status = 200, body = ApiResponse<Empty>),
+            (status = 203, description = "Missing Authorization header and application secret header"),
+            (status = 400, description = "Bad request", body = ApiResponse<ErrorResponse>),
+            (status = 401, description = "Unauthorized"),
+            (status = 403, description = "Forbidden - secret does not belong to this application"),
+            (status = 404, description = "Application or user not found", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
+        ),
+    )]
+#[tracing::instrument(
+    level = "info",
+    name = "tenant_application_users.delete",
+    skip(_auth, applications, auditing, database),
+    fields(tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
+)]
+pub async fn delete_application_user(
+    _auth: AdminJwtOrApplicationSecretGuard,
+    State(AppState {
+        applications,
+        auditing,
+        database,
+        ..
+    }): State<AppState>,
+    app: ResolvedApplication,
+    Path((_tenant_id, _application_id, user_id)): Path<(Sqid, Sqid, Sqid)>,
+) -> AppResult<Empty> {
+    let application_id = app.id();
+    let user_id: Uuid = user_id.try_into()?;
+
+    Span::current().tap(|it| {
+        it.record("tenant_id", field::display(&app.tenant_id()))
+            .record("application_id", field::display(&application_id))
+            .record("user_id", field::display(&user_id));
+    });
+
+    // Verify the user exists and belongs to this application (returns 404 otherwise).
+    applications
+        .get_application_users(application_id)
+        .await
+        .inspect_err(|e| {
+            error!(
+                %application_id,
+                %user_id,
+                error = %e,
+                "failed to get application users helper"
+            )
+        })?
+        .find_user_by(UserIdentifier::Id(user_id))
+        .await
+        .inspect_err(|e| {
+            error!(
+                %application_id,
+                %user_id,
+                error = %e,
+                "failed to get application user before delete"
+            )
+        })?;
+
+    let transaction = database.begin().await?;
+    applications
+        .get_application_users(application_id)
+        .await
+        .inspect_err(|e| {
+            error!(
+                %application_id,
+                %user_id,
+                error = %e,
+                "failed to get application users helper"
+            )
+        })?
+        .delete_user_in_tx(application_id, user_id, &transaction)
+        .await?;
+    transaction.commit().await?;
+
+    info!(%application_id, %user_id, "application user deleted successfully");
+
+    auditing
+        .write(AuditPayload::from(DeleteApplicationUserPayload {
+            application_id,
+            user_id,
+        }))
+        .await;
+
+    Ok(ApiResponse::empty())
 }
 
 /// Enroll in TOTP multi-factor authentication

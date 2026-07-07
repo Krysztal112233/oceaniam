@@ -121,4 +121,15 @@ impl OceanIamClient {
             .json(body);
         self.send_inner(req).await
     }
+
+    pub async fn delete_application_user(
+        &self,
+        tenant_id: &str,
+        application_id: &str,
+        user_id: &str,
+    ) -> Result<(), Error> {
+        let path = paths::fmt3(paths::APP_USER, tenant_id, application_id, user_id);
+        let req = self.auth_req(Method::DELETE, &path, AuthMode::BearerOrAppSecret)?;
+        self.send_empty(req).await
+    }
 }

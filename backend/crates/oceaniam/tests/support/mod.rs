@@ -182,6 +182,23 @@ impl TestApp {
             .await
             .expect("create user response parse failed")
     }
+
+    pub async fn api_delete_application_user(
+        &self,
+        token: &str,
+        tenant_id: &str,
+        application_id: &str,
+        user_id: &str,
+    ) -> reqwest::Response {
+        self.client
+            .delete(self.url(&format!(
+                "/tenants/{tenant_id}/applications/{application_id}/users/{user_id}"
+            )))
+            .header("Authorization", format!("Bearer {token}"))
+            .send()
+            .await
+            .expect("delete application user request failed")
+    }
 }
 
 impl Drop for TestApp {
