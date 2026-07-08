@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+import 'package:dropdown_button2/dropdown_button2.dart';
 
 import '../pages/dashboard/dashboard_page.dart';
 import '../pages/secrets/secrets_page.dart';
@@ -8,20 +9,21 @@ import '../pages/administrators/administrators_page.dart';
 import '../pages/administrators/administrator_me_page.dart';
 import '../pages/audits/audits_page.dart';
 import '../pages/settings_page.dart';
+import '../providers/tenant_providers.dart';
+import '../providers/oceaniam_client_provider.dart';
+import 'package:oceaniam_sdk/oceaniam_sdk.dart';
 
 class _NavItem {
   final String label;
   final IconData icon;
   final IconData selectedIcon;
   final Widget page;
-  final String keySuffix;
 
   const _NavItem({
     required this.label,
     required this.icon,
     required this.selectedIcon,
     required this.page,
-    required this.keySuffix,
   });
 
   NavigationRailDestination get destination => NavigationRailDestination(
@@ -29,8 +31,6 @@ class _NavItem {
     selectedIcon: Icon(selectedIcon),
     label: Text(label),
   );
-
-  ValueKey<String> get pageKey => ValueKey('page-$keySuffix');
 }
 
 final _navItems = <_NavItem>[
@@ -39,42 +39,36 @@ final _navItems = <_NavItem>[
     icon: FluentIcons.board_24_regular,
     selectedIcon: FluentIcons.board_24_filled,
     page: const DashboardPage(),
-    keySuffix: 'dashboard',
   ),
   _NavItem(
     label: 'Secrets',
     icon: FluentIcons.key_24_regular,
     selectedIcon: FluentIcons.key_24_filled,
     page: const SecretsPage(),
-    keySuffix: 'secrets',
   ),
   _NavItem(
     label: 'Admins',
     icon: FluentIcons.person_accounts_24_regular,
     selectedIcon: FluentIcons.person_accounts_24_filled,
     page: const AdministratorsPage(),
-    keySuffix: 'admins',
   ),
   _NavItem(
     label: 'Audits',
     icon: FluentIcons.history_24_regular,
     selectedIcon: FluentIcons.history_24_filled,
     page: const AuditsPage(),
-    keySuffix: 'audits',
   ),
   _NavItem(
     label: 'Profile',
     icon: FluentIcons.person_24_regular,
     selectedIcon: FluentIcons.person_24_filled,
     page: const AdministratorMePage(),
-    keySuffix: 'profile',
   ),
   _NavItem(
     label: 'Settings',
     icon: FluentIcons.settings_24_regular,
     selectedIcon: FluentIcons.settings_24_filled,
     page: const SettingsPage(),
-    keySuffix: 'settings',
   ),
 ];
 
@@ -127,106 +121,267 @@ class _AdminShellState extends ConsumerState<AdminShell> {
   }
 }
 
-class _TenantSwitcher extends StatelessWidget {
+class _TenantSwitcher extends ConsumerStatefulWidget {
   final bool extended;
 
   const _TenantSwitcher({required this.extended});
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  ConsumerState<_TenantSwitcher> createState() => _TenantSwitcherState();
+}
 
-    if (extended) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-        child: Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
+class _TenantSwitcherState extends ConsumerState<_TenantSwitcher> {
+  late final ValueNotifier<String?> _valueNotifier;
+
+  @override
+  void initState() {
+    super.initState();
+    _valueNotifier = ValueNotifier(null);
+  }
+
+  @override
+  void dispose() {
+    _valueNotifier.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentId = ref.watch(currentTenantIdProvider);
+    _valueNotifier.value = currentId;
+
+    final theme = Theme.of(context);
+    final tenant = ref.watch(currentTenantProvider);
+    final tenantName = tenant?.id ?? 'No tenant';
+    final tenantsAsync = ref.watch(tenantListProvider);
+
+    final items = <DropdownItem<String>>[];
+    if (tenantsAsync.valueOrNull != null) {
+      for (final t in tenantsAsync.valueOrNull!) {
+        items.add(_buildTenantItem(t, currentId));
+      }
+    }
+    items.add(_buildCreateTenantItem(theme));
+
+    return Padding(
+      padding: widget.extended
+          ? const EdgeInsets.fromLTRB(12, 0, 12, 8)
+          : const EdgeInsets.only(bottom: 8),
+      child: DropdownButton2<String>(
+        underline: const SizedBox.shrink(),
+        customButton: _buildButton(theme, tenantName),
+        valueListenable: _valueNotifier,
+        dropdownStyleData: DropdownStyleData(
+          direction: DropdownDirection.right,
+          offset: const Offset(4, 0),
+          maxHeight: 300,
+          width: 280,
+          elevation: 8,
+          decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: theme.colorScheme.outlineVariant),
+            color: theme.colorScheme.surfaceContainerHigh,
           ),
-          child: InkWell(
-            onTap: () {},
-            borderRadius: BorderRadius.circular(12),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Row(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+        ),
+        menuItemStyleData: MenuItemStyleData(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          borderRadius: BorderRadius.zero,
+          overlayColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return theme.colorScheme.primaryContainer.withValues(alpha: 0.5);
+            }
+            if (states.contains(WidgetState.hovered)) {
+              return theme.colorScheme.onSurface.withValues(alpha: 0.08);
+            }
+            return null;
+          }),
+        ),
+        items: items,
+        onChanged: (id) {
+          if (id == '__create__') {
+            _showCreateTenantDialog();
+            return;
+          }
+          if (id != null) {
+            ref.read(currentTenantIdProvider.notifier).select(id);
+          }
+        },
+      ),
+    );
+  }
+
+  DropdownItem<String> _buildTenantItem(Tenant t, String? currentId) {
+    final theme = Theme.of(context);
+    return DropdownItem<String>(
+      value: t.id,
+      child: Row(
+        children: [
+          _OrgIcon(size: 28, iconSize: 16),
+          const SizedBox(width: 10),
+          Flexible(child: Text(t.id, overflow: TextOverflow.ellipsis)),
+          if (t.id == currentId)
+            Icon(
+              FluentIcons.checkmark_24_filled,
+              size: 18,
+              color: theme.colorScheme.primary,
+            ),
+        ],
+      ),
+    );
+  }
+
+  DropdownItem<String> _buildCreateTenantItem(ThemeData theme) {
+    return DropdownItem<String>(
+      value: '__create__',
+      child: Row(
+        children: [
+          Icon(
+            FluentIcons.add_24_regular,
+            size: 18,
+            color: theme.colorScheme.primary,
+          ),
+          const SizedBox(width: 10),
+          Text(
+            'Create Tenant',
+            style: TextStyle(color: theme.colorScheme.primary),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildButton(ThemeData theme, String tenantName) {
+    return widget.extended
+        ? _buildExtendedButton(theme, tenantName)
+        : _buildCollapsedButton(theme);
+  }
+
+  Widget _buildExtendedButton(ThemeData theme, String tenantName) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _OrgIcon(size: 32, iconSize: 18),
+            const SizedBox(width: 10),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      FluentIcons.organization_24_regular,
-                      size: 18,
-                      color: theme.colorScheme.onPrimaryContainer,
+                  Text(
+                    'Current Tenant',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Flexible(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Current Tenant',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        Text(
-                          'Click to switch',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+                  Text(
+                    tenantName,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    FluentIcons.chevron_down_24_regular,
-                    size: 16,
-                    color: theme.colorScheme.onSurfaceVariant,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-          ),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: theme.colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: theme.colorScheme.shadow.withValues(alpha: 0.3),
-                blurRadius: 2,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Icon(
-            FluentIcons.organization_24_regular,
-            size: 20,
-            color: theme.colorScheme.onPrimaryContainer,
-          ),
+            const SizedBox(width: 4),
+            Icon(
+              FluentIcons.chevron_down_24_regular,
+              size: 16,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ],
         ),
       ),
     );
   }
+
+  Widget _buildCollapsedButton(ThemeData theme) {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.shadow.withValues(alpha: 0.3),
+            blurRadius: 2,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: const _OrgIcon(size: 20, iconSize: 20),
+    );
+  }
+
+  Future<void> _showCreateTenantDialog() async {
+    final result = await showCreateTenantDialog(context);
+    if (result != null && result.isNotEmpty) {
+      final client = ref.read(oceanIAMClientProvider);
+      await client.createTenant(comment: result);
+      ref.invalidate(tenantListProvider);
+    }
+  }
+}
+
+class _OrgIcon extends StatelessWidget {
+  final double size;
+  final double iconSize;
+
+  const _OrgIcon({required this.size, required this.iconSize});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(
+        FluentIcons.organization_24_regular,
+        size: iconSize,
+        color: theme.colorScheme.onPrimaryContainer,
+      ),
+    );
+  }
+}
+
+Future<String?> showCreateTenantDialog(BuildContext context) {
+  final controller = TextEditingController();
+  return showDialog<String>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Create Tenant'),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        decoration: const InputDecoration(
+          labelText: 'Tenant ID',
+          hintText: 'Enter a unique tenant identifier',
+        ),
+        onSubmitted: (v) => Navigator.of(ctx).pop(v),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(ctx).pop(controller.text),
+          child: const Text('Create'),
+        ),
+      ],
+    ),
+  );
 }

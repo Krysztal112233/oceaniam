@@ -48,6 +48,7 @@ dependencies:
   # OceanIAM Dart SDK (path dependency)
   oceaniam_sdk:
     path: ../sdk/dart
+  dropdown_button2: ^3.1.0
 
 dev_dependencies:
   flutter_test:
