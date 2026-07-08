@@ -205,7 +205,24 @@ class _TenantSwitcherState extends ConsumerState<_TenantSwitcher> {
         children: [
           _OrgIcon(size: 28, iconSize: 16),
           const SizedBox(width: 10),
-          Flexible(child: Text(t.id, overflow: TextOverflow.ellipsis)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(t.id, overflow: TextOverflow.ellipsis),
+                if (t.comment != null && t.comment!.isNotEmpty)
+                  Text(
+                    t.comment!,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+              ],
+            ),
+          ),
           if (t.id == currentId)
             Icon(
               FluentIcons.checkmark_24_filled,
