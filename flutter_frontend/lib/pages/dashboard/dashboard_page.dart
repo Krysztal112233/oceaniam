@@ -22,10 +22,16 @@ class DashboardPage extends ConsumerWidget {
         children: [
           _SectionHeader(icon: FluentIcons.board_24_regular, title: '系统总览'),
           const SizedBox(height: 12),
-          overviewAsync.when(
-            loading: () => const _SkeletonGrid(count: 5),
-            error: (e, _) => _ErrorBox(message: 'Failed to load overview: $e'),
-            data: (o) => _OverviewGrid(overview: o),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: KeyedSubtree(
+              key: ValueKey(overviewAsync),
+              child: overviewAsync.when(
+                loading: () => const _SkeletonGrid(count: 5),
+                error: (e, _) => _ErrorBox(message: 'Failed to load overview: $e'),
+                data: (o) => _OverviewGrid(overview: o),
+              ),
+            ),
           ),
           const SizedBox(height: 32),
           _SectionHeader(
@@ -45,10 +51,16 @@ class DashboardPage extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 12),
-          trendsAsync.when(
-            loading: () => const _SkeletonGrid(count: 4),
-            error: (e, _) => _ErrorBox(message: 'Failed to load trends: $e'),
-            data: (t) => _TrendsGrid(trends: t),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: KeyedSubtree(
+              key: ValueKey(trendsAsync),
+              child: trendsAsync.when(
+                loading: () => const _SkeletonGrid(count: 4),
+                error: (e, _) => _ErrorBox(message: 'Failed to load trends: $e'),
+                data: (t) => _TrendsGrid(trends: t),
+              ),
+            ),
           ),
         ],
       ),
