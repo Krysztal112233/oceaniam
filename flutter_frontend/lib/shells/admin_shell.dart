@@ -5,6 +5,7 @@ import 'package:dropdown_button2/dropdown_button2.dart';
 
 import '../pages/dashboard/dashboard_page.dart';
 import '../pages/secrets/secrets_page.dart';
+import '../pages/applications/applications_page.dart';
 import '../pages/administrators/administrators_page.dart';
 import '../pages/administrators/administrator_me_page.dart';
 import '../pages/audits/audits_page.dart';
@@ -33,12 +34,18 @@ class _NavItem {
   );
 }
 
-final _navItems = <_NavItem>[
+List<_NavItem> _navItems(String? tenantId) => [
   _NavItem(
     label: 'Dashboard',
     icon: FluentIcons.board_24_regular,
     selectedIcon: FluentIcons.board_24_filled,
     page: const DashboardPage(),
+  ),
+  _NavItem(
+    label: 'Applications',
+    icon: FluentIcons.app_folder_24_regular,
+    selectedIcon: FluentIcons.app_folder_24_filled,
+    page: ApplicationsPage(tenantId: tenantId ?? ''),
   ),
   _NavItem(
     label: 'Secrets',
@@ -85,6 +92,8 @@ class _AdminShellState extends ConsumerState<AdminShell> {
   @override
   Widget build(BuildContext context) {
     final isWide = MediaQuery.of(context).size.width >= 900;
+    final tenantId = ref.watch(currentTenantIdProvider);
+    final navItems = _navItems(tenantId);
 
     return Scaffold(
       body: Row(
@@ -105,13 +114,13 @@ class _AdminShellState extends ConsumerState<AdminShell> {
                 Container(height: 1, color: Theme.of(context).dividerColor),
               ],
             ),
-            destinations: _navItems.map((n) => n.destination).toList(),
+            destinations: navItems.map((n) => n.destination).toList(),
           ),
           Expanded(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
-              child: _selectedIndex < _navItems.length
-                  ? _navItems[_selectedIndex].page
+              child: _selectedIndex < navItems.length
+                  ? navItems[_selectedIndex].page
                   : const SizedBox.shrink(),
             ),
           ),
