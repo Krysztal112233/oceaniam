@@ -24,24 +24,23 @@ final fetchOverviewProvider = AutoDisposeFutureProvider<Overview>.internal(
 // ignore: unused_element
 typedef FetchOverviewRef = AutoDisposeFutureProviderRef<Overview>;
 String _$fetchPlatformTrendsHash() =>
-    r'8dffe4ee0e72757dd86957d1f9ecc596d79fcf6d';
+    r'e0f2914aa8cc2a82a64ea8ebb5032ca71ed3ea00';
 
 /// See also [fetchPlatformTrends].
 @ProviderFor(fetchPlatformTrends)
-final fetchPlatformTrendsProvider =
-    AutoDisposeFutureProvider<PlatformTrends>.internal(
-      fetchPlatformTrends,
-      name: r'fetchPlatformTrendsProvider',
-      debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
-          ? null
-          : _$fetchPlatformTrendsHash,
-      dependencies: null,
-      allTransitiveDependencies: null,
-    );
+final fetchPlatformTrendsProvider = FutureProvider<PlatformTrends>.internal(
+  fetchPlatformTrends,
+  name: r'fetchPlatformTrendsProvider',
+  debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+      ? null
+      : _$fetchPlatformTrendsHash,
+  dependencies: null,
+  allTransitiveDependencies: null,
+);
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-typedef FetchPlatformTrendsRef = AutoDisposeFutureProviderRef<PlatformTrends>;
+typedef FetchPlatformTrendsRef = FutureProviderRef<PlatformTrends>;
 String _$trendsGranularityHash() => r'c063089ded71ba46075f282e051d455ef2548ccf';
 
 /// See also [TrendsGranularity].

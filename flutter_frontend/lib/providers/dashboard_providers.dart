@@ -63,7 +63,7 @@ class TrendsGranularity extends _$TrendsGranularity {
   void set(Granularity value) => state = value;
 }
 
-@riverpod
+@Riverpod(keepAlive: true)
 Future<PlatformTrends> fetchPlatformTrends(Ref ref) async {
   final client = ref.watch(oceanIAMClientProvider);
   final granularity = ref.watch(trendsGranularityProvider);

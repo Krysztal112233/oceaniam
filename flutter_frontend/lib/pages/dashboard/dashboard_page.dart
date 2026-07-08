@@ -31,7 +31,18 @@ class DashboardPage extends ConsumerWidget {
           _SectionHeader(
             icon: FluentIcons.chart_multiple_24_regular,
             title: '统计',
-            trailing: _GranularityToggle(),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _GranularityToggle(),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(FluentIcons.arrow_sync_24_regular),
+                  onPressed: () => ref.invalidate(fetchPlatformTrendsProvider),
+                  tooltip: '刷新',
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           trendsAsync.when(
