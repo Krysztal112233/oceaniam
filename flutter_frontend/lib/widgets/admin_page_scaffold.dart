@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class AdminPageScaffold extends StatelessWidget {
   final String title;
+  final List<Widget>? leading;
   final List<Widget>? actions;
   final Widget child;
 
@@ -9,6 +10,7 @@ class AdminPageScaffold extends StatelessWidget {
     super.key,
     required this.title,
     required this.child,
+    this.leading,
     this.actions,
   });
 
@@ -23,6 +25,7 @@ class AdminPageScaffold extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(24, 16, 16, 8),
           child: Row(
             children: [
+              ...?leading,
               Text(title, style: Theme.of(context).textTheme.headlineSmall),
               const Spacer(),
               ...?actions,
