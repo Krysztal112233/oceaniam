@@ -183,23 +183,10 @@ class _TenantSwitcherState extends ConsumerState<_TenantSwitcher> {
           ),
           padding: const EdgeInsets.symmetric(vertical: 4),
         ),
-        menuItemStyleData: MenuItemStyleData(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          borderRadius: BorderRadius.zero,
-          overlayColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) {
-              return theme.colorScheme.primaryContainer.withValues(alpha: 0.5);
-            }
-            if (states.contains(WidgetState.hovered)) {
-              return theme.colorScheme.onSurface.withValues(alpha: 0.08);
-            }
-            return null;
-          }),
-        ),
         items: items,
         onChanged: (id) {
           if (id == '__create__') {
-            _showCreateTenantDialog();
+            Future.microtask(_showCreateTenantDialog);
             return;
           }
           if (id != null) {
@@ -257,47 +244,38 @@ class _TenantSwitcherState extends ConsumerState<_TenantSwitcher> {
   }
 
   Widget _buildExtendedButton(ThemeData theme, String tenantName) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _OrgIcon(size: 32, iconSize: 18),
-            const SizedBox(width: 10),
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Current Tenant',
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  Text(
-                    tenantName,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+    return SizedBox(
+      width: 220,
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              _OrgIcon(size: 32, iconSize: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Current Tenant'),
+                    Text(tenantName, overflow: TextOverflow.ellipsis),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              FluentIcons.chevron_down_24_regular,
-              size: 16,
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ],
+              const SizedBox(width: 4),
+              Icon(
+                FluentIcons.chevron_down_24_regular,
+                size: 16,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -323,11 +301,91 @@ class _TenantSwitcherState extends ConsumerState<_TenantSwitcher> {
   }
 
   Future<void> _showCreateTenantDialog() async {
-    final result = await showCreateTenantDialog(context);
-    if (result != null && result.isNotEmpty) {
-      final client = ref.read(oceanIAMClientProvider);
-      await client.createTenant(comment: result);
+    final tenant = await showDialog<Tenant>(
+      context: context,
+      builder: (_) => const _CreateTenantDialog(),
+    );
+    if (tenant != null) {
+      ref.read(currentTenantIdProvider.notifier).select(tenant.id);
       ref.invalidate(tenantListProvider);
+    }
+  }
+}
+
+class _CreateTenantDialog extends ConsumerStatefulWidget {
+  const _CreateTenantDialog();
+
+  @override
+  ConsumerState<_CreateTenantDialog> createState() =>
+      _CreateTenantDialogState();
+}
+
+class _CreateTenantDialogState extends ConsumerState<_CreateTenantDialog> {
+  final _controller = TextEditingController();
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AlertDialog(
+      backgroundColor: theme.colorScheme.surfaceContainerHigh,
+      surfaceTintColor: theme.colorScheme.surfaceTint,
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+      actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+      title: const Text('Create Tenant'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        enabled: !_loading,
+        decoration: const InputDecoration(
+          labelText: 'Comment',
+          hintText: 'Optional description for this tenant',
+        ),
+        onSubmitted: _loading ? null : (_) => _create(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _loading ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _loading ? null : _create,
+          child: _loading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Create'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _create() async {
+    setState(() => _loading = true);
+    try {
+      final client = ref.read(oceanIAMClientProvider);
+      final tenant = await client.createTenant(
+        comment: _controller.text.isNotEmpty ? _controller.text : null,
+      );
+      if (mounted) Navigator.of(context).pop(tenant);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to create tenant: $e')));
+      }
     }
   }
 }
@@ -355,33 +413,4 @@ class _OrgIcon extends StatelessWidget {
       ),
     );
   }
-}
-
-Future<String?> showCreateTenantDialog(BuildContext context) {
-  final controller = TextEditingController();
-  return showDialog<String>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('Create Tenant'),
-      content: TextField(
-        controller: controller,
-        autofocus: true,
-        decoration: const InputDecoration(
-          labelText: 'Tenant ID',
-          hintText: 'Enter a unique tenant identifier',
-        ),
-        onSubmitted: (v) => Navigator.of(ctx).pop(v),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(ctx).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(ctx).pop(controller.text),
-          child: const Text('Create'),
-        ),
-      ],
-    ),
-  );
 }
