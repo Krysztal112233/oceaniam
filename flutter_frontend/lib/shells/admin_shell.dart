@@ -104,6 +104,7 @@ class _AdminShellState extends ConsumerState<AdminShell> {
       body: Row(
         children: [
           NavigationRail(
+            elevation: 4,
             extended: isWide,
             selectedIndex: _selectedIndex,
             onDestinationSelected: (i) => setState(() => _selectedIndex = i),
@@ -112,7 +113,6 @@ class _AdminShellState extends ConsumerState<AdminShell> {
                 : NavigationRailLabelType.selected,
             destinations: _navItems.map((n) => n.destination).toList(),
           ),
-          const VerticalDivider(thickness: 1, width: 1),
           Expanded(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
