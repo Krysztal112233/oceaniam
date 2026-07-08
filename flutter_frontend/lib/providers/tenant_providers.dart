@@ -1,17 +1,32 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:oceaniam_sdk/oceaniam_sdk.dart';
 
 import 'oceaniam_client_provider.dart';
+import 'shared_preferences_provider.dart';
 
 part 'tenant_providers.g.dart';
+
+const _kStoredTenantIdKey = 'current_tenant_id';
 
 @Riverpod(keepAlive: true)
 class CurrentTenantId extends _$CurrentTenantId {
   @override
-  String? build() => null;
+  String? build() {
+    final prefs = ref.watch(sharedPreferencesProvider);
+    return prefs.getString(_kStoredTenantIdKey);
+  }
 
-  void select(String? tenantId) => state = tenantId;
+  void select(String? tenantId) {
+    state = tenantId;
+    final prefs = ref.read(sharedPreferencesProvider);
+    if (tenantId != null) {
+      prefs.setString(_kStoredTenantIdKey, tenantId);
+    } else {
+      prefs.remove(_kStoredTenantIdKey);
+    }
+  }
 }
 
 @Riverpod(keepAlive: true)
