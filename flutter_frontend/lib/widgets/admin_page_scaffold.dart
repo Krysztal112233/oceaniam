@@ -14,6 +14,8 @@ class AdminPageScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isWide = MediaQuery.of(context).size.width >= 900;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -27,7 +29,13 @@ class AdminPageScaffold extends StatelessWidget {
             ],
           ),
         ),
-        Expanded(child: child),
+        Expanded(
+          child: isWide
+              ? Center(
+                  child: FractionallySizedBox(widthFactor: 0.7, child: child),
+                )
+              : child,
+        ),
       ],
     );
   }
