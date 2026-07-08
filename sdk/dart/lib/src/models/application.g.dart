@@ -59,3 +59,19 @@ Map<String, dynamic> _$$UpdateApplicationRequestImplToJson(
     <String, dynamic>{
       'comment': instance.comment,
     };
+
+_$CreateApplicationResponseImpl _$$CreateApplicationResponseImplFromJson(
+        Map<String, dynamic> json) =>
+    _$CreateApplicationResponseImpl(
+      applicationId: json['application_id'] as String,
+      tenantId: json['tenant_id'] as String,
+      comment: json['comment'] as String?,
+    );
+
+Map<String, dynamic> _$$CreateApplicationResponseImplToJson(
+        _$CreateApplicationResponseImpl instance) =>
+    <String, dynamic>{
+      'application_id': instance.applicationId,
+      'tenant_id': instance.tenantId,
+      'comment': instance.comment,
+    };

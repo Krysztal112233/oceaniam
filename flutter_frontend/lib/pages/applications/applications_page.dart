@@ -6,7 +6,6 @@ import 'package:oceaniam_sdk/oceaniam_sdk.dart';
 import '../../providers/application_providers.dart';
 import '../../providers/oceaniam_client_provider.dart';
 import '../../widgets/admin_page_scaffold.dart';
-import 'application_detail_page.dart';
 
 class ApplicationsPage extends ConsumerStatefulWidget {
   final String tenantId;
@@ -18,18 +17,8 @@ class ApplicationsPage extends ConsumerStatefulWidget {
 }
 
 class _ApplicationsPageState extends ConsumerState<ApplicationsPage> {
-  String? _selectedApplicationId;
-
   @override
   Widget build(BuildContext context) {
-    if (_selectedApplicationId != null) {
-      return ApplicationDetailPage(
-        tenantId: widget.tenantId,
-        applicationId: _selectedApplicationId!,
-        onBack: () => setState(() => _selectedApplicationId = null),
-      );
-    }
-
     final appsAsync = ref.watch(applicationListProvider);
 
     return AdminPageScaffold(
@@ -76,7 +65,6 @@ class _ApplicationsPageState extends ConsumerState<ApplicationsPage> {
             itemCount: apps.length,
             itemBuilder: (context, i) => _ApplicationCard(
               application: apps[i],
-              onTap: () => setState(() => _selectedApplicationId = apps[i].id),
               onDelete: () => _deleteApplication(context, ref, apps[i]),
             ),
           );
@@ -139,20 +127,15 @@ class _ApplicationsPageState extends ConsumerState<ApplicationsPage> {
 
 class _ApplicationCard extends StatelessWidget {
   final Application application;
-  final VoidCallback onTap;
   final VoidCallback onDelete;
 
-  const _ApplicationCard({
-    required this.application,
-    required this.onTap,
-    required this.onDelete,
-  });
+  const _ApplicationCard({required this.application, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 16),
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: theme.colorScheme.secondaryContainer,
@@ -172,7 +155,6 @@ class _ApplicationCard extends StatelessWidget {
           ),
           onPressed: onDelete,
         ),
-        onTap: onTap,
       ),
     );
   }
