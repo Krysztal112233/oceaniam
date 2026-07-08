@@ -7,6 +7,7 @@ import {
     type SearchApplicationUsersQuery,
 } from "@oceaniam/sdk";
 import { useToast } from "vue-toastification";
+import UserRowActions from "../components/actions/UserRowActions.vue";
 import ChangePasswordModal from "../components/modals/ChangePasswordModal.vue";
 import CreateUserModal from "../components/modals/CreateUserModal.vue";
 import EntityListPage from "../components/layout/EntityListPage.vue";
@@ -56,6 +57,10 @@ const isPasswordDialogOpen = ref(false);
 const passwordChangeLoading = ref(false);
 const passwordChangeError = ref<string | null>(null);
 const selectedUserForPassword = ref<UserItem | null>(null);
+
+const deleteUserLoading = ref(false);
+const deleteTargetUserId = ref<string | null>(null);
+const deleteUserError = ref<string | null>(null);
 
 const canOpenCreateDialog = computed(
     () =>
@@ -330,6 +335,49 @@ async function handleChangePassword(password: string): Promise<void> {
     }
 }
 
+function resetDeleteUserState(): void {
+    deleteTargetUserId.value = null;
+    deleteUserError.value = null;
+}
+
+async function handleDeleteUser(userId: string): Promise<void> {
+    const normalizedTenantId = tenantId.value.trim();
+    const normalizedApplicationId = applicationId.value.trim();
+
+    if (!normalizedTenantId || !normalizedApplicationId) {
+        deleteUserError.value = "缺少必要的上下文信息。";
+        deleteTargetUserId.value = userId;
+        return;
+    }
+
+    deleteTargetUserId.value = userId;
+    deleteUserLoading.value = true;
+    deleteUserError.value = null;
+
+    try {
+        await getClient().deleteApplicationUser(
+            normalizedTenantId,
+            normalizedApplicationId,
+            userId,
+        );
+
+        resetDeleteUserState();
+        toast.success("用户已删除");
+
+        if (users.value.length === 1 && currentPage.value > 1) {
+            currentPage.value -= 1;
+        }
+
+        await loadUsers(normalizedTenantId, normalizedApplicationId);
+    } catch (err) {
+        deleteUserError.value =
+            err instanceof Error ? err.message : "删除用户失败。";
+        toast.error(deleteUserError.value);
+    } finally {
+        deleteUserLoading.value = false;
+    }
+}
+
 async function goToPreviousPage(): Promise<void> {
     if (!canGoToPreviousPage.value || usersLoading.value) {
         return;
@@ -567,17 +615,30 @@ watch(
                                             {{ user.phone || "-" }}
                                         </td>
                                         <td class="whitespace-nowrap">
-                                            <button
-                                                type="button"
-                                                class="btn btn-sm btn-ghost"
-                                                @click="
+                                            <UserRowActions
+                                                :user-id="user.id"
+                                                :nickname="user.nickname"
+                                                :deleting="
+                                                    deleteUserLoading &&
+                                                    deleteTargetUserId ===
+                                                        user.id
+                                                "
+                                                :delete-error="
+                                                    deleteTargetUserId ===
+                                                    user.id
+                                                        ? deleteUserError
+                                                        : null
+                                                "
+                                                @change-password="
                                                     openChangePasswordDialog(
                                                         user,
                                                     )
                                                 "
-                                            >
-                                                修改密码
-                                            </button>
+                                                @delete="handleDeleteUser"
+                                                @delete-close="
+                                                    resetDeleteUserState
+                                                "
+                                            />
                                         </td>
                                     </tr>
                                 </tbody>
