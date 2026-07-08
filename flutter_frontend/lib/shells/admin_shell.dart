@@ -101,19 +101,6 @@ class _AdminShellState extends ConsumerState<AdminShell> {
     final isWide = MediaQuery.of(context).size.width >= 900;
 
     return Scaffold(
-      // appBar: AppBar(
-      //   title: const Text('OceanIAM Admin', key: Key('appbar-title')),
-      //   actions: [
-      //     IconButton(
-      //       key: const Key('signout-button'),
-      //       tooltip: 'Sign out',
-      //       icon: const Icon(FluentIcons.arrow_exit_20_regular),
-      //       onPressed: () async {
-      //         await ref.read(authControllerProvider.notifier).signout();
-      //       },
-      //     ),
-      //   ],
-      // ),
       body: Row(
         children: [
           NavigationRail(
