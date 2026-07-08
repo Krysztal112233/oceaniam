@@ -32,6 +32,7 @@ class SettingsPage extends ConsumerWidget {
             leading: const Icon(Icons.dark_mode),
             title: const Text('Theme'),
             trailing: SegmentedButton<ThemeMode>(
+              showSelectedIcon: false,
               segments: const [
                 ButtonSegment(
                   value: ThemeMode.system,
