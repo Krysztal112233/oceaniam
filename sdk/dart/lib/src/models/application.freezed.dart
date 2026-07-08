@@ -722,3 +722,211 @@ abstract class _UpdateApplicationRequest implements UpdateApplicationRequest {
   _$$UpdateApplicationRequestImplCopyWith<_$UpdateApplicationRequestImpl>
       get copyWith => throw _privateConstructorUsedError;
 }
+
+CreateApplicationResponse _$CreateApplicationResponseFromJson(
+    Map<String, dynamic> json) {
+  return _CreateApplicationResponse.fromJson(json);
+}
+
+/// @nodoc
+mixin _$CreateApplicationResponse {
+  @JsonKey(name: 'application_id')
+  String get applicationId => throw _privateConstructorUsedError;
+  @JsonKey(name: 'tenant_id')
+  String get tenantId => throw _privateConstructorUsedError;
+  String? get comment => throw _privateConstructorUsedError;
+
+  /// Serializes this CreateApplicationResponse to a JSON map.
+  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
+
+  /// Create a copy of CreateApplicationResponse
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $CreateApplicationResponseCopyWith<CreateApplicationResponse> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $CreateApplicationResponseCopyWith<$Res> {
+  factory $CreateApplicationResponseCopyWith(CreateApplicationResponse value,
+          $Res Function(CreateApplicationResponse) then) =
+      _$CreateApplicationResponseCopyWithImpl<$Res, CreateApplicationResponse>;
+  @useResult
+  $Res call(
+      {@JsonKey(name: 'application_id') String applicationId,
+      @JsonKey(name: 'tenant_id') String tenantId,
+      String? comment});
+}
+
+/// @nodoc
+class _$CreateApplicationResponseCopyWithImpl<$Res,
+        $Val extends CreateApplicationResponse>
+    implements $CreateApplicationResponseCopyWith<$Res> {
+  _$CreateApplicationResponseCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of CreateApplicationResponse
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? applicationId = null,
+    Object? tenantId = null,
+    Object? comment = freezed,
+  }) {
+    return _then(_value.copyWith(
+      applicationId: null == applicationId
+          ? _value.applicationId
+          : applicationId // ignore: cast_nullable_to_non_nullable
+              as String,
+      tenantId: null == tenantId
+          ? _value.tenantId
+          : tenantId // ignore: cast_nullable_to_non_nullable
+              as String,
+      comment: freezed == comment
+          ? _value.comment
+          : comment // ignore: cast_nullable_to_non_nullable
+              as String?,
+    ) as $Val);
+  }
+}
+
+/// @nodoc
+abstract class _$$CreateApplicationResponseImplCopyWith<$Res>
+    implements $CreateApplicationResponseCopyWith<$Res> {
+  factory _$$CreateApplicationResponseImplCopyWith(
+          _$CreateApplicationResponseImpl value,
+          $Res Function(_$CreateApplicationResponseImpl) then) =
+      __$$CreateApplicationResponseImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call(
+      {@JsonKey(name: 'application_id') String applicationId,
+      @JsonKey(name: 'tenant_id') String tenantId,
+      String? comment});
+}
+
+/// @nodoc
+class __$$CreateApplicationResponseImplCopyWithImpl<$Res>
+    extends _$CreateApplicationResponseCopyWithImpl<$Res,
+        _$CreateApplicationResponseImpl>
+    implements _$$CreateApplicationResponseImplCopyWith<$Res> {
+  __$$CreateApplicationResponseImplCopyWithImpl(
+      _$CreateApplicationResponseImpl _value,
+      $Res Function(_$CreateApplicationResponseImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of CreateApplicationResponse
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? applicationId = null,
+    Object? tenantId = null,
+    Object? comment = freezed,
+  }) {
+    return _then(_$CreateApplicationResponseImpl(
+      applicationId: null == applicationId
+          ? _value.applicationId
+          : applicationId // ignore: cast_nullable_to_non_nullable
+              as String,
+      tenantId: null == tenantId
+          ? _value.tenantId
+          : tenantId // ignore: cast_nullable_to_non_nullable
+              as String,
+      comment: freezed == comment
+          ? _value.comment
+          : comment // ignore: cast_nullable_to_non_nullable
+              as String?,
+    ));
+  }
+}
+
+/// @nodoc
+@JsonSerializable()
+class _$CreateApplicationResponseImpl implements _CreateApplicationResponse {
+  const _$CreateApplicationResponseImpl(
+      {@JsonKey(name: 'application_id') required this.applicationId,
+      @JsonKey(name: 'tenant_id') required this.tenantId,
+      this.comment});
+
+  factory _$CreateApplicationResponseImpl.fromJson(Map<String, dynamic> json) =>
+      _$$CreateApplicationResponseImplFromJson(json);
+
+  @override
+  @JsonKey(name: 'application_id')
+  final String applicationId;
+  @override
+  @JsonKey(name: 'tenant_id')
+  final String tenantId;
+  @override
+  final String? comment;
+
+  @override
+  String toString() {
+    return 'CreateApplicationResponse(applicationId: $applicationId, tenantId: $tenantId, comment: $comment)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$CreateApplicationResponseImpl &&
+            (identical(other.applicationId, applicationId) ||
+                other.applicationId == applicationId) &&
+            (identical(other.tenantId, tenantId) ||
+                other.tenantId == tenantId) &&
+            (identical(other.comment, comment) || other.comment == comment));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode =>
+      Object.hash(runtimeType, applicationId, tenantId, comment);
+
+  /// Create a copy of CreateApplicationResponse
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$CreateApplicationResponseImplCopyWith<_$CreateApplicationResponseImpl>
+      get copyWith => __$$CreateApplicationResponseImplCopyWithImpl<
+          _$CreateApplicationResponseImpl>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$$CreateApplicationResponseImplToJson(
+      this,
+    );
+  }
+}
+
+abstract class _CreateApplicationResponse implements CreateApplicationResponse {
+  const factory _CreateApplicationResponse(
+      {@JsonKey(name: 'application_id') required final String applicationId,
+      @JsonKey(name: 'tenant_id') required final String tenantId,
+      final String? comment}) = _$CreateApplicationResponseImpl;
+
+  factory _CreateApplicationResponse.fromJson(Map<String, dynamic> json) =
+      _$CreateApplicationResponseImpl.fromJson;
+
+  @override
+  @JsonKey(name: 'application_id')
+  String get applicationId;
+  @override
+  @JsonKey(name: 'tenant_id')
+  String get tenantId;
+  @override
+  String? get comment;
+
+  /// Create a copy of CreateApplicationResponse
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$CreateApplicationResponseImplCopyWith<_$CreateApplicationResponseImpl>
+      get copyWith => throw _privateConstructorUsedError;
+}

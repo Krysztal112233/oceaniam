@@ -376,7 +376,7 @@ class OceanIAMClient {
     return ApplicationDetail.fromJson(data);
   }
 
-  Future<Application> createApplication(
+  Future<CreateApplicationResponse> createApplication(
     String tenantId, {
     String? comment,
   }) async {
@@ -386,7 +386,7 @@ class OceanIAMClient {
       '/tenants/$tenantId/applications',
       body: body.toJson(),
     );
-    return Application.fromJson(data);
+    return CreateApplicationResponse.fromJson(data);
   }
 
   Future<void> updateApplication(

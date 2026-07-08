@@ -44,3 +44,15 @@ class UpdateApplicationRequest with _$UpdateApplicationRequest {
   factory UpdateApplicationRequest.fromJson(Map<String, dynamic> json) =>
       _$UpdateApplicationRequestFromJson(json);
 }
+
+@freezed
+class CreateApplicationResponse with _$CreateApplicationResponse {
+  const factory CreateApplicationResponse({
+    @JsonKey(name: 'application_id') required String applicationId,
+    @JsonKey(name: 'tenant_id') required String tenantId,
+    String? comment,
+  }) = _CreateApplicationResponse;
+
+  factory CreateApplicationResponse.fromJson(Map<String, dynamic> json) =>
+      _$CreateApplicationResponseFromJson(json);
+}
