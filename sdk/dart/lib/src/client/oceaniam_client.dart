@@ -35,10 +35,8 @@ class OceanIAMClient {
   final http.Client _httpClient;
   String? _jwt;
 
-  OceanIAMClient({
-    required this.baseUrl,
-    http.Client? httpClient,
-  }) : _httpClient = httpClient ?? http.Client();
+  OceanIAMClient({required this.baseUrl, http.Client? httpClient})
+      : _httpClient = httpClient ?? http.Client();
 
   bool get isAuthenticated => _jwt != null;
 
@@ -49,9 +47,7 @@ class OceanIAMClient {
   String? get token => _jwt;
 
   Map<String, String> get _headers {
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-    };
+    final headers = <String, String>{'Content-Type': 'application/json'};
     if (_jwt != null) {
       headers['Authorization'] = 'Bearer $_jwt';
     }
@@ -65,10 +61,7 @@ class OceanIAMClient {
     Map<String, String>? extraHeaders,
   }) async {
     final uri = Uri.parse('$baseUrl$path');
-    final headers = {
-      ..._headers,
-      if (extraHeaders != null) ...extraHeaders,
-    };
+    final headers = {..._headers, if (extraHeaders != null) ...extraHeaders};
 
     late http.Response response;
     switch (method) {
@@ -292,11 +285,7 @@ class OceanIAMClient {
 
   Future<void> updateTenant(String tenantId, {String? comment}) async {
     final body = UpdateTenantRequest(comment: comment);
-    await _requestNoContent(
-      'PATCH',
-      '/tenants/$tenantId',
-      body: body.toJson(),
-    );
+    await _requestNoContent('PATCH', '/tenants/$tenantId', body: body.toJson());
   }
 
   Future<void> deleteTenant(String tenantId) async {
@@ -413,10 +402,7 @@ class OceanIAMClient {
     );
   }
 
-  Future<void> deleteApplication(
-    String tenantId,
-    String applicationId,
-  ) async {
+  Future<void> deleteApplication(String tenantId, String applicationId) async {
     await _requestNoContent(
       'DELETE',
       '/tenants/$tenantId/applications/$applicationId',
@@ -557,10 +543,7 @@ class OceanIAMClient {
     await _requestNoContent('DELETE', '/secrets/$secretId');
   }
 
-  Future<void> bindSecret(
-    String secretId,
-    String applicationId,
-  ) async {
+  Future<void> bindSecret(String secretId, String applicationId) async {
     final body = BindSecretRequest(applicationId: applicationId);
     await _requestNoContent(
       'POST',
@@ -569,10 +552,7 @@ class OceanIAMClient {
     );
   }
 
-  Future<void> unbindSecret(
-    String secretId,
-    String applicationId,
-  ) async {
+  Future<void> unbindSecret(String secretId, String applicationId) async {
     await _requestNoContent(
       'DELETE',
       '/secrets/$secretId/bindings/$applicationId',

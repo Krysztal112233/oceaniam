@@ -29,9 +29,8 @@ class ApplicationDetail with _$ApplicationDetail {
 
 @freezed
 class CreateApplicationRequest with _$CreateApplicationRequest {
-  const factory CreateApplicationRequest({
-    String? comment,
-  }) = _CreateApplicationRequest;
+  const factory CreateApplicationRequest({String? comment}) =
+      _CreateApplicationRequest;
 
   factory CreateApplicationRequest.fromJson(Map<String, dynamic> json) =>
       _$CreateApplicationRequestFromJson(json);
@@ -39,9 +38,8 @@ class CreateApplicationRequest with _$CreateApplicationRequest {
 
 @freezed
 class UpdateApplicationRequest with _$UpdateApplicationRequest {
-  const factory UpdateApplicationRequest({
-    String? comment,
-  }) = _UpdateApplicationRequest;
+  const factory UpdateApplicationRequest({String? comment}) =
+      _UpdateApplicationRequest;
 
   factory UpdateApplicationRequest.fromJson(Map<String, dynamic> json) =>
       _$UpdateApplicationRequestFromJson(json);

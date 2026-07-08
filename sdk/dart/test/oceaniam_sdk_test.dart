@@ -22,11 +22,7 @@ void main() {
     });
 
     test('Application fromJson', () {
-      final json = {
-        'id': 'app1',
-        'comment': 'My App',
-        'tenant_id': 'tenant1',
-      };
+      final json = {'id': 'app1', 'comment': 'My App', 'tenant_id': 'tenant1'};
       final app = Application.fromJson(json);
       expect(app.id, 'app1');
       expect(app.tenantId, 'tenant1');
@@ -104,16 +100,13 @@ void main() {
     setUp(() {
       mockHttp = MockClient((request) async {
         if (request.url.path == '/auth/tokens' && request.method == 'POST') {
-          return http.Response(
-            jsonEncode({'token': 'test-jwt'}),
-            200,
-          );
+          return http.Response(jsonEncode({'token': 'test-jwt'}), 200);
         }
         if (request.url.path == '/tenants' && request.method == 'GET') {
           return http.Response(
             jsonEncode({
               'items': [
-                {'id': 't1', 'comment': 'Tenant 1'}
+                {'id': 't1', 'comment': 'Tenant 1'},
               ],
               'page_info': {'has_next': false, 'total': 1},
             }),
@@ -189,7 +182,8 @@ void main() {
       final localClient = OceanIAMClient(
         baseUrl: 'http://localhost:8000',
         httpClient: MockClient(
-            (_) async => http.Response(jsonEncode({'token': 'x'}), 200)),
+          (_) async => http.Response(jsonEncode({'token': 'x'}), 200),
+        ),
       );
       await localClient.signin('admin', 'pass');
       expect(localClient.isAuthenticated, true);

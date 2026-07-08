@@ -20,10 +20,8 @@ class Overview with _$Overview {
 
 @freezed
 class TrendDataPoint with _$TrendDataPoint {
-  const factory TrendDataPoint({
-    required DateTime bucket,
-    required int count,
-  }) = _TrendDataPoint;
+  const factory TrendDataPoint({required DateTime bucket, required int count}) =
+      _TrendDataPoint;
 
   factory TrendDataPoint.fromJson(Map<String, dynamic> json) =>
       _$TrendDataPointFromJson(json);

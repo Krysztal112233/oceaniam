@@ -31,9 +31,8 @@ class CreateUserRequest with _$CreateUserRequest {
 
 @freezed
 class UpdatePasswordRequest with _$UpdatePasswordRequest {
-  const factory UpdatePasswordRequest({
-    required String password,
-  }) = _UpdatePasswordRequest;
+  const factory UpdatePasswordRequest({required String password}) =
+      _UpdatePasswordRequest;
 
   factory UpdatePasswordRequest.fromJson(Map<String, dynamic> json) =>
       _$UpdatePasswordRequestFromJson(json);

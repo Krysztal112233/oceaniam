@@ -53,10 +53,8 @@ class CreateAdministratorResponse with _$CreateAdministratorResponse {
 
 @freezed
 class UpdateAdministratorRequest with _$UpdateAdministratorRequest {
-  const factory UpdateAdministratorRequest({
-    String? name,
-    String? password,
-  }) = _UpdateAdministratorRequest;
+  const factory UpdateAdministratorRequest({String? name, String? password}) =
+      _UpdateAdministratorRequest;
 
   factory UpdateAdministratorRequest.fromJson(Map<String, dynamic> json) =>
       _$UpdateAdministratorRequestFromJson(json);
