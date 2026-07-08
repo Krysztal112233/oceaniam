@@ -28,7 +28,8 @@ class DashboardPage extends ConsumerWidget {
               key: ValueKey(overviewAsync),
               child: overviewAsync.when(
                 loading: () => const _SkeletonGrid(count: 5),
-                error: (e, _) => _ErrorBox(message: 'Failed to load overview: $e'),
+                error: (e, _) =>
+                    _ErrorBox(message: 'Failed to load overview: $e'),
                 data: (o) => _OverviewGrid(overview: o),
               ),
             ),
@@ -57,7 +58,8 @@ class DashboardPage extends ConsumerWidget {
               key: ValueKey(trendsAsync),
               child: trendsAsync.when(
                 loading: () => const _SkeletonGrid(count: 4),
-                error: (e, _) => _ErrorBox(message: 'Failed to load trends: $e'),
+                error: (e, _) =>
+                    _ErrorBox(message: 'Failed to load trends: $e'),
                 data: (t) => _TrendsGrid(trends: t),
               ),
             ),
@@ -161,7 +163,10 @@ class _OverviewGrid extends StatelessWidget {
         children: [
           Row(
             spacing: 12,
-            children: items.sublist(0, 3).map((e) => Expanded(child: e)).toList(),
+            children: items
+                .sublist(0, 3)
+                .map((e) => Expanded(child: e))
+                .toList(),
           ),
           Row(
             spacing: 12,
