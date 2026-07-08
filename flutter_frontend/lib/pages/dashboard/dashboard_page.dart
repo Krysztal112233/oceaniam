@@ -157,22 +157,16 @@ class _OverviewGrid extends StatelessWidget {
 
     if (isWide) {
       return Column(
+        spacing: 12,
         children: [
           Row(
-            children: [
-              Expanded(child: items[0]),
-              const SizedBox(width: 12),
-              Expanded(child: items[1]),
-              const SizedBox(width: 12),
-              Expanded(child: items[2]),
-            ],
+            spacing: 12,
+            children: items.sublist(0, 3).map((e) => Expanded(child: e)).toList(),
           ),
-          const SizedBox(height: 12),
           Row(
+            spacing: 12,
             children: [
-              Expanded(child: items[3]),
-              const SizedBox(width: 12),
-              Expanded(child: items[4]),
+              ...items.sublist(3).map((e) => Expanded(child: e)),
               const Spacer(),
             ],
           ),
@@ -181,23 +175,16 @@ class _OverviewGrid extends StatelessWidget {
     }
 
     return Column(
+      spacing: 12,
       children: [
         Row(
-          children: [
-            Expanded(child: items[0]),
-            const SizedBox(width: 12),
-            Expanded(child: items[1]),
-          ],
+          spacing: 12,
+          children: items.sublist(0, 2).map((e) => Expanded(child: e)).toList(),
         ),
-        const SizedBox(height: 12),
         Row(
-          children: [
-            Expanded(child: items[2]),
-            const SizedBox(width: 12),
-            Expanded(child: items[3]),
-          ],
+          spacing: 12,
+          children: items.sublist(2, 4).map((e) => Expanded(child: e)).toList(),
         ),
-        const SizedBox(height: 12),
         items[4],
       ],
     );
