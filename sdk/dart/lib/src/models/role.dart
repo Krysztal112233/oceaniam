@@ -29,9 +29,8 @@ class SubjectRoles with _$SubjectRoles {
 
 @freezed
 class RolePermissions with _$RolePermissions {
-  const factory RolePermissions({
-    required List<String> permissions,
-  }) = _RolePermissions;
+  const factory RolePermissions({required List<String> permissions}) =
+      _RolePermissions;
 
   factory RolePermissions.fromJson(Map<String, dynamic> json) =>
       _$RolePermissionsFromJson(json);
@@ -50,9 +49,7 @@ class CreateRoleRequest with _$CreateRoleRequest {
 
 @freezed
 class UpdateRoleRequest with _$UpdateRoleRequest {
-  const factory UpdateRoleRequest({
-    String? name,
-  }) = _UpdateRoleRequest;
+  const factory UpdateRoleRequest({String? name}) = _UpdateRoleRequest;
 
   factory UpdateRoleRequest.fromJson(Map<String, dynamic> json) =>
       _$UpdateRoleRequestFromJson(json);

@@ -31,9 +31,7 @@ class PasswordPolicy with _$PasswordPolicy {
 
 @freezed
 class RegistrationConfig with _$RegistrationConfig {
-  const factory RegistrationConfig({
-    bool? enabled,
-  }) = _RegistrationConfig;
+  const factory RegistrationConfig({bool? enabled}) = _RegistrationConfig;
 
   factory RegistrationConfig.fromJson(Map<String, dynamic> json) =>
       _$RegistrationConfigFromJson(json);
