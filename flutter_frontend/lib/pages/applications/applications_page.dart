@@ -6,6 +6,7 @@ import 'package:oceaniam_sdk/oceaniam_sdk.dart';
 import '../../providers/application_providers.dart';
 import '../../providers/oceaniam_client_provider.dart';
 import '../../widgets/admin_page_scaffold.dart';
+import '../../widgets/placeholder_page.dart';
 
 class ApplicationsPage extends ConsumerStatefulWidget {
   final String tenantId;
@@ -17,8 +18,59 @@ class ApplicationsPage extends ConsumerStatefulWidget {
 }
 
 class _ApplicationsPageState extends ConsumerState<ApplicationsPage> {
+  String? _usersApplicationId;
+
   @override
   Widget build(BuildContext context) {
+    final showUsers = _usersApplicationId != null;
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      transitionBuilder: (child, animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.9, end: 1.0).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOut),
+            ),
+            child: child,
+          ),
+        );
+      },
+      child: showUsers
+          ? PlaceholderPage(
+              key: const ValueKey('users'),
+              title: 'Users - $_usersApplicationId',
+              description: 'User management for this application.',
+              leading: [
+                IconButton(
+                  icon: const Icon(FluentIcons.arrow_left_24_regular),
+                  onPressed: () => setState(() => _usersApplicationId = null),
+                  tooltip: 'Back',
+                ),
+              ],
+            )
+          : _ApplicationListView(
+              key: const ValueKey('list'),
+              tenantId: widget.tenantId,
+              onUsers: (id) => setState(() => _usersApplicationId = id),
+            ),
+    );
+  }
+}
+
+class _ApplicationListView extends ConsumerWidget {
+  final String tenantId;
+  final ValueChanged<String> onUsers;
+
+  const _ApplicationListView({
+    super.key,
+    required this.tenantId,
+    required this.onUsers,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final appsAsync = ref.watch(applicationListProvider);
 
     return AdminPageScaffold(
@@ -66,6 +118,7 @@ class _ApplicationsPageState extends ConsumerState<ApplicationsPage> {
             itemBuilder: (context, i) => _ApplicationCard(
               application: apps[i],
               onDelete: () => _deleteApplication(context, ref, apps[i]),
+              onUsers: () => onUsers(apps[i].id),
             ),
           );
         },
@@ -76,7 +129,7 @@ class _ApplicationsPageState extends ConsumerState<ApplicationsPage> {
   void _showCreateDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (_) => _CreateApplicationDialog(tenantId: widget.tenantId),
+      builder: (_) => _CreateApplicationDialog(tenantId: tenantId),
     );
   }
 
@@ -108,7 +161,7 @@ class _ApplicationsPageState extends ConsumerState<ApplicationsPage> {
     if (confirmed != true) return;
     try {
       final client = ref.read(oceanIAMClientProvider);
-      await client.deleteApplication(widget.tenantId, app.id);
+      await client.deleteApplication(tenantId, app.id);
       ref.invalidate(applicationListProvider);
       if (context.mounted) {
         ScaffoldMessenger.of(
@@ -128,8 +181,13 @@ class _ApplicationsPageState extends ConsumerState<ApplicationsPage> {
 class _ApplicationCard extends StatelessWidget {
   final Application application;
   final VoidCallback onDelete;
+  final VoidCallback onUsers;
 
-  const _ApplicationCard({required this.application, required this.onDelete});
+  const _ApplicationCard({
+    required this.application,
+    required this.onDelete,
+    required this.onUsers,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -148,12 +206,25 @@ class _ApplicationCard extends StatelessWidget {
         subtitle: application.comment != null && application.comment!.isNotEmpty
             ? Text(application.comment!)
             : null,
-        trailing: IconButton(
-          icon: Icon(
-            FluentIcons.delete_24_regular,
-            color: theme.colorScheme.error,
-          ),
-          onPressed: onDelete,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: Icon(
+                FluentIcons.people_24_regular,
+                color: theme.colorScheme.primary,
+              ),
+              onPressed: onUsers,
+              tooltip: 'Manage users',
+            ),
+            IconButton(
+              icon: Icon(
+                FluentIcons.delete_24_regular,
+                color: theme.colorScheme.error,
+              ),
+              onPressed: onDelete,
+            ),
+          ],
         ),
       ),
     );

@@ -7,12 +7,14 @@ import 'admin_page_scaffold.dart';
 class PlaceholderPage extends StatelessWidget {
   final String title;
   final String? description;
+  final List<Widget>? leading;
   final List<Widget>? actions;
 
   const PlaceholderPage({
     super.key,
     required this.title,
     this.description,
+    this.leading,
     this.actions,
   });
 
@@ -21,6 +23,7 @@ class PlaceholderPage extends StatelessWidget {
     final theme = Theme.of(context);
     return AdminPageScaffold(
       title: title,
+      leading: leading,
       actions: actions,
       child: Center(
         child: Padding(
