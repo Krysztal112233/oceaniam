@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../../widgets/placeholder_page.dart';
 
@@ -13,11 +14,13 @@ import '../../widgets/placeholder_page.dart';
 class ApplicationDetailPage extends StatelessWidget {
   final String tenantId;
   final String applicationId;
+  final VoidCallback? onBack;
 
   const ApplicationDetailPage({
     super.key,
     required this.tenantId,
     required this.applicationId,
+    this.onBack,
   });
 
   @override
@@ -26,6 +29,15 @@ class ApplicationDetailPage extends StatelessWidget {
       title: 'Application $applicationId',
       description:
           'Overview, users, roles, secrets, statistics, audits, configuration.',
+      actions: onBack != null
+          ? [
+              IconButton(
+                icon: const Icon(FluentIcons.arrow_left_24_regular),
+                onPressed: onBack,
+                tooltip: 'Back',
+              ),
+            ]
+          : null,
     );
   }
 }

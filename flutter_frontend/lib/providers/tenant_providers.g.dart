@@ -40,7 +40,7 @@ final currentTenantProvider = Provider<Tenant?>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef CurrentTenantRef = ProviderRef<Tenant?>;
-String _$currentTenantIdHash() => r'9d76075c0d34a542c50aa46c61d3d227a3f3504e';
+String _$currentTenantIdHash() => r'7c2c27e467af240e8d29613b7c2e301a798a2b0b';
 
 /// See also [CurrentTenantId].
 @ProviderFor(CurrentTenantId)

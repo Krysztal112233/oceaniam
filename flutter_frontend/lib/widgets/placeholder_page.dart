@@ -44,9 +44,18 @@ class PlaceholderPage extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 12),
-              Chip(
-                label: const Text('TODO'),
-                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'TODO',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
             ],
           ),
