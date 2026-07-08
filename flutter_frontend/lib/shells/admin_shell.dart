@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../pages/dashboard/dashboard_page.dart';
-import '../pages/tenants/tenants_page.dart';
 import '../pages/secrets/secrets_page.dart';
 import '../pages/administrators/administrators_page.dart';
 import '../pages/administrators/administrator_me_page.dart';
@@ -41,13 +40,6 @@ final _navItems = <_NavItem>[
     selectedIcon: FluentIcons.board_24_filled,
     page: const DashboardPage(),
     keySuffix: 'dashboard',
-  ),
-  _NavItem(
-    label: 'Tenants',
-    icon: FluentIcons.organization_24_regular,
-    selectedIcon: FluentIcons.organization_24_filled,
-    page: const TenantsPage(),
-    keySuffix: 'tenants',
   ),
   _NavItem(
     label: 'Secrets',
@@ -111,6 +103,14 @@ class _AdminShellState extends ConsumerState<AdminShell> {
             labelType: isWide
                 ? NavigationRailLabelType.none
                 : NavigationRailLabelType.selected,
+            leading: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 8),
+                _TenantSwitcher(extended: isWide),
+                Container(height: 1, color: Theme.of(context).dividerColor),
+              ],
+            ),
             destinations: _navItems.map((n) => n.destination).toList(),
           ),
           Expanded(
@@ -122,6 +122,110 @@ class _AdminShellState extends ConsumerState<AdminShell> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TenantSwitcher extends StatelessWidget {
+  final bool extended;
+
+  const _TenantSwitcher({required this.extended});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    if (extended) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+        child: Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: theme.colorScheme.outlineVariant),
+          ),
+          child: InkWell(
+            onTap: () {},
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      FluentIcons.organization_24_regular,
+                      size: 18,
+                      color: theme.colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Current Tenant',
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                        Text(
+                          'Click to switch',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    FluentIcons.chevron_down_24_regular,
+                    size: 16,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: () {},
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: theme.colorScheme.shadow.withValues(alpha: 0.3),
+                blurRadius: 2,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Icon(
+            FluentIcons.organization_24_regular,
+            size: 20,
+            color: theme.colorScheme.onPrimaryContainer,
+          ),
+        ),
       ),
     );
   }
