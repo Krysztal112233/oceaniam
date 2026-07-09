@@ -23,8 +23,7 @@ final applicationListProvider = FutureProvider<List<Application>>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef ApplicationListRef = FutureProviderRef<List<Application>>;
-String _$applicationUsersPageHash() =>
-    r'0b28563849c70c4d06f735f60698c44db9116cb7';
+String _$applicationDetailHash() => r'0e5e4b60af38318949e8e2a90be2428fda0464a1';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -46,6 +45,157 @@ class _SystemHash {
     return 0x1fffffff & (hash + ((0x00003fff & hash) << 15));
   }
 }
+
+/// Application metadata for the Overview tab.
+///
+/// Copied from [applicationDetail].
+@ProviderFor(applicationDetail)
+const applicationDetailProvider = ApplicationDetailFamily();
+
+/// Application metadata for the Overview tab.
+///
+/// Copied from [applicationDetail].
+class ApplicationDetailFamily extends Family<AsyncValue<ApplicationDetail>> {
+  /// Application metadata for the Overview tab.
+  ///
+  /// Copied from [applicationDetail].
+  const ApplicationDetailFamily();
+
+  /// Application metadata for the Overview tab.
+  ///
+  /// Copied from [applicationDetail].
+  ApplicationDetailProvider call(String tenantId, String applicationId) {
+    return ApplicationDetailProvider(tenantId, applicationId);
+  }
+
+  @override
+  ApplicationDetailProvider getProviderOverride(
+    covariant ApplicationDetailProvider provider,
+  ) {
+    return call(provider.tenantId, provider.applicationId);
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'applicationDetailProvider';
+}
+
+/// Application metadata for the Overview tab.
+///
+/// Copied from [applicationDetail].
+class ApplicationDetailProvider
+    extends AutoDisposeFutureProvider<ApplicationDetail> {
+  /// Application metadata for the Overview tab.
+  ///
+  /// Copied from [applicationDetail].
+  ApplicationDetailProvider(String tenantId, String applicationId)
+    : this._internal(
+        (ref) => applicationDetail(
+          ref as ApplicationDetailRef,
+          tenantId,
+          applicationId,
+        ),
+        from: applicationDetailProvider,
+        name: r'applicationDetailProvider',
+        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+            ? null
+            : _$applicationDetailHash,
+        dependencies: ApplicationDetailFamily._dependencies,
+        allTransitiveDependencies:
+            ApplicationDetailFamily._allTransitiveDependencies,
+        tenantId: tenantId,
+        applicationId: applicationId,
+      );
+
+  ApplicationDetailProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.tenantId,
+    required this.applicationId,
+  }) : super.internal();
+
+  final String tenantId;
+  final String applicationId;
+
+  @override
+  Override overrideWith(
+    FutureOr<ApplicationDetail> Function(ApplicationDetailRef provider) create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: ApplicationDetailProvider._internal(
+        (ref) => create(ref as ApplicationDetailRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        tenantId: tenantId,
+        applicationId: applicationId,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeFutureProviderElement<ApplicationDetail> createElement() {
+    return _ApplicationDetailProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is ApplicationDetailProvider &&
+        other.tenantId == tenantId &&
+        other.applicationId == applicationId;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, tenantId.hashCode);
+    hash = _SystemHash.combine(hash, applicationId.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin ApplicationDetailRef on AutoDisposeFutureProviderRef<ApplicationDetail> {
+  /// The parameter `tenantId` of this provider.
+  String get tenantId;
+
+  /// The parameter `applicationId` of this provider.
+  String get applicationId;
+}
+
+class _ApplicationDetailProviderElement
+    extends AutoDisposeFutureProviderElement<ApplicationDetail>
+    with ApplicationDetailRef {
+  _ApplicationDetailProviderElement(super.provider);
+
+  @override
+  String get tenantId => (origin as ApplicationDetailProvider).tenantId;
+  @override
+  String get applicationId =>
+      (origin as ApplicationDetailProvider).applicationId;
+}
+
+String _$applicationUsersPageHash() =>
+    r'0b28563849c70c4d06f735f60698c44db9116cb7';
 
 /// Lists users, or searches when [searchQuery] is non-empty.
 ///

@@ -80,7 +80,10 @@ class _ApplicationDetailPageState extends State<ApplicationDetailPage>
             child: TabBarView(
               controller: _tabController,
               children: [
-                ApplicationOverviewTab(applicationId: widget.applicationId),
+                ApplicationOverviewTab(
+                  tenantId: widget.tenantId,
+                  applicationId: widget.applicationId,
+                ),
                 ApplicationUsersTab(
                   tenantId: widget.tenantId,
                   applicationId: widget.applicationId,
