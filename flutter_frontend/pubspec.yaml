@@ -49,6 +49,7 @@ dependencies:
   oceaniam_sdk:
     path: ../sdk/dart
   dropdown_button2: ^3.1.0
+  floating_snackbar: ^2.0.0
 
 dev_dependencies:
   flutter_test:

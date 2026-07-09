@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+import 'package:floating_snackbar/floating_snackbar.dart';
 
 import '../../providers/application_providers.dart';
 import '../../providers/oceaniam_client_provider.dart';
@@ -123,15 +124,11 @@ class ApplicationSettingsTab extends ConsumerWidget {
       ref.invalidate(applicationListProvider);
       if (context.mounted) {
         Navigator.of(context).maybePop();
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Deleted "$applicationId"')));
+        FloatingSnackBar.success(context, 'Deleted "$applicationId"');
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to delete: $e')));
+        FloatingSnackBar.error(context, 'Failed to delete: $e');
       }
     }
   }

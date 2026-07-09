@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:floating_snackbar/floating_snackbar.dart';
 
 import '../../providers/oceaniam_client_provider.dart';
 import '../../providers/application_providers.dart';
@@ -79,9 +80,7 @@ class _CreateApplicationDialogState
     } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create application: $e')),
-        );
+        FloatingSnackBar.error(context, 'Failed to create application: $e');
       }
     }
   }
