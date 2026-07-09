@@ -6,7 +6,7 @@ import 'package:oceaniam_sdk/oceaniam_sdk.dart';
 import '../../providers/application_providers.dart';
 import '../../providers/oceaniam_client_provider.dart';
 import '../../widgets/admin_page_scaffold.dart';
-import '../../widgets/placeholder_page.dart';
+import 'application_detail_page.dart';
 
 class ApplicationsPage extends ConsumerStatefulWidget {
   final String tenantId;
@@ -18,55 +18,49 @@ class ApplicationsPage extends ConsumerStatefulWidget {
 }
 
 class _ApplicationsPageState extends ConsumerState<ApplicationsPage> {
-  String? _usersApplicationId;
+  String? _expandedApplicationId;
 
   @override
   Widget build(BuildContext context) {
-    final showUsers = _usersApplicationId != null;
+    final isWide = MediaQuery.of(context).size.width >= 900;
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 200),
-      transitionBuilder: (child, animation) {
-        return FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.9, end: 1.0).animate(
-              CurvedAnimation(parent: animation, curve: Curves.easeOut),
-            ),
-            child: child,
-          ),
-        );
-      },
-      child: showUsers
-          ? PlaceholderPage(
-              key: const ValueKey('users'),
-              title: 'Users - $_usersApplicationId',
-              description: 'User management for this application.',
-              leading: [
-                IconButton(
-                  icon: const Icon(FluentIcons.arrow_left_24_regular),
-                  onPressed: () => setState(() => _usersApplicationId = null),
-                  tooltip: 'Back',
-                ),
-              ],
-            )
-          : _ApplicationListView(
-              key: const ValueKey('list'),
-              tenantId: widget.tenantId,
-              onUsers: (id) => setState(() => _usersApplicationId = id),
-            ),
+    return _ApplicationListView(
+      tenantId: widget.tenantId,
+      expandedApplicationId: isWide ? _expandedApplicationId : null,
+      onExpand: isWide
+          ? (id) => setState(() {
+              _expandedApplicationId =
+                  _expandedApplicationId == id ? null : id;
+            })
+          : null,
+      onUsers: isWide ? null : _openUsersTab,
+    );
+  }
+
+  void _openUsersTab(String applicationId) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ApplicationDetailPage(
+          tenantId: widget.tenantId,
+          applicationId: applicationId,
+          initialTabIndex: 1,
+        ),
+      ),
     );
   }
 }
 
 class _ApplicationListView extends ConsumerWidget {
   final String tenantId;
-  final ValueChanged<String> onUsers;
+  final String? expandedApplicationId;
+  final ValueChanged<String>? onExpand;
+  final ValueChanged<String>? onUsers;
 
   const _ApplicationListView({
-    super.key,
     required this.tenantId,
-    required this.onUsers,
+    this.expandedApplicationId,
+    this.onExpand,
+    this.onUsers,
   });
 
   @override
@@ -117,8 +111,14 @@ class _ApplicationListView extends ConsumerWidget {
             itemCount: apps.length,
             itemBuilder: (context, i) => _ApplicationCard(
               application: apps[i],
+              isExpanded: expandedApplicationId == apps[i].id,
+              onExpand: onExpand != null
+                  ? () => onExpand!(apps[i].id)
+                  : null,
               onDelete: () => _deleteApplication(context, ref, apps[i]),
-              onUsers: () => onUsers(apps[i].id),
+              onUsers: onUsers != null
+                  ? () => onUsers!(apps[i].id)
+                  : null,
             ),
           );
         },
@@ -180,53 +180,183 @@ class _ApplicationListView extends ConsumerWidget {
 
 class _ApplicationCard extends StatelessWidget {
   final Application application;
+  final bool isExpanded;
+  final VoidCallback? onExpand;
   final VoidCallback onDelete;
-  final VoidCallback onUsers;
+  final VoidCallback? onUsers;
 
   const _ApplicationCard({
     required this.application,
+    required this.isExpanded,
+    this.onExpand,
     required this.onDelete,
-    required this.onUsers,
+    this.onUsers,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final expandEnabled = onExpand != null;
+
+    Widget cardContent = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ListTile(
+          leading: CircleAvatar(
+            backgroundColor: theme.colorScheme.secondaryContainer,
+            child: Icon(
+              FluentIcons.app_folder_24_regular,
+              color: theme.colorScheme.onSecondaryContainer,
+            ),
+          ),
+          title: Text(application.id),
+          subtitle: application.comment != null &&
+                  application.comment!.isNotEmpty
+              ? Text(application.comment!)
+              : null,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (onUsers != null)
+                IconButton(
+                  icon: Icon(
+                    FluentIcons.people_24_regular,
+                    color: theme.colorScheme.primary,
+                  ),
+                  onPressed: onUsers,
+                  tooltip: 'Manage users',
+                ),
+              IconButton(
+                icon: Icon(
+                  FluentIcons.delete_24_regular,
+                  color: theme.colorScheme.error,
+                ),
+                onPressed: onDelete,
+              ),
+              if (expandEnabled)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Icon(
+                    isExpanded
+                        ? FluentIcons.chevron_up_24_regular
+                        : FluentIcons.chevron_down_24_regular,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+            ],
+          ),
+          onTap: expandEnabled ? onExpand : null,
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: _ApplicationUsersPanel(applicationId: application.id),
+          crossFadeState: isExpanded
+              ? CrossFadeState.showSecond
+              : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 220),
+          firstCurve: Curves.easeInOut,
+          secondCurve: Curves.easeInOut,
+          sizeCurve: Curves.easeInOut,
+          alignment: Alignment.topCenter,
+        ),
+      ],
+    );
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: theme.colorScheme.secondaryContainer,
-          child: Icon(
-            FluentIcons.app_folder_24_regular,
-            color: theme.colorScheme.onSecondaryContainer,
+      child: cardContent,
+    );
+  }
+}
+
+class _ApplicationUsersPanel extends StatelessWidget {
+  final String applicationId;
+
+  const _ApplicationUsersPanel({required this.applicationId});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Divider(height: 1, color: theme.colorScheme.outlineVariant),
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    FluentIcons.people_24_regular,
+                    size: 20,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Users',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  const Spacer(),
+                  FilledButton.tonalIcon(
+                    onPressed: () {
+                      // TODO: implement create user
+                    },
+                    icon: const Icon(FluentIcons.add_24_regular),
+                    label: const Text('New user'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 24,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      FluentIcons.people_24_regular,
+                      size: 40,
+                      color: theme.colorScheme.outline,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'User management for $applicationId',
+                      style: theme.textTheme.bodyMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'TODO',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-        title: Text(application.id),
-        subtitle: application.comment != null && application.comment!.isNotEmpty
-            ? Text(application.comment!)
-            : null,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: Icon(
-                FluentIcons.people_24_regular,
-                color: theme.colorScheme.primary,
-              ),
-              onPressed: onUsers,
-              tooltip: 'Manage users',
-            ),
-            IconButton(
-              icon: Icon(
-                FluentIcons.delete_24_regular,
-                color: theme.colorScheme.error,
-              ),
-              onPressed: onDelete,
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }
