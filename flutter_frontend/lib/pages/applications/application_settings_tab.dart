@@ -27,6 +27,7 @@ class ApplicationSettingsTab extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Card(
+            clipBehavior: Clip.antiAlias,
             child: ListTile(
               leading: Icon(
                 FluentIcons.delete_24_regular,

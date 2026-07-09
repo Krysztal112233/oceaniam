@@ -118,8 +118,9 @@ class _SecretsPageState extends ConsumerState<SecretsPage> {
                 secret: secret,
                 isExpanded: _expandedSecretId == secret.id,
                 onExpand: () => setState(() {
-                  _expandedSecretId =
-                      _expandedSecretId == secret.id ? null : secret.id;
+                  _expandedSecretId = _expandedSecretId == secret.id
+                      ? null
+                      : secret.id;
                 }),
               );
             },

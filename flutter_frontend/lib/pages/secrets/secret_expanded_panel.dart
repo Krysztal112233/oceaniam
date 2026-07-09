@@ -8,6 +8,7 @@ import '../../providers/application_providers.dart';
 import '../../providers/oceaniam_client_provider.dart';
 import '../../providers/secret_providers.dart';
 import '../../providers/tenant_providers.dart';
+import '../../widgets/confirm_delete_dialog.dart';
 import '../../widgets/segmented_expand_panel.dart';
 
 /// Inline detail for a secret row (expand-in-place, same pattern as applications).
@@ -149,7 +150,10 @@ class _SecretBindingsTabState extends ConsumerState<_SecretBindingsTab> {
                       ),
                 label: Text(label),
                 onDeleted: busy ? null : () => _unbind(id),
-                deleteIcon: const Icon(FluentIcons.dismiss_24_regular, size: 16),
+                deleteIcon: const Icon(
+                  FluentIcons.dismiss_24_regular,
+                  size: 16,
+                ),
                 deleteButtonTooltipMessage: 'Unbind',
               );
             }).toList(),
@@ -298,45 +302,60 @@ class _BindApplicationDialog extends StatelessWidget {
   }
 }
 
-class _SecretSettingsTab extends StatelessWidget {
+class _SecretSettingsTab extends ConsumerWidget {
   final Secret secret;
 
   const _SecretSettingsTab({required this.secret});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Danger zone',
-          style: theme.textTheme.titleSmall?.copyWith(
-            color: theme.colorScheme.error,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Delete permanently revokes this secret.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: null,
-          icon: const Icon(FluentIcons.delete_24_regular),
-          label: const Text('Delete secret'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: theme.colorScheme.error,
-            side: BorderSide(
-              color: theme.colorScheme.error.withValues(alpha: 0.5),
+        Card(
+          clipBehavior: Clip.antiAlias,
+          child: ListTile(
+            leading: Icon(
+              FluentIcons.delete_24_regular,
+              color: theme.colorScheme.error,
             ),
+            title: Text(
+              'Delete secret',
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+            subtitle: Text('Permanently revoke "${secret.id}".'),
+            onTap: () => _confirmAndDelete(context, ref),
           ),
         ),
       ],
     );
+  }
+
+  Future<void> _confirmAndDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => const ConfirmDeleteDialog(
+        title: 'Delete secret',
+        itemName: 'secret',
+        confirmButtonText: 'Delete',
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final client = ref.read(oceanIAMClientProvider);
+      await client.deleteSecret(secret.id);
+      ref.invalidate(secretsPageProvider);
+      if (context.mounted) {
+        FloatingSnackBar.success(context, 'Deleted "${secret.id}"');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        FloatingSnackBar.error(context, 'Failed to delete: $e');
+      }
+    }
   }
 }
 
@@ -345,11 +364,7 @@ class _InfoRow extends StatelessWidget {
   final String value;
   final bool mono;
 
-  const _InfoRow({
-    required this.label,
-    required this.value,
-    this.mono = false,
-  });
+  const _InfoRow({required this.label, required this.value, this.mono = false});
 
   @override
   Widget build(BuildContext context) {
