@@ -4,9 +4,14 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'application_tab_contents.dart';
 
 class ApplicationExpandedPanel extends StatefulWidget {
+  final String tenantId;
   final String applicationId;
 
-  const ApplicationExpandedPanel({super.key, required this.applicationId});
+  const ApplicationExpandedPanel({
+    super.key,
+    required this.tenantId,
+    required this.applicationId,
+  });
 
   @override
   State<ApplicationExpandedPanel> createState() =>
@@ -48,7 +53,7 @@ class _ApplicationExpandedPanelState extends State<ApplicationExpandedPanel> {
         content = ApplicationSecretsTab(applicationId: widget.applicationId);
       default:
         content = ApplicationSettingsTab(
-          tenantId: '',
+          tenantId: widget.tenantId,
           applicationId: widget.applicationId,
         );
     }
