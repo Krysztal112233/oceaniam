@@ -24,10 +24,5 @@ Future<PagedResponse<ApplicationUser>> applicationUsersPage(
   int page,
 ) async {
   final client = ref.watch(oceanIAMClientProvider);
-  return client.listUsers(
-    tenantId,
-    applicationId,
-    page: page,
-    pageSize: 10,
-  );
+  return client.listUsers(tenantId, applicationId, page: page, pageSize: 10);
 }
