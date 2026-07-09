@@ -37,7 +37,7 @@ class _ApplicationDetailPageState extends State<ApplicationDetailPage>
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 4,
+      length: 3,
       vsync: this,
       initialIndex: widget.initialTabIndex,
     );
@@ -69,7 +69,6 @@ class _ApplicationDetailPageState extends State<ApplicationDetailPage>
             tabs: const [
               Tab(text: 'Overview', icon: Icon(FluentIcons.info_24_regular)),
               Tab(text: 'Users', icon: Icon(FluentIcons.people_24_regular)),
-              Tab(text: 'Secrets', icon: Icon(FluentIcons.key_24_regular)),
               Tab(
                 text: 'Settings',
                 icon: Icon(FluentIcons.settings_24_regular),
@@ -102,7 +101,6 @@ class _ApplicationDetailPageState extends State<ApplicationDetailPage>
                     label: const Text('New user'),
                   ),
                 ),
-                ApplicationSecretsTab(applicationId: widget.applicationId),
                 ApplicationSettingsTab(
                   tenantId: widget.tenantId,
                   applicationId: widget.applicationId,
