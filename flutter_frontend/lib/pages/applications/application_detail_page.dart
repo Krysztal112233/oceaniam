@@ -81,6 +81,7 @@ class _ApplicationDetailPageState extends State<ApplicationDetailPage>
               children: [
                 ApplicationOverviewTab(applicationId: widget.applicationId),
                 ApplicationUsersTab(
+                  tenantId: widget.tenantId,
                   applicationId: widget.applicationId,
                   action: FilledButton.tonalIcon(
                     onPressed: () {

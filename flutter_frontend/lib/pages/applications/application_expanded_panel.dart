@@ -40,6 +40,7 @@ class _ApplicationExpandedPanelState extends State<ApplicationExpandedPanel> {
         content = ApplicationOverviewTab(applicationId: widget.applicationId);
       case 1:
         content = ApplicationUsersTab(
+          tenantId: widget.tenantId,
           applicationId: widget.applicationId,
           action: FilledButton.tonalIcon(
             onPressed: () {
@@ -93,7 +94,7 @@ class _ApplicationExpandedPanelState extends State<ApplicationExpandedPanel> {
                 ],
               ),
               const SizedBox(height: 16),
-              content,
+              SizedBox(height: 400, child: content),
             ],
           ),
         ),
