@@ -5,6 +5,7 @@ import 'package:floating_snackbar/floating_snackbar.dart';
 
 import '../../providers/application_providers.dart';
 import '../../providers/oceaniam_client_provider.dart';
+import '../../widgets/confirm_delete_dialog.dart';
 
 class ApplicationOverviewTab extends StatelessWidget {
   final String applicationId;
@@ -98,22 +99,10 @@ class ApplicationSettingsTab extends ConsumerWidget {
   Future<void> _confirmAndDelete(BuildContext context, WidgetRef ref) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete application'),
-        content: Text('Are you sure you want to delete "$applicationId"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
-            ),
-            child: const Text('Delete'),
-          ),
-        ],
+      builder: (ctx) => const ConfirmDeleteDialog(
+        title: 'Delete application',
+        itemName: 'application',
+        confirmButtonText: 'Delete',
       ),
     );
     if (confirmed != true) return;
