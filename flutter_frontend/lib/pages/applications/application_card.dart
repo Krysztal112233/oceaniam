@@ -6,6 +6,7 @@ import 'application_expanded_panel.dart';
 
 class ApplicationCard extends StatelessWidget {
   final Application application;
+  final String tenantId;
   final bool isExpanded;
   final VoidCallback? onExpand;
   final VoidCallback? onUsers;
@@ -13,6 +14,7 @@ class ApplicationCard extends StatelessWidget {
   const ApplicationCard({
     super.key,
     required this.application,
+    required this.tenantId,
     required this.isExpanded,
     this.onExpand,
     this.onUsers,
@@ -71,6 +73,7 @@ class ApplicationCard extends StatelessWidget {
           AnimatedCrossFade(
             firstChild: const SizedBox.shrink(),
             secondChild: ApplicationExpandedPanel(
+              tenantId: tenantId,
               applicationId: application.id,
             ),
             crossFadeState: isExpanded

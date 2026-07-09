@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+
+import '../../providers/application_providers.dart';
+import '../../providers/oceaniam_client_provider.dart';
 
 class ApplicationOverviewTab extends StatelessWidget {
   final String applicationId;
@@ -52,7 +56,7 @@ class ApplicationSecretsTab extends StatelessWidget {
   }
 }
 
-class ApplicationSettingsTab extends StatelessWidget {
+class ApplicationSettingsTab extends ConsumerWidget {
   final String tenantId;
   final String applicationId;
 
@@ -63,8 +67,9 @@ class ApplicationSettingsTab extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -81,14 +86,54 @@ class ApplicationSettingsTab extends StatelessWidget {
                 style: TextStyle(color: theme.colorScheme.error),
               ),
               subtitle: Text('Remove "$applicationId" from this tenant.'),
-              onTap: () {
-                // TODO: implement delete application
-              },
+              onTap: () => _confirmAndDelete(context, ref),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _confirmAndDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete application'),
+        content: Text('Are you sure you want to delete "$applicationId"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final client = ref.read(oceanIAMClientProvider);
+      await client.deleteApplication(tenantId, applicationId);
+      ref.invalidate(applicationListProvider);
+      if (context.mounted) {
+        Navigator.of(context).maybePop();
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Deleted "$applicationId"')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to delete: $e')));
+      }
+    }
   }
 }
 

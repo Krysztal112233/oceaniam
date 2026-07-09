@@ -110,6 +110,7 @@ class _ApplicationListView extends ConsumerWidget {
             itemCount: apps.length,
             itemBuilder: (context, i) => ApplicationCard(
               application: apps[i],
+              tenantId: tenantId,
               isExpanded: expandedApplicationId == apps[i].id,
               onExpand: onExpand != null ? () => onExpand!(apps[i].id) : null,
               onUsers: onUsers != null ? () => onUsers!(apps[i].id) : null,
