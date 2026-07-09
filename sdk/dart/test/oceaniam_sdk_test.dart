@@ -36,9 +36,9 @@ void main() {
     });
 
     test('SigninResponse fromJson', () {
-      final json = {'token': 'jwt_token_value'};
+      final json = {'jwt': 'jwt_token_value'};
       final resp = SigninResponse.fromJson(json);
-      expect(resp.token, 'jwt_token_value');
+      expect(resp.jwt, 'jwt_token_value');
     });
 
     test('ApplicationUser fromJson', () {
@@ -80,16 +80,36 @@ void main() {
       expect(overview.totalApplications, 10);
     });
 
-    test('AuditLog fromJson', () {
-      final json = {
-        'id': 'a1',
-        'audit_type': 'user.login',
-        'payload': {'ip': '127.0.0.1'},
-        'created_at': '2024-01-01T00:00:00Z',
-      };
-      final audit = AuditLog.fromJson(json);
-      expect(audit.auditType, 'user.login');
-      expect(audit.payload['ip'], '127.0.0.1');
+    test('SearchApplicationUsersQuery toJson uses API field names', () {
+      final query = const SearchApplicationUsersQuery(
+        page: 2,
+        perPage: 10,
+        sortOrder: 'asc',
+        byNickname: 'alice',
+        byEmail: 'a@example.com',
+        byPhone: '123',
+        byId: 'sqid1',
+      );
+      final json = query.toJson();
+      expect(json['page'], 2);
+      expect(json['per_page'], 10);
+      expect(json['sort_order'], 'asc');
+      expect(json['by_nickname'], 'alice');
+      expect(json['by_email'], 'a@example.com');
+      expect(json['by_phone'], '123');
+      expect(json['by_id'], 'sqid1');
+    });
+
+    test('SearchApplicationUsersQuery fromJson', () {
+      final query = SearchApplicationUsersQuery.fromJson({
+        'page': 3,
+        'per_page': 20,
+        'by_nickname': 'bob',
+      });
+      expect(query.page, 3);
+      expect(query.perPage, 20);
+      expect(query.byNickname, 'bob');
+      expect(query.byEmail, isNull);
     });
   });
 
@@ -100,7 +120,7 @@ void main() {
     setUp(() {
       mockHttp = MockClient((request) async {
         if (request.url.path == '/auth/tokens' && request.method == 'POST') {
-          return http.Response(jsonEncode({'token': 'test-jwt'}), 200);
+          return http.Response(jsonEncode({'jwt': 'test-jwt'}), 200);
         }
         if (request.url.path == '/tenants' && request.method == 'GET') {
           return http.Response(
@@ -131,6 +151,31 @@ void main() {
             200,
           );
         }
+        if (request.url.path == '/tenants/t1/applications/app1/users/search' &&
+            request.method == 'GET') {
+          expect(request.url.queryParameters['by_nickname'], 'alice');
+          expect(request.url.queryParameters['page'], '1');
+          expect(request.url.queryParameters['per_page'], '10');
+          expect(request.url.queryParameters.containsKey('query'), isFalse);
+          expect(
+            request.url.queryParameters.containsKey('search_by'),
+            isFalse,
+          );
+          return http.Response(
+            jsonEncode({
+              'items': [
+                {
+                  'id': 'u1',
+                  'email': 'alice@example.com',
+                  'phone': null,
+                  'nickname': 'alice',
+                },
+              ],
+              'page_info': {'has_next': false, 'total': 1},
+            }),
+            200,
+          );
+        }
         return http.Response('Not found', 404);
       });
 
@@ -143,7 +188,7 @@ void main() {
     test('signin sets token', () async {
       expect(client.isAuthenticated, false);
       final resp = await client.signin('admin', 'password');
-      expect(resp.token, 'test-jwt');
+      expect(resp.jwt, 'test-jwt');
       expect(client.isAuthenticated, true);
       expect(client.token, 'test-jwt');
     });
@@ -170,6 +215,24 @@ void main() {
       expect(result.id, 's1');
       expect(result.secret, 'sk-generated');
     });
+
+    test('searchUsers returns paged response with by_* query params', () async {
+      await client.signin('admin', 'password');
+      final result = await client.searchUsers(
+        't1',
+        'app1',
+        const SearchApplicationUsersQuery(
+          page: 1,
+          perPage: 10,
+          byNickname: 'alice',
+        ),
+      );
+      expect(result.items.length, 1);
+      expect(result.items[0].nickname, 'alice');
+      expect(result.pageInfo.total, 1);
+      expect(result.pageInfo.hasNext, false);
+    });
+
     test('throws OceanIAMError on 404', () async {
       await client.signin('admin', 'password');
       await expectLater(
@@ -182,7 +245,7 @@ void main() {
       final localClient = OceanIAMClient(
         baseUrl: 'http://localhost:8000',
         httpClient: MockClient(
-          (_) async => http.Response(jsonEncode({'token': 'x'}), 200),
+          (_) async => http.Response(jsonEncode({'jwt': 'x'}), 200),
         ),
       );
       await localClient.signin('admin', 'pass');

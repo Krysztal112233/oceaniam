@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,6 +35,7 @@ class _ApplicationUsersTabState extends ConsumerState<ApplicationUsersTab> {
   static const _headerHeight = 48.0;
   static const _pageSize = 10;
   static const _emptyBodyHeight = 160.0;
+  static const _searchDebounce = Duration(milliseconds: 350);
 
   static const _columns = [
     TableColumn(width: 180, flex: 2),
@@ -46,7 +49,48 @@ class _ApplicationUsersTabState extends ConsumerState<ApplicationUsersTab> {
   int _page = 1;
   PagedResponse<ApplicationUser>? _lastResponse;
 
+  final _searchController = TextEditingController();
+  ApplicationUserSearchField _searchField = ApplicationUserSearchField.nickname;
+  String _appliedQuery = '';
+  Timer? _debounce;
+
   double get _stableBodyHeight => _headerHeight + _pageSize * _rowHeight;
+
+  bool get _isSearching => _appliedQuery.isNotEmpty;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _applySearch(String raw) {
+    final next = raw.trim();
+    if (next == _appliedQuery) return;
+    setState(() {
+      _appliedQuery = next;
+      _page = 1;
+      _lastResponse = null;
+    });
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() {});
+    _debounce?.cancel();
+    _debounce = Timer(_searchDebounce, () => _applySearch(value));
+  }
+
+  void _clearSearch() {
+    _debounce?.cancel();
+    _searchController.clear();
+    if (_appliedQuery.isEmpty) return;
+    setState(() {
+      _appliedQuery = '';
+      _page = 1;
+      _lastResponse = null;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +100,8 @@ class _ApplicationUsersTabState extends ConsumerState<ApplicationUsersTab> {
         widget.tenantId,
         widget.applicationId,
         _page,
+        _searchField,
+        _appliedQuery,
       ),
     );
 
@@ -64,6 +110,8 @@ class _ApplicationUsersTabState extends ConsumerState<ApplicationUsersTab> {
         widget.tenantId,
         widget.applicationId,
         _page,
+        _searchField,
+        _appliedQuery,
       ),
       (previous, next) {
         final data = next.valueOrNull;
@@ -94,12 +142,96 @@ class _ApplicationUsersTabState extends ConsumerState<ApplicationUsersTab> {
               widget.action ?? const SizedBox.shrink(),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          _buildSearchBar(theme),
+          const SizedBox(height: 12),
           if (widget.fillAvailable)
             Expanded(child: _buildBody(theme, usersAsync))
           else
             _buildBody(theme, usersAsync),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar(ThemeData theme) {
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(24),
+      borderSide: BorderSide.none,
+    );
+
+    return TextField(
+      controller: _searchController,
+      textInputAction: TextInputAction.search,
+      onChanged: _onSearchChanged,
+      onSubmitted: _applySearch,
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: theme.colorScheme.surfaceContainerHighest,
+        hintText: switch (_searchField) {
+          ApplicationUserSearchField.nickname => 'Search by nickname…',
+          ApplicationUserSearchField.email => 'Search by email…',
+          ApplicationUserSearchField.phone => 'Search by phone…',
+          ApplicationUserSearchField.id => 'Search by user ID…',
+        },
+        suffixIcon: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_searchController.text.isNotEmpty || _isSearching)
+              IconButton(
+                tooltip: 'Clear',
+                icon: const Icon(FluentIcons.dismiss_24_regular, size: 18),
+                onPressed: _clearSearch,
+              ),
+            PopupMenuButton<ApplicationUserSearchField>(
+              tooltip: 'Search field',
+              icon: const Icon(FluentIcons.settings_24_regular, size: 24),
+              initialValue: _searchField,
+              onSelected: (value) {
+                if (value == _searchField) return;
+                setState(() {
+                  _searchField = value;
+                  _page = 1;
+                  if (_appliedQuery.isNotEmpty) {
+                    _lastResponse = null;
+                  }
+                });
+              },
+              itemBuilder: (context) => [
+                for (final field in ApplicationUserSearchField.values)
+                  PopupMenuItem(
+                    value: field,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(switch (field) {
+                            ApplicationUserSearchField.nickname => 'Nickname',
+                            ApplicationUserSearchField.email => 'Email',
+                            ApplicationUserSearchField.phone => 'Phone',
+                            ApplicationUserSearchField.id => 'ID',
+                          }),
+                        ),
+                        if (field == _searchField)
+                          Icon(
+                            FluentIcons.checkmark_24_filled,
+                            size: 18,
+                            color: theme.colorScheme.primary,
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+        suffixIconConstraints: const BoxConstraints(minHeight: 40, minWidth: 0),
+        border: border,
+        enabledBorder: border,
+        focusedBorder: border,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
       ),
     );
   }
@@ -135,14 +267,18 @@ class _ApplicationUsersTabState extends ConsumerState<ApplicationUsersTab> {
       });
     }
 
+    final emptyMessage = _isSearching
+        ? 'No users match your search'
+        : 'No users found';
+
     final table = Card(
       clipBehavior: Clip.antiAlias,
       child: items.isEmpty
           ? SizedBox(
               height: widget.fillAvailable ? double.infinity : _emptyBodyHeight,
-              child: const _EmptyTableMessage(
+              child: _EmptyTableMessage(
                 icon: FluentIcons.people_24_regular,
-                message: 'No users found',
+                message: emptyMessage,
               ),
             )
           : SizedBox(

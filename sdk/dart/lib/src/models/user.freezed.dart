@@ -580,101 +580,182 @@ abstract class _UpdatePasswordRequest implements UpdatePasswordRequest {
       get copyWith => throw _privateConstructorUsedError;
 }
 
-UserSearchQuery _$UserSearchQueryFromJson(Map<String, dynamic> json) {
-  return _UserSearchQuery.fromJson(json);
+SearchApplicationUsersQuery _$SearchApplicationUsersQueryFromJson(
+    Map<String, dynamic> json) {
+  return _SearchApplicationUsersQuery.fromJson(json);
 }
 
 /// @nodoc
-mixin _$UserSearchQuery {
-  String? get query => throw _privateConstructorUsedError;
-  @JsonKey(name: 'search_by')
-  String? get searchBy => throw _privateConstructorUsedError;
+mixin _$SearchApplicationUsersQuery {
+  int get page => throw _privateConstructorUsedError;
+  @JsonKey(name: 'per_page')
+  int get perPage => throw _privateConstructorUsedError;
+  @JsonKey(name: 'sort_order')
+  String? get sortOrder => throw _privateConstructorUsedError;
+  @JsonKey(name: 'by_nickname')
+  String? get byNickname => throw _privateConstructorUsedError;
+  @JsonKey(name: 'by_email')
+  String? get byEmail => throw _privateConstructorUsedError;
+  @JsonKey(name: 'by_phone')
+  String? get byPhone => throw _privateConstructorUsedError;
+  @JsonKey(name: 'by_id')
+  String? get byId => throw _privateConstructorUsedError;
 
-  /// Serializes this UserSearchQuery to a JSON map.
+  /// Serializes this SearchApplicationUsersQuery to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
-  /// Create a copy of UserSearchQuery
+  /// Create a copy of SearchApplicationUsersQuery
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
-  $UserSearchQueryCopyWith<UserSearchQuery> get copyWith =>
-      throw _privateConstructorUsedError;
+  $SearchApplicationUsersQueryCopyWith<SearchApplicationUsersQuery>
+      get copyWith => throw _privateConstructorUsedError;
 }
 
 /// @nodoc
-abstract class $UserSearchQueryCopyWith<$Res> {
-  factory $UserSearchQueryCopyWith(
-          UserSearchQuery value, $Res Function(UserSearchQuery) then) =
-      _$UserSearchQueryCopyWithImpl<$Res, UserSearchQuery>;
+abstract class $SearchApplicationUsersQueryCopyWith<$Res> {
+  factory $SearchApplicationUsersQueryCopyWith(
+          SearchApplicationUsersQuery value,
+          $Res Function(SearchApplicationUsersQuery) then) =
+      _$SearchApplicationUsersQueryCopyWithImpl<$Res,
+          SearchApplicationUsersQuery>;
   @useResult
-  $Res call({String? query, @JsonKey(name: 'search_by') String? searchBy});
+  $Res call(
+      {int page,
+      @JsonKey(name: 'per_page') int perPage,
+      @JsonKey(name: 'sort_order') String? sortOrder,
+      @JsonKey(name: 'by_nickname') String? byNickname,
+      @JsonKey(name: 'by_email') String? byEmail,
+      @JsonKey(name: 'by_phone') String? byPhone,
+      @JsonKey(name: 'by_id') String? byId});
 }
 
 /// @nodoc
-class _$UserSearchQueryCopyWithImpl<$Res, $Val extends UserSearchQuery>
-    implements $UserSearchQueryCopyWith<$Res> {
-  _$UserSearchQueryCopyWithImpl(this._value, this._then);
+class _$SearchApplicationUsersQueryCopyWithImpl<$Res,
+        $Val extends SearchApplicationUsersQuery>
+    implements $SearchApplicationUsersQueryCopyWith<$Res> {
+  _$SearchApplicationUsersQueryCopyWithImpl(this._value, this._then);
 
   // ignore: unused_field
   final $Val _value;
   // ignore: unused_field
   final $Res Function($Val) _then;
 
-  /// Create a copy of UserSearchQuery
+  /// Create a copy of SearchApplicationUsersQuery
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? query = freezed,
-    Object? searchBy = freezed,
+    Object? page = null,
+    Object? perPage = null,
+    Object? sortOrder = freezed,
+    Object? byNickname = freezed,
+    Object? byEmail = freezed,
+    Object? byPhone = freezed,
+    Object? byId = freezed,
   }) {
     return _then(_value.copyWith(
-      query: freezed == query
-          ? _value.query
-          : query // ignore: cast_nullable_to_non_nullable
+      page: null == page
+          ? _value.page
+          : page // ignore: cast_nullable_to_non_nullable
+              as int,
+      perPage: null == perPage
+          ? _value.perPage
+          : perPage // ignore: cast_nullable_to_non_nullable
+              as int,
+      sortOrder: freezed == sortOrder
+          ? _value.sortOrder
+          : sortOrder // ignore: cast_nullable_to_non_nullable
               as String?,
-      searchBy: freezed == searchBy
-          ? _value.searchBy
-          : searchBy // ignore: cast_nullable_to_non_nullable
+      byNickname: freezed == byNickname
+          ? _value.byNickname
+          : byNickname // ignore: cast_nullable_to_non_nullable
+              as String?,
+      byEmail: freezed == byEmail
+          ? _value.byEmail
+          : byEmail // ignore: cast_nullable_to_non_nullable
+              as String?,
+      byPhone: freezed == byPhone
+          ? _value.byPhone
+          : byPhone // ignore: cast_nullable_to_non_nullable
+              as String?,
+      byId: freezed == byId
+          ? _value.byId
+          : byId // ignore: cast_nullable_to_non_nullable
               as String?,
     ) as $Val);
   }
 }
 
 /// @nodoc
-abstract class _$$UserSearchQueryImplCopyWith<$Res>
-    implements $UserSearchQueryCopyWith<$Res> {
-  factory _$$UserSearchQueryImplCopyWith(_$UserSearchQueryImpl value,
-          $Res Function(_$UserSearchQueryImpl) then) =
-      __$$UserSearchQueryImplCopyWithImpl<$Res>;
+abstract class _$$SearchApplicationUsersQueryImplCopyWith<$Res>
+    implements $SearchApplicationUsersQueryCopyWith<$Res> {
+  factory _$$SearchApplicationUsersQueryImplCopyWith(
+          _$SearchApplicationUsersQueryImpl value,
+          $Res Function(_$SearchApplicationUsersQueryImpl) then) =
+      __$$SearchApplicationUsersQueryImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({String? query, @JsonKey(name: 'search_by') String? searchBy});
+  $Res call(
+      {int page,
+      @JsonKey(name: 'per_page') int perPage,
+      @JsonKey(name: 'sort_order') String? sortOrder,
+      @JsonKey(name: 'by_nickname') String? byNickname,
+      @JsonKey(name: 'by_email') String? byEmail,
+      @JsonKey(name: 'by_phone') String? byPhone,
+      @JsonKey(name: 'by_id') String? byId});
 }
 
 /// @nodoc
-class __$$UserSearchQueryImplCopyWithImpl<$Res>
-    extends _$UserSearchQueryCopyWithImpl<$Res, _$UserSearchQueryImpl>
-    implements _$$UserSearchQueryImplCopyWith<$Res> {
-  __$$UserSearchQueryImplCopyWithImpl(
-      _$UserSearchQueryImpl _value, $Res Function(_$UserSearchQueryImpl) _then)
+class __$$SearchApplicationUsersQueryImplCopyWithImpl<$Res>
+    extends _$SearchApplicationUsersQueryCopyWithImpl<$Res,
+        _$SearchApplicationUsersQueryImpl>
+    implements _$$SearchApplicationUsersQueryImplCopyWith<$Res> {
+  __$$SearchApplicationUsersQueryImplCopyWithImpl(
+      _$SearchApplicationUsersQueryImpl _value,
+      $Res Function(_$SearchApplicationUsersQueryImpl) _then)
       : super(_value, _then);
 
-  /// Create a copy of UserSearchQuery
+  /// Create a copy of SearchApplicationUsersQuery
   /// with the given fields replaced by the non-null parameter values.
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? query = freezed,
-    Object? searchBy = freezed,
+    Object? page = null,
+    Object? perPage = null,
+    Object? sortOrder = freezed,
+    Object? byNickname = freezed,
+    Object? byEmail = freezed,
+    Object? byPhone = freezed,
+    Object? byId = freezed,
   }) {
-    return _then(_$UserSearchQueryImpl(
-      query: freezed == query
-          ? _value.query
-          : query // ignore: cast_nullable_to_non_nullable
+    return _then(_$SearchApplicationUsersQueryImpl(
+      page: null == page
+          ? _value.page
+          : page // ignore: cast_nullable_to_non_nullable
+              as int,
+      perPage: null == perPage
+          ? _value.perPage
+          : perPage // ignore: cast_nullable_to_non_nullable
+              as int,
+      sortOrder: freezed == sortOrder
+          ? _value.sortOrder
+          : sortOrder // ignore: cast_nullable_to_non_nullable
               as String?,
-      searchBy: freezed == searchBy
-          ? _value.searchBy
-          : searchBy // ignore: cast_nullable_to_non_nullable
+      byNickname: freezed == byNickname
+          ? _value.byNickname
+          : byNickname // ignore: cast_nullable_to_non_nullable
+              as String?,
+      byEmail: freezed == byEmail
+          ? _value.byEmail
+          : byEmail // ignore: cast_nullable_to_non_nullable
+              as String?,
+      byPhone: freezed == byPhone
+          ? _value.byPhone
+          : byPhone // ignore: cast_nullable_to_non_nullable
+              as String?,
+      byId: freezed == byId
+          ? _value.byId
+          : byId // ignore: cast_nullable_to_non_nullable
               as String?,
     ));
   }
@@ -682,74 +763,126 @@ class __$$UserSearchQueryImplCopyWithImpl<$Res>
 
 /// @nodoc
 @JsonSerializable()
-class _$UserSearchQueryImpl implements _UserSearchQuery {
-  const _$UserSearchQueryImpl(
-      {this.query, @JsonKey(name: 'search_by') this.searchBy});
+class _$SearchApplicationUsersQueryImpl
+    implements _SearchApplicationUsersQuery {
+  const _$SearchApplicationUsersQueryImpl(
+      {this.page = 1,
+      @JsonKey(name: 'per_page') this.perPage = 30,
+      @JsonKey(name: 'sort_order') this.sortOrder,
+      @JsonKey(name: 'by_nickname') this.byNickname,
+      @JsonKey(name: 'by_email') this.byEmail,
+      @JsonKey(name: 'by_phone') this.byPhone,
+      @JsonKey(name: 'by_id') this.byId});
 
-  factory _$UserSearchQueryImpl.fromJson(Map<String, dynamic> json) =>
-      _$$UserSearchQueryImplFromJson(json);
+  factory _$SearchApplicationUsersQueryImpl.fromJson(
+          Map<String, dynamic> json) =>
+      _$$SearchApplicationUsersQueryImplFromJson(json);
 
   @override
-  final String? query;
+  @JsonKey()
+  final int page;
   @override
-  @JsonKey(name: 'search_by')
-  final String? searchBy;
+  @JsonKey(name: 'per_page')
+  final int perPage;
+  @override
+  @JsonKey(name: 'sort_order')
+  final String? sortOrder;
+  @override
+  @JsonKey(name: 'by_nickname')
+  final String? byNickname;
+  @override
+  @JsonKey(name: 'by_email')
+  final String? byEmail;
+  @override
+  @JsonKey(name: 'by_phone')
+  final String? byPhone;
+  @override
+  @JsonKey(name: 'by_id')
+  final String? byId;
 
   @override
   String toString() {
-    return 'UserSearchQuery(query: $query, searchBy: $searchBy)';
+    return 'SearchApplicationUsersQuery(page: $page, perPage: $perPage, sortOrder: $sortOrder, byNickname: $byNickname, byEmail: $byEmail, byPhone: $byPhone, byId: $byId)';
   }
 
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
-            other is _$UserSearchQueryImpl &&
-            (identical(other.query, query) || other.query == query) &&
-            (identical(other.searchBy, searchBy) ||
-                other.searchBy == searchBy));
+            other is _$SearchApplicationUsersQueryImpl &&
+            (identical(other.page, page) || other.page == page) &&
+            (identical(other.perPage, perPage) || other.perPage == perPage) &&
+            (identical(other.sortOrder, sortOrder) ||
+                other.sortOrder == sortOrder) &&
+            (identical(other.byNickname, byNickname) ||
+                other.byNickname == byNickname) &&
+            (identical(other.byEmail, byEmail) || other.byEmail == byEmail) &&
+            (identical(other.byPhone, byPhone) || other.byPhone == byPhone) &&
+            (identical(other.byId, byId) || other.byId == byId));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, query, searchBy);
+  int get hashCode => Object.hash(runtimeType, page, perPage, sortOrder,
+      byNickname, byEmail, byPhone, byId);
 
-  /// Create a copy of UserSearchQuery
+  /// Create a copy of SearchApplicationUsersQuery
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   @pragma('vm:prefer-inline')
-  _$$UserSearchQueryImplCopyWith<_$UserSearchQueryImpl> get copyWith =>
-      __$$UserSearchQueryImplCopyWithImpl<_$UserSearchQueryImpl>(
-          this, _$identity);
+  _$$SearchApplicationUsersQueryImplCopyWith<_$SearchApplicationUsersQueryImpl>
+      get copyWith => __$$SearchApplicationUsersQueryImplCopyWithImpl<
+          _$SearchApplicationUsersQueryImpl>(this, _$identity);
 
   @override
   Map<String, dynamic> toJson() {
-    return _$$UserSearchQueryImplToJson(
+    return _$$SearchApplicationUsersQueryImplToJson(
       this,
     );
   }
 }
 
-abstract class _UserSearchQuery implements UserSearchQuery {
-  const factory _UserSearchQuery(
-          {final String? query,
-          @JsonKey(name: 'search_by') final String? searchBy}) =
-      _$UserSearchQueryImpl;
+abstract class _SearchApplicationUsersQuery
+    implements SearchApplicationUsersQuery {
+  const factory _SearchApplicationUsersQuery(
+          {final int page,
+          @JsonKey(name: 'per_page') final int perPage,
+          @JsonKey(name: 'sort_order') final String? sortOrder,
+          @JsonKey(name: 'by_nickname') final String? byNickname,
+          @JsonKey(name: 'by_email') final String? byEmail,
+          @JsonKey(name: 'by_phone') final String? byPhone,
+          @JsonKey(name: 'by_id') final String? byId}) =
+      _$SearchApplicationUsersQueryImpl;
 
-  factory _UserSearchQuery.fromJson(Map<String, dynamic> json) =
-      _$UserSearchQueryImpl.fromJson;
+  factory _SearchApplicationUsersQuery.fromJson(Map<String, dynamic> json) =
+      _$SearchApplicationUsersQueryImpl.fromJson;
 
   @override
-  String? get query;
+  int get page;
   @override
-  @JsonKey(name: 'search_by')
-  String? get searchBy;
+  @JsonKey(name: 'per_page')
+  int get perPage;
+  @override
+  @JsonKey(name: 'sort_order')
+  String? get sortOrder;
+  @override
+  @JsonKey(name: 'by_nickname')
+  String? get byNickname;
+  @override
+  @JsonKey(name: 'by_email')
+  String? get byEmail;
+  @override
+  @JsonKey(name: 'by_phone')
+  String? get byPhone;
+  @override
+  @JsonKey(name: 'by_id')
+  String? get byId;
 
-  /// Create a copy of UserSearchQuery
+  /// Create a copy of SearchApplicationUsersQuery
   /// with the given fields replaced by the non-null parameter values.
   @override
   @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$UserSearchQueryImplCopyWith<_$UserSearchQueryImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+  _$$SearchApplicationUsersQueryImplCopyWith<_$SearchApplicationUsersQueryImpl>
+      get copyWith => throw _privateConstructorUsedError;
 }

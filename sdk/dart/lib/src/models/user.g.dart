@@ -54,16 +54,26 @@ Map<String, dynamic> _$$UpdatePasswordRequestImplToJson(
       'password': instance.password,
     };
 
-_$UserSearchQueryImpl _$$UserSearchQueryImplFromJson(
+_$SearchApplicationUsersQueryImpl _$$SearchApplicationUsersQueryImplFromJson(
         Map<String, dynamic> json) =>
-    _$UserSearchQueryImpl(
-      query: json['query'] as String?,
-      searchBy: json['search_by'] as String?,
+    _$SearchApplicationUsersQueryImpl(
+      page: (json['page'] as num?)?.toInt() ?? 1,
+      perPage: (json['per_page'] as num?)?.toInt() ?? 30,
+      sortOrder: json['sort_order'] as String?,
+      byNickname: json['by_nickname'] as String?,
+      byEmail: json['by_email'] as String?,
+      byPhone: json['by_phone'] as String?,
+      byId: json['by_id'] as String?,
     );
 
-Map<String, dynamic> _$$UserSearchQueryImplToJson(
-        _$UserSearchQueryImpl instance) =>
+Map<String, dynamic> _$$SearchApplicationUsersQueryImplToJson(
+        _$SearchApplicationUsersQueryImpl instance) =>
     <String, dynamic>{
-      'query': instance.query,
-      'search_by': instance.searchBy,
+      'page': instance.page,
+      'per_page': instance.perPage,
+      'sort_order': instance.sortOrder,
+      'by_nickname': instance.byNickname,
+      'by_email': instance.byEmail,
+      'by_phone': instance.byPhone,
+      'by_id': instance.byId,
     };
