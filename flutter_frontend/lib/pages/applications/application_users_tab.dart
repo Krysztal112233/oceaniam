@@ -7,6 +7,7 @@ import 'package:material_table_view/material_table_view.dart';
 import 'package:oceaniam_sdk/oceaniam_sdk.dart';
 
 import '../../providers/application_providers.dart';
+import 'change_password_dialog.dart';
 
 class ApplicationUsersTab extends ConsumerStatefulWidget {
   final String tenantId;
@@ -41,7 +42,7 @@ class _ApplicationUsersTabState extends ConsumerState<ApplicationUsersTab> {
     TableColumn(width: 180, flex: 2),
     TableColumn(width: 220, flex: 3),
     TableColumn(width: 140, flex: 2),
-    TableColumn(width: 72),
+    TableColumn(width: 88),
   ];
 
   static const _headers = ['Nickname', 'Email', 'Phone', 'Actions'];
@@ -90,6 +91,17 @@ class _ApplicationUsersTabState extends ConsumerState<ApplicationUsersTab> {
       _page = 1;
       _lastResponse = null;
     });
+  }
+
+  Future<void> _openChangePassword(ApplicationUser user) async {
+    await showDialog<bool>(
+      context: context,
+      builder: (context) => ChangePasswordDialog(
+        tenantId: widget.tenantId,
+        applicationId: widget.applicationId,
+        user: user,
+      ),
+    );
   }
 
   @override
@@ -317,13 +329,11 @@ class _ApplicationUsersTabState extends ConsumerState<ApplicationUsersTab> {
                                 alignment: Alignment.center,
                                 child: IconButton(
                                   icon: const Icon(
-                                    FluentIcons.eye_24_regular,
+                                    FluentIcons.key_24_regular,
                                     size: 20,
                                   ),
-                                  tooltip: 'View',
-                                  onPressed: () {
-                                    // TODO: navigate to user detail
-                                  },
+                                  tooltip: 'Change password',
+                                  onPressed: () => _openChangePassword(user),
                                 ),
                               ),
                             },
