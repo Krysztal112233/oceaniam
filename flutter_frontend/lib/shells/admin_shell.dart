@@ -180,6 +180,11 @@ class _TenantSwitcherState extends ConsumerState<_TenantSwitcher> {
       child: DropdownButton2<String>(
         underline: const SizedBox.shrink(),
         customButton: _buildButton(theme, tenantName),
+        buttonStyleData: ButtonStyleData(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(widget.extended ? 12 : 8),
+          ),
+        ),
         valueListenable: _valueNotifier,
         dropdownStyleData: DropdownStyleData(
           direction: DropdownDirection.right,
@@ -275,6 +280,7 @@ class _TenantSwitcherState extends ConsumerState<_TenantSwitcher> {
       width: 220,
       child: Card(
         elevation: 0,
+        clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(color: theme.colorScheme.outlineVariant),
