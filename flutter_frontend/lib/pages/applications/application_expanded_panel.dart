@@ -23,7 +23,10 @@ class ApplicationExpandedPanel extends StatelessWidget {
         ExpandPanelTab(
           icon: FluentIcons.info_24_regular,
           label: 'Overview',
-          builder: (_) => ApplicationOverviewTab(applicationId: applicationId),
+          builder: (_) => ApplicationOverviewTab(
+            tenantId: tenantId,
+            applicationId: applicationId,
+          ),
         ),
         ExpandPanelTab(
           icon: FluentIcons.people_24_regular,
