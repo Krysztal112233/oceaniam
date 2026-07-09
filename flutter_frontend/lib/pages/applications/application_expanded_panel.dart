@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import 'application_tab_contents.dart';
+import 'create_user_dialog.dart';
 
 class ApplicationExpandedPanel extends StatefulWidget {
   final String tenantId;
@@ -42,9 +43,16 @@ class _ApplicationExpandedPanelState extends State<ApplicationExpandedPanel> {
         content = ApplicationUsersTab(
           tenantId: widget.tenantId,
           applicationId: widget.applicationId,
+          fillAvailable: false,
           action: FilledButton.tonalIcon(
             onPressed: () {
-              // TODO: implement create user
+              showDialog<void>(
+                context: context,
+                builder: (ctx) => CreateUserDialog(
+                  tenantId: widget.tenantId,
+                  applicationId: widget.applicationId,
+                ),
+              );
             },
             icon: const Icon(FluentIcons.add_24_regular),
             label: const Text('New user'),
@@ -67,6 +75,7 @@ class _ApplicationExpandedPanelState extends State<ApplicationExpandedPanel> {
         Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
@@ -94,7 +103,7 @@ class _ApplicationExpandedPanelState extends State<ApplicationExpandedPanel> {
                 ],
               ),
               const SizedBox(height: 16),
-              SizedBox(height: 400, child: content),
+              content,
             ],
           ),
         ),
