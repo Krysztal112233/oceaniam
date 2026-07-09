@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
+import 'package:floating_snackbar/floating_snackbar.dart';
 
 import '../pages/dashboard/dashboard_page.dart';
 import '../pages/secrets/secrets_page.dart';
@@ -408,9 +409,7 @@ class _CreateTenantDialogState extends ConsumerState<_CreateTenantDialog> {
     } catch (e) {
       if (mounted) {
         setState(() => _loading = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to create tenant: $e')));
+        FloatingSnackBar.error(context, 'Failed to create tenant: $e');
       }
     }
   }
