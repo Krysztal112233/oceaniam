@@ -24,7 +24,7 @@ final applicationListProvider = FutureProvider<List<Application>>.internal(
 // ignore: unused_element
 typedef ApplicationListRef = FutureProviderRef<List<Application>>;
 String _$applicationUsersPageHash() =>
-    r'cad4a2c669d2fac9a486e0716b3083963ac9acdf';
+    r'0b28563849c70c4d06f735f60698c44db9116cb7';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -47,30 +47,64 @@ class _SystemHash {
   }
 }
 
-/// See also [applicationUsersPage].
+/// Lists users, or searches when [searchQuery] is non-empty.
+///
+/// [searchField] selects which `by_*` query param is sent. Empty [searchQuery]
+/// falls back to the paginated list endpoint.
+///
+/// Copied from [applicationUsersPage].
 @ProviderFor(applicationUsersPage)
 const applicationUsersPageProvider = ApplicationUsersPageFamily();
 
-/// See also [applicationUsersPage].
+/// Lists users, or searches when [searchQuery] is non-empty.
+///
+/// [searchField] selects which `by_*` query param is sent. Empty [searchQuery]
+/// falls back to the paginated list endpoint.
+///
+/// Copied from [applicationUsersPage].
 class ApplicationUsersPageFamily
     extends Family<AsyncValue<PagedResponse<ApplicationUser>>> {
-  /// See also [applicationUsersPage].
+  /// Lists users, or searches when [searchQuery] is non-empty.
+  ///
+  /// [searchField] selects which `by_*` query param is sent. Empty [searchQuery]
+  /// falls back to the paginated list endpoint.
+  ///
+  /// Copied from [applicationUsersPage].
   const ApplicationUsersPageFamily();
 
-  /// See also [applicationUsersPage].
+  /// Lists users, or searches when [searchQuery] is non-empty.
+  ///
+  /// [searchField] selects which `by_*` query param is sent. Empty [searchQuery]
+  /// falls back to the paginated list endpoint.
+  ///
+  /// Copied from [applicationUsersPage].
   ApplicationUsersPageProvider call(
     String tenantId,
     String applicationId,
     int page,
+    ApplicationUserSearchField searchField,
+    String searchQuery,
   ) {
-    return ApplicationUsersPageProvider(tenantId, applicationId, page);
+    return ApplicationUsersPageProvider(
+      tenantId,
+      applicationId,
+      page,
+      searchField,
+      searchQuery,
+    );
   }
 
   @override
   ApplicationUsersPageProvider getProviderOverride(
     covariant ApplicationUsersPageProvider provider,
   ) {
-    return call(provider.tenantId, provider.applicationId, provider.page);
+    return call(
+      provider.tenantId,
+      provider.applicationId,
+      provider.page,
+      provider.searchField,
+      provider.searchQuery,
+    );
   }
 
   static const Iterable<ProviderOrFamily>? _dependencies = null;
@@ -88,17 +122,34 @@ class ApplicationUsersPageFamily
   String? get name => r'applicationUsersPageProvider';
 }
 
-/// See also [applicationUsersPage].
+/// Lists users, or searches when [searchQuery] is non-empty.
+///
+/// [searchField] selects which `by_*` query param is sent. Empty [searchQuery]
+/// falls back to the paginated list endpoint.
+///
+/// Copied from [applicationUsersPage].
 class ApplicationUsersPageProvider
     extends AutoDisposeFutureProvider<PagedResponse<ApplicationUser>> {
-  /// See also [applicationUsersPage].
-  ApplicationUsersPageProvider(String tenantId, String applicationId, int page)
-    : this._internal(
+  /// Lists users, or searches when [searchQuery] is non-empty.
+  ///
+  /// [searchField] selects which `by_*` query param is sent. Empty [searchQuery]
+  /// falls back to the paginated list endpoint.
+  ///
+  /// Copied from [applicationUsersPage].
+  ApplicationUsersPageProvider(
+    String tenantId,
+    String applicationId,
+    int page,
+    ApplicationUserSearchField searchField,
+    String searchQuery,
+  ) : this._internal(
         (ref) => applicationUsersPage(
           ref as ApplicationUsersPageRef,
           tenantId,
           applicationId,
           page,
+          searchField,
+          searchQuery,
         ),
         from: applicationUsersPageProvider,
         name: r'applicationUsersPageProvider',
@@ -111,6 +162,8 @@ class ApplicationUsersPageProvider
         tenantId: tenantId,
         applicationId: applicationId,
         page: page,
+        searchField: searchField,
+        searchQuery: searchQuery,
       );
 
   ApplicationUsersPageProvider._internal(
@@ -123,11 +176,15 @@ class ApplicationUsersPageProvider
     required this.tenantId,
     required this.applicationId,
     required this.page,
+    required this.searchField,
+    required this.searchQuery,
   }) : super.internal();
 
   final String tenantId;
   final String applicationId;
   final int page;
+  final ApplicationUserSearchField searchField;
+  final String searchQuery;
 
   @override
   Override overrideWith(
@@ -148,6 +205,8 @@ class ApplicationUsersPageProvider
         tenantId: tenantId,
         applicationId: applicationId,
         page: page,
+        searchField: searchField,
+        searchQuery: searchQuery,
       ),
     );
   }
@@ -163,7 +222,9 @@ class ApplicationUsersPageProvider
     return other is ApplicationUsersPageProvider &&
         other.tenantId == tenantId &&
         other.applicationId == applicationId &&
-        other.page == page;
+        other.page == page &&
+        other.searchField == searchField &&
+        other.searchQuery == searchQuery;
   }
 
   @override
@@ -172,6 +233,8 @@ class ApplicationUsersPageProvider
     hash = _SystemHash.combine(hash, tenantId.hashCode);
     hash = _SystemHash.combine(hash, applicationId.hashCode);
     hash = _SystemHash.combine(hash, page.hashCode);
+    hash = _SystemHash.combine(hash, searchField.hashCode);
+    hash = _SystemHash.combine(hash, searchQuery.hashCode);
 
     return _SystemHash.finish(hash);
   }
@@ -189,6 +252,12 @@ mixin ApplicationUsersPageRef
 
   /// The parameter `page` of this provider.
   int get page;
+
+  /// The parameter `searchField` of this provider.
+  ApplicationUserSearchField get searchField;
+
+  /// The parameter `searchQuery` of this provider.
+  String get searchQuery;
 }
 
 class _ApplicationUsersPageProviderElement
@@ -203,6 +272,12 @@ class _ApplicationUsersPageProviderElement
       (origin as ApplicationUsersPageProvider).applicationId;
   @override
   int get page => (origin as ApplicationUsersPageProvider).page;
+  @override
+  ApplicationUserSearchField get searchField =>
+      (origin as ApplicationUsersPageProvider).searchField;
+  @override
+  String get searchQuery =>
+      (origin as ApplicationUsersPageProvider).searchQuery;
 }
 
 // ignore_for_file: type=lint

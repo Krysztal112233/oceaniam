@@ -455,19 +455,31 @@ class OceanIAMClient {
     );
   }
 
-  Future<List<ApplicationUser>> searchUsers(
+  Future<PagedResponse<ApplicationUser>> searchUsers(
     String tenantId,
-    String applicationId, {
-    String? query,
-    String? searchBy,
-  }) async {
-    var path = '/tenants/$tenantId/applications/$applicationId/users/search';
-    final params = <String>[];
-    if (query != null) params.add('query=$query');
-    if (searchBy != null) params.add('search_by=$searchBy');
-    if (params.isNotEmpty) path += '?${params.join('&')}';
-    final data = await _requestList('GET', path);
-    return data.map((e) => ApplicationUser.fromJson(e)).toList();
+    String applicationId,
+    SearchApplicationUsersQuery query,
+  ) async {
+    final params = <String, String>{
+      'page': '${query.page}',
+      'per_page': '${query.perPage}',
+    };
+    if (query.sortOrder != null) params['sort_order'] = query.sortOrder!;
+    if (query.byNickname != null) params['by_nickname'] = query.byNickname!;
+    if (query.byEmail != null) params['by_email'] = query.byEmail!;
+    if (query.byPhone != null) params['by_phone'] = query.byPhone!;
+    if (query.byId != null) params['by_id'] = query.byId!;
+
+    final qs = Uri(queryParameters: params).query;
+    final path =
+        '/tenants/$tenantId/applications/$applicationId/users/search?$qs';
+    final data = await _request('GET', path);
+    return PagedResponse<ApplicationUser>(
+      items: (data['items'] as List<dynamic>)
+          .map((e) => ApplicationUser.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      pageInfo: PageInfo.fromJson(data['page_info'] as Map<String, dynamic>),
+    );
   }
 
   Future<ApplicationUser> createUser(

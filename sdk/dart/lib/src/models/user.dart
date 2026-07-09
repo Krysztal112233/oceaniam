@@ -38,13 +38,26 @@ class UpdatePasswordRequest with _$UpdatePasswordRequest {
       _$UpdatePasswordRequestFromJson(json);
 }
 
+/// Query parameters for `GET .../users/search`.
+///
+/// At least one of [byNickname], [byEmail], [byPhone], or [byId] must be set.
+/// Search terms must not contain LIKE wildcards (`%`, `_`, `\`).
 @freezed
-class UserSearchQuery with _$UserSearchQuery {
-  const factory UserSearchQuery({
-    String? query,
-    @JsonKey(name: 'search_by') String? searchBy,
-  }) = _UserSearchQuery;
+class SearchApplicationUsersQuery with _$SearchApplicationUsersQuery {
+  const factory SearchApplicationUsersQuery({
+    @Default(1) int page,
+    @JsonKey(name: 'per_page') @Default(30) int perPage,
+    @JsonKey(name: 'sort_order') String? sortOrder,
+    @JsonKey(name: 'by_nickname') String? byNickname,
+    @JsonKey(name: 'by_email') String? byEmail,
+    @JsonKey(name: 'by_phone') String? byPhone,
+    @JsonKey(name: 'by_id') String? byId,
+  }) = _SearchApplicationUsersQuery;
 
-  factory UserSearchQuery.fromJson(Map<String, dynamic> json) =>
-      _$UserSearchQueryFromJson(json);
+  factory SearchApplicationUsersQuery.fromJson(Map<String, dynamic> json) =>
+      _$SearchApplicationUsersQueryFromJson(json);
 }
+
+/// @nodoc
+@Deprecated('Use SearchApplicationUsersQuery')
+typedef UserSearchQuery = SearchApplicationUsersQuery;
