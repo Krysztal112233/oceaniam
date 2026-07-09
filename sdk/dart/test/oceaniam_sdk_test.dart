@@ -111,6 +111,27 @@ void main() {
       expect(query.byNickname, 'bob');
       expect(query.byEmail, isNull);
     });
+
+    test('ApplicationKey fromJson', () {
+      final key = ApplicationKey.fromJson({
+        'key_id': 'k1',
+        'algorithm': 'RS256',
+        'status': 'Active',
+        'created_at': '2024-01-01T00:00:00Z',
+        'activated_at': '2024-01-01T01:00:00Z',
+        'retired_at': '2024-02-01T00:00:00Z',
+        'expires_at': '2024-03-01T00:00:00Z',
+        'revoked_at': null,
+      });
+      expect(key.keyId, 'k1');
+      expect(key.algorithm, 'RS256');
+      expect(key.status, 'Active');
+      expect(key.createdAt, '2024-01-01T00:00:00Z');
+      expect(key.activatedAt, '2024-01-01T01:00:00Z');
+      expect(key.retiredAt, '2024-02-01T00:00:00Z');
+      expect(key.expiresAt, '2024-03-01T00:00:00Z');
+      expect(key.revokedAt, isNull);
+    });
   });
 
   group('OceanIAM Client', () {
@@ -176,6 +197,34 @@ void main() {
             200,
           );
         }
+        if (request.url.path == '/tenants/t1/keys' && request.method == 'GET') {
+          return http.Response(
+            jsonEncode({
+              'items': [
+                {
+                  'key_id': 'k1',
+                  'algorithm': 'RS256',
+                  'status': 'Active',
+                  'created_at': '2024-01-01T00:00:00Z',
+                  'activated_at': '2024-01-01T01:00:00Z',
+                  'retired_at': '2024-02-01T00:00:00Z',
+                  'expires_at': '2024-03-01T00:00:00Z',
+                  'revoked_at': null,
+                },
+              ],
+              'page_info': {'has_next': false, 'total': 1},
+            }),
+            200,
+          );
+        }
+        if (request.url.path == '/tenants/t1/keys' &&
+            request.method == 'POST') {
+          return http.Response('', 200);
+        }
+        if (request.url.path == '/tenants/t1/keys/k1' &&
+            request.method == 'DELETE') {
+          return http.Response('', 200);
+        }
         return http.Response('Not found', 404);
       });
 
@@ -231,6 +280,21 @@ void main() {
       expect(result.items[0].nickname, 'alice');
       expect(result.pageInfo.total, 1);
       expect(result.pageInfo.hasNext, false);
+    });
+
+    test('listKeys parses paged items', () async {
+      await client.signin('admin', 'password');
+      final keys = await client.listKeys('t1');
+      expect(keys.length, 1);
+      expect(keys[0].keyId, 'k1');
+      expect(keys[0].status, 'Active');
+      expect(keys[0].algorithm, 'RS256');
+    });
+
+    test('rotateKey and revokeKey succeed without body', () async {
+      await client.signin('admin', 'password');
+      await client.rotateKey('t1');
+      await client.revokeKey('t1', 'k1');
     });
 
     test('throws OceanIAMError on 404', () async {

@@ -24,8 +24,16 @@ mixin _$ApplicationKey {
   String get keyId => throw _privateConstructorUsedError;
   String get algorithm => throw _privateConstructorUsedError;
   String get status => throw _privateConstructorUsedError;
+  @JsonKey(name: 'created_at')
+  String get createdAt => throw _privateConstructorUsedError;
   @JsonKey(name: 'activated_at')
   String get activatedAt => throw _privateConstructorUsedError;
+  @JsonKey(name: 'retired_at')
+  String get retiredAt => throw _privateConstructorUsedError;
+  @JsonKey(name: 'expires_at')
+  String get expiresAt => throw _privateConstructorUsedError;
+  @JsonKey(name: 'revoked_at')
+  String? get revokedAt => throw _privateConstructorUsedError;
 
   /// Serializes this ApplicationKey to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -47,7 +55,11 @@ abstract class $ApplicationKeyCopyWith<$Res> {
       {@JsonKey(name: 'key_id') String keyId,
       String algorithm,
       String status,
-      @JsonKey(name: 'activated_at') String activatedAt});
+      @JsonKey(name: 'created_at') String createdAt,
+      @JsonKey(name: 'activated_at') String activatedAt,
+      @JsonKey(name: 'retired_at') String retiredAt,
+      @JsonKey(name: 'expires_at') String expiresAt,
+      @JsonKey(name: 'revoked_at') String? revokedAt});
 }
 
 /// @nodoc
@@ -68,7 +80,11 @@ class _$ApplicationKeyCopyWithImpl<$Res, $Val extends ApplicationKey>
     Object? keyId = null,
     Object? algorithm = null,
     Object? status = null,
+    Object? createdAt = null,
     Object? activatedAt = null,
+    Object? retiredAt = null,
+    Object? expiresAt = null,
+    Object? revokedAt = freezed,
   }) {
     return _then(_value.copyWith(
       keyId: null == keyId
@@ -83,10 +99,26 @@ class _$ApplicationKeyCopyWithImpl<$Res, $Val extends ApplicationKey>
           ? _value.status
           : status // ignore: cast_nullable_to_non_nullable
               as String,
+      createdAt: null == createdAt
+          ? _value.createdAt
+          : createdAt // ignore: cast_nullable_to_non_nullable
+              as String,
       activatedAt: null == activatedAt
           ? _value.activatedAt
           : activatedAt // ignore: cast_nullable_to_non_nullable
               as String,
+      retiredAt: null == retiredAt
+          ? _value.retiredAt
+          : retiredAt // ignore: cast_nullable_to_non_nullable
+              as String,
+      expiresAt: null == expiresAt
+          ? _value.expiresAt
+          : expiresAt // ignore: cast_nullable_to_non_nullable
+              as String,
+      revokedAt: freezed == revokedAt
+          ? _value.revokedAt
+          : revokedAt // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -103,7 +135,11 @@ abstract class _$$ApplicationKeyImplCopyWith<$Res>
       {@JsonKey(name: 'key_id') String keyId,
       String algorithm,
       String status,
-      @JsonKey(name: 'activated_at') String activatedAt});
+      @JsonKey(name: 'created_at') String createdAt,
+      @JsonKey(name: 'activated_at') String activatedAt,
+      @JsonKey(name: 'retired_at') String retiredAt,
+      @JsonKey(name: 'expires_at') String expiresAt,
+      @JsonKey(name: 'revoked_at') String? revokedAt});
 }
 
 /// @nodoc
@@ -122,7 +158,11 @@ class __$$ApplicationKeyImplCopyWithImpl<$Res>
     Object? keyId = null,
     Object? algorithm = null,
     Object? status = null,
+    Object? createdAt = null,
     Object? activatedAt = null,
+    Object? retiredAt = null,
+    Object? expiresAt = null,
+    Object? revokedAt = freezed,
   }) {
     return _then(_$ApplicationKeyImpl(
       keyId: null == keyId
@@ -137,10 +177,26 @@ class __$$ApplicationKeyImplCopyWithImpl<$Res>
           ? _value.status
           : status // ignore: cast_nullable_to_non_nullable
               as String,
+      createdAt: null == createdAt
+          ? _value.createdAt
+          : createdAt // ignore: cast_nullable_to_non_nullable
+              as String,
       activatedAt: null == activatedAt
           ? _value.activatedAt
           : activatedAt // ignore: cast_nullable_to_non_nullable
               as String,
+      retiredAt: null == retiredAt
+          ? _value.retiredAt
+          : retiredAt // ignore: cast_nullable_to_non_nullable
+              as String,
+      expiresAt: null == expiresAt
+          ? _value.expiresAt
+          : expiresAt // ignore: cast_nullable_to_non_nullable
+              as String,
+      revokedAt: freezed == revokedAt
+          ? _value.revokedAt
+          : revokedAt // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -152,7 +208,11 @@ class _$ApplicationKeyImpl implements _ApplicationKey {
       {@JsonKey(name: 'key_id') required this.keyId,
       required this.algorithm,
       required this.status,
-      @JsonKey(name: 'activated_at') required this.activatedAt});
+      @JsonKey(name: 'created_at') required this.createdAt,
+      @JsonKey(name: 'activated_at') required this.activatedAt,
+      @JsonKey(name: 'retired_at') required this.retiredAt,
+      @JsonKey(name: 'expires_at') required this.expiresAt,
+      @JsonKey(name: 'revoked_at') this.revokedAt});
 
   factory _$ApplicationKeyImpl.fromJson(Map<String, dynamic> json) =>
       _$$ApplicationKeyImplFromJson(json);
@@ -165,12 +225,24 @@ class _$ApplicationKeyImpl implements _ApplicationKey {
   @override
   final String status;
   @override
+  @JsonKey(name: 'created_at')
+  final String createdAt;
+  @override
   @JsonKey(name: 'activated_at')
   final String activatedAt;
+  @override
+  @JsonKey(name: 'retired_at')
+  final String retiredAt;
+  @override
+  @JsonKey(name: 'expires_at')
+  final String expiresAt;
+  @override
+  @JsonKey(name: 'revoked_at')
+  final String? revokedAt;
 
   @override
   String toString() {
-    return 'ApplicationKey(keyId: $keyId, algorithm: $algorithm, status: $status, activatedAt: $activatedAt)';
+    return 'ApplicationKey(keyId: $keyId, algorithm: $algorithm, status: $status, createdAt: $createdAt, activatedAt: $activatedAt, retiredAt: $retiredAt, expiresAt: $expiresAt, revokedAt: $revokedAt)';
   }
 
   @override
@@ -182,14 +254,22 @@ class _$ApplicationKeyImpl implements _ApplicationKey {
             (identical(other.algorithm, algorithm) ||
                 other.algorithm == algorithm) &&
             (identical(other.status, status) || other.status == status) &&
+            (identical(other.createdAt, createdAt) ||
+                other.createdAt == createdAt) &&
             (identical(other.activatedAt, activatedAt) ||
-                other.activatedAt == activatedAt));
+                other.activatedAt == activatedAt) &&
+            (identical(other.retiredAt, retiredAt) ||
+                other.retiredAt == retiredAt) &&
+            (identical(other.expiresAt, expiresAt) ||
+                other.expiresAt == expiresAt) &&
+            (identical(other.revokedAt, revokedAt) ||
+                other.revokedAt == revokedAt));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, keyId, algorithm, status, activatedAt);
+  int get hashCode => Object.hash(runtimeType, keyId, algorithm, status,
+      createdAt, activatedAt, retiredAt, expiresAt, revokedAt);
 
   /// Create a copy of ApplicationKey
   /// with the given fields replaced by the non-null parameter values.
@@ -213,7 +293,11 @@ abstract class _ApplicationKey implements ApplicationKey {
           {@JsonKey(name: 'key_id') required final String keyId,
           required final String algorithm,
           required final String status,
-          @JsonKey(name: 'activated_at') required final String activatedAt}) =
+          @JsonKey(name: 'created_at') required final String createdAt,
+          @JsonKey(name: 'activated_at') required final String activatedAt,
+          @JsonKey(name: 'retired_at') required final String retiredAt,
+          @JsonKey(name: 'expires_at') required final String expiresAt,
+          @JsonKey(name: 'revoked_at') final String? revokedAt}) =
       _$ApplicationKeyImpl;
 
   factory _ApplicationKey.fromJson(Map<String, dynamic> json) =
@@ -227,8 +311,20 @@ abstract class _ApplicationKey implements ApplicationKey {
   @override
   String get status;
   @override
+  @JsonKey(name: 'created_at')
+  String get createdAt;
+  @override
   @JsonKey(name: 'activated_at')
   String get activatedAt;
+  @override
+  @JsonKey(name: 'retired_at')
+  String get retiredAt;
+  @override
+  @JsonKey(name: 'expires_at')
+  String get expiresAt;
+  @override
+  @JsonKey(name: 'revoked_at')
+  String? get revokedAt;
 
   /// Create a copy of ApplicationKey
   /// with the given fields replaced by the non-null parameter values.
