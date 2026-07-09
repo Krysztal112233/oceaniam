@@ -713,13 +713,14 @@ class OceanIAMClient {
   // =========================================================================
 
   Future<List<ApplicationKey>> listKeys(String tenantId) async {
-    final data = await _requestList('GET', '/tenants/$tenantId/keys');
-    return data.map((e) => ApplicationKey.fromJson(e)).toList();
+    final data = await _request('GET', '/tenants/$tenantId/keys');
+    return (data['items'] as List<dynamic>)
+        .map((e) => ApplicationKey.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
-  Future<ApplicationKey> rotateKey(String tenantId) async {
-    final data = await _request('POST', '/tenants/$tenantId/keys');
-    return ApplicationKey.fromJson(data);
+  Future<void> rotateKey(String tenantId) async {
+    await _requestNoContent('POST', '/tenants/$tenantId/keys');
   }
 
   Future<void> revokeKey(String tenantId, String keyId) async {

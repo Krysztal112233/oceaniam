@@ -10,6 +10,7 @@ import '../pages/applications/applications_page.dart';
 import '../pages/administrators/administrators_page.dart';
 import '../pages/administrators/administrator_me_page.dart';
 import '../pages/audits/audits_page.dart';
+import '../pages/tenants/tenant_keys_page.dart';
 import '../pages/settings_page.dart';
 import '../providers/tenant_providers.dart';
 import '../providers/oceaniam_client_provider.dart';
@@ -53,6 +54,12 @@ List<_NavItem> _navItems(String? tenantId) => [
     icon: FluentIcons.key_24_regular,
     selectedIcon: FluentIcons.key_24_filled,
     page: const SecretsPage(),
+  ),
+  _NavItem(
+    label: 'Signing keys',
+    icon: FluentIcons.certificate_24_regular,
+    selectedIcon: FluentIcons.certificate_24_filled,
+    page: TenantKeysPage(tenantId: tenantId ?? ''),
   ),
   _NavItem(
     label: 'Admins',
