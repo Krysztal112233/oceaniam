@@ -23,7 +23,8 @@ final applicationListProvider = FutureProvider<List<Application>>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef ApplicationListRef = FutureProviderRef<List<Application>>;
-String _$applicationUsersHash() => r'056e7fb3c2c936e65714492e2b87663b4e00544d';
+String _$applicationUsersPageHash() =>
+    r'cad4a2c669d2fac9a486e0716b3083963ac9acdf';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -46,25 +47,30 @@ class _SystemHash {
   }
 }
 
-/// See also [applicationUsers].
-@ProviderFor(applicationUsers)
-const applicationUsersProvider = ApplicationUsersFamily();
+/// See also [applicationUsersPage].
+@ProviderFor(applicationUsersPage)
+const applicationUsersPageProvider = ApplicationUsersPageFamily();
 
-/// See also [applicationUsers].
-class ApplicationUsersFamily extends Family<AsyncValue<List<ApplicationUser>>> {
-  /// See also [applicationUsers].
-  const ApplicationUsersFamily();
+/// See also [applicationUsersPage].
+class ApplicationUsersPageFamily
+    extends Family<AsyncValue<PagedResponse<ApplicationUser>>> {
+  /// See also [applicationUsersPage].
+  const ApplicationUsersPageFamily();
 
-  /// See also [applicationUsers].
-  ApplicationUsersProvider call(String tenantId, String applicationId) {
-    return ApplicationUsersProvider(tenantId, applicationId);
+  /// See also [applicationUsersPage].
+  ApplicationUsersPageProvider call(
+    String tenantId,
+    String applicationId,
+    int page,
+  ) {
+    return ApplicationUsersPageProvider(tenantId, applicationId, page);
   }
 
   @override
-  ApplicationUsersProvider getProviderOverride(
-    covariant ApplicationUsersProvider provider,
+  ApplicationUsersPageProvider getProviderOverride(
+    covariant ApplicationUsersPageProvider provider,
   ) {
-    return call(provider.tenantId, provider.applicationId);
+    return call(provider.tenantId, provider.applicationId, provider.page);
   }
 
   static const Iterable<ProviderOrFamily>? _dependencies = null;
@@ -79,33 +85,35 @@ class ApplicationUsersFamily extends Family<AsyncValue<List<ApplicationUser>>> {
       _allTransitiveDependencies;
 
   @override
-  String? get name => r'applicationUsersProvider';
+  String? get name => r'applicationUsersPageProvider';
 }
 
-/// See also [applicationUsers].
-class ApplicationUsersProvider
-    extends AutoDisposeFutureProvider<List<ApplicationUser>> {
-  /// See also [applicationUsers].
-  ApplicationUsersProvider(String tenantId, String applicationId)
+/// See also [applicationUsersPage].
+class ApplicationUsersPageProvider
+    extends AutoDisposeFutureProvider<PagedResponse<ApplicationUser>> {
+  /// See also [applicationUsersPage].
+  ApplicationUsersPageProvider(String tenantId, String applicationId, int page)
     : this._internal(
-        (ref) => applicationUsers(
-          ref as ApplicationUsersRef,
+        (ref) => applicationUsersPage(
+          ref as ApplicationUsersPageRef,
           tenantId,
           applicationId,
+          page,
         ),
-        from: applicationUsersProvider,
-        name: r'applicationUsersProvider',
+        from: applicationUsersPageProvider,
+        name: r'applicationUsersPageProvider',
         debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
             ? null
-            : _$applicationUsersHash,
-        dependencies: ApplicationUsersFamily._dependencies,
+            : _$applicationUsersPageHash,
+        dependencies: ApplicationUsersPageFamily._dependencies,
         allTransitiveDependencies:
-            ApplicationUsersFamily._allTransitiveDependencies,
+            ApplicationUsersPageFamily._allTransitiveDependencies,
         tenantId: tenantId,
         applicationId: applicationId,
+        page: page,
       );
 
-  ApplicationUsersProvider._internal(
+  ApplicationUsersPageProvider._internal(
     super._createNotifier, {
     required super.name,
     required super.dependencies,
@@ -114,20 +122,24 @@ class ApplicationUsersProvider
     required super.from,
     required this.tenantId,
     required this.applicationId,
+    required this.page,
   }) : super.internal();
 
   final String tenantId;
   final String applicationId;
+  final int page;
 
   @override
   Override overrideWith(
-    FutureOr<List<ApplicationUser>> Function(ApplicationUsersRef provider)
+    FutureOr<PagedResponse<ApplicationUser>> Function(
+      ApplicationUsersPageRef provider,
+    )
     create,
   ) {
     return ProviderOverride(
       origin: this,
-      override: ApplicationUsersProvider._internal(
-        (ref) => create(ref as ApplicationUsersRef),
+      override: ApplicationUsersPageProvider._internal(
+        (ref) => create(ref as ApplicationUsersPageRef),
         from: from,
         name: null,
         dependencies: null,
@@ -135,20 +147,23 @@ class ApplicationUsersProvider
         debugGetCreateSourceHash: null,
         tenantId: tenantId,
         applicationId: applicationId,
+        page: page,
       ),
     );
   }
 
   @override
-  AutoDisposeFutureProviderElement<List<ApplicationUser>> createElement() {
-    return _ApplicationUsersProviderElement(this);
+  AutoDisposeFutureProviderElement<PagedResponse<ApplicationUser>>
+  createElement() {
+    return _ApplicationUsersPageProviderElement(this);
   }
 
   @override
   bool operator ==(Object other) {
-    return other is ApplicationUsersProvider &&
+    return other is ApplicationUsersPageProvider &&
         other.tenantId == tenantId &&
-        other.applicationId == applicationId;
+        other.applicationId == applicationId &&
+        other.page == page;
   }
 
   @override
@@ -156,6 +171,7 @@ class ApplicationUsersProvider
     var hash = _SystemHash.combine(0, runtimeType.hashCode);
     hash = _SystemHash.combine(hash, tenantId.hashCode);
     hash = _SystemHash.combine(hash, applicationId.hashCode);
+    hash = _SystemHash.combine(hash, page.hashCode);
 
     return _SystemHash.finish(hash);
   }
@@ -163,25 +179,30 @@ class ApplicationUsersProvider
 
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
-mixin ApplicationUsersRef
-    on AutoDisposeFutureProviderRef<List<ApplicationUser>> {
+mixin ApplicationUsersPageRef
+    on AutoDisposeFutureProviderRef<PagedResponse<ApplicationUser>> {
   /// The parameter `tenantId` of this provider.
   String get tenantId;
 
   /// The parameter `applicationId` of this provider.
   String get applicationId;
+
+  /// The parameter `page` of this provider.
+  int get page;
 }
 
-class _ApplicationUsersProviderElement
-    extends AutoDisposeFutureProviderElement<List<ApplicationUser>>
-    with ApplicationUsersRef {
-  _ApplicationUsersProviderElement(super.provider);
+class _ApplicationUsersPageProviderElement
+    extends AutoDisposeFutureProviderElement<PagedResponse<ApplicationUser>>
+    with ApplicationUsersPageRef {
+  _ApplicationUsersPageProviderElement(super.provider);
 
   @override
-  String get tenantId => (origin as ApplicationUsersProvider).tenantId;
+  String get tenantId => (origin as ApplicationUsersPageProvider).tenantId;
   @override
   String get applicationId =>
-      (origin as ApplicationUsersProvider).applicationId;
+      (origin as ApplicationUsersPageProvider).applicationId;
+  @override
+  int get page => (origin as ApplicationUsersPageProvider).page;
 }
 
 // ignore_for_file: type=lint

@@ -17,17 +17,17 @@ Future<List<Application>> applicationList(Ref ref) async {
 }
 
 @riverpod
-Future<List<ApplicationUser>> applicationUsers(
+Future<PagedResponse<ApplicationUser>> applicationUsersPage(
   Ref ref,
   String tenantId,
   String applicationId,
+  int page,
 ) async {
   final client = ref.watch(oceanIAMClientProvider);
-  final response = await client.listUsers(
+  return client.listUsers(
     tenantId,
     applicationId,
-    page: 1,
-    pageSize: 100,
+    page: page,
+    pageSize: 10,
   );
-  return response.items;
 }

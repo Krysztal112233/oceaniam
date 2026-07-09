@@ -5,7 +5,6 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import '../../providers/application_providers.dart';
 import '../../widgets/admin_page_scaffold.dart';
 import 'application_card.dart';
-import 'application_detail_page.dart';
 import 'create_application_dialog.dart';
 
 class ApplicationsPage extends ConsumerStatefulWidget {
@@ -22,29 +21,12 @@ class _ApplicationsPageState extends ConsumerState<ApplicationsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isWide = MediaQuery.of(context).size.width >= 900;
-
     return _ApplicationListView(
       tenantId: widget.tenantId,
-      expandedApplicationId: isWide ? _expandedApplicationId : null,
-      onExpand: isWide
-          ? (id) => setState(() {
-              _expandedApplicationId = _expandedApplicationId == id ? null : id;
-            })
-          : null,
-      onUsers: isWide ? null : _openUsersTab,
-    );
-  }
-
-  void _openUsersTab(String applicationId) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => ApplicationDetailPage(
-          tenantId: widget.tenantId,
-          applicationId: applicationId,
-          initialTabIndex: 1,
-        ),
-      ),
+      expandedApplicationId: _expandedApplicationId,
+      onExpand: (id) => setState(() {
+        _expandedApplicationId = _expandedApplicationId == id ? null : id;
+      }),
     );
   }
 }
@@ -53,13 +35,11 @@ class _ApplicationListView extends ConsumerWidget {
   final String tenantId;
   final String? expandedApplicationId;
   final ValueChanged<String>? onExpand;
-  final ValueChanged<String>? onUsers;
 
   const _ApplicationListView({
     required this.tenantId,
     this.expandedApplicationId,
     this.onExpand,
-    this.onUsers,
   });
 
   @override
@@ -113,7 +93,6 @@ class _ApplicationListView extends ConsumerWidget {
               tenantId: tenantId,
               isExpanded: expandedApplicationId == apps[i].id,
               onExpand: onExpand != null ? () => onExpand!(apps[i].id) : null,
-              onUsers: onUsers != null ? () => onUsers!(apps[i].id) : null,
             ),
           );
         },

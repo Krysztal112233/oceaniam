@@ -3,6 +3,7 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../../widgets/admin_page_scaffold.dart';
 import 'application_tab_contents.dart';
+import 'create_user_dialog.dart';
 
 /// 应用详情页（占位实现）。
 ///
@@ -83,9 +84,16 @@ class _ApplicationDetailPageState extends State<ApplicationDetailPage>
                 ApplicationUsersTab(
                   tenantId: widget.tenantId,
                   applicationId: widget.applicationId,
+                  fillAvailable: false,
                   action: FilledButton.tonalIcon(
                     onPressed: () {
-                      // TODO: implement create user
+                      showDialog<void>(
+                        context: context,
+                        builder: (ctx) => CreateUserDialog(
+                          tenantId: widget.tenantId,
+                          applicationId: widget.applicationId,
+                        ),
+                      );
                     },
                     icon: const Icon(FluentIcons.add_24_regular),
                     label: const Text('New user'),
