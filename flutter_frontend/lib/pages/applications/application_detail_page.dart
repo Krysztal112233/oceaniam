@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../../widgets/admin_page_scaffold.dart';
-import '../../widgets/placeholder_page.dart';
+import 'application_tab_contents.dart';
 
 /// 应用详情页（占位实现）。
 ///
@@ -36,7 +36,7 @@ class _ApplicationDetailPageState extends State<ApplicationDetailPage>
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 3,
+      length: 4,
       vsync: this,
       initialIndex: widget.initialTabIndex,
     );
@@ -69,26 +69,31 @@ class _ApplicationDetailPageState extends State<ApplicationDetailPage>
               Tab(text: 'Overview', icon: Icon(FluentIcons.info_24_regular)),
               Tab(text: 'Users', icon: Icon(FluentIcons.people_24_regular)),
               Tab(text: 'Secrets', icon: Icon(FluentIcons.key_24_regular)),
+              Tab(
+                text: 'Settings',
+                icon: Icon(FluentIcons.settings_24_regular),
+              ),
             ],
           ),
           Expanded(
             child: TabBarView(
               controller: _tabController,
               children: [
-                PlaceholderPage(
-                  title: 'Overview',
-                  description:
-                      'Application metadata and settings for ${widget.applicationId}.',
+                ApplicationOverviewTab(applicationId: widget.applicationId),
+                ApplicationUsersTab(
+                  applicationId: widget.applicationId,
+                  action: FilledButton.tonalIcon(
+                    onPressed: () {
+                      // TODO: implement create user
+                    },
+                    icon: const Icon(FluentIcons.add_24_regular),
+                    label: const Text('New user'),
+                  ),
                 ),
-                PlaceholderPage(
-                  title: 'Users',
-                  description:
-                      'Manage application users for ${widget.applicationId}.',
-                ),
-                PlaceholderPage(
-                  title: 'Secrets',
-                  description:
-                      'Manage secret bindings for ${widget.applicationId}.',
+                ApplicationSecretsTab(applicationId: widget.applicationId),
+                ApplicationSettingsTab(
+                  tenantId: widget.tenantId,
+                  applicationId: widget.applicationId,
                 ),
               ],
             ),
