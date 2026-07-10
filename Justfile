@@ -12,12 +12,6 @@ gen-entities:
 watch-backend:
     cd ./backend && watchexec -e rs -r cargo run -p oceaniam
 
-export:
-    cd ./backend && cargo test -p oceaniam-export
-    rm -rf ./sdk/dart/lib/src/types
-    cp -r ./backend/crates/oceaniam-export/bindings/ ./sdk/dart/lib/src/types
-    cd ./sdk/dart && fvm dart run build_runner build
-
 fmt:
     cd ./backend && cargo fmt
     cd ./sdk/rust && cargo fmt

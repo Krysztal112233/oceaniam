@@ -1,11 +1,10 @@
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 use utoipa::ToSchema;
 
-#[derive(Debug, Deserialize, Serialize, Default, ToSchema, TS)]
+#[derive(Debug, Deserialize, Serialize, Default, ToSchema)]
 pub struct Empty {}
 
-#[derive(Debug, Deserialize, Serialize, Default, ToSchema, TS)]
+#[derive(Debug, Deserialize, Serialize, Default, ToSchema)]
 pub struct ErrorResponse {
     msg: String,
     error_id: String,

@@ -2,13 +2,13 @@ use garde::Validate;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema, ts_rs::TS)]
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct PageInfo {
     pub has_next: bool,
     pub total: usize,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema, ts_rs::TS)]
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct PagedResponse<T> {
     pub items: Vec<T>,
     pub page_info: PageInfo,
@@ -36,7 +36,7 @@ impl<T> Default for PagedResponse<T> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Validate, Clone, Copy, ToSchema, ts_rs::TS)]
+#[derive(Debug, Serialize, Deserialize, Validate, Clone, Copy, ToSchema)]
 pub struct PageParam {
     #[garde(skip)]
     pub page: u64,

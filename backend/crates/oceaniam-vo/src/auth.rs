@@ -3,7 +3,7 @@ use garde::Validate;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Deserialize, Serialize, Validate, ToSchema, PartialEq, Eq, ts_rs::TS)]
+#[derive(Debug, Clone, Deserialize, Serialize, Validate, ToSchema, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum AuthVO {
     /// Login via email
@@ -25,41 +25,41 @@ pub enum AuthVO {
     },
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct SignupResponse {
     pub jwt: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema, ts_rs::TS)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct SigninRequest {
     pub auth: AuthVO,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct SigninChallenge {
     pub challenge_id: String,
     pub factor_type: String,
     pub expires_at: DateTime<FixedOffset>,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct EnrollTotpResponse {
     pub provisioning_uri: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema, ts_rs::TS)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct VerifyTotpRequest {
     pub code: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema, ts_rs::TS)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 #[serde(untagged)]
 pub enum SigninResponseOrChallenge {
     Signup(SignupResponse),
     Challenge(SigninChallenge),
 }
 
-#[derive(Debug, Serialize, ToSchema, ts_rs::TS)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct SignoutResponse {
     msg: String,
 }
@@ -72,7 +72,7 @@ impl Default for SignoutResponse {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS, Validate)]
+#[derive(Debug, Serialize, Deserialize, ToSchema, Validate)]
 #[serde(untagged)]
 pub enum SystemSigninRequest {
     /// Login via username

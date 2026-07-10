@@ -8,7 +8,6 @@ axum-extra = { workspace = true, features = ["cookie"] }
 axum.workspace = true
 garde.workspace = true
 serde.workspace = true
-ts-rs.workspace = true
 utoipa.workspace = true
 
 oceaniam-vo.workspace = true

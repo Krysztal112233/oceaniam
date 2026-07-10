@@ -2,8 +2,7 @@ use chrono::{DateTime, FixedOffset};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
-#[ts(rename_all = "snake_case")]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct OverviewVO {
     pub total_tenants: u64,
     pub total_applications: u64,
@@ -12,15 +11,13 @@ pub struct OverviewVO {
     pub total_active_secrets: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
-#[ts(rename_all = "snake_case")]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ApplicationStatisticsVO {
     pub total_users: u64,
     pub total_active_keys: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
-#[ts(rename_all = "snake_case")]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct AuditLogVO {
     pub id: String,
     pub audit_type: String,
@@ -28,15 +25,13 @@ pub struct AuditLogVO {
     pub created_at: DateTime<FixedOffset>,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
-#[ts(rename_all = "snake_case")]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct TrendDataPoint {
     pub bucket: DateTime<FixedOffset>,
     pub count: u64,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
-#[ts(rename_all = "snake_case")]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct PlatformTrendsVO {
     pub granularity: Granularity,
     pub range: u64,
@@ -46,17 +41,15 @@ pub struct PlatformTrendsVO {
     pub administrators: Vec<TrendDataPoint>,
 }
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
-#[ts(rename_all = "snake_case")]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ApplicationTrendsVO {
     pub granularity: Granularity,
     pub range: u64,
     pub new_users: Vec<TrendDataPoint>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema, ts_rs::TS, strum::Display)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema, strum::Display)]
 #[serde(rename_all = "snake_case")]
-#[ts(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
 pub enum Granularity {
     #[default]

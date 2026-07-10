@@ -18,7 +18,7 @@ where
 /// This claim structure is used when IAM (Identity and Access Management) issues
 /// JWT tokens to external applications or clients that need to authenticate
 /// and access resources through the IAM system.
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema, ts_rs::TS)]
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct Claim {
     /// Subject
     ///
@@ -56,7 +56,7 @@ pub struct Claim {
 /// This claim structure is used for internal authentication within the IAM system itself,
 /// such as for inter-service communication, internal system operations, and
 /// administrative tasks that require elevated privileges.
-#[derive(Debug, Serialize, Deserialize, Clone, ToSchema, ts_rs::TS)]
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct SystemClaim {
     /// Subject
     ///

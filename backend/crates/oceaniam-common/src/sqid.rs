@@ -5,7 +5,6 @@ use std::sync::LazyLock;
 use serde::{Deserialize, Serialize};
 use snafu::{Location, Snafu};
 use sqids::Sqids;
-use ts_rs::TS;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
@@ -17,7 +16,7 @@ pub enum Error {
 
 static SQID: LazyLock<sqids::Sqids> = LazyLock::new(|| Sqids::new(None).unwrap());
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, ToSchema, TS)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, ToSchema)]
 #[repr(transparent)]
 pub struct Sqid(String);
 

@@ -5,70 +5,70 @@ use utoipa::ToSchema;
 
 use crate::patch::PatchValue;
 
-#[derive(Debug, Serialize, Deserialize, ToSchema, ts_rs::TS)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct CreateApplicationRequest {
     pub comment: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, ToSchema, ts_rs::TS)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct CreateApplicationResponse {
     pub tenant_id: String,
     pub application_id: String,
     pub comment: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct TokenConfigurationVO {
     pub issuer: String,
     pub audience: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, ts_rs::TS, ToSchema)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, ToSchema)]
 pub struct Argon2Configuration {
     pub m_cost: u32,
     pub t_cost: u32,
     pub p_cost: u32,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct PasswordConfigurationVO {
     pub argon2: Argon2Configuration,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct AuthConfigurationVO {
     pub token: TokenConfigurationVO,
     pub password: PasswordConfigurationVO,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct RegistrationConfigurationVO {
     pub enabled: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct ApplicationConfigurationVO {
     pub auth: AuthConfigurationVO,
     pub registration: RegistrationConfigurationVO,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ToSchema)]
 pub struct PatchTokenConfigurationVO {
     pub issuer: Option<String>,
     pub audience: Option<Vec<String>>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ToSchema)]
 pub struct PatchAuthConfigurationVO {
     pub token: Option<PatchTokenConfigurationVO>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ToSchema)]
 pub struct PatchRegistrationConfigurationVO {
     pub enabled: Option<bool>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ToSchema)]
 pub struct PatchApplicationConfigurationRequest {
     pub auth: Option<PatchAuthConfigurationVO>,
     pub registration: Option<PatchRegistrationConfigurationVO>,
@@ -81,12 +81,12 @@ pub struct PatchApplicationRequest {
     pub comment: PatchValue<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct GetApplicationConfigurationResponse {
     pub configuration: ApplicationConfigurationVO,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs :: TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct ApplicationDetailVO {
     pub id: String,
     pub comment: Option<String>,
@@ -94,14 +94,14 @@ pub struct ApplicationDetailVO {
     pub configuration: ApplicationConfigurationVO,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs :: TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct ApplicationVO {
     pub id: String,
     pub comment: Option<String>,
     pub tenant_id: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct ApplicationChallengeVO {
     pub id: String,
     pub application_id: String,
@@ -119,7 +119,7 @@ pub struct ApplicationChallengeVO {
 /// VO for creating a new application user
 ///
 /// Either `phone` or `email` must be provided (mutually exclusive)
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ToSchema)]
 pub struct CreateApplicationUserRequest {
     /// User email address (optional, but either phone or email must be provided)
     #[garde(email)]
@@ -136,22 +136,20 @@ pub struct CreateApplicationUserRequest {
     pub password: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ToSchema)]
 pub struct PatchApplicationUserRequest {
     /// New nickname (optional; when present must be at least 4 characters)
     #[garde(length(min = 4))]
     pub nickname: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ToSchema)]
 pub struct PatchApplicationUserCredentialsRequest {
     #[garde(length(min = 12))]
     pub password: Option<String>,
 }
 
-#[derive(
-    Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema,
-)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ApplicationUsersSortOrder {
     Asc,
@@ -160,9 +158,7 @@ pub enum ApplicationUsersSortOrder {
     Desc,
 }
 
-#[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema,
-)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ToSchema)]
 #[serde(default)]
 pub struct ApplicationUsersListQuery {
     #[garde(skip)]
@@ -185,7 +181,7 @@ impl Default for ApplicationUsersListQuery {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ToSchema)]
 #[serde(default)]
 pub struct SearchApplicationUsersQuery {
     #[garde(skip)]
@@ -221,7 +217,7 @@ impl Default for SearchApplicationUsersQuery {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct ApplicationUserVO {
     pub id: String,
     pub email: Option<String>,
@@ -229,7 +225,7 @@ pub struct ApplicationUserVO {
     pub nickname: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct SecretVO {
     pub id: String,
     pub secret: String,
@@ -238,7 +234,7 @@ pub struct SecretVO {
     pub application_ids: Vec<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct ApplicationKeyVO {
     pub key_id: String,
     pub algorithm: String,
@@ -250,7 +246,7 @@ pub struct ApplicationKeyVO {
     pub revoked_at: Option<DateTime<FixedOffset>>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS, ToSchema)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct RotateKeyResponse {
     pub key: ApplicationKeyVO,
 }

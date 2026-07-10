@@ -48,12 +48,7 @@ These instructions apply to work performed inside the `backend` project.
 - When helping implement or modify endpoints in `crates/oceaniam/src/endpoints/`, update the corresponding `utoipa` annotations in the same change.
 - If an endpoint's path, method, parameters, request body, response body, tags, or security behavior changes, update the related `#[utoipa::path(...)]` attributes so the OpenAPI description stays accurate.
 - If a newly added or modified endpoint is exposed through the frontend SDK, update `sdk/dart/lib/src/client/oceaniam_client.dart` in the same change so the SDK client stays in sync with the backend API surface.
-- After updating `oceaniam_client.dart`, update the Dart models in `sdk/dart/lib/src/models/` as needed and run `just export` from the workspace root to regenerate bindings and rebuild the SDK package.
-
-## VO Export Sync
-
-- Any change to a value-object type in `crates/oceaniam-vo/src/` that carries `#[derive(ts_rs::TS)]` must have a corresponding export stub added or updated in `crates/oceaniam-export/src/vo/`.
-- The stub file mirrors the VO crate's module structure one-to-one.  A missing stub means the TypeScript type definition won't be generated.
+- After updating `oceaniam_client.dart`, update the Dart models in `sdk/dart/lib/src/models/` as needed so the SDK package stays in sync with the backend API surface.
 
 ## Design References
 
