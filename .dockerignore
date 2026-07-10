@@ -1,5 +1,33 @@
 .git
-*/**/target
-*/**/.react-router
-*/**/build
-*/**/node_modules
+
+# Rust
+**/target
+
+# JavaScript / Vue (removed, keep for safety)
+**/.react-router
+**/node_modules
+
+# Flutter / Dart
+**/.dart_tool
+**/.fvm
+**/.pub-cache
+**/.pub
+**/build
+**/coverage
+**/.flutter-plugins-dependencies
+**/*.symbols
+**/*.map.json
+
+# IDE / OS
+**/.DS_Store
+**/.idea
+**/.vscode
+**/*.iml
+**/*.ipr
+**/*.iws
+
+# Logs / temp
+**/*.log
+**/*.swp
+**/*.pyc
+**/.history

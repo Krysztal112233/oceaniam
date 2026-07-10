@@ -3,6 +3,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'shared_preferences_provider.dart';
+import '../utils/backend_url.dart';
 import 'package:oceaniam_sdk/oceaniam_sdk.dart';
 
 part 'oceaniam_client_provider.g.dart';
@@ -12,11 +13,9 @@ const kAuthTokenKey = 'auth_token';
 
 /// 后端 base URL。
 ///
-/// 开发环境默认指向本地 Axum 服务；生产环境应通过 --dart-define 或环境变量覆盖。
-const kBackendBaseUrl = String.fromEnvironment(
-  'OCEANIAM_BACKEND_URL',
-  defaultValue: 'http://localhost:8000',
-);
+/// 开发环境默认指向本地 Axum 服务；生产部署时若不通过 `--dart-define` 覆盖，
+/// 则在 web 平台自动回退到 `window.location.origin/api`。
+final kBackendBaseUrl = resolveBackendBaseUrl();
 
 /// 单例 [OceanIAMClient] provider。
 ///

@@ -1,11 +1,11 @@
 {
-    "name": "flutter_frontend",
-    "short_name": "flutter_frontend",
+    "name": "OceanIAM",
+    "short_name": "OceanIAM",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "OceanIAM admin console",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

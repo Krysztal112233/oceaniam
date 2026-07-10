@@ -14,22 +14,20 @@ watch-backend:
 
 export:
     cd ./backend && cargo test -p oceaniam-export
-    rm -rf ./sdk/typescript/src/types
-    cp -r ./backend/crates/oceaniam-export/bindings/ ./sdk/typescript/src/types
-    cd ./sdk/typescript && pnpm build
+    rm -rf ./sdk/dart/lib/src/types
+    cp -r ./backend/crates/oceaniam-export/bindings/ ./sdk/dart/lib/src/types
+    cd ./sdk/dart && fvm dart run build_runner build
 
 fmt:
     cd ./backend && cargo fmt
-    cd ./frontend && pnpm fmt
     cd ./sdk/rust && cargo fmt
-    cd ./sdk/typescript && pnpm fmt
     cd ./flutter_frontend && fvm dart format .
     cd ./sdk/dart && fvm dart format .
 
 build:
     cd ./backend && cargo build --all -r
-    cd ./frontend && pnpm build
     cd ./sdk/dart && fvm dart run build_runner build
+    cd ./flutter_frontend && fvm dart run build_runner build
 
 build-flutter:
     cd ./sdk/dart && fvm dart run build_runner build
@@ -39,7 +37,8 @@ build-flutter:
 check:
     cd ./backend && cargo test --all -r
     cd ./backend && cargo build --all -r
-    cd ./frontend && pnpm build
     cd ./sdk/rust && cargo test --all -r
     cd ./sdk/rust && cargo build --all -r
-    cd ./sdk/typescript && pnpm build
+    cd ./sdk/dart && fvm dart test
+    cd ./flutter_frontend && fvm dart analyze
+    cd ./flutter_frontend && fvm flutter build web --release

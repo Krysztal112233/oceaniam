@@ -12,7 +12,15 @@ You can find all related designs in [./docs/design](./docs/design)
 
 ## Frontend
 
-All frontend source code storaged at [./frontend/](./frontend/) and powered by Vue3 and daisyUI.
+All frontend source code is stored at [./flutter_frontend/](./flutter_frontend/) and powered by Flutter Web.
+
+The web build resolves the backend URL in this order:
+
+1. `OCEANIAM_BACKEND_URL` passed at build time via `--dart-define`.
+2. Otherwise, at runtime, it falls back to `${window.location.origin}/api`,
+   so the same built artifact can be deployed behind any reverse-proxy / gateway.
+
+Use `fvm flutter build web --release` (or `just build-flutter`) to build it locally.
 
 ## Deploy
 

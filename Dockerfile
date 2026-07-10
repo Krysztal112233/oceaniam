@@ -38,15 +38,29 @@ CMD [ "./migration" ]
 # FRONTEND BUILDER #
 ####################
 
-FROM docker.io/library/node:24-alpine AS frontend-builder
-WORKDIR /builder
-COPY frontend/ frontend/
-COPY sdk/ sdk/
-RUN corepack enable pnpm && cd frontend && pnpm install && pnpm build
+FROM docker.io/library/debian:trixie AS frontend-builder
+WORKDIR /builder/flutter_frontend
+RUN apt-get update && apt-get install -y \
+    curl git ca-certificates unzip && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m flutter
+
+COPY flutter_frontend/.fvmrc flutter_frontend/pubspec.yaml flutter_frontend/pubspec.lock ./
+
+COPY sdk/dart/ /builder/sdk/dart/
+COPY flutter_frontend/ .
+
+RUN chown -R flutter:flutter /builder
+
+USER flutter
+RUN curl -fsSL https://fvm.app/install.sh | bash
+ENV PATH="/home/flutter/fvm/bin:$PATH"
+RUN fvm flutter build web --release
 
 FROM docker.io/library/nginx:1.29-alpine AS frontend
 COPY docker/nginx/frontend.conf /etc/nginx/conf.d/default.conf
-COPY --from=frontend-builder /builder/frontend/dist/ /usr/share/nginx/html/
+COPY --from=frontend-builder /builder/flutter_frontend/build/web/ /usr/share/nginx/html/
 
 ####################
 #  GATEWAY BUILDER #

@@ -83,20 +83,13 @@ jobs:
         run: |
           rustup toolchain install stable --no-self-update --profile minimal
           rustup default stable
-      - uses: pnpm/action-setup@v4
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
         with:
-          version: latest
-      - uses: actions/setup-node@v4
-        with:
-          node-version: latest
-          cache: pnpm
-          cache-dependency-path: |
-            frontend/pnpm-lock.yaml
-            sdk/typescript/pnpm-lock.yaml
-      - name: Install pnpm dependencies
-        run: |
-          cd ./frontend && pnpm install --frozen-lockfile
-          cd ./sdk/typescript && pnpm install --frozen-lockfile
+          channel: stable
+          flutter-version: 3.44.4
+      - name: Install FVM
+        run: dart pub global activate fvm
       - name: Run `just check`
         run: |
           just check

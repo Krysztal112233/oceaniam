@@ -40,15 +40,15 @@ These instructions apply to work performed inside the `backend` project.
 
 ## Backend and Frontend Isolation
 
-- When making backend changes, do not modify files under `frontend/`.
-- Treat `backend` and `frontend` as independently developed projects unless the user explicitly requests coordinated cross-project work.
+- When making backend changes, do not modify files under `flutter_frontend/`.
+- Treat `backend` and `flutter_frontend` as independently developed projects unless the user explicitly requests coordinated cross-project work.
 
 ## Endpoint Documentation Consistency
 
 - When helping implement or modify endpoints in `crates/oceaniam/src/endpoints/`, update the corresponding `utoipa` annotations in the same change.
 - If an endpoint's path, method, parameters, request body, response body, tags, or security behavior changes, update the related `#[utoipa::path(...)]` attributes so the OpenAPI description stays accurate.
-- If a newly added or modified endpoint is exposed through the frontend SDK, update `sdk/typescript/src/client.ts` in the same change so the SDK client stays in sync with the backend API surface.
-- After updating `client.ts`, run `just export` from the workspace root to regenerate TypeScript type bindings and rebuild the SDK package.
+- If a newly added or modified endpoint is exposed through the frontend SDK, update `sdk/dart/lib/src/client/oceaniam_client.dart` in the same change so the SDK client stays in sync with the backend API surface.
+- After updating `oceaniam_client.dart`, update the Dart models in `sdk/dart/lib/src/models/` as needed and run `just export` from the workspace root to regenerate bindings and rebuild the SDK package.
 
 ## VO Export Sync
 
