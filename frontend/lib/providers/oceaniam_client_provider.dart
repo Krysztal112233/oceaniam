@@ -13,7 +13,7 @@ const kAuthTokenKey = 'auth_token';
 
 /// 后端 base URL。
 ///
-/// 开发环境默认指向本地 Axum 服务；生产部署时若不通过 `--dart-define` 覆盖，
+/// debug 构建默认指向本地 Axum 服务；生产部署时若不通过 `--dart-define` 覆盖，
 /// 则在 web 平台自动回退到 `window.location.origin/api`。
 final kBackendBaseUrl = resolveBackendBaseUrl();
 
