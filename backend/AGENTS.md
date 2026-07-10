@@ -40,8 +40,8 @@ These instructions apply to work performed inside the `backend` project.
 
 ## Backend and Frontend Isolation
 
-- When making backend changes, do not modify files under `flutter_frontend/`.
-- Treat `backend` and `flutter_frontend` as independently developed projects unless the user explicitly requests coordinated cross-project work.
+- When making backend changes, do not modify files under `frontend/`.
+- Treat `backend` and `frontend` as independently developed projects unless the user explicitly requests coordinated cross-project work.
 
 ## Endpoint Documentation Consistency
 

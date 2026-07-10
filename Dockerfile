@@ -39,17 +39,17 @@ CMD [ "./migration" ]
 ####################
 
 FROM docker.io/library/debian:trixie AS frontend-builder
-WORKDIR /builder/flutter_frontend
+WORKDIR /builder/frontend
 RUN apt-get update && apt-get install -y \
     curl git ca-certificates unzip && \
     rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m flutter
 
-COPY flutter_frontend/.fvmrc flutter_frontend/pubspec.yaml flutter_frontend/pubspec.lock ./
+COPY frontend/.fvmrc frontend/pubspec.yaml frontend/pubspec.lock ./
 
 COPY sdk/dart/ /builder/sdk/dart/
-COPY flutter_frontend/ .
+COPY frontend/ .
 
 RUN chown -R flutter:flutter /builder
 
@@ -60,7 +60,7 @@ RUN fvm flutter build web --release
 
 FROM docker.io/library/nginx:1.29-alpine AS frontend
 COPY docker/nginx/frontend.conf /etc/nginx/conf.d/default.conf
-COPY --from=frontend-builder /builder/flutter_frontend/build/web/ /usr/share/nginx/html/
+COPY --from=frontend-builder /builder/frontend/build/web/ /usr/share/nginx/html/
 
 ####################
 #  GATEWAY BUILDER #

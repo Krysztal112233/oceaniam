@@ -1,4 +1,4 @@
-# flutter_frontend
+# frontend
 
 Flutter web app for the Oceaniam project. Managed with FVM (see `.fvmrc`,
 Flutter 3.44.4). Run all Flutter/Dart commands through `fvm flutter ...` /
@@ -25,7 +25,7 @@ Interactive widgets carry `Key`s (`appbar-title`, `counter-value`,
 ## Running the app for Firefox MCP automation
 
 ```bash
-# from flutter_frontend/
+# from frontend/
 nohup fvm flutter run -d web-server --web-port 8099 --release \
   > /tmp/flutter_web.log 2>&1 &
 ```

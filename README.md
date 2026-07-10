@@ -12,7 +12,7 @@ You can find all related designs in [./docs/design](./docs/design)
 
 ## Frontend
 
-All frontend source code is stored at [./flutter_frontend/](./flutter_frontend/) and powered by Flutter Web.
+All frontend source code is stored at [./frontend/](./frontend/) and powered by Flutter Web.
 
 The web build resolves the backend URL in this order:
 

@@ -21,18 +21,18 @@ export:
 fmt:
     cd ./backend && cargo fmt
     cd ./sdk/rust && cargo fmt
-    cd ./flutter_frontend && fvm dart format .
+    cd ./frontend && fvm dart format .
     cd ./sdk/dart && fvm dart format .
 
 build:
     cd ./backend && cargo build --all -r
     cd ./sdk/dart && fvm dart run build_runner build
-    cd ./flutter_frontend && fvm dart run build_runner build
+    cd ./frontend && fvm dart run build_runner build
 
 build-flutter:
     cd ./sdk/dart && fvm dart run build_runner build
-    cd ./flutter_frontend/ && fvm dart run build_runner build
-    cd ./flutter_frontend/ && fvm flutter build web --release
+    cd ./frontend/ && fvm dart run build_runner build
+    cd ./frontend/ && fvm flutter build web --release
 
 check:
     cd ./backend && cargo test --all -r
@@ -40,5 +40,5 @@ check:
     cd ./sdk/rust && cargo test --all -r
     cd ./sdk/rust && cargo build --all -r
     cd ./sdk/dart && fvm dart test
-    cd ./flutter_frontend && fvm dart analyze
-    cd ./flutter_frontend && fvm flutter build web --release
+    cd ./frontend && fvm dart analyze
+    cd ./frontend && fvm flutter build web --release
