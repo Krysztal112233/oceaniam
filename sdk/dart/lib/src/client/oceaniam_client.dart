@@ -507,6 +507,20 @@ class OceanIAMClient {
     return ApplicationUser.fromJson(data);
   }
 
+  Future<ApplicationUser> patchUser(
+    String tenantId,
+    String applicationId,
+    String userId,
+    PatchUserRequest request,
+  ) async {
+    final data = await _request(
+      'PATCH',
+      '/tenants/$tenantId/applications/$applicationId/users/$userId',
+      body: request.toJson(),
+    );
+    return ApplicationUser.fromJson(data);
+  }
+
   Future<void> updateUserPassword(
     String tenantId,
     String applicationId,

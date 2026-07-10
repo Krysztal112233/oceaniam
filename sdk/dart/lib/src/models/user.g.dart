@@ -42,6 +42,18 @@ Map<String, dynamic> _$$CreateUserRequestImplToJson(
       'phone': instance.phone,
     };
 
+_$PatchUserRequestImpl _$$PatchUserRequestImplFromJson(
+        Map<String, dynamic> json) =>
+    _$PatchUserRequestImpl(
+      nickname: json['nickname'] as String?,
+    );
+
+Map<String, dynamic> _$$PatchUserRequestImplToJson(
+        _$PatchUserRequestImpl instance) =>
+    <String, dynamic>{
+      'nickname': instance.nickname,
+    };
+
 _$UpdatePasswordRequestImpl _$$UpdatePasswordRequestImplFromJson(
         Map<String, dynamic> json) =>
     _$UpdatePasswordRequestImpl(

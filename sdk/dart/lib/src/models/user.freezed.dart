@@ -424,6 +424,158 @@ abstract class _CreateUserRequest implements CreateUserRequest {
       throw _privateConstructorUsedError;
 }
 
+PatchUserRequest _$PatchUserRequestFromJson(Map<String, dynamic> json) {
+  return _PatchUserRequest.fromJson(json);
+}
+
+/// @nodoc
+mixin _$PatchUserRequest {
+  String? get nickname => throw _privateConstructorUsedError;
+
+  /// Serializes this PatchUserRequest to a JSON map.
+  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
+
+  /// Create a copy of PatchUserRequest
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $PatchUserRequestCopyWith<PatchUserRequest> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $PatchUserRequestCopyWith<$Res> {
+  factory $PatchUserRequestCopyWith(
+          PatchUserRequest value, $Res Function(PatchUserRequest) then) =
+      _$PatchUserRequestCopyWithImpl<$Res, PatchUserRequest>;
+  @useResult
+  $Res call({String? nickname});
+}
+
+/// @nodoc
+class _$PatchUserRequestCopyWithImpl<$Res, $Val extends PatchUserRequest>
+    implements $PatchUserRequestCopyWith<$Res> {
+  _$PatchUserRequestCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of PatchUserRequest
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? nickname = freezed,
+  }) {
+    return _then(_value.copyWith(
+      nickname: freezed == nickname
+          ? _value.nickname
+          : nickname // ignore: cast_nullable_to_non_nullable
+              as String?,
+    ) as $Val);
+  }
+}
+
+/// @nodoc
+abstract class _$$PatchUserRequestImplCopyWith<$Res>
+    implements $PatchUserRequestCopyWith<$Res> {
+  factory _$$PatchUserRequestImplCopyWith(_$PatchUserRequestImpl value,
+          $Res Function(_$PatchUserRequestImpl) then) =
+      __$$PatchUserRequestImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({String? nickname});
+}
+
+/// @nodoc
+class __$$PatchUserRequestImplCopyWithImpl<$Res>
+    extends _$PatchUserRequestCopyWithImpl<$Res, _$PatchUserRequestImpl>
+    implements _$$PatchUserRequestImplCopyWith<$Res> {
+  __$$PatchUserRequestImplCopyWithImpl(_$PatchUserRequestImpl _value,
+      $Res Function(_$PatchUserRequestImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of PatchUserRequest
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? nickname = freezed,
+  }) {
+    return _then(_$PatchUserRequestImpl(
+      nickname: freezed == nickname
+          ? _value.nickname
+          : nickname // ignore: cast_nullable_to_non_nullable
+              as String?,
+    ));
+  }
+}
+
+/// @nodoc
+@JsonSerializable()
+class _$PatchUserRequestImpl implements _PatchUserRequest {
+  const _$PatchUserRequestImpl({this.nickname});
+
+  factory _$PatchUserRequestImpl.fromJson(Map<String, dynamic> json) =>
+      _$$PatchUserRequestImplFromJson(json);
+
+  @override
+  final String? nickname;
+
+  @override
+  String toString() {
+    return 'PatchUserRequest(nickname: $nickname)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$PatchUserRequestImpl &&
+            (identical(other.nickname, nickname) ||
+                other.nickname == nickname));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode => Object.hash(runtimeType, nickname);
+
+  /// Create a copy of PatchUserRequest
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$PatchUserRequestImplCopyWith<_$PatchUserRequestImpl> get copyWith =>
+      __$$PatchUserRequestImplCopyWithImpl<_$PatchUserRequestImpl>(
+          this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$$PatchUserRequestImplToJson(
+      this,
+    );
+  }
+}
+
+abstract class _PatchUserRequest implements PatchUserRequest {
+  const factory _PatchUserRequest({final String? nickname}) =
+      _$PatchUserRequestImpl;
+
+  factory _PatchUserRequest.fromJson(Map<String, dynamic> json) =
+      _$PatchUserRequestImpl.fromJson;
+
+  @override
+  String? get nickname;
+
+  /// Create a copy of PatchUserRequest
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$PatchUserRequestImplCopyWith<_$PatchUserRequestImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
 UpdatePasswordRequest _$UpdatePasswordRequestFromJson(
     Map<String, dynamic> json) {
   return _UpdatePasswordRequest.fromJson(json);

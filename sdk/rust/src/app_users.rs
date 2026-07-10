@@ -108,6 +108,20 @@ impl OceanIamClient {
         self.send_empty(req).await
     }
 
+    pub async fn patch_application_user(
+        &self,
+        tenant_id: &str,
+        application_id: &str,
+        user_id: &str,
+        body: &PatchApplicationUserRequest,
+    ) -> Result<ApplicationUserVO, Error> {
+        let path = paths::fmt3(paths::APP_USER, tenant_id, application_id, user_id);
+        let req = self
+            .auth_req(Method::PATCH, &path, AuthMode::BearerOrAppSecret)?
+            .json(body);
+        self.send_inner(req).await
+    }
+
     pub async fn patch_application_user_credentials(
         &self,
         tenant_id: &str,

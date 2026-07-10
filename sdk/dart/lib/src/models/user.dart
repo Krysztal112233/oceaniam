@@ -30,6 +30,16 @@ class CreateUserRequest with _$CreateUserRequest {
 }
 
 @freezed
+class PatchUserRequest with _$PatchUserRequest {
+  const factory PatchUserRequest({
+    String? nickname,
+  }) = _PatchUserRequest;
+
+  factory PatchUserRequest.fromJson(Map<String, dynamic> json) =>
+      _$PatchUserRequestFromJson(json);
+}
+
+@freezed
 class UpdatePasswordRequest with _$UpdatePasswordRequest {
   const factory UpdatePasswordRequest({required String password}) =
       _UpdatePasswordRequest;
