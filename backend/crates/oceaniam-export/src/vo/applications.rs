@@ -40,6 +40,11 @@ pub struct CreateApplicationUserRequest;
 
 #[derive(ts_rs::TS)]
 #[ts(export)]
+#[ts(as = "oceaniam_vo::applications::PatchApplicationUserRequest")]
+pub struct PatchApplicationUserRequest;
+
+#[derive(ts_rs::TS)]
+#[ts(export)]
 #[ts(as = "oceaniam_vo::applications::PatchApplicationUserCredentialsRequest")]
 pub struct PatchApplicationUserCredentialsRequest;
 

@@ -137,6 +137,13 @@ pub struct CreateApplicationUserRequest {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema)]
+pub struct PatchApplicationUserRequest {
+    /// New nickname (optional; when present must be at least 4 characters)
+    #[garde(length(min = 4))]
+    pub nickname: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ts_rs::TS, ToSchema)]
 pub struct PatchApplicationUserCredentialsRequest {
     #[garde(length(min = 12))]
     pub password: Option<String>,

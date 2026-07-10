@@ -2,8 +2,10 @@ use crate::error::Error;
 use axum::http::StatusCode;
 use oceaniam_vo::pagination::{PageInfo, PageParam, PagedResponse};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, Iterable,
-    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
+    ActiveModelTrait,
+    ActiveValue::Set,
+    ColumnTrait, Condition, EntityTrait, IntoActiveModel, Iterable, PaginatorTrait, QueryFilter,
+    QueryOrder, QuerySelect,
     sea_query::{Expr, extension::postgres::PgExpr},
 };
 use tap::Pipe;
@@ -283,6 +285,19 @@ pub trait UserHelper {
                 .order_by_asc(CreatedAt)
                 .order_by_asc(crate::model::subjects::Column::Id)
         }
+    }
+
+    async fn update_user_nickname(
+        application_id: Uuid,
+        user_id: Uuid,
+        nickname: String,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::users::Model, Error> {
+        let mut user = Self::get_user_of_application(application_id, user_id, database)
+            .await?
+            .into_active_model();
+        user.nickname = Set(nickname);
+        Ok(user.update(database).await?)
     }
 
     /// Deletes a `users` row by its ID.

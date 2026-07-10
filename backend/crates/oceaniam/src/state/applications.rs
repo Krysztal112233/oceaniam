@@ -4,6 +4,7 @@ use std::time::Duration;
 use crate::error::Error;
 use argon2::{Argon2, Params};
 use axum::http::StatusCode;
+use futures::future::join_all;
 use moka::future::Cache;
 use oceaniam_database::{
     config::application::ApplicationConfiguration,
@@ -504,6 +505,39 @@ impl ApplicationUsers {
             "user created successfully: user_id={}, subject_id={}, application_id={}",
             user.id, subject.id, application_id
         );
+
+        Ok(user)
+    }
+
+    pub async fn update_user_nickname(
+        &self,
+        application_id: Uuid,
+        user_id: Uuid,
+        nickname: String,
+    ) -> Result<UserModel, Error> {
+        let user = Users::update_user_nickname(application_id, user_id, nickname, &self.database)
+            .await
+            .inspect_err(|e| {
+                error!(
+                    "failed to update user nickname: user_id={}, application_id={}, error={}",
+                    user_id, application_id, e
+                );
+            })?;
+
+        self.cache
+            .insert(UserIdentifier::Id(user_id), user.clone())
+            .await;
+
+        join_all(
+            [
+                user.email.clone().map(UserIdentifier::Email),
+                user.phone.clone().map(UserIdentifier::Phone),
+            ]
+            .iter()
+            .flatten()
+            .map(|it| self.cache.invalidate(it)),
+        )
+        .await;
 
         Ok(user)
     }

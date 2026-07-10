@@ -17,7 +17,7 @@ use oceaniam_database::model::prelude::Users;
 use oceaniam_vo::applications::{
     ApplicationUserVO, ApplicationUsersListQuery, ApplicationUsersSortOrder,
     CreateApplicationUserRequest, PatchApplicationUserCredentialsRequest,
-    SearchApplicationUsersQuery,
+    PatchApplicationUserRequest, SearchApplicationUsersQuery,
 };
 use oceaniam_vo::auth::{EnrollTotpResponse, VerifyTotpRequest};
 use sea_orm::TransactionTrait;
@@ -40,6 +40,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
         .routes(routes!(search_application_users))
         .routes(routes!(create_application_user))
         .routes(routes!(get_application_user))
+        .routes(routes!(patch_application_user))
         .routes(routes!(patch_application_user_credentials))
         .routes(routes!(delete_application_user))
         .routes(routes!(enroll_totp))
@@ -503,6 +504,102 @@ pub async fn create_application_user(
             nickname: user.nickname.clone(),
         }))
         .await;
+
+    Ok(ApiResponse::new(
+        crate::conversion::users::user_model_to_vo(user),
+    ))
+}
+
+/// Patch application user profile fields (currently nickname only).
+///
+/// When `nickname` is provided it must be at least 4 characters long.
+#[utoipa::path(
+        patch,
+        path = "/tenants/{tenant_id}/applications/{application_id}/users/{user_id}",
+        tag = "ApplicationUsers",
+        params(
+            ("Authorization" = String, Header, description = "Bearer token for backend administrator"),
+            ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
+            ("tenant_id" = String, Path, description = "Tenant ID"),
+            ("application_id" = String, Path, description = "Application ID"),
+            ("user_id" = String, Path, description = "User ID"),
+        ),
+        request_body = PatchApplicationUserRequest,
+        responses(
+            (status = 200, body = ApiResponse<ApplicationUserVO>),
+            (status = 203, description = "Missing Authorization header and application secret header"),
+            (status = 400, description = "Bad request", body = ApiResponse<ErrorResponse>),
+            (status = 401, description = "Unauthorized"),
+            (status = 403, description = "Forbidden - secret does not belong to this application"),
+            (status = 404, description = "Application or user not found", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
+        ),
+    )]
+#[tracing::instrument(
+    level = "info",
+    name = "tenant_application_users.patch",
+    skip(_auth, applications),
+    fields(tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
+)]
+pub async fn patch_application_user(
+    _auth: AdminJwtOrApplicationSecretGuard,
+    State(AppState { applications, .. }): State<AppState>,
+    app: ResolvedApplication,
+    Path((_tenant_id, _application_id, user_id)): Path<(Sqid, Sqid, Sqid)>,
+    Garde(Json(PatchApplicationUserRequest { nickname })): Garde<Json<PatchApplicationUserRequest>>,
+) -> AppResult<ApplicationUserVO> {
+    let application_id = app.id();
+    let user_id: Uuid = user_id.try_into()?;
+
+    Span::current().tap(|it| {
+        it.record("tenant_id", field::display(&app.tenant_id()))
+            .record("application_id", field::display(&application_id))
+            .record("user_id", field::display(&user_id));
+    });
+
+    let users = applications
+        .get_application_users(application_id)
+        .await
+        .inspect_err(|e| {
+            error!(
+                %application_id,
+                %user_id,
+                error = %e,
+                "failed to get application users helper"
+            )
+        })?;
+
+    let user = if let Some(nickname) = nickname {
+        users
+            .update_user_nickname(application_id, user_id, nickname)
+            .await
+            .inspect_err(|e| {
+                error!(
+                    %application_id,
+                    %user_id,
+                    error = %e,
+                    "failed to update application user nickname"
+                )
+            })?
+    } else {
+        users
+            .find_user_by(UserIdentifier::Id(user_id))
+            .await
+            .inspect_err(|e| {
+                error!(
+                    %application_id,
+                    %user_id,
+                    error = %e,
+                    "failed to get application user for patch"
+                )
+            })?
+    };
+
+    info!(
+        %application_id,
+        %user_id,
+        "application user patched successfully"
+    );
 
     Ok(ApiResponse::new(
         crate::conversion::users::user_model_to_vo(user),
