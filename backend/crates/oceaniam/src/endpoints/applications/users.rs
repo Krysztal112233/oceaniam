@@ -10,10 +10,11 @@ use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{
     AuditPayload, CreateApplicationUserPayload, DeleteApplicationUserPayload,
 };
-use oceaniam_common::helpers::gen_random_name;
-use oceaniam_common::sqid::Sqid;
-use oceaniam_database::helper::users::{CreateUserOpts, UserHelper};
-use oceaniam_database::model::prelude::Users;
+use oceaniam_common::{helpers::gen_random_name, sqid::Sqid};
+use oceaniam_database::{
+    helper::users::{CreateUserOpts, PatchUserOpts, UserHelper},
+    model::prelude::Users,
+};
 use oceaniam_vo::applications::{
     ApplicationUserVO, ApplicationUsersListQuery, ApplicationUsersSortOrder,
     CreateApplicationUserRequest, PatchApplicationUserCredentialsRequest,
@@ -569,31 +570,26 @@ pub async fn patch_application_user(
             )
         })?;
 
-    let user = if let Some(nickname) = nickname {
-        users
-            .update_user_nickname(application_id, user_id, nickname)
-            .await
-            .inspect_err(|e| {
-                error!(
-                    %application_id,
-                    %user_id,
-                    error = %e,
-                    "failed to update application user nickname"
-                )
-            })?
-    } else {
-        users
-            .find_user_by(UserIdentifier::Id(user_id))
-            .await
-            .inspect_err(|e| {
-                error!(
-                    %application_id,
-                    %user_id,
-                    error = %e,
-                    "failed to get application user for patch"
-                )
-            })?
-    };
+    // TODO: Extend PatchApplicationUserRequest to support patching email and phone.
+    let user = users
+        .patch_user(
+            application_id,
+            user_id,
+            PatchUserOpts {
+                nickname,
+                email: None,
+                phone: None,
+            },
+        )
+        .await
+        .inspect_err(|e| {
+            error!(
+                %application_id,
+                %user_id,
+                error = %e,
+                "failed to patch application user"
+            )
+        })?;
 
     info!(
         %application_id,

@@ -17,6 +17,7 @@ use crate::{
         self,
         prelude::{Applications, Subjects, Users},
         sea_orm_active_enums::SubjectTypeEnum,
+        users::Model as UserModel,
     },
 };
 
@@ -28,8 +29,15 @@ pub struct CreateUserOpts {
 }
 
 #[derive(Debug)]
+pub struct PatchUserOpts {
+    pub nickname: Option<String>,
+    pub email: Option<String>,
+    pub phone: Option<String>,
+}
+
+#[derive(Debug)]
 pub struct CreateUserResult {
-    pub user: model::users::Model,
+    pub user: UserModel,
     pub subject: model::subjects::Model,
 }
 
@@ -64,7 +72,7 @@ pub trait UserHelper {
         let subject =
             Subjects::create_subjects(id, application_id, SubjectTypeEnum::User, database).await?;
 
-        let user = model::users::Model {
+        let user = UserModel {
             id: subject.id,
             application_id,
             email,
@@ -84,7 +92,7 @@ pub trait UserHelper {
         page: Option<PageParam>,
         sort_desc: bool,
         database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<PagedResponse<model::users::Model>, Error> {
+    ) -> Result<PagedResponse<UserModel>, Error> {
         use crate::model::{subjects::Column::ApplicationId, users};
 
         let base = Self::order_users_by_created_at(
@@ -95,7 +103,7 @@ pub trait UserHelper {
                 .filter(ApplicationId.eq(application_id)),
             sort_desc,
         )
-        .into_model::<model::users::Model>();
+        .into_model::<UserModel>();
 
         let Some(page) = page else {
             return base
@@ -120,7 +128,7 @@ pub trait UserHelper {
         application_id: Uuid,
         user_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<model::users::Model, Error> {
+    ) -> Result<UserModel, Error> {
         use model::users::Column::*;
 
         Users::find()
@@ -143,7 +151,7 @@ pub trait UserHelper {
         tenant_id: Uuid,
         page: Option<PageParam>,
         database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<PagedResponse<model::users::Model>, Error> {
+    ) -> Result<PagedResponse<UserModel>, Error> {
         use crate::model::applications::Column::*;
 
         let base = || {
@@ -189,7 +197,7 @@ pub trait UserHelper {
         page: impl Into<PageParam> + Send,
         sort_desc: bool,
         database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<PagedResponse<model::users::Model>, Error> {
+    ) -> Result<PagedResponse<UserModel>, Error> {
         use crate::model::users::Column::{ApplicationId, Email, Nickname, Phone};
 
         let page = page.into();
@@ -243,7 +251,7 @@ pub trait UserHelper {
         application_id: Uuid,
         opts: UserContactOpts,
         database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<model::users::Model, Error> {
+    ) -> Result<UserModel, Error> {
         use model::users::Column::*;
 
         let condition = Condition::all()
@@ -287,17 +295,42 @@ pub trait UserHelper {
         }
     }
 
-    async fn update_user_nickname(
+    async fn patch_user(
         application_id: Uuid,
         user_id: Uuid,
-        nickname: String,
+        patched: PatchUserOpts,
         database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<model::users::Model, Error> {
-        let mut user = Self::get_user_of_application(application_id, user_id, database)
-            .await?
-            .into_active_model();
-        user.nickname = Set(nickname);
-        Ok(user.update(database).await?)
+    ) -> Result<UserModel, Error> {
+        let PatchUserOpts {
+            nickname,
+            email,
+            phone,
+        } = patched;
+
+        let tx = database.begin().await?;
+
+        let user = {
+            let mut user = Self::get_user_of_application(application_id, user_id, &tx)
+                .await?
+                .into_active_model();
+
+            if let Some(nickname) = nickname {
+                user.nickname = Set(nickname);
+            }
+            if let Some(email) = email {
+                user.email = Set(Some(email));
+            }
+            if let Some(phone) = phone {
+                user.phone = Set(Some(phone));
+            }
+
+            user
+        };
+
+        let user = user.update(&tx).await?;
+        tx.commit().await?;
+
+        Ok(user)
     }
 
     /// Deletes a `users` row by its ID.

@@ -11,7 +11,7 @@ use oceaniam_database::{
     helper::{
         SafeTransactionConnectionTrait,
         applications::{ApplicationHelper, CreateApplicationOptions},
-        users::{CreateUserOpts, CreateUserResult, UserContactOpts, UserHelper},
+        users::{CreateUserOpts, CreateUserResult, PatchUserOpts, UserContactOpts, UserHelper},
     },
     model::{
         applications::Model as ApplicationModel,
@@ -509,17 +509,17 @@ impl ApplicationUsers {
         Ok(user)
     }
 
-    pub async fn update_user_nickname(
+    pub async fn patch_user(
         &self,
         application_id: Uuid,
         user_id: Uuid,
-        nickname: String,
+        patched: PatchUserOpts,
     ) -> Result<UserModel, Error> {
-        let user = Users::update_user_nickname(application_id, user_id, nickname, &self.database)
+        let user = Users::patch_user(application_id, user_id, patched, &self.database)
             .await
             .inspect_err(|e| {
                 error!(
-                    "failed to update user nickname: user_id={}, application_id={}, error={}",
+                    "failed to patch user: user_id={}, application_id={}, error={}",
                     user_id, application_id, e
                 );
             })?;
