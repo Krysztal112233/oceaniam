@@ -225,6 +225,10 @@ void main() {
             request.method == 'DELETE') {
           return http.Response('', 200);
         }
+        if (request.url.path == '/tenants/t1/applications/app1/users/u1' &&
+            request.method == 'DELETE') {
+          return http.Response('', 200);
+        }
         return http.Response('Not found', 404);
       });
 
@@ -295,6 +299,11 @@ void main() {
       await client.signin('admin', 'password');
       await client.rotateKey('t1');
       await client.revokeKey('t1', 'k1');
+    });
+
+    test('deleteUser sends DELETE to the application-user endpoint', () async {
+      await client.signin('admin', 'password');
+      await client.deleteUser('t1', 'app1', 'u1');
     });
 
     test('throws OceanIAMError on 404', () async {

@@ -521,6 +521,16 @@ class OceanIAMClient {
     return ApplicationUser.fromJson(data);
   }
 
+  Future<void> deleteUser(
+    String tenantId,
+    String applicationId,
+    String userId,
+  ) =>
+      _requestNoContent(
+        'DELETE',
+        '/tenants/$tenantId/applications/$applicationId/users/$userId',
+      );
+
   Future<void> updateUserPassword(
     String tenantId,
     String applicationId,

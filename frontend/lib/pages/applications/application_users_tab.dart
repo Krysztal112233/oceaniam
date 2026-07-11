@@ -7,7 +7,7 @@ import 'package:material_table_view/material_table_view.dart';
 import 'package:oceaniam_sdk/oceaniam_sdk.dart';
 
 import '../../providers/application_providers.dart';
-import 'change_password_dialog.dart';
+import 'application_user_detail_presentation.dart';
 
 class ApplicationUsersTab extends ConsumerStatefulWidget {
   final String tenantId;
@@ -93,15 +93,16 @@ class _ApplicationUsersTabState extends ConsumerState<ApplicationUsersTab> {
     });
   }
 
-  Future<void> _openChangePassword(ApplicationUser user) async {
-    await showDialog<bool>(
-      context: context,
-      builder: (context) => ChangePasswordDialog(
-        tenantId: widget.tenantId,
-        applicationId: widget.applicationId,
-        user: user,
-      ),
+  Future<void> _openUserDetail(ApplicationUser user) async {
+    final userDeleted = await showApplicationUserDetail(
+      context,
+      tenantId: widget.tenantId,
+      applicationId: widget.applicationId,
+      user: user,
     );
+    if (userDeleted == true) {
+      ref.invalidate(applicationUsersPageProvider);
+    }
   }
 
   @override
@@ -329,11 +330,11 @@ class _ApplicationUsersTabState extends ConsumerState<ApplicationUsersTab> {
                                 alignment: Alignment.center,
                                 child: IconButton(
                                   icon: const Icon(
-                                    FluentIcons.key_24_regular,
+                                    FluentIcons.person_24_regular,
                                     size: 20,
                                   ),
-                                  tooltip: 'Change password',
-                                  onPressed: () => _openChangePassword(user),
+                                  tooltip: 'Manage user',
+                                  onPressed: () => _openUserDetail(user),
                                 ),
                               ),
                             },
