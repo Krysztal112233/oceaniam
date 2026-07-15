@@ -132,6 +132,43 @@ void main() {
       expect(key.expiresAt, '2024-03-01T00:00:00Z');
       expect(key.revokedAt, isNull);
     });
+
+    test('ApplicationConfiguration matches the backend configuration schema',
+        () {
+      final configuration = ApplicationConfiguration.fromJson({
+        'auth': {
+          'token': {
+            'issuer': 'OceanIAM',
+            'audience': ['OceanIAM', 'example-api'],
+          },
+          'password': {
+            'argon2': {'m_cost': 12288, 't_cost': 3, 'p_cost': 1},
+          },
+        },
+        'registration': {'enabled': false},
+      });
+
+      expect(configuration.auth.token.issuer, 'OceanIAM');
+      expect(configuration.auth.token.audience, ['OceanIAM', 'example-api']);
+      expect(configuration.auth.password.argon2.mCost, 12288);
+      expect(configuration.auth.password.argon2.tCost, 3);
+      expect(configuration.auth.password.argon2.pCost, 1);
+      expect(configuration.registration.enabled, false);
+    });
+
+    test('PatchApplicationConfiguration omits unchanged fields', () {
+      const patch = PatchApplicationConfiguration(
+        auth: PatchAuthConfiguration(
+          token: PatchTokenConfiguration(issuer: 'Example'),
+        ),
+      );
+
+      expect(patch.toJson(), {
+        'auth': {
+          'token': {'issuer': 'Example'},
+        },
+      });
+    });
   });
 
   group('OceanIAM Client', () {
@@ -229,6 +266,39 @@ void main() {
             request.method == 'DELETE') {
           return http.Response('', 200);
         }
+        if (request.url.path == '/tenants/t1/applications/app1/configuration' &&
+            request.method == 'GET') {
+          return http.Response(
+            jsonEncode({
+              'configuration': {
+                'auth': {
+                  'token': {
+                    'issuer': 'OceanIAM',
+                    'audience': ['OceanIAM'],
+                  },
+                  'password': {
+                    'argon2': {'m_cost': 12288, 't_cost': 3, 'p_cost': 1},
+                  },
+                },
+                'registration': {'enabled': false},
+              },
+            }),
+            200,
+          );
+        }
+        if (request.url.path == '/tenants/t1/applications/app1/configuration' &&
+            request.method == 'PATCH') {
+          expect(jsonDecode(request.body), {
+            'auth': {
+              'token': {
+                'issuer': 'Example',
+                'audience': ['example-api'],
+              },
+            },
+            'registration': {'enabled': true},
+          });
+          return http.Response('', 200);
+        }
         return http.Response('Not found', 404);
       });
 
@@ -304,6 +374,33 @@ void main() {
     test('deleteUser sends DELETE to the application-user endpoint', () async {
       await client.signin('admin', 'password');
       await client.deleteUser('t1', 'app1', 'u1');
+    });
+
+    test('gets and patches the full application configuration schema',
+        () async {
+      await client.signin('admin', 'password');
+      final configuration = await client.getApplicationConfiguration(
+        't1',
+        'app1',
+      );
+
+      expect(configuration.auth.token.issuer, 'OceanIAM');
+      expect(configuration.auth.password.argon2.mCost, 12288);
+      expect(configuration.registration.enabled, false);
+
+      await client.updateApplicationConfiguration(
+        't1',
+        'app1',
+        const PatchApplicationConfiguration(
+          auth: PatchAuthConfiguration(
+            token: PatchTokenConfiguration(
+              issuer: 'Example',
+              audience: ['example-api'],
+            ),
+          ),
+          registration: PatchRegistrationConfiguration(enabled: true),
+        ),
+      );
     });
 
     test('throws OceanIAMError on 404', () async {

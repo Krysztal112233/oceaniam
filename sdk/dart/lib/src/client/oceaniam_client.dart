@@ -417,13 +417,15 @@ class OceanIAMClient {
       'GET',
       '/tenants/$tenantId/applications/$applicationId/configuration',
     );
-    return ApplicationConfiguration.fromJson(data);
+    return ApplicationConfiguration.fromJson(
+      data['configuration'] as Map<String, dynamic>,
+    );
   }
 
   Future<void> updateApplicationConfiguration(
     String tenantId,
     String applicationId,
-    ApplicationConfiguration config,
+    PatchApplicationConfiguration config,
   ) async {
     await _requestNoContent(
       'PATCH',

@@ -6,50 +6,73 @@ part of 'configuration.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$AuthConfigImpl _$$AuthConfigImplFromJson(Map<String, dynamic> json) =>
-    _$AuthConfigImpl(
-      tokenIssuer: json['token_issuer'] as String?,
-      tokenAudience: json['token_audience'] as String?,
-      passwordPolicy: json['password_policy'] == null
-          ? null
-          : PasswordPolicy.fromJson(
-              json['password_policy'] as Map<String, dynamic>),
-    );
-
-Map<String, dynamic> _$$AuthConfigImplToJson(_$AuthConfigImpl instance) =>
-    <String, dynamic>{
-      'token_issuer': instance.tokenIssuer,
-      'token_audience': instance.tokenAudience,
-      'password_policy': instance.passwordPolicy,
-    };
-
-_$PasswordPolicyImpl _$$PasswordPolicyImplFromJson(Map<String, dynamic> json) =>
-    _$PasswordPolicyImpl(
-      minLength: (json['min_length'] as num?)?.toInt(),
-      requireUppercase: json['require_uppercase'] as bool?,
-      requireLowercase: json['require_lowercase'] as bool?,
-      requireDigit: json['require_digit'] as bool?,
-      requireSpecial: json['require_special'] as bool?,
-    );
-
-Map<String, dynamic> _$$PasswordPolicyImplToJson(
-        _$PasswordPolicyImpl instance) =>
-    <String, dynamic>{
-      'min_length': instance.minLength,
-      'require_uppercase': instance.requireUppercase,
-      'require_lowercase': instance.requireLowercase,
-      'require_digit': instance.requireDigit,
-      'require_special': instance.requireSpecial,
-    };
-
-_$RegistrationConfigImpl _$$RegistrationConfigImplFromJson(
+_$TokenConfigurationImpl _$$TokenConfigurationImplFromJson(
         Map<String, dynamic> json) =>
-    _$RegistrationConfigImpl(
-      enabled: json['enabled'] as bool?,
+    _$TokenConfigurationImpl(
+      issuer: json['issuer'] as String,
+      audience:
+          (json['audience'] as List<dynamic>).map((e) => e as String).toList(),
     );
 
-Map<String, dynamic> _$$RegistrationConfigImplToJson(
-        _$RegistrationConfigImpl instance) =>
+Map<String, dynamic> _$$TokenConfigurationImplToJson(
+        _$TokenConfigurationImpl instance) =>
+    <String, dynamic>{
+      'issuer': instance.issuer,
+      'audience': instance.audience,
+    };
+
+_$Argon2ConfigurationImpl _$$Argon2ConfigurationImplFromJson(
+        Map<String, dynamic> json) =>
+    _$Argon2ConfigurationImpl(
+      mCost: (json['m_cost'] as num).toInt(),
+      tCost: (json['t_cost'] as num).toInt(),
+      pCost: (json['p_cost'] as num).toInt(),
+    );
+
+Map<String, dynamic> _$$Argon2ConfigurationImplToJson(
+        _$Argon2ConfigurationImpl instance) =>
+    <String, dynamic>{
+      'm_cost': instance.mCost,
+      't_cost': instance.tCost,
+      'p_cost': instance.pCost,
+    };
+
+_$PasswordConfigurationImpl _$$PasswordConfigurationImplFromJson(
+        Map<String, dynamic> json) =>
+    _$PasswordConfigurationImpl(
+      argon2:
+          Argon2Configuration.fromJson(json['argon2'] as Map<String, dynamic>),
+    );
+
+Map<String, dynamic> _$$PasswordConfigurationImplToJson(
+        _$PasswordConfigurationImpl instance) =>
+    <String, dynamic>{
+      'argon2': instance.argon2,
+    };
+
+_$AuthConfigurationImpl _$$AuthConfigurationImplFromJson(
+        Map<String, dynamic> json) =>
+    _$AuthConfigurationImpl(
+      token: TokenConfiguration.fromJson(json['token'] as Map<String, dynamic>),
+      password: PasswordConfiguration.fromJson(
+          json['password'] as Map<String, dynamic>),
+    );
+
+Map<String, dynamic> _$$AuthConfigurationImplToJson(
+        _$AuthConfigurationImpl instance) =>
+    <String, dynamic>{
+      'token': instance.token,
+      'password': instance.password,
+    };
+
+_$RegistrationConfigurationImpl _$$RegistrationConfigurationImplFromJson(
+        Map<String, dynamic> json) =>
+    _$RegistrationConfigurationImpl(
+      enabled: json['enabled'] as bool,
+    );
+
+Map<String, dynamic> _$$RegistrationConfigurationImplToJson(
+        _$RegistrationConfigurationImpl instance) =>
     <String, dynamic>{
       'enabled': instance.enabled,
     };
@@ -57,13 +80,9 @@ Map<String, dynamic> _$$RegistrationConfigImplToJson(
 _$ApplicationConfigurationImpl _$$ApplicationConfigurationImplFromJson(
         Map<String, dynamic> json) =>
     _$ApplicationConfigurationImpl(
-      auth: json['auth'] == null
-          ? null
-          : AuthConfig.fromJson(json['auth'] as Map<String, dynamic>),
-      registration: json['registration'] == null
-          ? null
-          : RegistrationConfig.fromJson(
-              json['registration'] as Map<String, dynamic>),
+      auth: AuthConfiguration.fromJson(json['auth'] as Map<String, dynamic>),
+      registration: RegistrationConfiguration.fromJson(
+          json['registration'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$$ApplicationConfigurationImplToJson(
@@ -71,4 +90,68 @@ Map<String, dynamic> _$$ApplicationConfigurationImplToJson(
     <String, dynamic>{
       'auth': instance.auth,
       'registration': instance.registration,
+    };
+
+_$PatchTokenConfigurationImpl _$$PatchTokenConfigurationImplFromJson(
+        Map<String, dynamic> json) =>
+    _$PatchTokenConfigurationImpl(
+      issuer: json['issuer'] as String?,
+      audience: (json['audience'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
+    );
+
+Map<String, dynamic> _$$PatchTokenConfigurationImplToJson(
+        _$PatchTokenConfigurationImpl instance) =>
+    <String, dynamic>{
+      if (instance.issuer case final value?) 'issuer': value,
+      if (instance.audience case final value?) 'audience': value,
+    };
+
+_$PatchAuthConfigurationImpl _$$PatchAuthConfigurationImplFromJson(
+        Map<String, dynamic> json) =>
+    _$PatchAuthConfigurationImpl(
+      token: json['token'] == null
+          ? null
+          : PatchTokenConfiguration.fromJson(
+              json['token'] as Map<String, dynamic>),
+    );
+
+Map<String, dynamic> _$$PatchAuthConfigurationImplToJson(
+        _$PatchAuthConfigurationImpl instance) =>
+    <String, dynamic>{
+      if (instance.token?.toJson() case final value?) 'token': value,
+    };
+
+_$PatchRegistrationConfigurationImpl
+    _$$PatchRegistrationConfigurationImplFromJson(Map<String, dynamic> json) =>
+        _$PatchRegistrationConfigurationImpl(
+          enabled: json['enabled'] as bool?,
+        );
+
+Map<String, dynamic> _$$PatchRegistrationConfigurationImplToJson(
+        _$PatchRegistrationConfigurationImpl instance) =>
+    <String, dynamic>{
+      if (instance.enabled case final value?) 'enabled': value,
+    };
+
+_$PatchApplicationConfigurationImpl
+    _$$PatchApplicationConfigurationImplFromJson(Map<String, dynamic> json) =>
+        _$PatchApplicationConfigurationImpl(
+          auth: json['auth'] == null
+              ? null
+              : PatchAuthConfiguration.fromJson(
+                  json['auth'] as Map<String, dynamic>),
+          registration: json['registration'] == null
+              ? null
+              : PatchRegistrationConfiguration.fromJson(
+                  json['registration'] as Map<String, dynamic>),
+        );
+
+Map<String, dynamic> _$$PatchApplicationConfigurationImplToJson(
+        _$PatchApplicationConfigurationImpl instance) =>
+    <String, dynamic>{
+      if (instance.auth?.toJson() case final value?) 'auth': value,
+      if (instance.registration?.toJson() case final value?)
+        'registration': value,
     };
