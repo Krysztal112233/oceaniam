@@ -51,6 +51,14 @@ class ApplicationExpandedPanel extends StatelessWidget {
           ),
         ),
         ExpandPanelTab(
+          icon: FluentIcons.options_24_regular,
+          label: 'Configuration',
+          builder: (_) => ApplicationConfigurationTab(
+            tenantId: tenantId,
+            applicationId: applicationId,
+          ),
+        ),
+        ExpandPanelTab(
           icon: FluentIcons.settings_24_regular,
           label: 'Settings',
           builder: (_) => ApplicationSettingsTab(

@@ -30,6 +30,17 @@ Future<ApplicationDetail> applicationDetail(
   return client.getApplication(tenantId, applicationId);
 }
 
+/// Full application configuration shown in the Configuration tab.
+@riverpod
+Future<ApplicationConfiguration> applicationConfiguration(
+  Ref ref,
+  String tenantId,
+  String applicationId,
+) async {
+  final client = ref.watch(oceanIAMClientProvider);
+  return client.getApplicationConfiguration(tenantId, applicationId);
+}
+
 /// Lists users, or searches when [searchQuery] is non-empty.
 ///
 /// [searchField] selects which `by_*` query param is sent. Empty [searchQuery]

@@ -194,6 +194,162 @@ class _ApplicationDetailProviderElement
       (origin as ApplicationDetailProvider).applicationId;
 }
 
+String _$applicationConfigurationHash() =>
+    r'b77398fd1de2b6a20887a92eb196ff585ae2f6bc';
+
+/// Full application configuration shown in the Configuration tab.
+///
+/// Copied from [applicationConfiguration].
+@ProviderFor(applicationConfiguration)
+const applicationConfigurationProvider = ApplicationConfigurationFamily();
+
+/// Full application configuration shown in the Configuration tab.
+///
+/// Copied from [applicationConfiguration].
+class ApplicationConfigurationFamily
+    extends Family<AsyncValue<ApplicationConfiguration>> {
+  /// Full application configuration shown in the Configuration tab.
+  ///
+  /// Copied from [applicationConfiguration].
+  const ApplicationConfigurationFamily();
+
+  /// Full application configuration shown in the Configuration tab.
+  ///
+  /// Copied from [applicationConfiguration].
+  ApplicationConfigurationProvider call(String tenantId, String applicationId) {
+    return ApplicationConfigurationProvider(tenantId, applicationId);
+  }
+
+  @override
+  ApplicationConfigurationProvider getProviderOverride(
+    covariant ApplicationConfigurationProvider provider,
+  ) {
+    return call(provider.tenantId, provider.applicationId);
+  }
+
+  static const Iterable<ProviderOrFamily>? _dependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get dependencies => _dependencies;
+
+  static const Iterable<ProviderOrFamily>? _allTransitiveDependencies = null;
+
+  @override
+  Iterable<ProviderOrFamily>? get allTransitiveDependencies =>
+      _allTransitiveDependencies;
+
+  @override
+  String? get name => r'applicationConfigurationProvider';
+}
+
+/// Full application configuration shown in the Configuration tab.
+///
+/// Copied from [applicationConfiguration].
+class ApplicationConfigurationProvider
+    extends AutoDisposeFutureProvider<ApplicationConfiguration> {
+  /// Full application configuration shown in the Configuration tab.
+  ///
+  /// Copied from [applicationConfiguration].
+  ApplicationConfigurationProvider(String tenantId, String applicationId)
+    : this._internal(
+        (ref) => applicationConfiguration(
+          ref as ApplicationConfigurationRef,
+          tenantId,
+          applicationId,
+        ),
+        from: applicationConfigurationProvider,
+        name: r'applicationConfigurationProvider',
+        debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
+            ? null
+            : _$applicationConfigurationHash,
+        dependencies: ApplicationConfigurationFamily._dependencies,
+        allTransitiveDependencies:
+            ApplicationConfigurationFamily._allTransitiveDependencies,
+        tenantId: tenantId,
+        applicationId: applicationId,
+      );
+
+  ApplicationConfigurationProvider._internal(
+    super._createNotifier, {
+    required super.name,
+    required super.dependencies,
+    required super.allTransitiveDependencies,
+    required super.debugGetCreateSourceHash,
+    required super.from,
+    required this.tenantId,
+    required this.applicationId,
+  }) : super.internal();
+
+  final String tenantId;
+  final String applicationId;
+
+  @override
+  Override overrideWith(
+    FutureOr<ApplicationConfiguration> Function(
+      ApplicationConfigurationRef provider,
+    )
+    create,
+  ) {
+    return ProviderOverride(
+      origin: this,
+      override: ApplicationConfigurationProvider._internal(
+        (ref) => create(ref as ApplicationConfigurationRef),
+        from: from,
+        name: null,
+        dependencies: null,
+        allTransitiveDependencies: null,
+        debugGetCreateSourceHash: null,
+        tenantId: tenantId,
+        applicationId: applicationId,
+      ),
+    );
+  }
+
+  @override
+  AutoDisposeFutureProviderElement<ApplicationConfiguration> createElement() {
+    return _ApplicationConfigurationProviderElement(this);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is ApplicationConfigurationProvider &&
+        other.tenantId == tenantId &&
+        other.applicationId == applicationId;
+  }
+
+  @override
+  int get hashCode {
+    var hash = _SystemHash.combine(0, runtimeType.hashCode);
+    hash = _SystemHash.combine(hash, tenantId.hashCode);
+    hash = _SystemHash.combine(hash, applicationId.hashCode);
+
+    return _SystemHash.finish(hash);
+  }
+}
+
+@Deprecated('Will be removed in 3.0. Use Ref instead')
+// ignore: unused_element
+mixin ApplicationConfigurationRef
+    on AutoDisposeFutureProviderRef<ApplicationConfiguration> {
+  /// The parameter `tenantId` of this provider.
+  String get tenantId;
+
+  /// The parameter `applicationId` of this provider.
+  String get applicationId;
+}
+
+class _ApplicationConfigurationProviderElement
+    extends AutoDisposeFutureProviderElement<ApplicationConfiguration>
+    with ApplicationConfigurationRef {
+  _ApplicationConfigurationProviderElement(super.provider);
+
+  @override
+  String get tenantId => (origin as ApplicationConfigurationProvider).tenantId;
+  @override
+  String get applicationId =>
+      (origin as ApplicationConfigurationProvider).applicationId;
+}
+
 String _$applicationUsersPageHash() =>
     r'0b28563849c70c4d06f735f60698c44db9116cb7';
 

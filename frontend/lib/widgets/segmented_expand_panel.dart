@@ -53,20 +53,67 @@ class _SegmentedExpandPanelState extends State<SegmentedExpandPanel> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SegmentedButton<int>(
-                showSelectedIcon: false,
-                segments: [
-                  for (var i = 0; i < widget.tabs.length; i++)
-                    ButtonSegment<int>(
-                      value: i,
-                      icon: Icon(widget.tabs[i].icon, size: 18),
-                      label: Text(widget.tabs[i].label),
-                    ),
-                ],
-                selected: {_selectedTab},
-                onSelectionChanged: (v) =>
-                    setState(() => _selectedTab = v.first),
-                emptySelectionAllowed: false,
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  // Roughly 140dp keeps an icon and a useful text label from
+                  // being clipped. Compact panels switch to a picker instead
+                  // of hiding later tabs in a horizontal scroller.
+                  final usePicker =
+                      constraints.maxWidth < widget.tabs.length * 140;
+                  if (usePicker) {
+                    return InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Section',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<int>(
+                          key: const Key('expand-panel-section-picker'),
+                          value: _selectedTab,
+                          isExpanded: true,
+                          items: [
+                            for (var i = 0; i < widget.tabs.length; i++)
+                              DropdownMenuItem<int>(
+                                value: i,
+                                child: Row(
+                                  children: [
+                                    Icon(widget.tabs[i].icon, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text(widget.tabs[i].label),
+                                  ],
+                                ),
+                              ),
+                          ],
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() => _selectedTab = value);
+                            }
+                          },
+                        ),
+                      ),
+                    );
+                  }
+
+                  return SegmentedButton<int>(
+                    showSelectedIcon: false,
+                    segments: [
+                      for (var i = 0; i < widget.tabs.length; i++)
+                        ButtonSegment<int>(
+                          value: i,
+                          icon: Icon(widget.tabs[i].icon, size: 18),
+                          label: Text(widget.tabs[i].label),
+                        ),
+                    ],
+                    selected: {_selectedTab},
+                    onSelectionChanged: (v) =>
+                        setState(() => _selectedTab = v.first),
+                    emptySelectionAllowed: false,
+                  );
+                },
               ),
               const SizedBox(height: 16),
               content,
