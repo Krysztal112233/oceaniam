@@ -4,6 +4,7 @@ class AdminPageScaffold extends StatelessWidget {
   final String title;
   final List<Widget>? leading;
   final List<Widget>? actions;
+  final double widthFactor;
   final Widget child;
 
   const AdminPageScaffold({
@@ -12,6 +13,7 @@ class AdminPageScaffold extends StatelessWidget {
     required this.child,
     this.leading,
     this.actions,
+    this.widthFactor = 0.7,
   });
 
   @override
@@ -22,10 +24,11 @@ class AdminPageScaffold extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 16, 8),
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
           child: Row(
             children: [
               ...?leading,
+              if (leading != null) const SizedBox(width: 12),
               Text(title, style: Theme.of(context).textTheme.headlineSmall),
               const Spacer(),
               ...?actions,
@@ -35,7 +38,10 @@ class AdminPageScaffold extends StatelessWidget {
         Expanded(
           child: isWide
               ? Center(
-                  child: FractionallySizedBox(widthFactor: 0.7, child: child),
+                  child: FractionallySizedBox(
+                    widthFactor: widthFactor,
+                    child: child,
+                  ),
                 )
               : child,
         ),

@@ -7,6 +7,7 @@ import 'package:material_table_view/material_table_view.dart';
 import 'package:oceaniam_sdk/oceaniam_sdk.dart';
 
 import '../../providers/application_providers.dart';
+import '../../widgets/table_cell_text.dart';
 import 'application_user_detail_presentation.dart';
 
 class ApplicationUsersTab extends ConsumerStatefulWidget {
@@ -323,9 +324,9 @@ class _ApplicationUsersTabState extends ConsumerState<ApplicationUsersTab> {
                           child: contentBuilder(
                             context,
                             (context, column) => switch (column) {
-                              0 => _CellText(user.nickname),
-                              1 => _CellText(user.email ?? '-'),
-                              2 => _CellText(user.phone ?? '-'),
+                              0 => TableCellText(user.nickname),
+                              1 => TableCellText(user.email ?? '-'),
+                              2 => TableCellText(user.phone ?? '-'),
                               _ => Align(
                                 alignment: Alignment.center,
                                 child: IconButton(
@@ -462,23 +463,6 @@ class _HeaderCell extends StatelessWidget {
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(label, style: style, overflow: TextOverflow.ellipsis),
-      ),
-    );
-  }
-}
-
-class _CellText extends StatelessWidget {
-  final String text;
-
-  const _CellText(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(text, overflow: TextOverflow.ellipsis),
       ),
     );
   }

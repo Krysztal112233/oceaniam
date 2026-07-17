@@ -4,6 +4,7 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 import '../../providers/application_providers.dart';
 import '../../widgets/admin_page_scaffold.dart';
+import '../../widgets/empty_state_illustration.dart';
 import 'application_card.dart';
 import 'create_application_dialog.dart';
 
@@ -62,26 +63,14 @@ class _ApplicationListView extends ConsumerWidget {
         data: (apps) {
           if (apps.isEmpty) {
             return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    FluentIcons.app_folder_24_regular,
-                    size: 48,
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No applications yet',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  FilledButton.tonalIcon(
-                    onPressed: () => _showCreateDialog(context, ref),
-                    icon: const Icon(FluentIcons.add_24_regular),
-                    label: const Text('Create your first application'),
-                  ),
-                ],
+              child: EmptyStateIllustration(
+                icon: FluentIcons.app_folder_24_regular,
+                title: 'No applications yet',
+                action: FilledButton.tonalIcon(
+                  onPressed: () => _showCreateDialog(context, ref),
+                  icon: const Icon(FluentIcons.add_24_regular),
+                  label: const Text('Create your first application'),
+                ),
               ),
             );
           }

@@ -50,23 +50,6 @@ class AuditHeaderCell extends StatelessWidget {
   }
 }
 
-class AuditCellText extends StatelessWidget {
-  final String text;
-
-  const AuditCellText(this.text, {super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(text, overflow: TextOverflow.ellipsis),
-      ),
-    );
-  }
-}
-
 class AuditPaginationBar extends StatelessWidget {
   final int page;
   final int pageSize;

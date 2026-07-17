@@ -89,10 +89,7 @@ class _ConfirmDeleteDialogState extends State<ConfirmDeleteDialog> {
           TextField(
             controller: _controller,
             autofocus: true,
-            decoration: const InputDecoration(
-              hintText: 'Type the words above',
-              border: OutlineInputBorder(),
-            ),
+            decoration: const InputDecoration(hintText: 'Type the words above'),
             onSubmitted: (_) => _matches ? _confirm() : null,
           ),
         ],

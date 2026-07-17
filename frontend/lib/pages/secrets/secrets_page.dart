@@ -5,6 +5,7 @@ import 'package:oceaniam_sdk/oceaniam_sdk.dart';
 
 import '../../providers/secret_providers.dart';
 import '../../widgets/admin_page_scaffold.dart';
+import '../../widgets/empty_state_illustration.dart';
 import 'create_secret_dialog.dart';
 import 'secret_card.dart';
 
@@ -78,26 +79,14 @@ class _SecretsPageState extends ConsumerState<SecretsPage> {
 
     if (response.items.isEmpty) {
       return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              FluentIcons.key_24_regular,
-              size: 48,
-              color: Theme.of(context).colorScheme.outline,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No secrets yet',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            FilledButton.tonalIcon(
-              onPressed: () => _showCreateDialog(context),
-              icon: const Icon(FluentIcons.add_24_regular),
-              label: const Text('Create your first secret'),
-            ),
-          ],
+        child: EmptyStateIllustration(
+          icon: FluentIcons.key_24_regular,
+          title: 'No secrets yet',
+          action: FilledButton.tonalIcon(
+            onPressed: () => _showCreateDialog(context),
+            icon: const Icon(FluentIcons.add_24_regular),
+            label: const Text('Create your first secret'),
+          ),
         ),
       );
     }
@@ -184,8 +173,9 @@ class _PaginationBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
           Text(
             'Page $page · $total total',
@@ -193,7 +183,6 @@ class _PaginationBar extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const Spacer(),
           IconButton(
             tooltip: 'Previous page',
             onPressed: onPrev,

@@ -6,6 +6,7 @@ import 'package:oceaniam_sdk/oceaniam_sdk.dart';
 
 import '../../providers/audit_providers.dart';
 import '../../widgets/admin_page_scaffold.dart';
+import '../../widgets/table_cell_text.dart';
 import 'audit_format.dart';
 import 'audit_payload_dialog.dart';
 import 'audit_table_widgets.dart';
@@ -27,11 +28,11 @@ class _AuditsPageState extends ConsumerState<AuditsPage> {
   static const _pageSize = 25;
 
   static const _columns = [
-    TableColumn(width: 140, flex: 2),
-    TableColumn(width: 200, flex: 2),
-    TableColumn(width: 280, flex: 4),
-    TableColumn(width: 180, flex: 2),
-    TableColumn(width: 56),
+    TableColumn(width: 120, flex: 2),
+    TableColumn(width: 150, flex: 2),
+    TableColumn(width: 200, flex: 4),
+    TableColumn(width: 150, flex: 2),
+    TableColumn(width: 48),
   ];
 
   static const _headers = ['ID', 'Type', 'Payload', 'Created', ''];
@@ -62,6 +63,7 @@ class _AuditsPageState extends ConsumerState<AuditsPage> {
 
     return AdminPageScaffold(
       title: 'Audits',
+      widthFactor: 0.9,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -146,12 +148,12 @@ class _AuditsPageState extends ConsumerState<AuditsPage> {
                           child: contentBuilder(
                             context,
                             (context, column) => switch (column) {
-                              0 => AuditCellText(log.id),
+                              0 => TableCellText(log.id),
                               1 => AuditTypeBadge(log.auditType),
-                              2 => AuditCellText(
+                              2 => TableCellText(
                                 auditPayloadPreview(log.payload),
                               ),
-                              3 => AuditCellText(
+                              3 => TableCellText(
                                 formatAuditCreatedAt(log.createdAt),
                               ),
                               _ => Align(

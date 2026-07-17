@@ -107,7 +107,6 @@ class _AdminShellState extends ConsumerState<AdminShell> {
       body: Row(
         children: [
           NavigationRail(
-            elevation: 4,
             extended: isWide,
             selectedIndex: _selectedIndex,
             onDestinationSelected: (i) => setState(() => _selectedIndex = i),
@@ -119,7 +118,7 @@ class _AdminShellState extends ConsumerState<AdminShell> {
               children: [
                 const SizedBox(height: 8),
                 _TenantSwitcher(extended: isWide),
-                Container(height: 1, color: Theme.of(context).dividerColor),
+                const Divider(height: 1),
               ],
             ),
             destinations: navItems.map((n) => n.destination).toList(),
@@ -286,12 +285,8 @@ class _TenantSwitcherState extends ConsumerState<_TenantSwitcher> {
     return SizedBox(
       width: 220,
       child: Card(
-        elevation: 0,
+        margin: EdgeInsets.zero,
         clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: theme.colorScheme.outlineVariant),
-        ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
@@ -303,8 +298,19 @@ class _TenantSwitcherState extends ConsumerState<_TenantSwitcher> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('Current Tenant'),
-                    Text(tenantName, overflow: TextOverflow.ellipsis),
+                    Text(
+                      'Current Tenant',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    Text(
+                      tenantName,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),
@@ -328,13 +334,6 @@ class _TenantSwitcherState extends ConsumerState<_TenantSwitcher> {
       decoration: BoxDecoration(
         color: theme.colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.shadow.withValues(alpha: 0.3),
-            blurRadius: 2,
-            offset: Offset(0, 2),
-          ),
-        ],
       ),
       child: const _OrgIcon(size: 20, iconSize: 20),
     );

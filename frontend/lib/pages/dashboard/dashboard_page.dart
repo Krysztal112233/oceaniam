@@ -213,8 +213,9 @@ class _StatItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card.filled(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -223,7 +224,7 @@ class _StatItem extends StatelessWidget {
               children: [
                 Icon(icon, size: 20, color: color),
                 const SizedBox(width: 8),
-                Text(label, style: theme.textTheme.titleLarge),
+                Text(label, style: theme.textTheme.titleMedium),
               ],
             ),
             const SizedBox(height: 12),
@@ -317,6 +318,7 @@ class _TrendChart extends StatelessWidget {
         .toList();
 
     return Card.filled(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -346,8 +348,13 @@ class _TrendChart extends StatelessWidget {
                       LineChartData(
                         gridData: FlGridData(
                           show: true,
-                          // getDrawingHorizontalLine: (value) =>
-                          //     FlLine(color: theme.focusColor, strokeWidth: 1),
+                          drawVerticalLine: false,
+                          getDrawingHorizontalLine: (value) => FlLine(
+                            color: theme.colorScheme.outlineVariant.withValues(
+                              alpha: 0.5,
+                            ),
+                            strokeWidth: 1,
+                          ),
                         ),
                         titlesData: FlTitlesData(
                           topTitles: AxisTitles(
@@ -367,7 +374,17 @@ class _TrendChart extends StatelessWidget {
                             color: color,
                             barWidth: 2.5,
                             dotData: FlDotData(show: false),
-                            belowBarData: BarAreaData(show: true),
+                            belowBarData: BarAreaData(
+                              show: true,
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  color.withValues(alpha: 0.18),
+                                  color.withValues(alpha: 0.0),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),

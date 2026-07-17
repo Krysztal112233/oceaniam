@@ -8,8 +8,11 @@ import 'package:oceaniam_sdk/oceaniam_sdk.dart';
 
 import '../../providers/key_providers.dart';
 import '../../providers/oceaniam_client_provider.dart';
+import '../../utils/date_format.dart';
 import '../../widgets/admin_page_scaffold.dart';
 import '../../widgets/confirm_delete_dialog.dart';
+import '../../widgets/empty_state_illustration.dart';
+import '../../widgets/table_cell_text.dart';
 
 /// Tenant signing keys: list / rotate / revoke + JWKS URL.
 ///
@@ -32,13 +35,13 @@ class _TenantKeysPageState extends ConsumerState<TenantKeysPage> {
   static const _headerHeight = 48.0;
 
   static const _columns = [
-    TableColumn(width: 160, flex: 3),
+    TableColumn(width: 100, flex: 3),
+    TableColumn(width: 108, flex: 1),
     TableColumn(width: 100, flex: 1),
-    TableColumn(width: 100, flex: 1),
-    TableColumn(width: 160, flex: 2),
-    TableColumn(width: 160, flex: 2),
-    TableColumn(width: 160, flex: 2),
-    TableColumn(width: 88),
+    TableColumn(width: 105, flex: 2),
+    TableColumn(width: 105, flex: 2),
+    TableColumn(width: 105, flex: 2),
+    TableColumn(width: 84),
   ];
 
   static const _headers = [
@@ -77,21 +80,10 @@ class _TenantKeysPageState extends ConsumerState<TenantKeysPage> {
     if (widget.tenantId.isEmpty) {
       return AdminPageScaffold(
         title: 'Signing keys',
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                FluentIcons.certificate_24_regular,
-                size: 48,
-                color: Theme.of(context).colorScheme.outline,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Select a tenant to manage signing keys',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ],
+        child: const Center(
+          child: EmptyStateIllustration(
+            icon: FluentIcons.certificate_24_regular,
+            title: 'Select a tenant to manage signing keys',
           ),
         ),
       );
@@ -109,6 +101,7 @@ class _TenantKeysPageState extends ConsumerState<TenantKeysPage> {
 
     return AdminPageScaffold(
       title: 'Signing keys',
+      widthFactor: 0.9,
       actions: [
         FilledButton.icon(
           key: const Key('rotate-key'),
@@ -152,8 +145,6 @@ class _TenantKeysPageState extends ConsumerState<TenantKeysPage> {
       return Center(child: Text('Failed to load keys: ${async.error}'));
     }
 
-    final theme = Theme.of(context);
-
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -164,83 +155,70 @@ class _TenantKeysPageState extends ConsumerState<TenantKeysPage> {
         ],
         const SizedBox(height: 16),
         if (keys.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 48),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 48),
             child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    FluentIcons.certificate_24_regular,
-                    size: 48,
-                    color: theme.colorScheme.outline,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No signing keys yet',
-                    style: theme.textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Rotate to generate the first key pair.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
+              child: EmptyStateIllustration(
+                icon: FluentIcons.certificate_24_regular,
+                title: 'No signing keys yet',
+                message: 'Rotate to generate the first key pair.',
               ),
             ),
           )
         else
-          SizedBox(
-            height: _headerHeight + keys.length * _rowHeight,
-            child: TableView.builder(
-              columns: _columns,
-              rowCount: keys.length,
-              rowHeight: _rowHeight,
-              headerHeight: _headerHeight,
-              headerBuilder: (context, contentBuilder) {
-                return contentBuilder(context, (context, column) {
-                  return _HeaderCell(label: _headers[column]);
-                });
-              },
-              rowBuilder: (context, row, contentBuilder) {
-                final key = keys[row];
-                return contentBuilder(context, (context, column) {
-                  return switch (column) {
-                    0 => _CellText(key.keyId, mono: true),
-                    1 => _CellText(key.algorithm),
-                    2 => _StatusBadge(key.status),
-                    3 => _CellText(_formatDate(key.createdAt)),
-                    4 => _CellText(_formatDate(key.activatedAt)),
-                    5 => _CellText(_formatDate(key.expiresAt)),
-                    6 =>
-                      key.status == 'Active'
-                          ? Align(
-                              alignment: Alignment.centerRight,
-                              child: Padding(
-                                padding: const EdgeInsets.only(right: 4),
-                                child: TextButton(
-                                  onPressed: _revokingKeyId != null
-                                      ? null
-                                      : () => _revoke(key),
-                                  child: _revokingKeyId == key.keyId
-                                      ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : const Text('Revoke'),
+          Card(
+            margin: EdgeInsets.zero,
+            clipBehavior: Clip.antiAlias,
+            child: SizedBox(
+              height: _headerHeight + keys.length * _rowHeight,
+              child: TableView.builder(
+                columns: _columns,
+                rowCount: keys.length,
+                rowHeight: _rowHeight,
+                headerHeight: _headerHeight,
+                headerBuilder: (context, contentBuilder) {
+                  return contentBuilder(context, (context, column) {
+                    return _HeaderCell(label: _headers[column]);
+                  });
+                },
+                rowBuilder: (context, row, contentBuilder) {
+                  final key = keys[row];
+                  return contentBuilder(context, (context, column) {
+                    return switch (column) {
+                      0 => TableCellText(key.keyId, mono: true),
+                      1 => TableCellText(key.algorithm),
+                      2 => _StatusBadge(key.status),
+                      3 => TableCellText(formatDateTimeMinute(key.createdAt)),
+                      4 => TableCellText(formatDateTimeMinute(key.activatedAt)),
+                      5 => TableCellText(formatDateTimeMinute(key.expiresAt)),
+                      6 =>
+                        key.status == 'Active'
+                            ? Align(
+                                alignment: Alignment.centerRight,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: 4),
+                                  child: TextButton(
+                                    onPressed: _revokingKeyId != null
+                                        ? null
+                                        : () => _revoke(key),
+                                    child: _revokingKeyId == key.keyId
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Text('Revoke'),
+                                  ),
                                 ),
-                              ),
-                            )
-                          : const SizedBox.shrink(),
-                    _ => const SizedBox.shrink(),
-                  };
-                });
-              },
+                              )
+                            : const SizedBox.shrink(),
+                      _ => const SizedBox.shrink(),
+                    };
+                  });
+                },
+              ),
             ),
           ),
       ],
@@ -308,15 +286,6 @@ class _TenantKeysPageState extends ConsumerState<TenantKeysPage> {
   }
 }
 
-String _formatDate(String raw) {
-  final dt = DateTime.tryParse(raw);
-  if (dt == null) return raw;
-  final local = dt.toLocal();
-  String two(int n) => n.toString().padLeft(2, '0');
-  return '${local.year}-${two(local.month)}-${two(local.day)} '
-      '${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
-}
-
 class _JwksCard extends StatelessWidget {
   final String url;
 
@@ -326,6 +295,7 @@ class _JwksCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
+      margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -384,7 +354,9 @@ class _NewKeyBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
+      margin: EdgeInsets.zero,
       color: theme.colorScheme.primaryContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -473,34 +445,10 @@ class _HeaderCell extends StatelessWidget {
         alignment: Alignment.centerLeft,
         child: Text(
           label,
-          style: Theme.of(context).textTheme.labelLarge,
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
           overflow: TextOverflow.ellipsis,
-        ),
-      ),
-    );
-  }
-}
-
-class _CellText extends StatelessWidget {
-  final String text;
-  final bool mono;
-
-  const _CellText(this.text, {this.mono = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          text,
-          overflow: TextOverflow.ellipsis,
-          style: mono
-              ? Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(fontFamily: 'monospace')
-              : null,
         ),
       ),
     );
