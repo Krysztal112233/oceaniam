@@ -44,9 +44,16 @@ impl Drop for TestSchema {
 
 async fn isolated_database() -> (TestSchema, DatabaseConnection) {
     let base_dsn = std::env::var("OCEANIAM_TEST_DATABASE_DSN")
+        .or_else(|_| std::env::var("OCEANIAM_DATABASE__DSN"))
+        .or_else(|_| std::env::var("DATABASE_URL"))
         .unwrap_or_else(|_| "postgresql://postgres:postgres@localhost:5432/postgres".to_owned());
     let name = format!("test_app_secret_migration_{}", Uuid::now_v7().simple());
-    let base = Database::connect(&base_dsn).await.unwrap();
+    let base = Database::connect(&base_dsn).await.unwrap_or_else(|error| {
+        panic!(
+            "failed to connect to the migration test database; set \
+             OCEANIAM_TEST_DATABASE_DSN, OCEANIAM_DATABASE__DSN, or DATABASE_URL: {error}"
+        )
+    });
     base.execute(Statement::from_string(
         DatabaseBackend::Postgres,
         format!("CREATE SCHEMA {name}"),
@@ -103,6 +110,8 @@ async fn assert_legacy_schema_intact(database: &DatabaseConnection, expected_sec
 // NOTE: AI-generated test
 #[tokio::test]
 async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
+    dotenvy::dotenv().ok();
+
     // SAFETY: this integration-test binary has one test, so its sequential environment changes
     // cannot race another test in this process. All values are deterministic test-only keys.
     unsafe {
