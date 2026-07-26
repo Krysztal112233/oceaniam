@@ -163,7 +163,7 @@ pub trait ApplicationSecretsHelper {
                 Some(it) => Ok(it.id),
                 None => Err(Error::with_code(
                     StatusCode::NOT_FOUND,
-                    format!("cannot found application_secret={secret}"),
+                    "application secret not found",
                 )),
             })??;
 

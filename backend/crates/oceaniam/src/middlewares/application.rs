@@ -48,7 +48,9 @@ impl FromRequestParts<AppState> for ApplicationSecretGuard {
             .secrets()
             .find_secret_belong_to(secret)
             .await
-            .inspect_err(|e| warn!(error = %e, "application authentication failed: invalid application secret"))
+            .inspect_err(|_| {
+                warn!("application authentication failed: invalid application secret")
+            })
         else {
             return Err(StatusCode::UNAUTHORIZED);
         };
