@@ -31,3 +31,32 @@ For argon2id, OWASP recommends the following parameters:
 These parameters can achieve the same security level, but the trade-off lies in the consumption between CPU and memory.
 
 Considering the request volume, this system chooses to consume more memory to save CPU resources.
+
+## Application Secrets
+
+Application Secrets are generated as `app_` followed by 32 random ASCII alphanumeric characters.
+The full value is revealed only by the create response; list and get responses expose only the
+existing eight-character display prefix followed by `...`.
+
+The database stores no plaintext Application Secret. It stores a 12-character lookup prefix, a
+32-byte HMAC-SHA-256 verifier, and the HMAC key version. The verifier uses the domain-separated
+input `oceaniam/application-secret/v1\0 || full_secret`. Authentication queries all non-revoked
+records sharing the prefix and compares each verifier in constant time.
+
+Application Secret HMAC keys are independent from the system Master Key. Configuration contains a
+positive `current_version` and a version-to-key map; every key is a non-zero 32-byte value generated
+with `openssl rand -hex 32`. The service refuses to start when a non-revoked database record
+references a key version absent from configuration. Revoked rows are excluded from startup key
+validation because they cannot authenticate and do not need verifier upgrades.
+
+To rotate keys, add the new version without removing old versions and make it current. Successful
+authentication with an old version opportunistically upgrades that active record. Remove an old key
+only after every active record has either been upgraded or revoked; retained revoked rows do not
+require retired keys. Authentication results are not process-cached, so deletion and revocation take
+effect across instances on the next request.
+
+The verifier-only migration requires a maintenance window: stop every old secret-writing backend,
+verify a restorable database backup, run the migration, and then deploy the verifier-aware runtime.
+Rollback means restoring that backup because plaintext cannot be reconstructed. The migration
+specifically reads `OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__1`, even when runtime configuration
+comes from TOML, and that value must exactly match the runtime version-1 key.

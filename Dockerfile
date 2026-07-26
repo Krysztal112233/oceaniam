@@ -18,8 +18,10 @@ RUN apt-get update && \
 
 FROM base AS backend
 COPY --from=backend-builder /builder/target/release/oceaniam /app/
-# Required runtime env: OCEANIAM_MASTER_KEY (64-char hex, 32 bytes)
-# Generate with: openssl rand -hex 32
+# Required runtime env: OCEANIAM_MASTER_KEY and the Application Secret HMAC keyring
+# (for example OCEANIAM_APPLICATION_SECRET_HMAC__CURRENT_VERSION=1 and
+# OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__1=<64-char hex>). Generate each key independently with:
+# openssl rand -hex 32
 CMD [ "./oceaniam" ]
 
 FROM base AS worker
@@ -30,8 +32,10 @@ CMD [ "./oceaniam-worker" ]
 
 FROM base AS migration
 COPY --from=backend-builder /builder/target/release/migration /app/
-# Required runtime env: OCEANIAM_MASTER_KEY (64-char hex, 32 bytes)
-# Generate with: openssl rand -hex 32
+# Required env: OCEANIAM_MASTER_KEY. The Application Secret HMAC migration specifically reads
+# OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__1=<64-char hex>; it must exactly match runtime version 1,
+# even when runtime configuration comes from TOML. Generate each key independently with:
+# openssl rand -hex 32
 CMD [ "./migration" ]
 
 ####################
