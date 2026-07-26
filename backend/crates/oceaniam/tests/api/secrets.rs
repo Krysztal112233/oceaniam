@@ -1,5 +1,39 @@
-use crate::support::spawn_app_with_isolated_schema;
+use crate::support::{TestApp, spawn_app_with_isolated_schema};
+use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
 use serde_json::json;
+use uuid::Uuid;
+
+async fn create_bound_secret(app: &TestApp, token: &str) -> (String, String, String, String) {
+    let tenant = app.api_create_tenant(token).await;
+    let tenant_id = tenant["id"].as_str().unwrap().to_owned();
+    let application = app.api_create_application(token, &tenant_id).await;
+    let application_id = application["application_id"].as_str().unwrap().to_owned();
+
+    let created: serde_json::Value = app
+        .client
+        .post(app.url("/secrets"))
+        .header("Authorization", format!("Bearer {token}"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let secret_id = created["id"].as_str().unwrap().to_owned();
+    let plaintext = created["secret"].as_str().unwrap().to_owned();
+
+    let response = app
+        .client
+        .post(app.url(&format!("/secrets/{secret_id}/bindings")))
+        .header("Authorization", format!("Bearer {token}"))
+        .json(&json!({ "application_id": application_id }))
+        .send()
+        .await
+        .unwrap();
+    assert!(response.status().is_success());
+
+    (tenant_id, application_id, secret_id, plaintext)
+}
 
 /// POST /secrets — create a new secret (no request body needed)
 /// Asserts: returns 200 with a non-empty `id` and a non-empty `secret` value.
@@ -452,4 +486,196 @@ async fn create_returns_unmasked_list_and_get_return_masked() {
         masked_in_list, masked_in_get,
         "masked value should be consistent between list and get"
     );
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn created_secret_is_stored_only_as_prefix_and_verifier() {
+    let app = spawn_app_with_isolated_schema().await;
+    let token = app.root_signin().await;
+    let created: serde_json::Value = app
+        .client
+        .post(app.url("/secrets"))
+        .header("Authorization", format!("Bearer {token}"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let plaintext = created["secret"].as_str().unwrap();
+    let database = app.database().await;
+
+    let columns = database
+        .query_all(Statement::from_string(
+            DatabaseBackend::Postgres,
+            "SELECT column_name FROM information_schema.columns \
+             WHERE table_schema = current_schema() AND table_name = 'application_secrets'"
+                .to_owned(),
+        ))
+        .await
+        .unwrap();
+    let column_names: Vec<String> = columns
+        .iter()
+        .map(|row| row.try_get("", "column_name").unwrap())
+        .collect();
+    assert!(!column_names.iter().any(|column| column == "secret"));
+
+    let row = database
+        .query_one(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT secret_prefix, octet_length(secret_verifier) AS verifier_length, \
+             hmac_key_version FROM application_secrets WHERE secret_prefix = $1",
+            [plaintext[..12].to_owned().into()],
+        ))
+        .await
+        .unwrap()
+        .unwrap();
+    let prefix: String = row.try_get("", "secret_prefix").unwrap();
+    let verifier_length: i32 = row.try_get("", "verifier_length").unwrap();
+    let version: i32 = row.try_get("", "hmac_key_version").unwrap();
+
+    assert_eq!(prefix, &plaintext[..12]);
+    assert_eq!(verifier_length, 32);
+    assert_eq!(version, 1);
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn application_secret_authenticates_across_all_prefix_candidates() {
+    let app = spawn_app_with_isolated_schema().await;
+    let token = app.root_signin().await;
+    let (tenant_id, application_id, _, plaintext) = create_bound_secret(&app, &token).await;
+    let database = app.database().await;
+
+    database
+        .execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO application_secrets \
+             (id, created_at, revoked_at, secret_prefix, secret_verifier, hmac_key_version) \
+             VALUES ($1, now(), NULL, $2, $3, 1)",
+            vec![
+                Uuid::nil().into(),
+                plaintext[..12].to_owned().into(),
+                vec![0u8; 32].into(),
+            ],
+        ))
+        .await
+        .unwrap();
+
+    let valid = app
+        .client
+        .get(app.url(&format!(
+            "/tenants/{tenant_id}/applications/{application_id}/configuration"
+        )))
+        .header("X-OceanIAM-Application-Secret", &plaintext)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(valid.status(), 200);
+
+    let mut wrong = plaintext.as_bytes().to_vec();
+    wrong[12] = if wrong[12] == b'A' { b'B' } else { b'A' };
+    let wrong = String::from_utf8(wrong).unwrap();
+    let invalid = app
+        .client
+        .get(app.url(&format!(
+            "/tenants/{tenant_id}/applications/{application_id}/configuration"
+        )))
+        .header("X-OceanIAM-Application-Secret", wrong)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(invalid.status(), 401);
+
+    let malformed = app
+        .client
+        .get(app.url(&format!(
+            "/tenants/{tenant_id}/applications/{application_id}/configuration"
+        )))
+        .header("X-OceanIAM-Application-Secret", "not-an-app-secret")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(malformed.status(), 401);
+
+    let missing = app
+        .client
+        .get(app.url(&format!(
+            "/tenants/{tenant_id}/applications/{application_id}/configuration"
+        )))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(missing.status(), 401);
+
+    let other_application = app.api_create_application(&token, &tenant_id).await;
+    let other_application_id = other_application["application_id"].as_str().unwrap();
+    let unbound = app
+        .client
+        .get(app.url(&format!(
+            "/tenants/{tenant_id}/applications/{other_application_id}/configuration"
+        )))
+        .header("X-OceanIAM-Application-Secret", &plaintext)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(unbound.status(), 403);
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn revoked_secret_is_rejected_immediately() {
+    let app = spawn_app_with_isolated_schema().await;
+    let token = app.root_signin().await;
+    let (tenant_id, application_id, _, plaintext) = create_bound_secret(&app, &token).await;
+    let database = app.database().await;
+
+    database
+        .execute(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE application_secrets SET revoked_at = now() WHERE secret_prefix = $1",
+            [plaintext[..12].to_owned().into()],
+        ))
+        .await
+        .unwrap();
+
+    let response = app
+        .client
+        .get(app.url(&format!(
+            "/tenants/{tenant_id}/applications/{application_id}/configuration"
+        )))
+        .header("X-OceanIAM-Application-Secret", plaintext)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 401);
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn deleted_secret_is_rejected_immediately() {
+    let app = spawn_app_with_isolated_schema().await;
+    let token = app.root_signin().await;
+    let (tenant_id, application_id, secret_id, plaintext) = create_bound_secret(&app, &token).await;
+
+    let deleted = app
+        .client
+        .delete(app.url(&format!("/secrets/{secret_id}")))
+        .header("Authorization", format!("Bearer {token}"))
+        .send()
+        .await
+        .unwrap();
+    assert!(deleted.status().is_success());
+
+    let response = app
+        .client
+        .get(app.url(&format!(
+            "/tenants/{tenant_id}/applications/{application_id}/configuration"
+        )))
+        .header("X-OceanIAM-Application-Secret", plaintext)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 401);
 }
