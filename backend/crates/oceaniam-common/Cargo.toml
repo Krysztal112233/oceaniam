@@ -30,3 +30,4 @@ utoipa.workspace = true
 uuid.workspace = true
 
 migration.workspace = true
+oceaniam-application-secret.workspace = true

@@ -2224,6 +2224,7 @@ dependencies = [
  "chacha20poly1305",
  "dotenvy",
  "hex",
+ "oceaniam-application-secret",
  "rand 0.8.6",
  "sea-orm",
  "sea-orm-migration",
@@ -2443,6 +2444,7 @@ dependencies = [
  "mimalloc",
  "moka",
  "oceaniam-api",
+ "oceaniam-application-secret",
  "oceaniam-audit",
  "oceaniam-auth",
  "oceaniam-common",
@@ -2483,6 +2485,20 @@ dependencies = [
  "oceaniam-vo",
  "serde",
  "utoipa",
+]
+
+[[package]]
+name = "oceaniam-application-secret"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "hmac",
+ "rand 0.8.6",
+ "serde",
+ "serde_json",
+ "sha2",
+ "subtle",
+ "zeroize",
 ]
 
 [[package]]
@@ -2528,6 +2544,7 @@ dependencies = [
  "migration",
  "names",
  "num_cpus",
+ "oceaniam-application-secret",
  "rand 0.8.6",
  "reqwest",
  "serde",

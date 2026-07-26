@@ -43,6 +43,7 @@ uuid.workspace = true
 
 
 oceaniam-api.workspace = true
+oceaniam-application-secret.workspace = true
 oceaniam-audit.workspace = true
 oceaniam-auth.workspace = true
 oceaniam-common.workspace = true
