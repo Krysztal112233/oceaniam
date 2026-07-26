@@ -157,7 +157,9 @@ impl From<oceaniam_common::crypto::CryptoError> for Error {
         match source {
             CryptoError::AuthenticationFailed { location }
             | CryptoError::Encryption { location } => Error::Aead { location },
-            CryptoError::InvalidKeyLength { location }
+            CryptoError::EmptyKey { location }
+            | CryptoError::InsecureKey { location }
+            | CryptoError::InvalidKeyLength { location }
             | CryptoError::MissingEnvVar { location, .. } => Error::InvalidLength { location },
             CryptoError::HexDecode { location, .. } => Error::InvalidLength { location },
             CryptoError::Base64 { source, location } => Error::Base64 { source, location },

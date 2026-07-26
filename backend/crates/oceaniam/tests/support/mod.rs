@@ -231,9 +231,9 @@ impl Drop for TestApp {
 }
 
 // NOTE: !!!HARD CODED CONFIGURATION!!!
-// Deterministic test KEK (32 bytes of zeros in hex) — not secret, tests only.
+// Deterministic non-zero test KEK — not secret, tests only.
 const TEST_MASTER_KEY_HEX: &str =
-    "0000000000000000000000000000000000000000000000000000000000000000";
+    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
 fn test_config() -> BackendConfig {
     BackendConfig {
@@ -314,12 +314,14 @@ pub async fn spawn_app_with_isolated_schema() -> TestApp {
 
     // Start the application
     let (server, address) = {
-        let state = build_state(&test_config)
+        let addr = test_config.addr.clone();
+        let cors = test_config.cors.clone();
+        let state = build_state(test_config)
             .await
             .expect("failed to build integration test app state");
-        let router = app(state, test_config.cors.clone());
+        let router = app(state, cors);
 
-        let listener = tokio::net::TcpListener::bind(&test_config.addr)
+        let listener = tokio::net::TcpListener::bind(&addr)
             .await
             .expect("failed to bind integration test listener");
         let address = listener

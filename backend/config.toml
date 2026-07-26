@@ -1,7 +1,7 @@
 addr = "0.0.0.0:8000"
-# Local development placeholder only. Production must inject
-# OCEANIAM_MASTER_KEY with a real 64-char hex key.
-master_key = "0000000000000000000000000000000000000000000000000000000000000000"
+# Required: inject OCEANIAM_MASTER_KEY with a generated 64-char hex key.
+# Generate with: openssl rand -hex 32
+master_key = ""
 
 [database]
 slow_statements_logging_threshold = 200

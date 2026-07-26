@@ -30,7 +30,22 @@ async fn main() -> Result<(), Error> {
     let config =
         BackendConfig::new().inspect_err(|e| error!(error = %e, "failed to load worker config"))?;
 
-    let database = connect(&config.database)
+    let BackendConfig {
+        database: database_config,
+        master_key: master_key_hex,
+        ..
+    } = config;
+    let master_key = Arc::new(
+        oceaniam_common::crypto::MasterKey::from_hex_owned(master_key_hex).map_err(|e| {
+            error!(error = %e, "failed to parse `OCEANIAM_MASTER_KEY`");
+            Error::Internal {
+                msg: format!("invalid master key: {e}"),
+                location: snafu::location!(),
+            }
+        })?,
+    );
+
+    let database = connect(&database_config)
         .await
         .inspect_err(|e| error!(error = %e, "failed to connect worker database"))?;
 
@@ -38,20 +53,11 @@ async fn main() -> Result<(), Error> {
         .await
         .inspect_err(|e| error!(error = %e, "failed to init system data"))?;
 
-    let master_key =
-        oceaniam_common::crypto::MasterKey::from_hex(&config.master_key).map_err(|e| {
-            error!(error = %e, "failed to parse `OCEANIAM_MASTER_KEY`");
-            Error::Internal {
-                msg: format!("invalid master key: {e}"),
-                location: snafu::location!(),
-            }
-        })?;
-
     let workers = collect_workers();
     let ctrl = WorkerRuntime::new(
         WorkerContext {
             database,
-            master_key: Arc::new(master_key),
+            master_key,
         },
         workers,
     )

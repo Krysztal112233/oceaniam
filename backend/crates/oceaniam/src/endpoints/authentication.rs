@@ -82,7 +82,7 @@ pub async fn create_auth_token(
         database,
         keyboxes,
         auditing,
-        config,
+        cookie,
         ..
     }): State<AppState>,
 
@@ -133,7 +133,7 @@ pub async fn create_auth_token(
         }))
         .await;
 
-    dispatch_signin_response(jwt, &token_mtd, config.cookie.secure)
+    dispatch_signin_response(jwt, &token_mtd, cookie.secure)
 }
 
 /// Delete auth token (signout)
@@ -171,7 +171,7 @@ pub async fn delete_auth_token(
     State(AppState {
         revoked_jwt,
         auditing,
-        config,
+        cookie,
         ..
     }): State<AppState>,
 ) -> AppResult<SignoutResponse> {
@@ -200,7 +200,7 @@ pub async fn delete_auth_token(
         }))
         .await;
 
-    let clear = clear_auth_cookie(config.cookie.secure);
+    let clear = clear_auth_cookie(cookie.secure);
     Ok(ApiResponse::new(SignoutResponse::default()).with_cookie(clear)?)
 }
 
@@ -292,7 +292,7 @@ pub async fn refresh_auth_token(
         revoked_jwt,
         keyboxes,
         auditing,
-        config,
+        cookie,
         ..
     }): State<AppState>,
 ) -> AppResult<SigninResponseOrChallenge> {
@@ -340,5 +340,5 @@ pub async fn refresh_auth_token(
         }))
         .await;
 
-    dispatch_signin_response(jwt, &token_mtd, config.cookie.secure)
+    dispatch_signin_response(jwt, &token_mtd, cookie.secure)
 }

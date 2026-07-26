@@ -12,7 +12,7 @@ use oceaniam_database::{
 };
 use sea_orm::IntoActiveModel;
 use serde_json::Value;
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 use tracing::error;
 use uuid::Uuid;
 
@@ -112,17 +112,21 @@ pub struct KeyBox {
     /// Stores all keys with [Key::id] as the key
     keys: HashMap<Uuid, Key>,
 
-    master_key: MasterKey,
+    master_key: Arc<MasterKey>,
 }
 
 impl KeyBox {
     /// Creates a new empty KeyBox for the specified tenant
-    pub fn new(tenant_id: Uuid, master_key: MasterKey) -> Self {
+    pub fn new(tenant_id: Uuid, master_key: Arc<MasterKey>) -> Self {
         Self::with_keys(tenant_id, HashMap::default(), master_key)
     }
 
     /// Creates a KeyBox with the specified keys
-    pub fn with_keys(tenant_id: Uuid, keys: HashMap<Uuid, Key>, master_key: MasterKey) -> Self {
+    pub fn with_keys(
+        tenant_id: Uuid,
+        keys: HashMap<Uuid, Key>,
+        master_key: Arc<MasterKey>,
+    ) -> Self {
         Self {
             tenant_id,
             keys,
@@ -410,9 +414,11 @@ mod tests {
     use tap::Tap;
 
     // NOTE: AI-generated test
-    fn test_master_key() -> MasterKey {
-        MasterKey::from_hex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
-            .unwrap()
+    fn test_master_key() -> Arc<MasterKey> {
+        Arc::new(
+            MasterKey::from_hex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .unwrap(),
+        )
     }
 
     fn create_rsa_key() -> RsaKey {

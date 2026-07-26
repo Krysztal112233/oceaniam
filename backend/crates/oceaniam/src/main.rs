@@ -56,13 +56,14 @@ async fn run_server() -> Result<(), Error> {
     let config = BackendConfig::new()
         .inspect_err(|e| error!(error = %e, "failed to load backend config"))?;
 
-    let states = build_state(&config)
+    let addr = config.addr.clone();
+    let cors = config.cors.clone();
+    let states = build_state(config)
         .await
         .inspect_err(|e| error!(error = %e, "failed to build application state"))?;
 
-    let router = app(states, config.cors.clone());
+    let router = app(states, cors);
 
-    let addr = config.addr.clone();
     let listener = tokio::net::TcpListener::bind(addr.clone())
         .await
         .inspect_err(|e| error!(addr = %addr, error = %e, "failed to bind tcp listener"))?;

@@ -46,24 +46,26 @@ pub fn build_openapi_spec() -> utoipa::openapi::OpenApi {
     openapi
 }
 
-pub async fn build_state(config: &BackendConfig) -> Result<AppState, Error> {
-    let database = crate::setup_database(&config.database).await?;
+pub async fn build_state(config: BackendConfig) -> Result<AppState, Error> {
+    let BackendConfig {
+        database: database_config,
+        cookie,
+        master_key: master_key_hex,
+        ..
+    } = config;
 
-    let master_key =
-        oceaniam_common::crypto::MasterKey::from_hex(&config.master_key).map_err(|e| {
+    let master_key = std::sync::Arc::new(
+        oceaniam_common::crypto::MasterKey::from_hex_owned(master_key_hex).map_err(|e| {
             tracing::error!(error = %e, "failed to parse `OCEANIAM_MASTER_KEY`");
             Error::Internal {
                 msg: format!("invalid master key: {e}"),
                 location: snafu::location!(),
             }
-        })?;
+        })?,
+    );
 
-    let state = AppState::new(
-        database.clone(),
-        config.clone(),
-        std::sync::Arc::new(master_key.clone()),
-    )
-    .await?;
+    let database = crate::setup_database(&database_config).await?;
+    let state = AppState::new(database.clone(), master_key.clone(), cookie).await?;
 
     health_check_kek(&database, &master_key).await?;
 

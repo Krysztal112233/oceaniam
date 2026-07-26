@@ -1,5 +1,8 @@
 pub use sea_orm_migration::prelude::*;
 
+mod master_key;
+pub use master_key::{MasterKeyValidatedMigration, validate_master_key};
+
 #[allow(unused)]
 mod m20220101_000001_create_table;
 mod m20260104_172552_add_keybox;
@@ -145,7 +148,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20260520_122848_create_trend_summary_tables::Migration),
             Box::new(m20260529_031818_alter_key_boxes_tenant_id::Migration),
             Box::new(m20260605_173700_create_rbac_tables::Migration),
-            Box::new(m20260614_082902_envelope_encrypt_keys::Migration),
+            Box::new(MasterKeyValidatedMigration::new(
+                m20260614_082902_envelope_encrypt_keys::Migration,
+            )),
             Box::new(m20260615_081707_add_email_totp_challenge_factor::Migration),
             Box::new(m20260620_085000_alter_audit_type_bind_unbind_secret::Migration),
         ]

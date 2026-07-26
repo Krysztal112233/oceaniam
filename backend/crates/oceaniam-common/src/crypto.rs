@@ -8,6 +8,12 @@ pub enum CryptoError {
     #[snafu(display("invalid key length at {location}"))]
     InvalidKeyLength { location: Location },
 
+    #[snafu(display("master key must be configured and must not be empty at {location}"))]
+    EmptyKey { location: Location },
+
+    #[snafu(display("master key must not be all zeroes at {location}"))]
+    InsecureKey { location: Location },
+
     #[snafu(display("hex decode error: {source} at {location}"))]
     HexDecode {
         source: hex::FromHexError,
@@ -70,7 +76,6 @@ pub struct EncryptedBlob {
 
 /// The Key Encryption Key (KEK). Held in memory for the process lifetime,
 /// zeroized on drop.
-#[derive(Clone)]
 pub struct MasterKey(Zeroizing<[u8; 32]>);
 
 impl std::fmt::Debug for MasterKey {
@@ -82,15 +87,34 @@ impl std::fmt::Debug for MasterKey {
 impl MasterKey {
     /// Parse a 64-char hex string (32 bytes) into a `MasterKey`.
     pub fn from_hex(hex_str: &str) -> Result<Self, CryptoError> {
-        let bytes = hex::decode(hex_str)?;
-        if bytes.len() != 32 {
+        if hex_str.is_empty() {
+            return Err(CryptoError::EmptyKey {
+                location: snafu::location!(),
+            });
+        }
+
+        if hex_str.len() != 64 {
             return Err(CryptoError::InvalidKeyLength {
                 location: snafu::location!(),
             });
         }
-        let mut arr = [0u8; 32];
-        arr.copy_from_slice(&bytes);
-        Ok(Self(Zeroizing::new(arr)))
+
+        let mut key = Zeroizing::new([0u8; 32]);
+        hex::decode_to_slice(hex_str, key.as_mut())?;
+
+        if key.iter().all(|byte| *byte == 0) {
+            return Err(CryptoError::InsecureKey {
+                location: snafu::location!(),
+            });
+        }
+
+        Ok(Self(key))
+    }
+
+    /// Parse an owned hexadecimal key and zeroize the source string after use.
+    pub fn from_hex_owned(hex_string: String) -> Result<Self, CryptoError> {
+        let hex_string = Zeroizing::new(hex_string);
+        Self::from_hex(hex_string.as_str())
     }
 
     /// Read the KEK from the `OCEANIAM_MASTER_KEY` environment variable.
@@ -102,7 +126,7 @@ impl MasterKey {
             var: "OCEANIAM_MASTER_KEY",
             location: snafu::location!(),
         })?;
-        Self::from_hex(&raw)
+        Self::from_hex_owned(raw)
     }
 
     /// Encrypt `plaintext` with a fresh random nonce. The `key_version` is
@@ -176,8 +200,15 @@ mod tests {
 
     // NOTE: AI-generated test
     #[test]
-    fn from_hex_rejects_empty() {
-        assert!(MasterKey::from_hex("").is_err());
+    fn from_hex_rejects_empty_with_clear_error() {
+        let error = MasterKey::from_hex("").unwrap_err();
+
+        assert!(matches!(&error, CryptoError::EmptyKey { .. }));
+        assert!(
+            error
+                .to_string()
+                .contains("master key must be configured and must not be empty")
+        );
     }
 
     // NOTE: AI-generated test
@@ -207,6 +238,15 @@ mod tests {
             MasterKey::from_hex("zz3456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
                 .is_err()
         );
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn from_hex_rejects_all_zero_key() {
+        assert!(matches!(
+            MasterKey::from_hex("0000000000000000000000000000000000000000000000000000000000000000"),
+            Err(CryptoError::InsecureKey { .. })
+        ));
     }
 
     // NOTE: AI-generated test

@@ -12,7 +12,7 @@ use oceaniam_auth::{
     jwks::{JwkSet, ManagedJwkSet},
     jwt::JwtValidator,
 };
-use oceaniam_common::config::BackendConfig;
+use oceaniam_common::config::CookieConfig;
 use oceaniam_common::consts;
 use oceaniam_common::crypto::MasterKey;
 use oceaniam_database::{
@@ -62,21 +62,20 @@ pub struct AppState {
 
     pub auditing: Auditing,
 
-    pub _unit: (),
+    pub cookie: CookieConfig,
 
-    /// Application configuration.
-    pub config: BackendConfig,
+    pub _unit: (),
 }
 
 impl AppState {
     pub async fn new(
         database: DatabaseConnection,
-        config: BackendConfig,
         master_key: Arc<MasterKey>,
+        cookie: CookieConfig,
     ) -> Result<Self, Error> {
         let keybox = ManagedKeyBoxes::new(database.clone(), master_key.clone());
 
-        initial_system_keybox(keybox.clone(), &database, (*master_key).clone()).await?;
+        initial_system_keybox(keybox.clone(), &database, master_key.clone()).await?;
 
         let credentials = ManagedCredentialVaults::new(database.clone(), master_key.clone());
         let auditing = Auditing::with_database(database.clone());
@@ -86,7 +85,7 @@ impl AppState {
             database: database.clone(),
             keyboxes: keybox,
 
-            platform_jwks: initial_system_jwks(database.clone(), (*master_key).clone()).await?,
+            platform_jwks: initial_system_jwks(database.clone(), master_key.clone()).await?,
             platform_permissions: system_permissions,
             platform_jwt_validator: JwtValidator::new(
                 Validation::default()
@@ -109,16 +108,16 @@ impl AppState {
 
             auditing,
 
-            _unit: (),
+            cookie,
 
-            config,
+            _unit: (),
         })
     }
 }
 
 async fn initial_system_jwks(
     database: DatabaseConnection,
-    master_key: MasterKey,
+    master_key: Arc<MasterKey>,
 ) -> Result<ManagedJwkSet, Error> {
     let keys = KeyBoxes::get_system_keys(&database)
         .await?
@@ -141,7 +140,7 @@ async fn initial_system_jwks(
 async fn initial_system_keybox(
     keybox: ManagedKeyBoxes,
     database: &impl SafeTransactionConnectionTrait,
-    master_key: MasterKey,
+    master_key: Arc<MasterKey>,
 ) -> Result<(), Error> {
     match keybox.get_keybox(consts::SYSTEM_TENANT_UUID).await {
         Ok(kb) => {

@@ -20,7 +20,7 @@ use crate::state::credentials::replay::TotpAntiReplay;
 pub struct ManagedCredentialVaults {
     database: DatabaseConnection,
 
-    master_key: oceaniam_common::crypto::MasterKey,
+    master_key: Arc<oceaniam_common::crypto::MasterKey>,
 
     credentials: Cache<Uuid, CredentialVault>,
 
@@ -36,7 +36,7 @@ impl ManagedCredentialVaults {
     ) -> Self {
         Self {
             database,
-            master_key: (*master_key).clone(),
+            master_key,
             credentials: CacheBuilder::default()
                 .max_capacity(102400)
                 .time_to_live(Duration::from_mins(30))

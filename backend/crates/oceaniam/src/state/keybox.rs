@@ -31,7 +31,7 @@ use uuid::Uuid;
 pub struct ManagedKeyBoxes {
     database: DatabaseConnection,
 
-    master_key: MasterKey,
+    master_key: Arc<MasterKey>,
 
     boxes: Cache<Uuid, KeyBox>,
 
@@ -56,7 +56,7 @@ impl ManagedKeyBoxes {
     pub fn new(database: DatabaseConnection, master_key: Arc<MasterKey>) -> Self {
         Self {
             database,
-            master_key: (*master_key).clone(),
+            master_key,
             boxes: CacheBuilder::default()
                 .time_to_live(Duration::from_secs(4))
                 .build(),

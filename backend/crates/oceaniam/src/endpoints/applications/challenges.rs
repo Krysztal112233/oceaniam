@@ -233,7 +233,7 @@ pub async fn create_application_challenge_attempt(
         keyboxes,
         applications,
         auditing,
-        config,
+        cookie,
         ..
     }): State<AppState>,
     app: ResolvedApplication,
@@ -299,5 +299,5 @@ pub async fn create_application_challenge_attempt(
         }))
         .await;
 
-    dispatch_signin_response(jwt, &token_mtd, config.cookie.secure)
+    dispatch_signin_response(jwt, &token_mtd, cookie.secure)
 }
