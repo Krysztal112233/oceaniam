@@ -38,7 +38,7 @@ pub struct BindSecretRequest {
         tag = "Secrets",
         params(("Authorization" = String, Header, description = "Bearer token")),
         responses(
-            (status = 200, body = ApiResponse<SecretVO>),
+            (status = 200, description = "Secret created; the full value is revealed only in this response", body = ApiResponse<SecretVO>),
             (status = 203, description = "Missing Authorization header"),
             (status = 400, description = "Invalid token or bad request", body = ApiResponse<ErrorResponse>),
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
@@ -59,28 +59,32 @@ pub async fn create_secret(
     }): State<AppState>,
 ) -> AppResult<SecretVO> {
     let operator_id = auth.claim.sub;
-    let model = applications
+    let created = applications
         .secrets()
         .create_secret()
         .await
         .inspect_err(|e| {
             error!(error = %e, "failed to create secret");
         })?;
+    let secret_id = created.model.id;
     Span::current().tap(|it| {
-        it.record("secret_id", field::display(&model.id));
+        it.record("secret_id", field::display(&secret_id));
     });
 
-    info!(secret_id = %model.id, "secret created successfully");
+    info!(%secret_id, "secret created successfully");
 
     auditing
         .write(AuditPayload::from(CreateApplicationSecretPayload {
             operator_id,
-            secret_id: model.id,
+            secret_id,
         }))
         .await;
 
     Ok(ApiResponse::new(
-        crate::conversion::secrets::secret_with_unmasked(model),
+        crate::conversion::secrets::secret_with_plaintext(
+            created.model,
+            created.plaintext.expose(),
+        ),
     ))
 }
 

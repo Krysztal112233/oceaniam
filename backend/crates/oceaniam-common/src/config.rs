@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use config::Config;
 use serde::{Deserialize, Serialize};
 
+use oceaniam_application_secret::ApplicationSecretKeyring;
+
 use crate::error::Error;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,7 +32,7 @@ pub struct WorkerConfiguration {
     pub cron: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct BackendConfig {
     pub addr: String,
     pub database: DatabaseConfig,
@@ -43,6 +45,9 @@ pub struct BackendConfig {
     pub cookie: CookieConfig,
 
     pub master_key: String,
+
+    #[serde(default)]
+    pub application_secret_hmac: Option<ApplicationSecretKeyring>,
 }
 
 impl BackendConfig {

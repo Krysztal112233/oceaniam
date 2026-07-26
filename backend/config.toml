@@ -3,6 +3,13 @@ addr = "0.0.0.0:8000"
 # Generate with: openssl rand -hex 32
 master_key = ""
 
+# Required by the API server. Keep every key version until all stored secrets have upgraded.
+# Generate each key with: openssl rand -hex 32
+# [application_secret_hmac]
+# current_version = 1
+# [application_secret_hmac.keys]
+# 1 = "<64-character-hex-key>"
+
 [database]
 slow_statements_logging_threshold = 200
 max_connections = 128

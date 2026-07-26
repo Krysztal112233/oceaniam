@@ -6,6 +6,7 @@ use argon2::{Argon2, Params};
 use axum::http::StatusCode;
 use futures::future::join_all;
 use moka::future::Cache;
+use oceaniam_application_secret::ApplicationSecretKeyring;
 use oceaniam_database::{
     config::application::ApplicationConfiguration,
     helper::{
@@ -157,10 +158,11 @@ impl ManagedApplications {
         credential: ManagedCredentialVaults,
         database: DatabaseConnection,
         auditing: Auditing,
+        application_secret_keyring: Arc<ApplicationSecretKeyring>,
     ) -> ManagedApplications {
         ManagedApplications {
             database: database.clone(),
-            secrets: Secrets::new(database.clone()),
+            secrets: Secrets::new(database.clone(), application_secret_keyring),
             applications: Cache::builder()
                 .time_to_idle(Duration::from_mins(30))
                 .build(),

@@ -8,9 +8,12 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    pub secret: String,
     pub created_at: DateTimeWithTimeZone,
     pub revoked_at: Option<DateTimeWithTimeZone>,
+    pub secret_prefix: String,
+    #[sea_orm(column_type = "VarBinary(StringLen::None)")]
+    pub secret_verifier: Vec<u8>,
+    pub hmac_key_version: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

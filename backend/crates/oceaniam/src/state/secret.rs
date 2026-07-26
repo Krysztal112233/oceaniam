@@ -1,10 +1,10 @@
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use crate::error::Error;
 use axum::http::StatusCode;
 use moka::future::Cache;
 use oceaniam_api::{PageParam, PagedResponse};
-use oceaniam_common::helpers::gen_random_with_charset;
+use oceaniam_application_secret::{ApplicationSecret, ApplicationSecretKeyring, stored_prefix};
 use oceaniam_database::{
     helper::{applications::ApplicationHelper, applications_secrets::ApplicationSecretsHelper},
     model::{
@@ -24,7 +24,6 @@ struct SecretCaches {
     by_application: Cache<Uuid, Vec<SecretModel>>,
     by_id: Cache<Uuid, SecretModel>,
     application_ids_by_secret_id: Cache<Uuid, Vec<Uuid>>,
-    application_ids_by_secret: Cache<String, Vec<Uuid>>,
 }
 
 impl SecretCaches {
@@ -39,9 +38,6 @@ impl SecretCaches {
             application_ids_by_secret_id: Cache::builder()
                 .time_to_idle(Duration::from_mins(5))
                 .build(),
-            application_ids_by_secret: Cache::builder()
-                .time_to_idle(Duration::from_mins(5))
-                .build(),
         }
     }
 }
@@ -53,30 +49,48 @@ impl SecretCaches {
 #[derive(Debug, Clone)]
 pub struct Secrets {
     database: DatabaseConnection,
+    keyring: Arc<ApplicationSecretKeyring>,
     caches: SecretCaches,
+}
+
+#[derive(Debug)]
+pub struct CreatedApplicationSecret {
+    pub model: SecretModel,
+    pub plaintext: ApplicationSecret,
 }
 
 impl Secrets {
     /// Creates a new [`Secrets`] manager with the given database connection.
-    pub fn new(database: DatabaseConnection) -> Secrets {
+    pub fn new(database: DatabaseConnection, keyring: Arc<ApplicationSecretKeyring>) -> Secrets {
         Secrets {
             database,
+            keyring,
             caches: SecretCaches::new(),
         }
     }
 
-    /// Generates a new `app_xxx` secret and persists it as an unbound secret (not yet associated
-    /// with any application).
-    pub async fn create_secret(&self) -> Result<SecretModel, Error> {
-        let model =
-            ApplicationSecrets::create_secret_unbound(Uuid::now_v7(), gen_secret(), &self.database)
-                .await?;
+    /// Generates a new `app_xxx` secret and persists only its prefix and verifier as an unbound
+    /// secret (not yet associated with any application).
+    pub async fn create_secret(&self) -> Result<CreatedApplicationSecret, Error> {
+        let plaintext = ApplicationSecret::generate();
+        let versioned = self
+            .keyring
+            .verifier_for_current(plaintext.expose())
+            .map_err(application_secret_internal_error)?;
+        let model = ApplicationSecrets::create_secret_unbound(
+            Uuid::now_v7(),
+            plaintext.stored_prefix(),
+            versioned.verifier.to_vec(),
+            versioned.hmac_key_version,
+            &self.database,
+        )
+        .await?;
 
         self.cache_secret_model(&model).await;
         self.cache_secret_application_ids(model.id, Vec::new())
             .await;
 
-        Ok(model)
+        Ok(CreatedApplicationSecret { model, plaintext })
     }
 
     /// Loads every known [`SecretModel`] from the database and populates the `by_id` cache.
@@ -180,25 +194,71 @@ impl Secrets {
         Ok(())
     }
 
-    /// Resolves the application IDs that a given secret string (e.g. `app_xxx`) is valid for,
-    /// backed by the `application_ids_by_secret` cache.
-    ///
-    /// Returns a [`NOT_FOUND`](StatusCode::NOT_FOUND) error when the secret value does not exist.
-    pub async fn find_secret_belong_to(
-        &self,
-        secret: impl Into<String>,
-    ) -> Result<Vec<Uuid>, Error> {
-        let secret = secret.into();
+    /// Resolves the application IDs that a given secret string (e.g. `app_xxx`) is valid for.
+    /// Authentication always reads active prefix candidates from the database so revocation and
+    /// deletion take effect across instances without waiting for a local cache to expire.
+    pub async fn find_secret_belong_to(&self, secret: &str) -> Result<Vec<Uuid>, Error> {
+        let prefix = stored_prefix(secret)
+            .map_err(|_| Error::with_code(StatusCode::NOT_FOUND, "application secret not found"))?;
+        let candidates =
+            ApplicationSecrets::find_active_secret_candidates(prefix, &self.database).await?;
 
-        Ok(self
-            .caches
-            .application_ids_by_secret
-            .try_get_with(secret.clone(), async {
-                ApplicationSecrets::find_secret_can_be_used_for(secret, &self.database)
-                    .await
-                    .map_err(Into::into)
-            })
-            .await?)
+        for candidate in candidates {
+            let is_match = self
+                .keyring
+                .verify(
+                    candidate.hmac_key_version,
+                    secret,
+                    &candidate.secret_verifier,
+                )
+                .map_err(application_secret_internal_error)?;
+
+            if !is_match {
+                continue;
+            }
+
+            if candidate.hmac_key_version != self.keyring.current_version() {
+                let current = self
+                    .keyring
+                    .verifier_for_current(secret)
+                    .map_err(application_secret_internal_error)?;
+                let old_hmac_key_version = candidate.hmac_key_version;
+                let new_hmac_key_version = current.hmac_key_version;
+                match ApplicationSecrets::upgrade_secret_verifier(
+                    candidate.id,
+                    old_hmac_key_version,
+                    &candidate.secret_verifier,
+                    new_hmac_key_version,
+                    current.verifier.to_vec(),
+                    &self.database,
+                )
+                .await
+                {
+                    Ok(true) => self.caches.by_id.invalidate(&candidate.id).await,
+                    Ok(false) => tracing::warn!(
+                        secret_id = %candidate.id,
+                        old_hmac_key_version,
+                        new_hmac_key_version,
+                        "application secret verifier upgrade skipped after concurrent update"
+                    ),
+                    Err(_) => tracing::warn!(
+                        secret_id = %candidate.id,
+                        old_hmac_key_version,
+                        new_hmac_key_version,
+                        "application secret verifier upgrade failed; authentication remains valid"
+                    ),
+                }
+            }
+
+            return ApplicationSecrets::get_application_ids_of_secret(candidate.id, &self.database)
+                .await
+                .map_err(Into::into);
+        }
+
+        Err(Error::with_code(
+            StatusCode::NOT_FOUND,
+            "application secret not found",
+        ))
     }
 
     /// Returns all secrets bound to the given application, backed by the `by_application` cache.
@@ -295,15 +355,12 @@ impl Secrets {
             .await;
     }
 
-    /// Evicts the `application_ids_by_secret_id` entry and the entire `application_ids_by_secret`
-    /// cache (cheaper than selective invalidation).
+    /// Evicts the `application_ids_by_secret_id` entry after a binding change.
     async fn invalidate_secret_bindings(&self, secret_id: Uuid) {
         self.caches
             .application_ids_by_secret_id
             .invalidate(&secret_id)
             .await;
-
-        self.caches.application_ids_by_secret.invalidate_all();
     }
 
     /// Evicts a secret from `by_id` and all of its binding caches.
@@ -319,13 +376,11 @@ impl Secrets {
     }
 }
 
-/// Generates a random `app_xxx`-prefixed secret string (32 alphanumeric chars after the prefix).
-fn gen_secret() -> String {
-    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
-                            abcdefghijklmnopqrstuvwxyz\
-                            0123456789";
-
-    let random = gen_random_with_charset(32, CHARSET);
-
-    format!("app_{random}")
+fn application_secret_internal_error(
+    error: oceaniam_application_secret::ApplicationSecretError,
+) -> Error {
+    Error::Internal {
+        msg: error.to_string(),
+        location: snafu::location!(),
+    }
 }

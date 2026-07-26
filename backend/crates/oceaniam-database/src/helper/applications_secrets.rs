@@ -4,7 +4,7 @@ use chrono::Utc;
 use oceaniam_vo::pagination::{PageParam, PagedResponse};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, PaginatorTrait,
-    QueryFilter, QuerySelect, TryInsertResult,
+    QueryFilter, QueryOrder, QuerySelect, TryInsertResult,
 };
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -19,12 +19,16 @@ use crate::{
 pub trait ApplicationSecretsHelper {
     async fn create_secret_unbound(
         id: Uuid,
-        secret: impl Into<String> + Send,
+        secret_prefix: impl Into<String> + Send,
+        secret_verifier: Vec<u8>,
+        hmac_key_version: i32,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::application_secrets::Model, Error> {
         Ok(model::application_secrets::Model {
             id,
-            secret: secret.into(),
+            secret_prefix: secret_prefix.into(),
+            secret_verifier,
+            hmac_key_version,
             created_at: Utc::now().into(),
             revoked_at: None,
         }
@@ -36,14 +40,18 @@ pub trait ApplicationSecretsHelper {
     async fn create_secret(
         application_id: Uuid,
         id: Uuid,
-        secret: impl Into<String> + Send,
+        secret_prefix: impl Into<String> + Send,
+        secret_verifier: Vec<u8>,
+        hmac_key_version: i32,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::application_secrets::Model, Error> {
         let transaction = database.begin().await?;
 
         let model = model::application_secrets::Model {
             id,
-            secret: secret.into(),
+            secret_prefix: secret_prefix.into(),
+            secret_verifier,
+            hmac_key_version,
             created_at: Utc::now().into(),
             revoked_at: None,
         }
@@ -148,32 +156,59 @@ pub trait ApplicationSecretsHelper {
         Ok(grouped)
     }
 
-    async fn find_secret_can_be_used_for(
-        secret: impl Into<String> + Send,
+    async fn find_active_secret_candidates(
+        secret_prefix: &str,
         database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<Vec<Uuid>, Error> {
+    ) -> Result<Vec<model::application_secrets::Model>, Error> {
         use model::application_secrets::Column::*;
 
-        let secret = secret.into();
-        let secret_id = ApplicationSecrets::find()
-            .filter(Secret.eq(&secret))
-            .one(database)
-            .await
-            .map(|it| match it {
-                Some(it) => Ok(it.id),
-                None => Err(Error::with_code(
-                    StatusCode::NOT_FOUND,
-                    "application secret not found",
-                )),
-            })??;
+        Ok(ApplicationSecrets::find()
+            .filter(SecretPrefix.eq(secret_prefix))
+            .filter(RevokedAt.is_null())
+            .order_by_asc(Id)
+            .all(database)
+            .await?)
+    }
 
-        use model::application_secret_bindings::Column::*;
+    async fn upgrade_secret_verifier(
+        secret_id: Uuid,
+        old_hmac_key_version: i32,
+        old_secret_verifier: &[u8],
+        new_hmac_key_version: i32,
+        new_secret_verifier: Vec<u8>,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<bool, Error> {
+        use model::application_secrets::Column::*;
 
-        Ok(ApplicationSecretBindings::find()
-            .filter(SecretId.eq(secret_id))
+        let result = ApplicationSecrets::update_many()
+            .col_expr(
+                HmacKeyVersion,
+                sea_orm::sea_query::Expr::value(new_hmac_key_version),
+            )
+            .col_expr(
+                SecretVerifier,
+                sea_orm::sea_query::Expr::value(new_secret_verifier),
+            )
+            .filter(Id.eq(secret_id))
+            .filter(HmacKeyVersion.eq(old_hmac_key_version))
+            .filter(SecretVerifier.eq(old_secret_verifier.to_vec()))
+            .exec(database)
+            .await?;
+
+        Ok(result.rows_affected == 1)
+    }
+
+    async fn get_hmac_key_versions(
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<Vec<i32>, Error> {
+        use model::application_secrets::Column::*;
+
+        Ok(ApplicationSecrets::find()
             .select_only()
-            .column(ApplicationId)
-            .into_tuple::<Uuid>()
+            .column(HmacKeyVersion)
+            .filter(RevokedAt.is_null())
+            .distinct()
+            .into_tuple::<i32>()
             .all(database)
             .await?)
     }
@@ -264,20 +299,6 @@ pub trait ApplicationSecretsHelper {
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<model::application_secrets::Model>, Error> {
         Ok(all_secrets_base().all(database).await?)
-    }
-
-    async fn get_all_secrets(
-        database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<Vec<String>, Error> {
-        use model::application_secrets::Column::*;
-
-        Ok(all_secrets_base()
-            .select_only()
-            .column(Secret)
-            .distinct()
-            .into_tuple::<String>()
-            .all(database)
-            .await?)
     }
 }
 

@@ -1,3 +1,4 @@
+use oceaniam_application_secret::masked_from_stored_prefix;
 use oceaniam_database::model;
 use oceaniam_vo::applications::SecretVO;
 use uuid::Uuid;
@@ -5,19 +6,22 @@ use uuid::Uuid;
 use super::sqid::uuid_to_sqid;
 
 pub fn secret_with_masked(model: model::application_secrets::Model) -> SecretVO {
-    let mut vo = secret_with_unmasked_inner(&model);
-    vo.secret = format!("{}...", model.secret.split_at(8).0);
-    vo
+    let masked = masked_from_stored_prefix(&model.secret_prefix)
+        .expect("stored application secret prefix must have the validated format");
+    secret_with_value(&model, masked)
 }
 
-pub fn secret_with_unmasked(model: model::application_secrets::Model) -> SecretVO {
-    secret_with_unmasked_inner(&model)
+pub fn secret_with_plaintext(
+    model: model::application_secrets::Model,
+    plaintext: &str,
+) -> SecretVO {
+    secret_with_value(&model, plaintext.to_owned())
 }
 
-fn secret_with_unmasked_inner(model: &model::application_secrets::Model) -> SecretVO {
+fn secret_with_value(model: &model::application_secrets::Model, secret: String) -> SecretVO {
     SecretVO {
         id: uuid_to_sqid(model.id),
-        secret: model.secret.clone(),
+        secret,
         created_at: model.created_at.to_rfc2822(),
         revoked_at: model.revoked_at.map(|it| it.to_rfc2822()),
         application_ids: Vec::new(),

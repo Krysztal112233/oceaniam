@@ -51,8 +51,15 @@ pub async fn build_state(config: BackendConfig) -> Result<AppState, Error> {
         database: database_config,
         cookie,
         master_key: master_key_hex,
+        application_secret_hmac,
         ..
     } = config;
+
+    let application_secret_keyring =
+        std::sync::Arc::new(application_secret_hmac.ok_or_else(|| Error::Internal {
+            msg: "application secret HMAC keyring is not configured".to_owned(),
+            location: snafu::location!(),
+        })?);
 
     let master_key = std::sync::Arc::new(
         oceaniam_common::crypto::MasterKey::from_hex_owned(master_key_hex).map_err(|e| {
@@ -65,11 +72,43 @@ pub async fn build_state(config: BackendConfig) -> Result<AppState, Error> {
     );
 
     let database = crate::setup_database(&database_config).await?;
-    let state = AppState::new(database.clone(), master_key.clone(), cookie).await?;
+    health_check_application_secret_keyring(&database, &application_secret_keyring).await?;
+    let state = AppState::new(
+        database.clone(),
+        master_key.clone(),
+        application_secret_keyring,
+        cookie,
+    )
+    .await?;
 
     health_check_kek(&database, &master_key).await?;
 
     Ok(state)
+}
+
+async fn health_check_application_secret_keyring(
+    database: &sea_orm::DatabaseConnection,
+    keyring: &oceaniam_application_secret::ApplicationSecretKeyring,
+) -> Result<(), Error> {
+    use oceaniam_database::{
+        helper::applications_secrets::ApplicationSecretsHelper, model::prelude::ApplicationSecrets,
+    };
+
+    let versions = ApplicationSecrets::get_hmac_key_versions(database).await?;
+    let missing: Vec<_> = versions
+        .into_iter()
+        .filter(|version| !keyring.contains_version(*version))
+        .collect();
+
+    if missing.is_empty() {
+        return Ok(());
+    }
+
+    tracing::error!(?missing, "application secret HMAC key versions are missing");
+    Err(Error::Internal {
+        msg: format!("application secret HMAC keys are missing for stored versions: {missing:?}"),
+        location: snafu::location!(),
+    })
 }
 
 /// Verify the KEK is correct by decrypting one existing key (if any).

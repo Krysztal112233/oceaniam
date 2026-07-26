@@ -7,6 +7,7 @@ use crate::state::{
 
 use crate::error::Error;
 use axum::extract::FromRef;
+use oceaniam_application_secret::ApplicationSecretKeyring;
 use oceaniam_auth::{
     Algorithm, Validation,
     jwks::{JwkSet, ManagedJwkSet},
@@ -71,6 +72,7 @@ impl AppState {
     pub async fn new(
         database: DatabaseConnection,
         master_key: Arc<MasterKey>,
+        application_secret_keyring: Arc<ApplicationSecretKeyring>,
         cookie: CookieConfig,
     ) -> Result<Self, Error> {
         let keybox = ManagedKeyBoxes::new(database.clone(), master_key.clone());
@@ -104,7 +106,12 @@ impl AppState {
             revoked_jwt: RevokedJwt::new(database.clone()),
             credentials: credentials.clone(),
 
-            applications: ManagedApplications::new(credentials, database.clone(), auditing.clone()),
+            applications: ManagedApplications::new(
+                credentials,
+                database.clone(),
+                auditing.clone(),
+                application_secret_keyring,
+            ),
 
             auditing,
 

@@ -6,11 +6,10 @@ use oceaniam_common::sqid::Sqid;
 use tracing::{debug, warn};
 use uuid::Uuid;
 
-use crate::{middlewares::auth::PlatformAuthGuard, state::AppState};
+use crate::{error::Error, middlewares::auth::PlatformAuthGuard, state::AppState};
 
 #[derive(Debug, Clone)]
 pub struct ApplicationSecretGuard {
-    pub secret: String,
     pub of_applications: Vec<Uuid>,
 }
 
@@ -44,21 +43,22 @@ impl FromRequestParts<AppState> for ApplicationSecretGuard {
             return Err(StatusCode::UNAUTHORIZED);
         };
 
-        let Ok(application_ids) = applications
-            .secrets()
-            .find_secret_belong_to(secret)
-            .await
-            .inspect_err(|_| {
-                warn!("application authentication failed: invalid application secret")
-            })
-        else {
-            return Err(StatusCode::UNAUTHORIZED);
-        };
-
-        Ok(Self {
-            secret: secret.to_owned(),
-            of_applications: application_ids,
-        })
+        match applications.secrets().find_secret_belong_to(secret).await {
+            Ok(application_ids) => Ok(Self {
+                of_applications: application_ids,
+            }),
+            Err(Error::CustomMessage { code: 404, .. }) => {
+                warn!("application authentication failed: invalid application secret");
+                Err(StatusCode::UNAUTHORIZED)
+            }
+            Err(error) => {
+                tracing::error!(
+                    error = %error,
+                    "application authentication failed because secret verification was unavailable"
+                );
+                Err(StatusCode::INTERNAL_SERVER_ERROR)
+            }
+        }
     }
 }
 
@@ -92,14 +92,7 @@ impl FromRequestParts<AppState> for MatchedApplicationSecretGuard {
                 StatusCode::BAD_REQUEST
             })?;
 
-        let application_ids = state
-            .applications
-            .secrets()
-            .find_secret_belong_to(secret.secret.clone())
-            .await
-            .map_err(|_| StatusCode::UNAUTHORIZED)?;
-
-        if !application_ids.contains(&application_id) {
+        if !secret.is_matched(application_id) {
             warn!(
                 %application_id,
                 "application authorization failed: secret does not belong to application"

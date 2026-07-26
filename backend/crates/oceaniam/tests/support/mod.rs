@@ -2,6 +2,7 @@ use std::{collections::HashMap, net::SocketAddr, sync::OnceLock};
 
 use migration::{Migrator, MigratorTrait};
 use oceaniam::app::{app, build_state};
+use oceaniam_application_secret::{ApplicationSecretHmacKey, ApplicationSecretKeyring};
 use oceaniam_common::config::{BackendConfig, CookieConfig};
 use oceaniam_database::{
     helper::{applications::ApplicationHelper, tenants::TenantsHelper},
@@ -17,6 +18,7 @@ use uuid::Uuid;
 
 const DEFAULT_ROOT_PASSWORD_ENV: &str = "MIGRATION_DEFAULT_ROOT_PASSWORD";
 static TEST_ROOT_PASSWORD: OnceLock<String> = OnceLock::new();
+static TEST_APPLICATION_SECRET_HMAC_ENV: OnceLock<()> = OnceLock::new();
 
 #[allow(unused)]
 pub struct TestApp {
@@ -234,13 +236,46 @@ impl Drop for TestApp {
 // Deterministic non-zero test KEK — not secret, tests only.
 const TEST_MASTER_KEY_HEX: &str =
     "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+const TEST_APPLICATION_SECRET_HMAC_KEY_HEX: &str =
+    "89abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234567";
+
+fn ensure_test_application_secret_hmac_env() {
+    TEST_APPLICATION_SECRET_HMAC_ENV.get_or_init(|| {
+        // SAFETY: every integration-test app uses this same non-secret test key. OnceLock ensures
+        // the process environment is initialized once before any test migration reads it.
+        unsafe {
+            std::env::set_var("OCEANIAM_APPLICATION_SECRET_HMAC__CURRENT_VERSION", "1");
+            std::env::set_var(
+                "OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__1",
+                TEST_APPLICATION_SECRET_HMAC_KEY_HEX,
+            );
+        }
+    });
+}
+
+fn test_application_secret_keyring() -> ApplicationSecretKeyring {
+    ApplicationSecretKeyring::new(
+        1,
+        [(
+            1,
+            ApplicationSecretHmacKey::from_hex_owned(
+                TEST_APPLICATION_SECRET_HMAC_KEY_HEX.to_owned(),
+            )
+            .unwrap(),
+        )],
+    )
+    .unwrap()
+}
 
 fn test_config() -> BackendConfig {
+    ensure_test_application_secret_hmac_env();
+
     BackendConfig {
         addr: "0.0.0.0:0".to_owned(),
         workers: HashMap::new(),
         cookie: CookieConfig::default(),
         master_key: TEST_MASTER_KEY_HEX.to_owned(),
+        application_secret_hmac: Some(test_application_secret_keyring()),
         ..BackendConfig::new().unwrap()
     }
 }
