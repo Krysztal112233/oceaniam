@@ -9,8 +9,7 @@ use oceaniam_auth::{
     jwks::JwkSet,
     jwt::{ClaimHelper, JwtCodec, SystemClaim},
 };
-use oceaniam_common::consts;
-use oceaniam_common::crypto::MasterKey;
+use oceaniam_common::{consts, crypto::MasterKey, run_cpu_bound};
 use oceaniam_database::{
     config::application::ApplicationConfiguration,
     helper::{
@@ -21,10 +20,10 @@ use oceaniam_database::{
         sea_orm_active_enums::{KeyAlg, KeyStatus},
     },
 };
-use oceaniam_keybox::{KeyBox, RsaKey};
+use oceaniam_keybox::{KeyBox, RawKey, RsaKey};
 use sea_orm::DatabaseConnection;
 use tap::Tap;
-use tracing::{debug, error};
+use tracing::{debug, error, field};
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -221,7 +220,7 @@ impl ManagedKeyBoxes {
         }: SignJwtOptions,
     ) -> Result<EncodedJwt<T>, Error>
     where
-        T: ClaimHelper,
+        T: ClaimHelper + Send + 'static,
     {
         debug!("signing jwt for sub {}", sub);
 
@@ -246,19 +245,6 @@ impl ManagedKeyBoxes {
 
         debug!("found active key with algorithm: {:?}", key.key_alg);
 
-        let key_alg = key.key_alg.clone();
-        let kid = key.key_id;
-
-        let ket = match *key_alg {
-            KeyAlg::Ps256
-            | KeyAlg::Ps384
-            | KeyAlg::Ps512
-            | KeyAlg::Rs256
-            | KeyAlg::Rs384
-            | KeyAlg::Rs512 => h(RsaKey::from_raw_key(key, &self.master_key)
-                .inspect_err(|e| error!("failed to convert key to rsakey: {}", e))?),
-        };
-
         let claim = T::new(
             sub,
             Duration::from_hours(24 * 5).as_secs() as i64,
@@ -266,15 +252,7 @@ impl ManagedKeyBoxes {
             Some(aud),
         );
 
-        claim
-            .clone()
-            .encode(
-                Header::new(key_alg.into()).tap_mut(|it| it.kid = Some(kid.to_string())),
-                ket,
-            )
-            .inspect_err(|e| error!("failed to encode jwt: {}", e))
-            .map(|it| EncodedJwt { jwt: it, claim })
-            .map_err(Into::into)
+        sign_jwt_with_raw_key(key, self.master_key, claim).await
     }
 
     #[tracing::instrument(
@@ -301,9 +279,146 @@ impl ManagedKeyBoxes {
     }
 }
 
+async fn sign_jwt_with_raw_key<T>(
+    key: RawKey,
+    master_key: Arc<MasterKey>,
+    claim: T,
+) -> Result<EncodedJwt<T>, Error>
+where
+    T: ClaimHelper + Send + 'static,
+{
+    let key_alg = key.key_alg.clone();
+    let kid = key.key_id;
+    let queue_span = tracing::info_span!(
+        "keybox.rsa.sign.queue",
+        otel.kind = "internal",
+        cpu.operation = "rsa.sign_jwt",
+        key.id = %kid,
+        rsa.algorithm = ?key_alg,
+    );
+
+    run_cpu_bound(queue_span, move |parent| {
+        let span = tracing::info_span!(
+            parent: &parent,
+            "keybox.rsa.sign",
+            otel.kind = "internal",
+            otel.status_code = field::Empty,
+            otel.status_description = field::Empty,
+            cpu.operation = "rsa.sign_jwt",
+            key.id = %kid,
+            rsa.algorithm = ?key_alg,
+        );
+        let result = span.in_scope(|| {
+            let rsa_key = match *key_alg {
+                KeyAlg::Ps256
+                | KeyAlg::Ps384
+                | KeyAlg::Ps512
+                | KeyAlg::Rs256
+                | KeyAlg::Rs384
+                | KeyAlg::Rs512 => h(RsaKey::from_raw_key(key, &master_key)
+                    .inspect_err(|e| error!(error = %e, "failed to unseal RSA signing key"))?),
+            };
+            let jwt = claim
+                .clone()
+                .encode(
+                    Header::new(key_alg.into()).tap_mut(|it| it.kid = Some(kid.to_string())),
+                    rsa_key,
+                )
+                .inspect_err(|e| error!(error = %e, "failed to sign JWT"))?;
+
+            Ok(EncodedJwt { jwt, claim })
+        });
+
+        if result.is_err() {
+            span.record("otel.status_code", "ERROR");
+            span.record("otel.status_description", "RSA JWT signing failed");
+        }
+
+        result
+    })
+    .await
+    .map_err(|source| Error::Internal {
+        msg: format!("CPU-bound RSA JWT signing task failed: {source}"),
+        location: snafu::location!(),
+    })?
+}
+
 fn h<T>(i: impl JwtCodec<T> + 'static) -> Box<dyn JwtCodec<T>>
 where
     T: ClaimHelper,
 {
     Box::new(i)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::{self, Write};
+    use std::sync::Mutex;
+
+    use jsonwebtoken::{Algorithm, TokenData, Validation};
+    use oceaniam_auth::jwt::SystemClaim;
+    use tracing::Instrument as _;
+    use tracing_subscriber::fmt::format::FmtSpan;
+
+    use super::*;
+
+    #[derive(Clone)]
+    struct Buffer(Arc<Mutex<Vec<u8>>>);
+
+    impl Write for Buffer {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            self.0
+                .lock()
+                .expect("trace buffer lock")
+                .extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    // NOTE: AI-generated test
+    #[tokio::test]
+    async fn rsa_jwt_signing_spans_cross_blocking_dispatch_without_token() {
+        let master_key_hex = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        let master_key = Arc::new(MasterKey::from_hex(master_key_hex).expect("test master key"));
+        let subject = Uuid::now_v7();
+        let key = RsaKey::with_bit_size(Uuid::now_v7(), KeyAlg::Rs256, 2048)
+            .expect("generate test RSA key");
+        let raw_key = key
+            .clone()
+            .into_raw_key(&master_key)
+            .expect("seal test RSA key");
+        let claim = SystemClaim::new(subject, 60, None, None);
+
+        let bytes = Arc::new(Mutex::new(Vec::new()));
+        let writer = bytes.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .with_writer(move || Buffer(writer.clone()))
+            .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
+            .finish();
+        let dispatch = tracing::Dispatch::new(subscriber);
+        let _default = tracing::dispatcher::set_default(&dispatch);
+
+        let encoded = async { sign_jwt_with_raw_key(raw_key, master_key, claim).await }
+            .instrument(tracing::info_span!("test.request"))
+            .await
+            .expect("sign test JWT");
+        let decoded: TokenData<SystemClaim> = key
+            .decode(encoded.jwt.as_bytes(), &Validation::new(Algorithm::RS256))
+            .expect("decode signed JWT");
+        assert_eq!(decoded.claims.sub, subject);
+
+        let output = String::from_utf8(bytes.lock().expect("trace buffer lock").clone())
+            .expect("utf8 trace output");
+        assert!(output.contains("keybox.rsa.sign.queue"));
+        assert!(output.contains("keybox.rsa.sign"));
+        assert!(output.contains("keybox.private_key.unseal"));
+        assert!(output.contains("auth.jwt.encode"));
+        assert!(output.contains("test.request"));
+        assert!(!output.contains(&encoded.jwt));
+        assert!(!output.contains(master_key_hex));
+    }
 }
