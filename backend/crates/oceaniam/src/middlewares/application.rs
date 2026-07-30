@@ -3,7 +3,7 @@ use axum::{
     http::{StatusCode, header, request::Parts},
 };
 use oceaniam_common::sqid::Sqid;
-use tracing::{debug, warn};
+use tracing::{Instrument, debug, warn};
 use uuid::Uuid;
 
 use crate::{error::Error, middlewares::auth::PlatformAuthGuard, state::AppState};
@@ -32,37 +32,41 @@ impl FromRequestParts<AppState> for ApplicationSecretGuard {
             otel.kind = "internal",
             header_present
         );
-        let _guard = span.enter();
+        // NOTE: Instrument the future instead of holding a `span.enter()` guard across `.await`. An
+        // entered guard survives suspension and can leak this request's span into other tasks.
+        async {
+            let secret = parts
+                .headers
+                .get("X-OceanIAM-Application-Secret")
+                .and_then(|value| value.to_str().ok());
 
-        let secret = parts
-            .headers
-            .get("X-OceanIAM-Application-Secret")
-            .and_then(|value| value.to_str().ok());
-
-        let Some(secret) = secret else {
-            warn!(
-                header = "X-OceanIAM-Application-Secret",
-                "application authentication failed: missing application secret header"
-            );
-            return Err(StatusCode::UNAUTHORIZED);
-        };
-
-        match applications.secrets().find_secret_belong_to(secret).await {
-            Ok(application_ids) => Ok(Self {
-                of_applications: application_ids,
-            }),
-            Err(Error::CustomMessage { code: 404, .. }) => {
-                warn!("application authentication failed: invalid application secret");
-                Err(StatusCode::UNAUTHORIZED)
-            }
-            Err(error) => {
-                tracing::error!(
-                    error = %error,
-                    "application authentication failed because secret verification was unavailable"
+            let Some(secret) = secret else {
+                warn!(
+                    header = "X-OceanIAM-Application-Secret",
+                    "application authentication failed: missing application secret header"
                 );
-                Err(StatusCode::INTERNAL_SERVER_ERROR)
+                return Err(StatusCode::UNAUTHORIZED);
+            };
+
+            match applications.secrets().find_secret_belong_to(secret).await {
+                Ok(application_ids) => Ok(Self {
+                    of_applications: application_ids,
+                }),
+                Err(Error::CustomMessage { code: 404, .. }) => {
+                    warn!("application authentication failed: invalid application secret");
+                    Err(StatusCode::UNAUTHORIZED)
+                }
+                Err(error) => {
+                    tracing::error!(
+                        error = %error,
+                        "application authentication failed because secret verification was unavailable"
+                    );
+                    Err(StatusCode::INTERNAL_SERVER_ERROR)
+                }
             }
         }
+        .instrument(span)
+        .await
     }
 }
 
