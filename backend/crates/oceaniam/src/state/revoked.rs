@@ -24,6 +24,12 @@ impl RevokedJwt {
         }
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "jwt_revocation.is_revoked",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn is_revoked(&self, jti: impl Into<Uuid> + Copy) -> Result<bool, Arc<Error>> {
         self.status
             .try_get_with(jti.into(), async {
@@ -34,6 +40,12 @@ impl RevokedJwt {
             .await
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "jwt_revocation.set_revoked",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn set_revoked(&self, jti: impl Into<Uuid> + Copy) -> Result<(), Error> {
         self.status.insert(jti.into(), true).await;
 

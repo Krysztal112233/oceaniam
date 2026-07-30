@@ -85,6 +85,12 @@ impl ManagedChallenges {
         }
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "challenges.create_challenge",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn create_challenge(
         &self,
         subject_id: Uuid,
@@ -117,6 +123,12 @@ impl ManagedChallenges {
         Ok(challenge)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "challenges.get_challenge",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn get_challenge(&self, id: Uuid) -> Result<ChallengeModel, Error> {
         let record = ChallengeRecord {
             application_id: self.application_id,
@@ -156,6 +168,12 @@ impl ManagedChallenges {
         self.set_pass_in_tx(id, &self.database).await
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "challenges.set_pass_in_tx",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn set_pass_in_tx(
         &self,
         id: Uuid,
@@ -189,7 +207,12 @@ impl ManagedChallenges {
         Ok(())
     }
 
-    #[tracing::instrument(skip(self, payload), fields(challenge_id = %id))]
+    #[tracing::instrument(
+        level = "info",
+        name = "challenges.verify",
+        skip_all,
+        fields(otel.kind = "internal", challenge.id = %id)
+    )]
     pub async fn verify_challenge(&self, id: Uuid, payload: Value) -> Result<(), Error> {
         let challenge = self.get_challenge(id).await?;
         let factor_type = challenge.factor_type.clone();

@@ -27,7 +27,11 @@ impl FromRequestParts<AppState> for ApplicationSecretGuard {
         AppState { applications, .. }: &AppState,
     ) -> Result<Self, Self::Rejection> {
         let header_present = parts.headers.contains_key("X-OceanIAM-Application-Secret");
-        let span = tracing::debug_span!("app_secret.extract", header_present);
+        let span = tracing::info_span!(
+            "application_secret.extract",
+            otel.kind = "internal",
+            header_present
+        );
         let _guard = span.enter();
 
         let secret = parts

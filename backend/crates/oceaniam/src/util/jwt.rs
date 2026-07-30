@@ -18,7 +18,11 @@ where
 {
     // NOTE: We have already proved that `kid` must exist.
     let kid = header.kid.as_ref().unwrap();
-    let span = tracing::debug_span!("jwt.validate", kid = %kid);
+    let span = tracing::info_span!(
+        "auth.jwt.validate",
+        otel.kind = "internal",
+        key.id = %kid
+    );
     let _guard = span.enter();
 
     let key = jwks.decoding_key_for_kid(kid).inspect_err(|e| {

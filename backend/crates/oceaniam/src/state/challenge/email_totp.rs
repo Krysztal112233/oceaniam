@@ -16,6 +16,12 @@ struct EmailTotpPayload {
 
 #[async_trait::async_trait]
 impl MfaValidator for EmailTotpValidator {
+    #[tracing::instrument(
+        level = "info",
+        name = "challenges.validator.email_totp",
+        skip_all,
+        fields(otel.kind = "internal", subject.id = %ctx.subject_id)
+    )]
     async fn validate(&self, ctx: ValidationContext) -> Result<(), Error> {
         let input: EmailTotpPayload = serde_json::from_value(ctx.input)
             .map_err(|e| Error::with_code(StatusCode::BAD_REQUEST, e.to_string()))?;

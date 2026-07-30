@@ -71,6 +71,12 @@ impl Secrets {
 
     /// Generates a new `app_xxx` secret and persists only its prefix and verifier as an unbound
     /// secret (not yet associated with any application).
+    #[tracing::instrument(
+        level = "info",
+        name = "secrets.create_secret",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn create_secret(&self) -> Result<CreatedApplicationSecret, Error> {
         let plaintext = ApplicationSecret::generate();
         let versioned = self
@@ -96,6 +102,12 @@ impl Secrets {
     /// Loads every known [`SecretModel`] from the database and populates the `by_id` cache.
     ///
     /// Prefer [`get_secret_models`](Self::get_secret_models) for paginated access.
+    #[tracing::instrument(
+        level = "info",
+        name = "secrets.get_all_secrets",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn get_all_secrets(&self) -> Result<Vec<SecretModel>, Error> {
         let models = ApplicationSecrets::get_all_secret_models(&self.database).await?;
 
@@ -107,6 +119,12 @@ impl Secrets {
     }
 
     /// Returns a paginated view of all secrets, warming the `by_id` cache along the way.
+    #[tracing::instrument(
+        level = "info",
+        name = "secrets.get_secret_models",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn get_secret_models(
         &self,
         page: PageParam,
@@ -121,6 +139,12 @@ impl Secrets {
     }
 
     /// Returns a single [`SecretModel`] by its ID, backed by the `by_id` cache.
+    #[tracing::instrument(
+        level = "info",
+        name = "secrets.get_secret",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn get_secret(&self, secret_id: Uuid) -> Result<SecretModel, Error> {
         Ok(self
             .caches
@@ -135,6 +159,12 @@ impl Secrets {
 
     /// Returns the list of application IDs that the given secret is bound to, backed by the
     /// `application_ids_by_secret_id` cache.
+    #[tracing::instrument(
+        level = "info",
+        name = "secrets.get_secret_application_ids",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn get_secret_application_ids(&self, secret_id: Uuid) -> Result<Vec<Uuid>, Error> {
         Ok(self
             .caches
@@ -150,6 +180,12 @@ impl Secrets {
     /// Returns the full application-ID-to-secret-IDs map for every secret in the database.
     ///
     /// Skips caching because the result is already a complete snapshot.
+    #[tracing::instrument(
+        level = "info",
+        name = "secrets.get_secret_application_ids_batch",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn get_secret_application_ids_batch(
         &self,
     ) -> Result<HashMap<Uuid, Vec<Uuid>>, Error> {
@@ -160,6 +196,12 @@ impl Secrets {
 
     /// Returns the application-ID-to-secret-IDs map for the specified secrets, and populates the
     /// `application_ids_by_secret_id` cache for each one.
+    #[tracing::instrument(
+        level = "info",
+        name = "secrets.get_secret_application_ids_batch_by_ids",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn get_secret_application_ids_batch_by_ids(
         &self,
         secret_ids: Vec<Uuid>,
@@ -197,6 +239,12 @@ impl Secrets {
     /// Resolves the application IDs that a given secret string (e.g. `app_xxx`) is valid for.
     /// Authentication always reads active prefix candidates from the database so revocation and
     /// deletion take effect across instances without waiting for a local cache to expire.
+    #[tracing::instrument(
+        level = "info",
+        name = "secrets.find_secret_belong_to",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn find_secret_belong_to(&self, secret: &str) -> Result<Vec<Uuid>, Error> {
         let prefix = stored_prefix(secret)
             .map_err(|_| Error::with_code(StatusCode::NOT_FOUND, "application secret not found"))?;
@@ -262,6 +310,12 @@ impl Secrets {
     }
 
     /// Returns all secrets bound to the given application, backed by the `by_application` cache.
+    #[tracing::instrument(
+        level = "info",
+        name = "secrets.get_all_secrets_of",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn get_all_secrets_of(
         &self,
         application_id: Uuid,
@@ -280,6 +334,12 @@ impl Secrets {
     }
 
     /// Binds an existing unbound secret to an application, invalidating relevant caches.
+    #[tracing::instrument(
+        level = "info",
+        name = "secrets.bind_secret",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn bind_secret(&self, secret_id: Uuid, application_id: Uuid) -> Result<(), Error> {
         self.is_application_exist(application_id).await?;
         self.is_secret_id_exist(secret_id).await?;
@@ -293,6 +353,12 @@ impl Secrets {
     }
 
     /// Unbinds a secret from an application and refreshes the application's secret cache.
+    #[tracing::instrument(
+        level = "info",
+        name = "secrets.delete_secret",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn delete_secret(&self, application_id: Uuid, secret_id: Uuid) -> Result<(), Error> {
         self.is_application_exist(application_id).await?;
         self.is_secret_id_exist(secret_id).await?;
@@ -307,6 +373,12 @@ impl Secrets {
 
     /// Globally deletes a secret by its ID, removing it from every application it was bound to,
     /// and invalidates all related caches.
+    #[tracing::instrument(
+        level = "info",
+        name = "secrets.delete_secret_by_id",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn delete_secret_by_id(&self, secret_id: Uuid) -> Result<(), Error> {
         self.is_secret_id_exist(secret_id).await?;
 
