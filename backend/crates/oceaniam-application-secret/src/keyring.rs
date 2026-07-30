@@ -114,6 +114,12 @@ impl ApplicationSecretKeyring {
         })
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "application_secret.hmac.verifier",
+        skip_all,
+        fields(otel.kind = "internal", key.version = version)
+    )]
     pub fn verifier(
         &self,
         version: i32,
@@ -132,6 +138,12 @@ impl ApplicationSecretKeyring {
         Ok(mac.finalize().into_bytes().into())
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "application_secret.hmac.verify",
+        skip_all,
+        fields(otel.kind = "internal", key.version = version)
+    )]
     pub fn verify(
         &self,
         version: i32,

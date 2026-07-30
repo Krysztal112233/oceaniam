@@ -15,6 +15,12 @@ pub const VISIBLE_PREFIX_LENGTH: usize = 8;
 pub struct ApplicationSecret(Zeroizing<String>);
 
 impl ApplicationSecret {
+    #[tracing::instrument(
+        level = "info",
+        name = "application_secret.generate",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub fn generate() -> Self {
         let random = Zeroizing::new(
             Alphanumeric.sample_string(&mut rand::thread_rng(), APPLICATION_SECRET_RANDOM_LENGTH),
