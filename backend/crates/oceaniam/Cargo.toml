@@ -23,6 +23,7 @@ jsonwebtoken.workspace = true
 log.workspace = true
 mimalloc.workspace = true
 moka.workspace = true
+opentelemetry.workspace = true
 parking_lot.workspace = true
 rapidhash.workspace = true
 rayon.workspace = true
@@ -34,6 +35,7 @@ snafu.workspace = true
 time.workspace = true
 tokio.workspace = true
 tower-http.workspace = true
+tracing-opentelemetry.workspace = true
 tracing-subscriber.workspace = true
 tracing.workspace = true
 utoipa-axum.workspace = true
@@ -55,6 +57,7 @@ oceaniam-telemetry.workspace = true
 oceaniam-vo.workspace = true
 
 [dev-dependencies]
+opentelemetry_sdk = { workspace = true, features = ["testing"] }
 reqwest.workspace = true
 migration.workspace = true
 sea-orm.workspace = true

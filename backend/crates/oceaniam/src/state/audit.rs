@@ -18,6 +18,12 @@ impl Auditing {
         }
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "audit.enqueue",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn write(&self, payload: AuditPayload) {
         self.writer.write(payload).await
     }
