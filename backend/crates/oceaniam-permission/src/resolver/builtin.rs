@@ -50,7 +50,12 @@ impl BuiltinResolver {
 
 #[async_trait]
 impl PermissionResolver for BuiltinResolver {
-    #[instrument(skip(self), fields(%platform_id))]
+    #[instrument(
+        level = "info",
+        name = "permissions.platform.resolve",
+        skip_all,
+        fields(otel.kind = "internal", subject.id = %platform_id)
+    )]
     async fn platform_permissions(
         &self,
         platform_id: Uuid,
@@ -71,7 +76,16 @@ impl PermissionResolver for BuiltinResolver {
         Ok(result)
     }
 
-    #[instrument(skip(self), fields(%subject_id, %application_id))]
+    #[instrument(
+        level = "info",
+        name = "permissions.subject.resolve",
+        skip_all,
+        fields(
+            otel.kind = "internal",
+            subject.id = %subject_id,
+            application.id = %application_id
+        )
+    )]
     async fn subject_permissions(
         &self,
         subject_id: Uuid,
@@ -104,6 +118,12 @@ impl PermissionResolver for BuiltinResolver {
 /// - The system built-in administrator always gets [`PlatformRole::SuperAdmin`].
 /// - Real administrators are looked up in the `administrators` table,
 ///   and their `role` column is parsed into a [`PlatformRole`].
+#[instrument(
+    level = "info",
+    name = "permissions.platform.load",
+    skip_all,
+    fields(otel.kind = "internal", subject.id = %platform_id)
+)]
 async fn resolve_platform_permissions(
     db: &DatabaseConnection,
 
@@ -141,6 +161,16 @@ async fn resolve_platform_permissions(
     Ok(platform_role.permissions().clone())
 }
 
+#[instrument(
+    level = "info",
+    name = "permissions.subject.load",
+    skip_all,
+    fields(
+        otel.kind = "internal",
+        subject.id = %subject_id,
+        application.id = %application_id
+    )
+)]
 async fn resolve_subject_permissions(
     db: &DatabaseConnection,
     subject_id: Uuid,
