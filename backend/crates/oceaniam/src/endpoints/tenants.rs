@@ -63,7 +63,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
     level = "info",
     name = "tenants.list",
     skip(auth, database),
-    fields(operator_id = field::Empty, page = field::Empty, per_page = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, page = field::Empty, per_page = field::Empty)
 )]
 pub async fn get_tenants(
     auth: PlatformPermissionGuard<TenantRead>,
@@ -118,7 +118,7 @@ pub async fn get_tenants(
     level = "info",
     name = "tenants.get",
     skip(auth, tenant_id, database),
-    fields(operator_id = field::Empty, tenant_id = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, tenant_id = field::Empty)
 )]
 pub async fn get_tenant(
     auth: PlatformPermissionGuard<TenantRead>,
@@ -169,7 +169,7 @@ pub async fn get_tenant(
     level = "info",
     name = "tenants.create",
     skip(auth, database, auditing, keyboxes, comment),
-    fields(operator_id = field::Empty, tenant_id = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, tenant_id = field::Empty)
 )]
 pub async fn create_tenant(
     auth: PlatformPermissionGuard<TenantCreate>,
@@ -256,7 +256,7 @@ pub async fn create_tenant(
     level = "info",
     name = "tenants.patch",
     skip(auth, database, auditing, tenant_id, comment),
-    fields(operator_id = field::Empty, tenant_id = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, tenant_id = field::Empty)
 )]
 pub async fn patch_tenant(
     auth: PlatformPermissionGuard<TenantPatch>,
@@ -320,7 +320,7 @@ pub async fn patch_tenant(
     level = "info",
     name = "tenants.delete",
     skip(auth, database, auditing),
-    fields(operator_id = field::Empty, tenant_id = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, tenant_id = field::Empty)
 )]
 pub async fn delete_tenant(
     auth: PlatformPermissionGuard<TenantDelete>,
@@ -388,7 +388,7 @@ pub async fn delete_tenant(
     level = "info",
     name = "tenant_users.list",
     skip(auth, database, tenant_id),
-    fields(operator_id = field::Empty, tenant_id = field::Empty, page = field::Empty, per_page = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, tenant_id = field::Empty, page = field::Empty, per_page = field::Empty)
 )]
 pub async fn get_tenant_users(
     auth: PlatformPermissionGuard<TenantRead>,
@@ -452,7 +452,7 @@ pub async fn get_tenant_users(
     level = "info",
     name = "tenants.jwks",
     skip(keyboxes, tenant_id),
-    fields(tenant_id = field::Empty)
+    fields(otel.kind = "internal", tenant_id = field::Empty)
 )]
 pub async fn get_tenant_jwks(
     Path(tenant_id): Path<Sqid>,

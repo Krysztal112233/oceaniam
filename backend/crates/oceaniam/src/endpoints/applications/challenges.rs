@@ -77,7 +77,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
 #[tracing::instrument(
     level = "info",
     name = "application_challenges.get",
-    fields(application_id = field::Empty, challenge_id = field::Empty)
+    fields(otel.kind = "internal", application_id = field::Empty, challenge_id = field::Empty)
 )]
 pub async fn get_application_challenge(
     _: AdminJwtOrApplicationSecretGuard,
@@ -145,7 +145,7 @@ pub async fn get_application_challenge(
     level = "info",
     name = "application_challenges.create",
     skip(_auth, applications, body),
-    fields(application_id = field::Empty, subject_id = field::Empty, challenge_id = field::Empty)
+    fields(otel.kind = "internal", application_id = field::Empty, subject_id = field::Empty, challenge_id = field::Empty)
 )]
 pub async fn create_application_challenge(
     _auth: AdminJwtOrApplicationSecretGuard,
@@ -225,7 +225,7 @@ pub async fn create_application_challenge(
     level = "info",
     name = "application_challenges.create_attempt",
     skip(keyboxes, applications, auditing, token_mtd, payload),
-    fields(application_id = field::Empty, challenge_id = field::Empty, user_id = field::Empty, token_dispatch = field::Empty)
+    fields(otel.kind = "internal", application_id = field::Empty, challenge_id = field::Empty, user_id = field::Empty, token_dispatch = field::Empty)
 )]
 pub async fn create_application_challenge_attempt(
     token_mtd: TokenDispatchMethodGuard,

@@ -59,6 +59,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
     name = "tenant_application_tokens.create",
     skip(token_mtd, applications, credentials, keyboxes, auditing, auth),
     fields(
+        otel.kind = "internal",
         tenant_id = field::Empty,
         application_id = field::Empty,
         user_id = field::Empty,

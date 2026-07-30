@@ -41,7 +41,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
     level = "info",
     name = "application_secrets.list",
     skip(applications, path),
-    fields(tenant_id = field::Empty, application_id = field::Empty)
+    fields(otel.kind = "internal", tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn get_application_secrets(
     _: PlatformPermissionGuard<SecretRead>,

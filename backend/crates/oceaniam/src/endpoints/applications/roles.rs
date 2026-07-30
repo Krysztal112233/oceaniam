@@ -102,7 +102,7 @@ async fn ensure_subject_belongs_to_app(
     level = "info",
     name = "tenant_application_roles.list",
     skip(_auth, database),
-    fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn list_roles(
     _auth: AppPermissionGuard<AppUserRead>,
@@ -162,7 +162,7 @@ pub async fn list_roles(
     level = "info",
     name = "tenant_application_roles.create",
     skip(_auth, database),
-    fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn create_role(
     _auth: AppPermissionGuard<AppUserRead>,
@@ -235,7 +235,7 @@ pub async fn create_role(
     level = "info",
     name = "tenant_application_roles.get",
     skip(_auth, database),
-    fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, role_id = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, role_id = field::Empty)
 )]
 pub async fn get_role(
     _auth: AppPermissionGuard<AppUserRead>,
@@ -298,7 +298,7 @@ pub async fn get_role(
     level = "info",
     name = "tenant_application_roles.patch",
     skip(_auth, database),
-    fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, role_id = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, role_id = field::Empty)
 )]
 pub async fn patch_role(
     _auth: AppPermissionGuard<AppUserRead>,
@@ -378,7 +378,7 @@ pub async fn patch_role(
     level = "info",
     name = "tenant_application_roles.delete",
     skip(_auth, database),
-    fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, role_id = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, role_id = field::Empty)
 )]
 pub async fn delete_role(
     _auth: AppPermissionGuard<AppUserRead>,
@@ -448,7 +448,7 @@ pub async fn delete_role(
     level = "info",
     name = "tenant_application_roles.get_permissions",
     skip(_auth, database),
-    fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, role_id = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, role_id = field::Empty)
 )]
 pub async fn get_role_permissions(
     _auth: AppPermissionGuard<AppUserRead>,
@@ -508,7 +508,7 @@ pub async fn get_role_permissions(
     level = "info",
     name = "tenant_application_roles.set_permissions",
     skip(_auth, database),
-    fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, role_id = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, role_id = field::Empty)
 )]
 pub async fn set_role_permissions(
     _auth: AppPermissionGuard<AppUserRead>,
@@ -584,7 +584,7 @@ pub async fn set_role_permissions(
     level = "info",
     name = "tenant_application_roles.get_subject_roles",
     skip(_auth, database),
-    fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, subject_id = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, subject_id = field::Empty)
 )]
 pub async fn get_subject_roles(
     _auth: AppPermissionGuard<AppUserRead>,
@@ -652,7 +652,7 @@ pub async fn get_subject_roles(
     level = "info",
     name = "tenant_application_roles.assign_role",
     skip(_auth, database),
-    fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, subject_id = field::Empty, role_id = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, subject_id = field::Empty, role_id = field::Empty)
 )]
 pub async fn assign_role(
     _auth: AppPermissionGuard<AppUserRead>,
@@ -726,7 +726,7 @@ pub async fn assign_role(
     level = "info",
     name = "tenant_application_roles.unassign_role",
     skip(_auth, database),
-    fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, subject_id = field::Empty, role_id = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, subject_id = field::Empty, role_id = field::Empty)
 )]
 pub async fn unassign_role(
     _auth: AppPermissionGuard<AppUserRead>,

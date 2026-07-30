@@ -41,7 +41,12 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
         (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
     ),
 )]
-#[tracing::instrument(level = "info", name = "statistics", skip(database))]
+#[tracing::instrument(
+    level = "info",
+    name = "statistics",
+    skip(database),
+    fields(otel.kind = "internal")
+)]
 async fn get_statistics(
     _: PlatformPermissionGuard<TenantRead>,
     State(AppState { database, .. }): State<AppState>,
@@ -73,7 +78,12 @@ async fn get_statistics(
         (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
     ),
 )]
-#[tracing::instrument(level = "info", name = "statistics.trends", skip(database))]
+#[tracing::instrument(
+    level = "info",
+    name = "statistics.trends",
+    skip(database),
+    fields(otel.kind = "internal")
+)]
 async fn get_statistics_trends(
     _: PlatformPermissionGuard<TenantRead>,
     OptionalQuery(query): OptionalQuery<TrendQuery>,

@@ -9,6 +9,7 @@ use oceaniam_auth::{
     jwt::{Claim, SystemClaim},
 };
 use oceaniam_common::sqid::Sqid;
+use oceaniam_telemetry::record_request_user;
 use tap::Tap;
 use uuid::Uuid;
 
@@ -68,6 +69,7 @@ impl FromRequestParts<AppState> for PlatformAuthGuard {
         };
 
         jwt::check_jti_not_revoked(revoked_jwt, token.claims.jti).await?;
+        record_request_user(token.claims.sub, true);
 
         Ok(Self { token })
     }
@@ -160,6 +162,7 @@ impl FromRequestParts<AppState> for ApplicationAuthGuard {
             .find_user_by(application_id, UserIdentifier::Id(token.claims.sub))
             .await
             .map_err(|_| StatusCode::BAD_REQUEST)?;
+        record_request_user(token.claims.sub, false);
 
         Ok(Self {
             token,

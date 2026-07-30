@@ -55,7 +55,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
     level = "info",
     name = "tenant_keys.list",
     skip(keyboxes, path),
-    fields(tenant_id = field::Empty)
+    fields(otel.kind = "internal", tenant_id = field::Empty)
 )]
 pub async fn get_tenant_keys(
     _: PlatformPermissionGuard<KeyRead>,
@@ -109,7 +109,7 @@ pub async fn get_tenant_keys(
     level = "info",
     name = "tenant_keys.rotate",
     skip(keyboxes, auditing, path),
-    fields(tenant_id = field::Empty)
+    fields(otel.kind = "internal", tenant_id = field::Empty)
 )]
 pub async fn rotate_tenant_key(
     _: PlatformPermissionGuard<KeyRotate>,
@@ -180,7 +180,7 @@ pub async fn rotate_tenant_key(
     level = "info",
     name = "tenant_keys.revoke",
     skip(keyboxes, auditing, path),
-    fields(tenant_id = field::Empty, key_id = field::Empty)
+    fields(otel.kind = "internal", tenant_id = field::Empty, key_id = field::Empty)
 )]
 pub async fn revoke_tenant_key(
     _: PlatformPermissionGuard<KeyRevoke>,

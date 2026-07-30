@@ -43,7 +43,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
     level = "info",
     name = "audits.list",
     skip(database, query),
-    fields(page = field::Empty, per_page = field::Empty, audit_type = field::Empty),
+    fields(otel.kind = "internal", page = field::Empty, per_page = field::Empty, audit_type = field::Empty),
 )]
 async fn get_audit_logs(
     _: PlatformPermissionGuard<TenantRead>,

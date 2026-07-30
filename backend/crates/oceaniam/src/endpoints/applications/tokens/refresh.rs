@@ -48,6 +48,7 @@ use crate::{
     name = "tenant_application_tokens.refresh",
     skip(auth, token_mtd, revoked_jwt, keyboxes, applications, auditing),
     fields(
+        otel.kind = "internal",
         user_id = field::Empty,
         tenant_id = field::Empty,
         application_id = field::Empty,

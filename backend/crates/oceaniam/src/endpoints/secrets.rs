@@ -48,7 +48,7 @@ pub struct BindSecretRequest {
     level = "info",
     name = "secrets.create",
     skip(auth, applications, auditing),
-    fields(secret_id = field::Empty)
+    fields(otel.kind = "internal", secret_id = field::Empty)
 )]
 pub async fn create_secret(
     auth: PlatformPermissionGuard<SecretCreate>,
@@ -108,7 +108,7 @@ pub async fn create_secret(
     level = "info",
     name = "secrets.list",
     skip(applications),
-    fields(page = field::Empty, per_page = field::Empty)
+    fields(otel.kind = "internal", page = field::Empty, per_page = field::Empty)
 )]
 pub async fn get_secrets(
     _: PlatformPermissionGuard<SecretRead>,
@@ -179,7 +179,7 @@ pub async fn get_secrets(
     level = "info",
     name = "secrets.get",
     skip(applications, secret_id),
-    fields(secret_id = field::Empty)
+    fields(otel.kind = "internal", secret_id = field::Empty)
 )]
 pub async fn get_secret(
     _: PlatformPermissionGuard<SecretRead>,
@@ -225,7 +225,7 @@ pub async fn get_secret(
     level = "info",
     name = "secrets.delete",
     skip(auth, applications, auditing, secret_id),
-    fields(secret_id = field::Empty)
+    fields(otel.kind = "internal", secret_id = field::Empty)
 )]
 pub async fn delete_secret(
     auth: PlatformPermissionGuard<SecretDelete>,
@@ -286,7 +286,7 @@ pub async fn delete_secret(
     level = "info",
     name = "secrets.bind",
     skip(auth, applications, auditing, secret_id),
-    fields(secret_id = field::Empty, application_id = field::Empty)
+    fields(otel.kind = "internal", secret_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn bind_secret_to_application(
     auth: PlatformPermissionGuard<SecretCreate>,
@@ -359,7 +359,7 @@ pub async fn bind_secret_to_application(
     level = "info",
     name = "secrets.unbind",
     skip(auth, applications, auditing, secret_id, application_id),
-    fields(secret_id = field::Empty, application_id = field::Empty)
+    fields(otel.kind = "internal", secret_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn unbind_secret_from_application(
     auth: PlatformPermissionGuard<SecretDelete>,

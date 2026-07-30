@@ -76,7 +76,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
     level = "info",
     name = "tenant_application_users.list",
     skip(_auth, database),
-    fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, page = field::Empty, per_page = field::Empty, sort_order = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, page = field::Empty, per_page = field::Empty, sort_order = field::Empty)
 )]
 pub async fn get_application_users(
     _auth: AdminJwtOrApplicationSecretGuard,
@@ -165,7 +165,7 @@ pub async fn get_application_users(
     level = "info",
     name = "tenant_application_users.search",
     skip(_auth, applications, database, search_options),
-    fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, page = field::Empty, per_page = field::Empty, sort_order = field::Empty, by_nickname = field::Empty, by_id = field::Empty, by_email = field::Empty, by_phone = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, page = field::Empty, per_page = field::Empty, sort_order = field::Empty, by_nickname = field::Empty, by_id = field::Empty, by_email = field::Empty, by_phone = field::Empty)
 )]
 pub async fn search_application_users(
     _auth: AdminJwtOrApplicationSecretGuard,
@@ -349,7 +349,7 @@ pub async fn search_application_users(
     level = "info",
     name = "tenant_application_users.get",
     skip(_auth, applications),
-    fields(operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
 )]
 pub async fn get_application_user(
     _auth: AdminJwtOrApplicationSecretGuard,
@@ -424,7 +424,7 @@ pub async fn get_application_user(
     level = "info",
     name = "tenant_application_users.create",
     skip(applications, auditing, email, phone, nickname, password, database),
-    fields(tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
+    fields(otel.kind = "internal", tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
 )]
 pub async fn create_application_user(
     _: AdminJwtOrApplicationSecretGuard,
@@ -540,7 +540,7 @@ pub async fn create_application_user(
     level = "info",
     name = "tenant_application_users.patch",
     skip(_auth, applications),
-    fields(tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
+    fields(otel.kind = "internal", tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
 )]
 pub async fn patch_application_user(
     _auth: AdminJwtOrApplicationSecretGuard,
@@ -630,7 +630,7 @@ pub async fn patch_application_user(
     level = "info",
     name = "tenant_application_users.patch_credentials",
     skip(applications, credentials, database, password),
-    fields(tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
+    fields(otel.kind = "internal", tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
 )]
 pub async fn patch_application_user_credentials(
     _: AdminJwtOrApplicationSecretGuard,
@@ -731,7 +731,7 @@ pub async fn patch_application_user_credentials(
     level = "info",
     name = "tenant_application_users.delete",
     skip(_auth, applications, auditing, database),
-    fields(tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
+    fields(otel.kind = "internal", tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
 )]
 pub async fn delete_application_user(
     _auth: AdminJwtOrApplicationSecretGuard,
@@ -834,7 +834,7 @@ pub async fn delete_application_user(
     level = "info",
     name = "tenant_application_users.totp_enroll",
     skip(_auth, applications, credentials, app),
-    fields(tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
+    fields(otel.kind = "internal", tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
 )]
 pub async fn enroll_totp(
     _auth: AdminJwtOrApplicationSecretGuard,
@@ -905,7 +905,7 @@ pub async fn enroll_totp(
     level = "info",
     name = "tenant_application_users.totp_verify",
     skip(_auth, credentials, body),
-    fields(tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
+    fields(otel.kind = "internal", tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
 )]
 pub async fn verify_totp_enrollment(
     _auth: AdminJwtOrApplicationSecretGuard,
@@ -961,7 +961,7 @@ pub async fn verify_totp_enrollment(
     level = "info",
     name = "tenant_application_users.totp_remove",
     skip(_auth, credentials),
-    fields(tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
+    fields(otel.kind = "internal", tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
 )]
 pub async fn remove_totp(
     _auth: AdminJwtOrApplicationSecretGuard,

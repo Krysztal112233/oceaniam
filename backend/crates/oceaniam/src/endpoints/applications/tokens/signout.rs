@@ -37,7 +37,7 @@ use crate::{
     level = "info",
     name = "tenant_application_tokens.delete",
     skip(auth, revoked_jwt, auditing),
-    fields(user_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, jti = field::Empty)
+    fields(otel.kind = "internal", user_id = field::Empty, tenant_id = field::Empty, application_id = field::Empty, jti = field::Empty)
 )]
 pub async fn delete_application_token(
     _: MatchedApplicationSecretGuard,

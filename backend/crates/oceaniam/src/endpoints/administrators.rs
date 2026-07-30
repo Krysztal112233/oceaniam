@@ -67,7 +67,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
     level = "info",
     name = "administrators.list",
     skip(database),
-    fields(page = field::Empty, per_page = field::Empty)
+    fields(otel.kind = "internal", page = field::Empty, per_page = field::Empty)
 )]
 pub async fn get_administrators(
     _: PlatformPermissionGuard<AdministratorRead>,
@@ -108,7 +108,7 @@ pub async fn get_administrators(
     level = "info",
     name = "administrators.me",
     skip(auth, state),
-    fields(operator_id = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty)
 )]
 pub async fn get_administrator_self(
     auth: PlatformAuthGuard,
@@ -176,7 +176,7 @@ pub async fn get_administrator_self(
     level = "info",
     name = "administrators.create",
     skip(auth, database, credentials, auditing, name),
-    fields(operator_id = field::Empty, administrator_id = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, administrator_id = field::Empty)
 )]
 pub async fn create_administrator(
     auth: PlatformPermissionGuard<AdministratorCreate>,
@@ -279,7 +279,7 @@ pub async fn create_administrator(
     level = "info",
     name = "administrators.patch",
     skip(auth, database, auditing, administrator_id, payload),
-    fields(operator_id = field::Empty, administrator_id = field::Empty)
+    fields(otel.kind = "internal", operator_id = field::Empty, administrator_id = field::Empty)
 )]
 pub async fn patch_administrator(
     auth: PlatformPermissionGuard<AdministratorPatch>,
@@ -346,7 +346,7 @@ pub async fn patch_administrator(
     level = "info",
     name = "administrators.patch.self",
     skip(transaction, name),
-    fields(%operator_id)
+    fields(otel.kind = "internal", %operator_id)
 )]
 async fn patch_administrator_self(
     operator_id: Uuid,
@@ -369,7 +369,7 @@ async fn patch_administrator_self(
     level = "info",
     name = "administrators.patch.other",
     skip(transaction, name),
-    fields(%operator_id, %target_id)
+    fields(otel.kind = "internal", %operator_id, %target_id)
 )]
 async fn patch_administrator_other(
     operator_id: Uuid,

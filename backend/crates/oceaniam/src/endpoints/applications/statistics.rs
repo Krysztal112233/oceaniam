@@ -43,7 +43,12 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
         (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
     ),
 )]
-#[tracing::instrument(level = "info", name = "statistics.application", skip(database))]
+#[tracing::instrument(
+    level = "info",
+    name = "statistics.application",
+    skip(database),
+    fields(otel.kind = "internal")
+)]
 async fn get_application_statistics(
     _: AdminJwtOrApplicationSecretGuard,
     Path(TenantApplicationPath { application_id, .. }): Path<TenantApplicationPath>,
@@ -83,7 +88,12 @@ async fn get_application_statistics(
         (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
     ),
 )]
-#[tracing::instrument(level = "info", name = "statistics.application.trends", skip(database))]
+#[tracing::instrument(
+    level = "info",
+    name = "statistics.application.trends",
+    skip(database),
+    fields(otel.kind = "internal")
+)]
 async fn get_application_statistics_trends(
     _: AdminJwtOrApplicationSecretGuard,
     Path(TenantApplicationPath { application_id, .. }): Path<TenantApplicationPath>,
@@ -142,7 +152,7 @@ async fn get_application_statistics_trends(
     level = "info",
     name = "statistics.application.audits",
     skip(database, query),
-    fields(page = field::Empty, per_page = field::Empty, audit_type = field::Empty),
+    fields(otel.kind = "internal", page = field::Empty, per_page = field::Empty, audit_type = field::Empty),
 )]
 async fn get_application_audits(
     _: AdminJwtOrApplicationSecretGuard,

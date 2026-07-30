@@ -62,7 +62,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
     level = "info",
     name = "tenant_applications.list",
     skip(database),
-    fields(tenant_id = field::Empty, page = field::Empty, per_page = field::Empty)
+    fields(otel.kind = "internal", tenant_id = field::Empty, page = field::Empty, per_page = field::Empty)
 )]
 pub async fn get_applications(
     _: PlatformPermissionGuard<ApplicationRead>,
@@ -113,7 +113,7 @@ pub async fn get_applications(
     level = "info",
     name = "tenant_applications.create",
     skip(applications, auditing, comment),
-    fields(tenant_id = field::Empty, application_id = field::Empty)
+    fields(otel.kind = "internal", tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn create_application(
     _: PlatformPermissionGuard<ApplicationCreate>,
@@ -180,7 +180,7 @@ pub async fn create_application(
 #[tracing::instrument(
     level = "info",
     name = "tenant_applications.get",
-    fields(tenant_id = field::Empty, application_id = field::Empty)
+    fields(otel.kind = "internal", tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn get_application(
     _: AdminJwtOrApplicationSecretGuard,
@@ -213,7 +213,7 @@ pub async fn get_application(
     level = "info",
     name = "tenant_applications.patch",
     skip(applications, auditing, patch),
-    fields(tenant_id = field::Empty, application_id = field::Empty)
+    fields(otel.kind = "internal", tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn patch_application(
     _: PlatformPermissionGuard<ApplicationPatch>,
@@ -271,7 +271,7 @@ pub async fn patch_application(
     level = "info",
     name = "tenant_applications.delete",
     skip(applications, auditing),
-    fields(tenant_id = field::Empty, application_id = field::Empty)
+    fields(otel.kind = "internal", tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn delete_application(
     _: PlatformPermissionGuard<ApplicationDelete>,

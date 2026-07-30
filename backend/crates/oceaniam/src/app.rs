@@ -1,14 +1,15 @@
 use crate::error::Error;
 use axum::{
     Router,
+    extract::{MatchedPath, Request},
     http::{HeaderValue, header},
+    middleware::{self, Next},
+    response::Response,
 };
 use oceaniam_common::config::{BackendConfig, CorsConfig};
+use oceaniam_telemetry::{record_http_route, trace_layer};
 use tap::Pipe;
-use tower_http::{
-    cors::{Any, CorsLayer},
-    trace::TraceLayer,
-};
+use tower_http::cors::{Any, CorsLayer};
 use utoipa::openapi::{Components, Contact, ObjectBuilder, Type};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_scalar::{Scalar, Servable};
@@ -181,6 +182,14 @@ async fn health_check_kek(
     }
 }
 
+async fn attach_matched_route(request: Request, next: Next) -> Response {
+    if let Some(matched_path) = request.extensions().get::<MatchedPath>() {
+        record_http_route(request.method(), matched_path.as_str());
+    }
+
+    next.run(request).await
+}
+
 pub fn app(state: AppState, cors: CorsConfig) -> Router {
     let (router, mut openapi) = OpenApiRouter::new()
         .pipe(endpoints::endpoint)
@@ -199,8 +208,9 @@ pub fn app(state: AppState, cors: CorsConfig) -> Router {
 
     router
         .merge(Scalar::with_url("/docs", openapi))
+        .route_layer(middleware::from_fn(attach_matched_route))
         .layer(to_cors_layer(cors))
-        .layer(TraceLayer::new_for_http())
+        .layer(trace_layer())
         .with_state(state)
 }
 

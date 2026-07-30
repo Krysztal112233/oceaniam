@@ -69,6 +69,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
     name = "auth.signin",
     skip(token_mtd, credentials, database, keyboxes, auditing, auth),
     fields(
+        otel.kind = "internal",
         application_id = field::Empty,
         admin_id = field::Empty,
         token_dispatch = field::Empty
@@ -164,7 +165,7 @@ pub async fn create_auth_token(
     level = "info",
     name = "auth.signout",
     skip(auth, revoked_jwt, auditing),
-    fields(sub = field::Empty, jti = field::Empty)
+    fields(otel.kind = "internal", sub = field::Empty, jti = field::Empty)
 )]
 pub async fn delete_auth_token(
     auth: middlewares::auth::PlatformAuthGuard,
@@ -228,7 +229,12 @@ pub async fn delete_auth_token(
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
-#[tracing::instrument(level = "info", name = "auth.signup", skip(_auth))]
+#[tracing::instrument(
+    level = "info",
+    name = "auth.signup",
+    skip(_auth),
+    fields(otel.kind = "internal")
+)]
 pub async fn create_auth_user(Json(_auth): Json<SystemSigninRequest>) -> AppResult<()> {
     Err(Error::with_code(
         StatusCode::NOT_IMPLEMENTED,
@@ -282,7 +288,7 @@ pub async fn create_auth_user(Json(_auth): Json<SystemSigninRequest>) -> AppResu
     level = "info",
     name = "auth.refresh",
     skip(auth, token_mtd, revoked_jwt, keyboxes, auditing),
-    fields(sub = field::Empty, old_jti = field::Empty, token_dispatch = field::Empty)
+    fields(otel.kind = "internal", sub = field::Empty, old_jti = field::Empty, token_dispatch = field::Empty)
 )]
 pub async fn refresh_auth_token(
     auth: middlewares::auth::PlatformAuthGuard,

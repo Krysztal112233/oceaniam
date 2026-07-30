@@ -47,7 +47,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
     level = "info",
     name = "tenant_application_configuration.get",
     skip(applications),
-    fields(tenant_id = field::Empty, application_id = field::Empty)
+    fields(otel.kind = "internal", tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn get_application_configuration(
     _: AdminJwtOrApplicationSecretGuard,
@@ -100,7 +100,7 @@ pub async fn get_application_configuration(
     level = "info",
     name = "tenant_application_configuration.patch",
     skip(applications, auditing, patch),
-    fields(tenant_id = field::Empty, application_id = field::Empty)
+    fields(otel.kind = "internal", tenant_id = field::Empty, application_id = field::Empty)
 )]
 pub async fn patch_application_configuration(
     _: PlatformPermissionGuard<ApplicationConfigurationPatch>,
