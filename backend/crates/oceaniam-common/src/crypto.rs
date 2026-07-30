@@ -131,6 +131,16 @@ impl MasterKey {
 
     /// Encrypt `plaintext` with a fresh random nonce. The `key_version` is
     /// stamped onto the blob.
+    #[tracing::instrument(
+        level = "info",
+        name = "crypto.master_key.encrypt",
+        skip_all,
+        fields(
+            otel.kind = "internal",
+            key.version = key_version,
+            data.size = plaintext.len()
+        )
+    )]
     pub fn encrypt(
         &self,
         plaintext: &[u8],
@@ -154,6 +164,16 @@ impl MasterKey {
 
     /// Decrypt an `EncryptedBlob`. Any tamper or wrong-KEK surfaces as
     /// `AuthenticationFailed`.
+    #[tracing::instrument(
+        level = "info",
+        name = "crypto.master_key.decrypt",
+        skip_all,
+        fields(
+            otel.kind = "internal",
+            key.version = blob.key_version,
+            data.size = blob.ciphertext.len()
+        )
+    )]
     pub fn decrypt(&self, blob: &EncryptedBlob) -> Result<Vec<u8>, CryptoError> {
         let cipher = XChaCha20Poly1305::new_from_slice(&self.0[..])?;
         cipher
