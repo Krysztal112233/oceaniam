@@ -1,18 +1,9 @@
-use std::{
-    collections::HashMap,
-    fmt,
-    marker::PhantomData,
-    str::FromStr,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-};
+use std::{collections::HashMap, fmt, marker::PhantomData, str::FromStr, sync::Arc};
 
 use chrono::Utc;
 use cron::Schedule;
 use tokio::{sync::broadcast, task::JoinHandle};
-use tracing::{debug, error, info, warn};
+use tracing::{Instrument, Span, debug, error, field::Empty, info, warn};
 
 use crate::worker::Worker;
 
@@ -96,7 +87,7 @@ where
         .map_err(|err| E::internal(format!("invalid cron for worker `{name}`: {err}")))?;
 
     Ok(tokio::spawn(async move {
-        let running = Arc::new(AtomicBool::new(false));
+        let mut execution = None;
 
         info!(worker = %name, cron, "worker schedule started");
 
@@ -122,39 +113,110 @@ where
                 }
             }
 
-            if running.swap(true, Ordering::AcqRel) {
+            if execution
+                .as_ref()
+                .is_some_and(|handle: &JoinHandle<()>| !handle.is_finished())
+            {
                 warn!(worker = %name, "worker still running; skipping overlapping tick");
                 continue;
             }
+            if let Some(handle) = execution.take()
+                && let Err(err) = handle.await
+            {
+                error!(worker = %name, error = %err, "worker execution task aborted unexpectedly");
+            }
 
-            let running = running.clone();
-            let name = name.clone();
+            let execution_name = name.clone();
             let worker = worker.clone();
             let context = context.clone();
 
-            tokio::spawn(async move {
-                info!(worker = %name, "worker execution started");
+            let span = tracing::info_span!(
+                "worker.process",
+                otel.kind = "internal",
+                otel.name = %name,
+                otel.status_code = Empty,
+                otel.status_message = Empty,
+                worker = %name,
+            );
+            execution = Some(tokio::spawn(
+                async move {
+                    info!(worker = %execution_name, "worker execution started");
 
-                if let Err(err) = worker.run(&context).await {
-                    error!(worker = %name, error = %err, "worker execution failed");
-                } else {
-                    info!(worker = %name, "worker execution completed");
+                    if let Err(err) = worker.run(&context).await {
+                        let span = Span::current();
+                        span.record("otel.status_code", "ERROR");
+                        span.record("otel.status_message", tracing::field::display(&err));
+                        error!(worker = %execution_name, error = %err, "worker execution failed");
+                    } else {
+                        info!(worker = %execution_name, "worker execution completed");
+                    }
                 }
+                .instrument(span),
+            ));
+        }
 
-                running.store(false, Ordering::Release);
-            });
+        if let Some(handle) = execution
+            && let Err(err) = handle.await
+        {
+            error!(worker = %name, error = %err, "worker execution task aborted unexpectedly");
         }
 
         info!(worker = %name, "worker schedule stopped");
     }))
 }
 
-// NOTE: AI-generated test
 #[cfg(test)]
 mod tests {
-    use cron::Schedule;
-    use std::str::FromStr;
+    use super::*;
 
+    use std::{str::FromStr, time::Duration};
+
+    use cron::Schedule;
+    use tokio::sync::Notify;
+
+    #[derive(Clone, Default)]
+    struct BlockingContext {
+        started: Arc<Notify>,
+        release: Arc<Notify>,
+    }
+
+    struct BlockingWorker;
+
+    #[derive(Debug)]
+    struct TestError(String);
+
+    impl fmt::Display for TestError {
+        fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+            formatter.write_str(&self.0)
+        }
+    }
+
+    impl WorkerRuntimeError for TestError {
+        fn internal(msg: String) -> Self {
+            Self(msg)
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl Worker<BlockingContext> for BlockingWorker {
+        type Error = TestError;
+
+        fn name(&self) -> &'static str {
+            "blocking"
+        }
+
+        fn cron(&self) -> &'static str {
+            "* * * * * * *"
+        }
+
+        async fn run(&self, context: &BlockingContext) -> Result<(), Self::Error> {
+            context.started.notify_one();
+            context.release.notified().await;
+            Ok(())
+        }
+    }
+
+    // NOTE: AI-generated test
     #[test]
     fn test_all_registered_worker_crons_compile() {
         // Workers register via linkme::distributed_slice in the consuming crate.
@@ -163,5 +225,34 @@ mod tests {
         for cron in ["0 0 */6 * * *", "0 */5 * * * *"] {
             Schedule::from_str(cron).unwrap_or_else(|err| panic!("invalid cron `{cron}`: {err}"));
         }
+    }
+
+    // NOTE: AI-generated test
+    #[tokio::test]
+    async fn shutdown_waits_for_running_worker() {
+        let context = BlockingContext::default();
+        let worker: Arc<dyn Worker<BlockingContext, Error = TestError>> = Arc::new(BlockingWorker);
+        let runtime = WorkerRuntime::new(
+            context.clone(),
+            HashMap::from([("blocking".to_owned(), worker)]),
+        );
+        let controller = runtime.start().expect("start worker runtime");
+
+        tokio::time::timeout(Duration::from_secs(3), context.started.notified())
+            .await
+            .expect("worker should start");
+
+        let shutdown = tokio::spawn(controller.shutdown());
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert!(
+            !shutdown.is_finished(),
+            "shutdown returned before worker completed"
+        );
+
+        context.release.notify_one();
+        shutdown
+            .await
+            .expect("shutdown task")
+            .expect("shutdown runtime");
     }
 }
