@@ -34,6 +34,7 @@ pub struct WorkerConfiguration {
 }
 
 pub const DEFAULT_TELEMETRY_SERVICE_NAME: &str = "oceaniam";
+pub const DEFAULT_TRACE_SAMPLE_RATIO: f64 = 1.0;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -52,6 +53,10 @@ pub struct TelemetryConfig {
     #[serde(default = "default_telemetry_service_name")]
     pub service_name: String,
 
+    /// Head-sampling ratio for traces. `1.0` samples every locally-created root trace.
+    #[serde(default = "default_trace_sample_ratio")]
+    pub trace_sample_ratio: f64,
+
     #[serde(default)]
     pub otlp_headers: HashMap<String, String>,
 }
@@ -63,6 +68,7 @@ impl Default for TelemetryConfig {
             otlp_endpoint: None,
             otlp_traces_endpoint: None,
             service_name: default_telemetry_service_name(),
+            trace_sample_ratio: default_trace_sample_ratio(),
             otlp_headers: HashMap::new(),
         }
     }
@@ -70,6 +76,10 @@ impl Default for TelemetryConfig {
 
 fn default_telemetry_service_name() -> String {
     DEFAULT_TELEMETRY_SERVICE_NAME.to_owned()
+}
+
+const fn default_trace_sample_ratio() -> f64 {
+    DEFAULT_TRACE_SAMPLE_RATIO
 }
 
 #[derive(Debug, Deserialize)]

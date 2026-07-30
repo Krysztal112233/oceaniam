@@ -5,7 +5,7 @@ use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 use opentelemetry_otlp::{LogExporter, Protocol, SpanExporter, WithExportConfig, WithHttpConfig};
 use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::logs::SdkLoggerProvider;
-use opentelemetry_sdk::trace::SdkTracerProvider;
+use opentelemetry_sdk::trace::{Sampler, SdkTracerProvider};
 use snafu::ResultExt;
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::layer::SubscriberExt;
@@ -66,6 +66,8 @@ pub fn init(
     default_filter: &str,
 ) -> Result<TelemetryGuard, Error> {
     use tracing_subscriber::Layer;
+
+    validate_trace_sample_ratio(config.trace_sample_ratio)?;
 
     let service_name = kind.service_name(&config.service_name);
     let fmt_layer = tracing_subscriber::fmt::layer()
@@ -213,8 +215,26 @@ fn build_tracer_provider(
 
     Ok(SdkTracerProvider::builder()
         .with_resource(resource.clone())
+        .with_sampler(trace_sampler(config.trace_sample_ratio))
         .with_batch_exporter(exporter)
         .build())
+}
+
+fn validate_trace_sample_ratio(ratio: f64) -> Result<(), Error> {
+    if ratio.is_finite() && (0.0..=1.0).contains(&ratio) {
+        Ok(())
+    } else {
+        Err(ConfigSnafu {
+            msg: format!(
+                "telemetry.trace_sample_ratio must be finite and within 0.0..=1.0, got {ratio}"
+            ),
+        }
+        .build())
+    }
+}
+
+fn trace_sampler(ratio: f64) -> Sampler {
+    Sampler::ParentBased(Box::new(Sampler::TraceIdRatioBased(ratio)))
 }
 
 fn env_filter(default_filter: &str) -> EnvFilter {
@@ -262,5 +282,40 @@ mod tests {
                 .to_string()
                 .contains("neither telemetry.otlp_endpoint")
         );
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn trace_sample_ratio_validation_accepts_bounds_and_rejects_invalid_values() {
+        assert_eq!(TelemetryConfig::default().trace_sample_ratio, 1.0);
+        assert!(validate_trace_sample_ratio(0.0).is_ok());
+        assert!(validate_trace_sample_ratio(1.0).is_ok());
+        assert!(validate_trace_sample_ratio(f64::NAN).is_err());
+        assert!(validate_trace_sample_ratio(f64::INFINITY).is_err());
+        assert!(validate_trace_sample_ratio(-0.1).is_err());
+        assert!(validate_trace_sample_ratio(1.1).is_err());
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn trace_sampler_respects_zero_and_full_ratios() {
+        use opentelemetry::trace::{Tracer as _, TracerProvider as _};
+        use opentelemetry_sdk::trace::{InMemorySpanExporter, SimpleSpanProcessor};
+
+        for (ratio, expected) in [(0.0, 0), (1.0, 1)] {
+            let exporter = InMemorySpanExporter::default();
+            let provider = SdkTracerProvider::builder()
+                .with_sampler(trace_sampler(ratio))
+                .with_span_processor(SimpleSpanProcessor::new(exporter.clone()))
+                .build();
+            let tracer = provider.tracer("sampling-test");
+            drop(tracer.start("root"));
+            provider.force_flush().expect("flush spans");
+            assert_eq!(
+                exporter.get_finished_spans().expect("finished spans").len(),
+                expected
+            );
+            provider.shutdown().expect("shutdown provider");
+        }
     }
 }

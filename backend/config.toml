@@ -24,6 +24,8 @@ secure = false
 [telemetry]
 enabled = false
 service_name = "oceaniam"
+# Head-sampling ratio for traces, from 0.0 to 1.0. Defaults to 1.0.
+trace_sample_ratio = 1.0
 # Full OTLP/HTTP protobuf endpoints; paths are used as-is.
 # otlp_endpoint = "http://localhost:4318/v1/logs"
 # otlp_traces_endpoint = "http://localhost:4318/v1/traces"
