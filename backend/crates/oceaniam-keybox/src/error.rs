@@ -61,6 +61,12 @@ pub enum Error {
         source: oceaniam_common::crypto::CryptoError,
         location: Location,
     },
+
+    #[snafu(display("CPU-bound task join error: {source} at {location}"))]
+    Join {
+        source: tokio::task::JoinError,
+        location: Location,
+    },
 }
 
 impl Error {
@@ -141,6 +147,15 @@ impl From<oceaniam_database::Error> for Error {
                 msg,
                 location: snafu::location!(),
             },
+        }
+    }
+}
+
+impl From<tokio::task::JoinError> for Error {
+    fn from(source: tokio::task::JoinError) -> Self {
+        Self::Join {
+            source,
+            location: snafu::location!(),
         }
     }
 }

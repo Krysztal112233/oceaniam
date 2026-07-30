@@ -4,6 +4,7 @@ use oceaniam_auth::{jwks::Jwk, jwt::JwtCodec};
 use oceaniam_common::{
     consts,
     crypto::{EncryptedBlob, MasterKey},
+    run_cpu_bound,
 };
 use oceaniam_database::model::key_boxes::Model as Key;
 use rsa::{
@@ -13,6 +14,7 @@ use rsa::{
 };
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
+use tracing::field::Empty;
 use uuid::Uuid;
 
 use crate::{
@@ -33,6 +35,43 @@ pub struct RsaKey {
 impl RsaKey {
     pub fn new(key_id: Uuid, key_alg: impl Into<KeyAlg>) -> Self {
         Self::with_bit_size(key_id, key_alg, 4096).unwrap()
+    }
+
+    pub async fn generate(key_id: Uuid, key_alg: impl Into<KeyAlg>) -> Result<Self, Error> {
+        Self::generate_with_bit_size(key_id, key_alg.into(), 4096).await
+    }
+
+    async fn generate_with_bit_size(
+        key_id: Uuid,
+        key_alg: KeyAlg,
+        bit_size: usize,
+    ) -> Result<Self, Error> {
+        let queue_span = tracing::info_span!(
+            "keybox.rsa.queue",
+            otel.kind = "internal",
+            cpu.operation = "rsa.generate",
+            rsa.bits = bit_size,
+            rsa.algorithm = ?key_alg,
+        );
+
+        run_cpu_bound(queue_span, move |parent| {
+            let span = tracing::info_span!(
+                parent: &parent,
+                "keybox.rsa.generate",
+                otel.kind = "internal",
+                otel.status_code = Empty,
+                otel.status_description = Empty,
+                rsa.bits = bit_size,
+                rsa.algorithm = ?key_alg,
+            );
+            let result = span.in_scope(|| Self::with_bit_size(key_id, key_alg, bit_size));
+            if result.is_err() {
+                span.record("otel.status_code", "ERROR");
+                span.record("otel.status_description", "RSA key generation failed");
+            }
+            result
+        })
+        .await?
     }
 
     pub fn with_bit_size(
@@ -60,6 +99,12 @@ impl RsaKey {
 }
 
 impl TryIntoJwk for RsaKey {
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.rsa.to_jwk",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     fn try_into_jwk(self) -> Result<oceaniam_auth::jwks::Jwk, Error> {
         // NOTE: ONLY SUPPORT PKCS1 DER. WHAT THE FUCK.
         let mut der = self.private.to_pkcs1_der().unwrap().to_bytes();
@@ -85,6 +130,12 @@ pub struct SecretField {
 }
 
 impl SecretField {
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.private_key.seal",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub fn from_rsa_private(private: RsaPrivateKey, master_key: &MasterKey) -> Result<Self, Error> {
         use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
 
@@ -106,6 +157,12 @@ impl SecretField {
 impl FromSecretField for RsaKey {
     type Type = RsaPrivateKey;
 
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.private_key.unseal",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     fn from_secret_field(value: Value, master_key: &MasterKey) -> Result<Self::Type, Error> {
         use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
 
@@ -179,6 +236,12 @@ impl TryIntoKeyModel for RsaKey {
 
 impl RsaKey {
     /// Decrypt the private key from a DB `Key` model.
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.rsa.from_model",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub fn from_key(key: Key, master_key: &MasterKey) -> Result<Self, Error> {
         let Key {
             id: key_id,
@@ -196,6 +259,12 @@ impl RsaKey {
     }
 
     /// Encrypt this key into a `RawKey` for storage.
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.rsa.into_raw",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub fn into_raw_key(self, master_key: &MasterKey) -> Result<RawKey, Error> {
         let RsaKey {
             key_id: id,
@@ -211,6 +280,12 @@ impl RsaKey {
     }
 
     /// Decrypt the private key from a `RawKey`.
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.rsa.from_raw",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub fn from_raw_key(raw: RawKey, master_key: &MasterKey) -> Result<Self, Error> {
         let RawKey {
             key_id: id,
@@ -230,6 +305,12 @@ impl<T> JwtCodec<T> for RsaKey
 where
     T: DeserializeOwned + Serialize,
 {
+    #[tracing::instrument(
+        level = "info",
+        name = "auth.jwt.encode",
+        skip_all,
+        fields(otel.kind = "internal", key.id = %self.key_id, jwt.algorithm = ?self.key_alg)
+    )]
     fn encode(&self, header: Header, claim: T) -> Result<String, oceaniam_auth::error::Error> {
         let der = self
             .private
@@ -245,6 +326,12 @@ where
         Ok(encode(&header, &claim, &key)?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "auth.jwt.decode",
+        skip_all,
+        fields(otel.kind = "internal", key.id = %self.key_id, jwt.algorithm = ?self.key_alg)
+    )]
     fn decode(
         &self,
         jwt: &[u8],
@@ -266,13 +353,35 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::io::{self, Write};
+    use std::sync::{Arc, Mutex};
+
     use itertools::Itertools;
     use jsonwebtoken::{Algorithm, TokenData};
     use oceaniam_auth::jwt::{ClaimHelper, SystemClaim};
     use tap::Tap;
+    use tracing::Instrument as _;
+    use tracing_subscriber::fmt::format::FmtSpan;
     use uuid::Uuid;
 
     use super::*;
+
+    #[derive(Clone)]
+    struct Buffer(Arc<Mutex<Vec<u8>>>);
+
+    impl Write for Buffer {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            self.0
+                .lock()
+                .expect("trace buffer lock")
+                .extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
 
     const SUPPORTED_ALGORITHM: &[Algorithm] = &[
         Algorithm::PS256,
@@ -400,5 +509,36 @@ mod tests {
         let key = RsaKey::new(Uuid::now_v7(), KeyAlg::try_from(Algorithm::RS512).unwrap());
 
         assert!(key.try_into_jwk().is_ok())
+    }
+
+    // NOTE: AI-generated test
+    #[tokio::test]
+    async fn rsa_generation_span_crosses_blocking_dispatch() {
+        let bytes = Arc::new(Mutex::new(Vec::new()));
+        let writer = bytes.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .with_writer(move || Buffer(writer.clone()))
+            .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
+            .finish();
+        let dispatch = tracing::Dispatch::new(subscriber);
+        let _default = tracing::dispatcher::set_default(&dispatch);
+
+        async {
+            RsaKey::generate_with_bit_size(
+                Uuid::now_v7(),
+                KeyAlg::try_from(Algorithm::RS512).expect("supported algorithm"),
+                1024,
+            )
+            .await
+            .expect("generate test key");
+        }
+        .instrument(tracing::info_span!("test.request"))
+        .await;
+
+        let output = String::from_utf8(bytes.lock().expect("trace buffer lock").clone())
+            .expect("utf8 trace output");
+        assert!(output.contains("keybox.rsa.queue"));
+        assert!(output.contains("keybox.rsa.generate"));
+        assert!(output.contains("test.request"));
     }
 }

@@ -2632,7 +2632,9 @@ dependencies = [
  "serde_json",
  "snafu",
  "tap",
+ "tokio",
  "tracing",
+ "tracing-subscriber",
  "uuid",
  "zeroize",
 ]

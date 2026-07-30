@@ -66,6 +66,12 @@ impl ManagedKeyBoxes {
         }
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.get_keybox",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn get_keybox(&self, tenant_id: Uuid) -> Result<KeyBox, Error> {
         let database = self.database.clone();
         let master_key = self.master_key.clone();
@@ -85,7 +91,7 @@ impl ManagedKeyBoxes {
                 if keybox.get_keys().is_empty() {
                     debug!(%tenant_id, "keybox is empty, auto-creating default keybox");
                     let mut keybox = KeyBox::new(tenant_id, master_key);
-                    keybox.rotate().inspect_err(|e| error!("{e}"))?;
+                    keybox.rotate().await.inspect_err(|e| error!("{e}"))?;
                     keybox
                         .write_to(&database)
                         .await
@@ -98,6 +104,12 @@ impl ManagedKeyBoxes {
             .await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.get_jwks",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn get_jwks(&self, tenant_id: Uuid) -> Result<JwkSet, Error> {
         Ok(self
             .jwks
@@ -120,6 +132,12 @@ impl ManagedKeyBoxes {
         Ok(keybox)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.create_keybox_in_tx",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn create_keybox_in_tx(
         &self,
         tenant_id: Uuid,
@@ -127,7 +145,7 @@ impl ManagedKeyBoxes {
     ) -> Result<KeyBox, Error> {
         let mut keybox = KeyBox::new(tenant_id, self.master_key.clone());
 
-        keybox.rotate().inspect_err(|e| error!("{e}"))?;
+        keybox.rotate().await.inspect_err(|e| error!("{e}"))?;
 
         keybox
             .write_to(transaction)
@@ -151,9 +169,15 @@ impl ManagedKeyBoxes {
     /// up the new state immediately.
     ///
     /// Delegates the invariant enforcement to [`KeyBox::rotate`].
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.rotate_key",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn rotate_key(&self, tenant_id: Uuid) -> Result<(), Error> {
         let mut keybox = self.get_keybox(tenant_id).await?;
-        keybox.rotate()?;
+        keybox.rotate().await?;
 
         keybox.write_to(&self.database).await?;
 
@@ -163,6 +187,12 @@ impl ManagedKeyBoxes {
         Ok(())
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.revoke_key",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn revoke_key(&self, tenant_id: Uuid, key_id: Uuid) -> Result<(), Error> {
         let mut keybox = self.get_keybox(tenant_id).await?;
 
@@ -175,6 +205,12 @@ impl ManagedKeyBoxes {
         Ok(())
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.sign_jwt",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn sign_jwt<T>(
         self,
         sub: Uuid,
@@ -241,6 +277,12 @@ impl ManagedKeyBoxes {
             .map_err(Into::into)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.sign_system_jwt",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn sign_system_jwt(self, sub: Uuid) -> Result<EncodedJwt<SystemClaim>, Error> {
         let config = {
             let model = Applications::get_system_application(&self.database).await?;

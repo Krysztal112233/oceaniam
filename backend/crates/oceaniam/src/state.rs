@@ -69,6 +69,12 @@ pub struct AppState {
 }
 
 impl AppState {
+    #[tracing::instrument(
+        level = "info",
+        name = "state.initialize",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn new(
         database: DatabaseConnection,
         master_key: Arc<MasterKey>,
@@ -122,6 +128,12 @@ impl AppState {
     }
 }
 
+#[tracing::instrument(
+    level = "info",
+    name = "keybox.system.load_jwks",
+    skip_all,
+    fields(otel.kind = "internal")
+)]
 async fn initial_system_jwks(
     database: DatabaseConnection,
     master_key: Arc<MasterKey>,
@@ -144,6 +156,12 @@ async fn initial_system_jwks(
     Ok(system_jwks)
 }
 
+#[tracing::instrument(
+    level = "info",
+    name = "keybox.system.initialize",
+    skip_all,
+    fields(otel.kind = "internal")
+)]
 async fn initial_system_keybox(
     keybox: ManagedKeyBoxes,
     database: &impl SafeTransactionConnectionTrait,
@@ -158,7 +176,7 @@ async fn initial_system_keybox(
             error!("could not find any system keys, creating directly: {e}");
 
             let mut kb = KeyBox::new(consts::SYSTEM_TENANT_UUID, master_key);
-            kb.rotate().inspect_err(|e| error!("{e}"))?;
+            kb.rotate().await.inspect_err(|e| error!("{e}"))?;
 
             info!(
                 "the system keybox has been generated and is about to be written to the database."

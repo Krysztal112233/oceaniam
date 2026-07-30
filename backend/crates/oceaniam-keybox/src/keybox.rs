@@ -197,6 +197,12 @@ impl KeyBox {
     ///
     /// Returns `Some(Ok(key))` if the key exists and can be decrypted,
     /// `Some(Err(e))` if decryption fails, or `None` if key doesn't exist
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.key.load",
+        skip_all,
+        fields(otel.kind = "internal", tenant.id = %self.tenant_id, key.id = %key_id)
+    )]
     pub fn get_key(&self, key_id: &Uuid) -> Option<Result<RsaKey, Error>> {
         self.get_raw_key(key_id)
             .map(|raw| RsaKey::from_raw_key(raw, &self.master_key))
@@ -206,6 +212,12 @@ impl KeyBox {
     /// and recording the revocation timestamp.
     ///
     /// Returns an error if the key does not exist in this keybox.
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.revoke",
+        skip_all,
+        fields(otel.kind = "internal", tenant.id = %self.tenant_id, key.id = %key_id)
+    )]
     pub fn revoke_key(&mut self, key_id: &Uuid) -> Result<(), Error> {
         let Some(mut key) = self.keys.get(key_id).cloned() else {
             return Err(Error::KeyNotFound {
@@ -225,8 +237,14 @@ impl KeyBox {
     ///
     /// This is a pure in-memory operation — the caller is responsible for
     /// persisting via [`KeyBox::write_to`].
-    pub fn rotate_key(&mut self) -> Result<Key, Error> {
-        let rsa_key = RsaKey::new(Uuid::now_v7(), sea_orm_active_enums::KeyAlg::Ps512);
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.rotate_one",
+        skip_all,
+        fields(otel.kind = "internal", tenant.id = %self.tenant_id)
+    )]
+    pub async fn rotate_key(&mut self) -> Result<Key, Error> {
+        let rsa_key = RsaKey::generate(Uuid::now_v7(), sea_orm_active_enums::KeyAlg::Ps512).await?;
         let key_id = rsa_key.key_id();
 
         self.add_key_with_option(rsa_key, KeyOption::default())?;
@@ -259,6 +277,12 @@ impl KeyBox {
     }
 
     /// Gets the latest key with the specified status and decrypts it to an `RsaKey`.
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.key.load_latest",
+        skip_all,
+        fields(otel.kind = "internal", tenant.id = %self.tenant_id, key.status = ?status)
+    )]
     pub fn get_latest_key(&self, status: KeyStatus) -> Option<Result<RsaKey, Error>> {
         self.get_latest_raw_key(status)
             .map(|raw| RsaKey::from_raw_key(raw, &self.master_key))
@@ -267,6 +291,12 @@ impl KeyBox {
     /// Writes all keys in this keybox to the database
     ///
     /// Persists all key changes to the database for the application
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.write",
+        skip_all,
+        fields(otel.kind = "internal", tenant.id = %self.tenant_id, key.count = self.keys.len())
+    )]
     pub async fn write_to(
         &self,
         database: &impl SafeTransactionConnectionTrait,
@@ -322,7 +352,13 @@ impl KeyBox {
         changed
     }
 
-    pub fn rotate(&mut self) -> Result<(), Error> {
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.rotate",
+        skip_all,
+        fields(otel.kind = "internal", tenant.id = %self.tenant_id)
+    )]
+    pub async fn rotate(&mut self) -> Result<(), Error> {
         self.update_keys_status();
 
         let now: DateTime<FixedOffset> = Utc::now().into();
@@ -346,7 +382,7 @@ impl KeyBox {
                 retired_at: now + interval,
                 expires_at: now + interval * 2,
             };
-            let key = RsaKey::new(Uuid::now_v7(), algorithm.clone());
+            let key = RsaKey::generate(Uuid::now_v7(), algorithm.clone()).await?;
             self.add_key_with_option(key, options)?;
         }
 
@@ -357,7 +393,7 @@ impl KeyBox {
                 retired_at: now + interval * 2,
                 expires_at: now + interval * 3,
             };
-            let key = RsaKey::new(Uuid::now_v7(), algorithm);
+            let key = RsaKey::generate(Uuid::now_v7(), algorithm).await?;
             self.add_key_with_option(key, options)?;
         }
 
@@ -675,11 +711,11 @@ mod tests {
     }
 
     // NOTE: AI-generated test
-    #[test]
-    fn test_rotate_creates_active_and_pending_when_empty() {
+    #[tokio::test]
+    async fn test_rotate_creates_active_and_pending_when_empty() {
         let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
 
-        keybox.rotate().unwrap();
+        keybox.rotate().await.unwrap();
 
         assert!(
             keybox.get_latest_raw_key(KeyStatus::Active).is_some(),
@@ -692,13 +728,13 @@ mod tests {
     }
 
     // NOTE: AI-generated test
-    #[test]
-    fn test_rotate_adds_only_pending_when_active_exists() {
+    #[tokio::test]
+    async fn test_rotate_adds_only_pending_when_active_exists() {
         let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
         keybox.add_key(create_rsa_key()).unwrap();
         let key_count_before = keybox.get_keys().len();
 
-        keybox.rotate().unwrap();
+        keybox.rotate().await.unwrap();
 
         let key_count_after = keybox.get_keys().len();
         assert!(
@@ -716,8 +752,8 @@ mod tests {
     }
 
     // NOTE: AI-generated test
-    #[test]
-    fn test_rotate_adds_only_active_when_pending_exists() {
+    #[tokio::test]
+    async fn test_rotate_adds_only_active_when_pending_exists() {
         let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
         let now: DateTime<FixedOffset> = Utc::now().into();
         let raw_key = create_rsa_standalone_key();
@@ -733,7 +769,7 @@ mod tests {
         );
         let key_count_before = keybox.get_keys().len();
 
-        keybox.rotate().unwrap();
+        keybox.rotate().await.unwrap();
 
         let key_count_after = keybox.get_keys().len();
         assert!(
@@ -751,8 +787,8 @@ mod tests {
     }
 
     // NOTE: AI-generated test
-    #[test]
-    fn test_rotate_is_noop_when_active_and_pending_exist() {
+    #[tokio::test]
+    async fn test_rotate_is_noop_when_active_and_pending_exist() {
         let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
         keybox.add_key(create_rsa_key()).unwrap();
         // Add an extra key that will remain Pending (activated_at in the future)
@@ -770,7 +806,7 @@ mod tests {
         );
         let key_count_before = keybox.get_keys().len();
 
-        keybox.rotate().unwrap();
+        keybox.rotate().await.unwrap();
 
         assert_eq!(
             keybox.get_keys().len(),

@@ -38,6 +38,67 @@ async fn log_key_rotation(
     }
 }
 
+#[tracing::instrument(
+    level = "info",
+    name = "worker.key_rotation.tenant",
+    skip_all,
+    fields(otel.kind = "internal", tenant.id = %tenant_id)
+)]
+async fn process_tenant(
+    tenant_id: Uuid,
+    threshold: Duration,
+    context: &WorkerContext,
+) -> Result<(), Error> {
+    let keys = KeyBoxes::get_tenant_keys(tenant_id, &context.database).await?;
+
+    if keys.is_empty() {
+        debug!(%tenant_id, "no keys found, skipping");
+        return Ok(());
+    }
+
+    let keys_map = keys.into_iter().map(|key| (key.id, key)).collect();
+    let mut keybox = KeyBox::with_keys(tenant_id, keys_map, context.master_key.clone());
+
+    if keybox.update_keys_status() {
+        debug!(%tenant_id, "key statuses refreshed");
+        if let Err(error) = keybox.write_to(&context.database).await {
+            error!(%tenant_id, %error, "failed to persist refreshed key statuses");
+        }
+    }
+
+    let should_rotate = keybox
+        .get_keys()
+        .values()
+        .filter(|key| key.status == KeyStatus::Active)
+        .max_by_key(|key| key.activated_at)
+        .is_none_or(|key| {
+            key.expires_at.signed_duration_since(Utc::now()).num_days() < threshold.num_days()
+        });
+
+    if should_rotate {
+        match keybox.rotate().await {
+            Ok(()) => {
+                if let Err(error) = keybox.write_to(&context.database).await {
+                    error!(%tenant_id, %error, "failed to persist rotated key");
+                } else {
+                    let latest_active = keybox
+                        .get_latest_raw_key(KeyStatus::Active)
+                        .and_then(|raw| keybox.get_raw_key_unchecked(&raw.key_id));
+                    if let Some(ref new_key) = latest_active {
+                        info!(%tenant_id, new_key_id = %new_key.id, "key rotation completed");
+                        log_key_rotation(tenant_id, new_key.id, &context.database).await;
+                    }
+                }
+            }
+            Err(error) => {
+                error!(%tenant_id, %error, "failed to rotate key");
+            }
+        }
+    }
+
+    Ok(())
+}
+
 struct KeyRotationWorker;
 
 #[async_trait]
@@ -61,53 +122,7 @@ impl Worker<WorkerContext> for KeyRotationWorker {
         let threshold = Duration::days(7);
 
         for tenant in &tenants {
-            let keys = KeyBoxes::get_tenant_keys(tenant.id, &context.database).await?;
-
-            if keys.is_empty() {
-                debug!(tenant_id = %tenant.id, "no keys found, skipping");
-                continue;
-            }
-
-            let keys_map = keys.into_iter().map(|k| (k.id, k)).collect();
-            let mut keybox = KeyBox::with_keys(tenant.id, keys_map, context.master_key.clone());
-
-            if keybox.update_keys_status() {
-                debug!(tenant_id = %tenant.id, "key statuses refreshed");
-                if let Err(e) = keybox.write_to(&context.database).await {
-                    error!(%tenant.id, error = %e, "failed to persist refreshed key statuses");
-                }
-            }
-
-            let should_rotate = keybox
-                .get_keys()
-                .values()
-                .filter(|k| k.status == KeyStatus::Active)
-                .max_by_key(|k| k.activated_at)
-                .is_none_or(|key| {
-                    key.expires_at.signed_duration_since(Utc::now()).num_days()
-                        < threshold.num_days()
-                });
-
-            if should_rotate {
-                match keybox.rotate() {
-                    Ok(()) => {
-                        if let Err(e) = keybox.write_to(&context.database).await {
-                            error!(%tenant.id, error = %e, "failed to persist rotated key");
-                        } else {
-                            let latest_active = keybox
-                                .get_latest_raw_key(KeyStatus::Active)
-                                .and_then(|raw| keybox.get_raw_key_unchecked(&raw.key_id));
-                            if let Some(ref new_key) = latest_active {
-                                info!(%tenant.id, new_key_id = %new_key.id, "key rotation completed");
-                                log_key_rotation(tenant.id, new_key.id, &context.database).await;
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        error!(%tenant.id, error = %e, "failed to rotate key");
-                    }
-                }
-            }
+            process_tenant(tenant.id, threshold, context).await?;
         }
 
         Ok(())
