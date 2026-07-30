@@ -2,11 +2,15 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use crate::error::Error;
 use axum::http::StatusCode;
+use futures::{StreamExt, TryStreamExt, pin_mut, stream};
 use moka::future::Cache;
 use oceaniam_api::{PageParam, PagedResponse};
 use oceaniam_application_secret::{ApplicationSecret, ApplicationSecretKeyring, stored_prefix};
 use oceaniam_database::{
-    helper::{applications::ApplicationHelper, applications_secrets::ApplicationSecretsHelper},
+    helper::{
+        applications::ApplicationHelper,
+        applications_secrets::{ActiveSecretCandidate, ApplicationSecretsHelper},
+    },
     model::{
         application_secrets::Model as SecretModel,
         prelude::{ApplicationSecrets, Applications},
@@ -248,65 +252,98 @@ impl Secrets {
     pub async fn find_secret_belong_to(&self, secret: &str) -> Result<Vec<Uuid>, Error> {
         let prefix = stored_prefix(secret)
             .map_err(|_| Error::with_code(StatusCode::NOT_FOUND, "application secret not found"))?;
-        let candidates =
-            ApplicationSecrets::find_active_secret_candidates(prefix, &self.database).await?;
+        let candidates = stream::iter(
+            ApplicationSecrets::find_active_secret_candidates_with_application_ids(
+                prefix,
+                &self.database,
+            )
+            .await?,
+        )
+        .map(Ok::<_, Error>)
+        .try_filter_map(|candidate| self.verify_candidate(secret, candidate));
 
-        for candidate in candidates {
-            let is_match = self
-                .keyring
-                .verify(
-                    candidate.hmac_key_version,
-                    secret,
-                    &candidate.secret_verifier,
-                )
-                .map_err(application_secret_internal_error)?;
+        pin_mut!(candidates);
 
-            if !is_match {
-                continue;
-            }
+        candidates
+            .try_next()
+            .await?
+            .ok_or_else(|| Error::with_code(StatusCode::NOT_FOUND, "application secret not found"))
+    }
 
-            if candidate.hmac_key_version != self.keyring.current_version() {
-                let current = self
-                    .keyring
-                    .verifier_for_current(secret)
-                    .map_err(application_secret_internal_error)?;
-                let old_hmac_key_version = candidate.hmac_key_version;
-                let new_hmac_key_version = current.hmac_key_version;
-                match ApplicationSecrets::upgrade_secret_verifier(
-                    candidate.id,
-                    old_hmac_key_version,
-                    &candidate.secret_verifier,
-                    new_hmac_key_version,
-                    current.verifier.to_vec(),
-                    &self.database,
-                )
-                .await
-                {
-                    Ok(true) => self.caches.by_id.invalidate(&candidate.id).await,
-                    Ok(false) => tracing::warn!(
-                        secret_id = %candidate.id,
-                        old_hmac_key_version,
-                        new_hmac_key_version,
-                        "application secret verifier upgrade skipped after concurrent update"
-                    ),
-                    Err(_) => tracing::warn!(
-                        secret_id = %candidate.id,
-                        old_hmac_key_version,
-                        new_hmac_key_version,
-                        "application secret verifier upgrade failed; authentication remains valid"
-                    ),
-                }
-            }
+    /// Verifies a single candidate secret. Returns its bound application IDs on match, lazily
+    /// upgrading the stored verifier first when it was produced by an outdated HMAC key version.
+    async fn verify_candidate(
+        &self,
+        secret: &str,
+        ActiveSecretCandidate {
+            secret: candidate,
+            application_ids,
+        }: ActiveSecretCandidate,
+    ) -> Result<Option<Vec<Uuid>>, Error> {
+        let is_match = self
+            .keyring
+            .verify(
+                candidate.hmac_key_version,
+                secret,
+                &candidate.secret_verifier,
+            )
+            .map_err(application_secret_internal_error)?;
 
-            return ApplicationSecrets::get_application_ids_of_secret(candidate.id, &self.database)
-                .await
-                .map_err(Into::into);
+        if !is_match {
+            return Ok(None);
         }
 
-        Err(Error::with_code(
-            StatusCode::NOT_FOUND,
-            "application secret not found",
-        ))
+        self.upgrade_outdated_verifier(secret, &candidate).await?;
+
+        Ok(Some(application_ids))
+    }
+
+    /// Best-effort lazy upgrade of a verifier produced by an outdated HMAC key version.
+    ///
+    /// A lost concurrent update or database failure only logs a warning: the secret already
+    /// verified successfully, so authentication remains valid.
+    async fn upgrade_outdated_verifier(
+        &self,
+        secret: &str,
+        candidate: &SecretModel,
+    ) -> Result<(), Error> {
+        let Some(current) = (candidate.hmac_key_version != self.keyring.current_version())
+            .then(|| self.keyring.verifier_for_current(secret))
+            .transpose()
+            .map_err(application_secret_internal_error)?
+        else {
+            return Ok(());
+        };
+
+        let old_hmac_key_version = candidate.hmac_key_version;
+        let new_hmac_key_version = current.hmac_key_version;
+
+        match ApplicationSecrets::upgrade_secret_verifier(
+            candidate.id,
+            old_hmac_key_version,
+            &candidate.secret_verifier,
+            new_hmac_key_version,
+            current.verifier.to_vec(),
+            &self.database,
+        )
+        .await
+        {
+            Ok(true) => self.caches.by_id.invalidate(&candidate.id).await,
+            Ok(false) => tracing::warn!(
+                secret_id = %candidate.id,
+                %old_hmac_key_version,
+                %new_hmac_key_version,
+                "application secret verifier upgrade skipped after concurrent update"
+            ),
+            Err(_) => tracing::warn!(
+                secret_id = %candidate.id,
+                %old_hmac_key_version,
+                %new_hmac_key_version,
+                "application secret verifier upgrade failed; authentication remains valid"
+            ),
+        }
+
+        Ok(())
     }
 
     /// Returns all secrets bound to the given application, backed by the `by_application` cache.

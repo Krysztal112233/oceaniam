@@ -625,6 +625,62 @@ async fn application_secret_authenticates_across_all_prefix_candidates() {
 
 // NOTE: AI-generated test
 #[tokio::test]
+async fn application_secret_authentication_tracks_multiple_bindings_immediately() {
+    let app = spawn_app_with_isolated_schema().await;
+    let token = app.root_signin().await;
+    let (tenant_id, first_application_id, secret_id, plaintext) =
+        create_bound_secret(&app, &token).await;
+    let second_application = app.api_create_application(&token, &tenant_id).await;
+    let second_application_id = second_application["application_id"].as_str().unwrap();
+
+    let bind = app
+        .client
+        .post(app.url(&format!("/secrets/{secret_id}/bindings")))
+        .header("Authorization", format!("Bearer {token}"))
+        .json(&json!({ "application_id": second_application_id }))
+        .send()
+        .await
+        .unwrap();
+    assert!(bind.status().is_success());
+
+    for application_id in [&first_application_id, second_application_id] {
+        let response = app
+            .client
+            .get(app.url(&format!(
+                "/tenants/{tenant_id}/applications/{application_id}/configuration"
+            )))
+            .header("X-OceanIAM-Application-Secret", &plaintext)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+    }
+
+    let unbind = app
+        .client
+        .delete(app.url(&format!(
+            "/secrets/{secret_id}/bindings/{second_application_id}"
+        )))
+        .header("Authorization", format!("Bearer {token}"))
+        .send()
+        .await
+        .unwrap();
+    assert!(unbind.status().is_success());
+
+    let rejected = app
+        .client
+        .get(app.url(&format!(
+            "/tenants/{tenant_id}/applications/{second_application_id}/configuration"
+        )))
+        .header("X-OceanIAM-Application-Secret", plaintext)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(rejected.status(), 403);
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
 async fn revoked_secret_is_rejected_immediately() {
     let app = spawn_app_with_isolated_schema().await;
     let token = app.root_signin().await;

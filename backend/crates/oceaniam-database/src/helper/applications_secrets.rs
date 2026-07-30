@@ -15,6 +15,12 @@ use crate::{
     model::{self},
 };
 
+/// Active application secret and its current bindings, fetched in one database query.
+pub struct ActiveSecretCandidate {
+    pub secret: model::application_secrets::Model,
+    pub application_ids: Vec<Uuid>,
+}
+
 #[async_trait::async_trait]
 pub trait ApplicationSecretsHelper {
     #[tracing::instrument(
@@ -216,6 +222,36 @@ pub trait ApplicationSecretsHelper {
             .order_by_asc(Id)
             .all(database)
             .await?)
+    }
+
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications_secrets.find_active_secret_candidates_with_application_ids",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
+    async fn find_active_secret_candidates_with_application_ids(
+        secret_prefix: &str,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<Vec<ActiveSecretCandidate>, Error> {
+        use model::application_secrets::Column::*;
+
+        Ok(ApplicationSecrets::find()
+            .filter(SecretPrefix.eq(secret_prefix))
+            .filter(RevokedAt.is_null())
+            .order_by_asc(Id)
+            .find_with_related(ApplicationSecretBindings)
+            .all(database)
+            .await?
+            .into_iter()
+            .map(|(secret, bindings)| ActiveSecretCandidate {
+                secret,
+                application_ids: bindings
+                    .into_iter()
+                    .map(|binding| binding.application_id)
+                    .collect(),
+            })
+            .collect())
     }
 
     #[tracing::instrument(
