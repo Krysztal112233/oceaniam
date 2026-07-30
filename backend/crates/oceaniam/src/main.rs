@@ -6,8 +6,8 @@ use mimalloc::MiMalloc;
 use oceaniam::app::{app, build_openapi_spec, build_state};
 use oceaniam::error::Error;
 use oceaniam_common::config::BackendConfig;
+use oceaniam_telemetry::{ProcessKind, init as init_telemetry};
 use tracing::{debug, error, info};
-use tracing_subscriber::EnvFilter;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -43,18 +43,20 @@ async fn main() -> Result<(), Error> {
 async fn run_server() -> Result<(), Error> {
     let _ = dotenvy::dotenv();
 
-    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("debug"));
-
-    tracing_subscriber::fmt()
-        .with_env_filter(env_filter)
-        .json()
-        .with_current_span(true)
-        .with_span_list(true)
-        .with_ansi(false)
-        .init();
-
-    let config = BackendConfig::new()
-        .inspect_err(|e| error!(error = %e, "failed to load backend config"))?;
+    let config = BackendConfig::new().map_err(|error| {
+        eprintln!("failed to load backend config: {error}");
+        Error::Internal {
+            msg: error.to_string(),
+            location: snafu::location!(),
+        }
+    })?;
+    let _telemetry =
+        init_telemetry(&config.telemetry, ProcessKind::Server, "debug").map_err(|error| {
+            Error::Internal {
+                msg: error.to_string(),
+                location: snafu::location!(),
+            }
+        })?;
 
     let addr = config.addr.clone();
     let cors = config.cors.clone();
@@ -78,7 +80,8 @@ async fn run_server() -> Result<(), Error> {
 }
 
 async fn generate_openapi(output: impl AsRef<Path>) -> Result<(), Error> {
-    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("debug"));
+    let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("debug"));
 
     tracing_subscriber::fmt().with_env_filter(env_filter).init();
 

@@ -11,6 +11,7 @@ members = [
 	"crates/oceaniam-database",
 	"crates/oceaniam-keybox",
 	"crates/oceaniam-permission",
+	"crates/oceaniam-telemetry",
 	"crates/oceaniam-vo",
 	"crates/oceaniam-worker",
 	"crates/oceaniam-worker-runtime",
@@ -49,6 +50,10 @@ moka = { version = "0.12", features = ["future"] }
 names = { version = "0.14", default-features = false }
 num_cpus = "1.17"
 parking_lot = "0.12"
+opentelemetry = { version = "0.32", default-features = false, features = ["logs", "trace"] }
+opentelemetry_sdk = { version = "0.32", default-features = false, features = ["logs", "trace", "internal-logs"] }
+opentelemetry-otlp = { version = "0.32", default-features = false, features = ["logs", "trace", "http-proto", "reqwest-blocking-client", "internal-logs"] }
+opentelemetry-appender-tracing = "0.32"
 rand = "0.8"
 rapidhash = "4.4"
 rayon = "1.11"
@@ -69,6 +74,7 @@ tokio = { version = "1", features = ["full"] }
 
 tower-http = { version = "0.6", features = ["trace", "cors"] }
 tracing = "0.1"
+tracing-opentelemetry = "0.33"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 url = { version = "2.5", features = ["serde"] }
 utoipa = { version = "*", features = ["chrono", "url", "uuid", "axum_extras"] }
@@ -94,6 +100,7 @@ oceaniam-credential = { path = "./crates/oceaniam-credential/" }
 oceaniam-database = { path = "./crates/oceaniam-database/" }
 oceaniam-keybox = { path = "./crates/oceaniam-keybox/" }
 oceaniam-permission = { path = "./crates/oceaniam-permission/" }
+oceaniam-telemetry = { path = "./crates/oceaniam-telemetry/" }
 oceaniam = { path = "./crates/oceaniam/" }
 oceaniam-worker = { path = "./crates/oceaniam-worker/" }
 oceaniam-worker-runtime = { path = "./crates/oceaniam-worker-runtime/" }

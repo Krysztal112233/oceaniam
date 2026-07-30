@@ -3,32 +3,34 @@ use std::sync::Arc;
 use mimalloc::MiMalloc;
 use oceaniam_common::config::BackendConfig;
 use oceaniam_database::setup::{connect, init_system};
+use oceaniam_telemetry::{ProcessKind, init as init_telemetry};
 use oceaniam_worker::error::Error;
 use oceaniam_worker::{WorkerContext, collect_workers};
 use oceaniam_worker_runtime::WorkerRuntime;
 use tokio::signal::unix::{SignalKind, signal};
 use tracing::{debug, error};
-use tracing_subscriber::EnvFilter;
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("debug"));
-
-    tracing_subscriber::fmt()
-        .with_env_filter(env_filter)
-        .json()
-        .with_current_span(true)
-        .with_span_list(true)
-        .with_ansi(false)
-        .init();
-
     let _ = dotenvy::dotenv();
 
-    let config =
-        BackendConfig::new().inspect_err(|e| error!(error = %e, "failed to load worker config"))?;
+    let config = BackendConfig::new().map_err(|error| {
+        eprintln!("failed to load worker config: {error}");
+        Error::Internal {
+            msg: error.to_string(),
+            location: snafu::location!(),
+        }
+    })?;
+    let _telemetry =
+        init_telemetry(&config.telemetry, ProcessKind::Worker, "info").map_err(|error| {
+            Error::Internal {
+                msg: error.to_string(),
+                location: snafu::location!(),
+            }
+        })?;
 
     let BackendConfig {
         database: database_config,

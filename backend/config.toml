@@ -21,4 +21,13 @@ allow_origin = "http://localhost:5173"
 [cookie]
 secure = false
 
+[telemetry]
+enabled = false
+service_name = "oceaniam"
+# Full OTLP/HTTP protobuf endpoints; paths are used as-is.
+# otlp_endpoint = "http://localhost:4318/v1/logs"
+# otlp_traces_endpoint = "http://localhost:4318/v1/traces"
+# [telemetry.otlp_headers]
+# Authorization = "Bearer ..."
+
 [workers]
