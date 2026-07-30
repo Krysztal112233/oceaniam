@@ -681,7 +681,7 @@ pub async fn patch_application_user_credentials(
     if let Some(password) = password {
         let argon2 = Argon2::default();
         credentials
-            .update_password_in_tx(user_id, password, &argon2, &transaction)
+            .update_password_in_tx(user_id, password, argon2, &transaction)
             .await
             .inspect_err(|e| {
                 error!(

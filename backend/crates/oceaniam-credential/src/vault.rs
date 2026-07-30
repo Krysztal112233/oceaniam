@@ -27,23 +27,41 @@ pub struct CredentialVault {
 
 impl CredentialVault {
     /// User must have at least password login method enabled.
-    pub fn with_password(password: impl AsRef<str>, argon2: &Argon2<'_>) -> Result<Self, Error> {
-        let phc = Password::with_password(password, argon2)?.into_phc();
+    #[tracing::instrument(
+        level = "info",
+        name = "credentials.password.create",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
+    pub async fn with_password(password: String, argon2: Argon2<'static>) -> Result<Self, Error> {
+        let phc = Password::with_password(password, argon2).await?.into_phc();
 
         Ok(Self { phc, totp: None })
     }
 
-    pub fn update_password(
+    #[tracing::instrument(
+        level = "info",
+        name = "credentials.password.update",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
+    pub async fn update_password(
         self,
-        password: impl AsRef<str>,
-        argon2: &Argon2<'_>,
+        password: String,
+        argon2: Argon2<'static>,
     ) -> Result<Self, Error> {
-        let phc = Password::with_password(password, argon2)?.into_phc();
+        let phc = Password::with_password(password, argon2).await?.into_phc();
 
         #[allow(clippy::needless_update)]
         Ok(Self { phc, ..self })
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "credentials.vault.write",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn write_to(
         &self,
         id: impl Into<Uuid>,
@@ -72,12 +90,24 @@ impl CredentialVault {
 }
 
 impl CredentialVault {
+    #[tracing::instrument(
+        level = "info",
+        name = "credentials.password.verify",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn verify_password(&self, password: impl AsRef<str>) -> Result<bool, Error> {
         Password::from_phc(self.phc.clone())
             .verify(password.as_ref())
             .await
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "credentials.vault.verify_totp",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub fn verify_totp(
         &self,
         token: impl AsRef<str>,

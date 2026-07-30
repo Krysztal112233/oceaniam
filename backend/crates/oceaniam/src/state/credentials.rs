@@ -53,6 +53,12 @@ impl ManagedCredentialVaults {
         self.get_credential_in_tx(id, &self.database).await
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "credentials.get",
+        skip_all,
+        fields(otel.kind = "internal", subject.id = %id)
+    )]
     pub async fn get_credential_in_tx(
         &self,
         id: Uuid,
@@ -92,6 +98,12 @@ impl ManagedCredentialVaults {
         self.drop_credential_in_tx(id, &self.database).await
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "credentials.delete",
+        skip_all,
+        fields(otel.kind = "internal", subject.id = %id)
+    )]
     pub async fn drop_credential_in_tx(
         &self,
         id: Uuid,
@@ -127,21 +139,27 @@ impl ManagedCredentialVaults {
     pub async fn create_with_password(
         &self,
         subject_id: Uuid,
-        password: impl AsRef<str> + Send,
-        argon2: &Argon2<'_>,
+        password: impl Into<String> + Send,
+        argon2: Argon2<'static>,
     ) -> Result<model::credentials::Model, Error> {
         self.create_with_password_in_tx(subject_id, password, argon2, &self.database)
             .await
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "credentials.create",
+        skip_all,
+        fields(otel.kind = "internal", subject.id = %subject_id)
+    )]
     pub async fn create_with_password_in_tx(
         &self,
         subject_id: Uuid,
-        password: impl AsRef<str> + Send,
-        argon2: &Argon2<'_>,
+        password: impl Into<String> + Send,
+        argon2: Argon2<'static>,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::credentials::Model, Error> {
-        let vault = CredentialVault::with_password(password, argon2)?;
+        let vault = CredentialVault::with_password(password.into(), argon2).await?;
 
         let model = vault.write_to(subject_id, database).await?;
 
@@ -153,30 +171,43 @@ impl ManagedCredentialVaults {
     pub async fn update_password(
         &self,
         subject_id: Uuid,
-        password: impl AsRef<str> + Send,
-        argon2: &Argon2<'_>,
+        password: impl Into<String> + Send,
+        argon2: Argon2<'static>,
     ) -> Result<model::credentials::Model, Error> {
         self.update_password_in_tx(subject_id, password, argon2, &self.database)
             .await
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "credentials.update",
+        skip_all,
+        fields(otel.kind = "internal", subject.id = %subject_id)
+    )]
     pub async fn update_password_in_tx(
         &self,
         subject_id: Uuid,
-        password: impl AsRef<str> + Send,
-        argon2: &Argon2<'_>,
+        password: impl Into<String> + Send,
+        argon2: Argon2<'static>,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::credentials::Model, Error> {
         Ok(self
             .get_credential_in_tx(subject_id, database)
             .await?
-            .update_password(password, argon2)?
+            .update_password(password.into(), argon2)
+            .await?
             .write_to(subject_id, database)
             .await?)
     }
 }
 
 impl ManagedCredentialVaults {
+    #[tracing::instrument(
+        level = "info",
+        name = "credentials.verify_totp",
+        skip_all,
+        fields(otel.kind = "internal", subject.id = %subject_id)
+    )]
     pub async fn verify_totp(
         &self,
         subject_id: Uuid,
@@ -205,6 +236,12 @@ impl ManagedCredentialVaults {
         Ok(true)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "credentials.verify_password",
+        skip_all,
+        fields(otel.kind = "internal", subject.id = %subject_id)
+    )]
     pub async fn verify_password(
         &self,
         subject_id: Uuid,
@@ -219,10 +256,22 @@ impl ManagedCredentialVaults {
 }
 
 impl ManagedCredentialVaults {
+    #[tracing::instrument(
+        level = "info",
+        name = "credentials.has_totp",
+        skip_all,
+        fields(otel.kind = "internal", subject.id = %id)
+    )]
     pub async fn has_totp(&self, id: Uuid) -> Result<bool, Error> {
         Ok(self.get_credential(id).await?.has_totp())
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "credentials.totp_enrollment.initiate",
+        skip_all,
+        fields(otel.kind = "internal", subject.id = %id)
+    )]
     pub async fn initiate_totp_enrollment(
         &self,
         id: Uuid,
@@ -238,6 +287,12 @@ impl ManagedCredentialVaults {
         Ok(EnrollTotpResponse { provisioning_uri })
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "credentials.totp_enrollment.verify",
+        skip_all,
+        fields(otel.kind = "internal", subject.id = %subject_id)
+    )]
     pub async fn verify_totp_enrollment(&self, subject_id: Uuid, code: &str) -> Result<(), Error> {
         let encrypted = self
             .pending_enrollments
@@ -270,6 +325,12 @@ impl ManagedCredentialVaults {
         Ok(())
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "credentials.totp.remove",
+        skip_all,
+        fields(otel.kind = "internal", subject.id = %subject_id)
+    )]
     pub async fn remove_totp(&self, subject_id: Uuid) -> Result<(), Error> {
         let vault = self
             .get_credential_in_tx(subject_id, &self.database)
@@ -302,6 +363,12 @@ mod replay {
     }
 
     impl TotpAntiReplay {
+        #[tracing::instrument(
+            level = "info",
+            name = "credentials.totp.anti_replay",
+            skip_all,
+            fields(otel.kind = "internal", subject.id = %id)
+        )]
         pub async fn consume(&self, id: Uuid, matched_step: u64) -> bool {
             let key = TotpStepRecord { id, matched_step };
 

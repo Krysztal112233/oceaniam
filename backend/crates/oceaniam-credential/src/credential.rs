@@ -4,10 +4,11 @@ use argon2::{
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
 use chacha20poly1305::{AeadCore, KeyInit, XChaCha20Poly1305, XNonce, aead::Aead};
-use oceaniam_common::consts;
+use oceaniam_common::run_cpu_bound;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 use totp_rs::{TOTP, qrcodegen_image::image::EncodableLayout};
+use tracing::field::Empty;
 
 use crate::error::Error;
 
@@ -15,21 +16,42 @@ use crate::error::Error;
 pub struct Password(String);
 
 impl Password {
-    pub(crate) fn with_password(
-        password: impl AsRef<str>,
-        argon2: &Argon2<'_>,
+    pub(crate) async fn with_password(
+        password: String,
+        argon2: Argon2<'static>,
     ) -> Result<Password, Error> {
-        // Generate salt and hash in one expression to avoid lifetime issues
-        let hash_string = {
-            let salt = SaltString::generate(&mut OsRng);
-            argon2
-                .hash_password(password.as_ref().as_bytes(), &salt)?
-                .to_string()
-        };
+        let queue_span = tracing::info_span!(
+            "credentials.argon2.queue",
+            otel.kind = "internal",
+            cpu.operation = "argon2.hash"
+        );
 
-        // Leak the string to get a 'static reference (acceptable for password hashes)
-        let phc = hash_string;
-        Ok(Password(phc))
+        run_cpu_bound(queue_span, move |parent| {
+            let params = argon2.params();
+            let span = tracing::info_span!(
+                parent: &parent,
+                "credentials.argon2.hash",
+                otel.kind = "internal",
+                otel.status_code = Empty,
+                otel.status_description = Empty,
+                argon2.memory_cost_kib = params.m_cost(),
+                argon2.time_cost = params.t_cost(),
+                argon2.parallelism = params.p_cost(),
+            );
+            let result = span.in_scope(|| {
+                let salt = SaltString::generate(&mut OsRng);
+                argon2
+                    .hash_password(password.as_bytes(), &salt)
+                    .map(|hash| Password(hash.to_string()))
+                    .map_err(Error::from)
+            });
+            if result.is_err() {
+                span.record("otel.status_code", "ERROR");
+                span.record("otel.status_description", "argon2 hash failed");
+            }
+            result
+        })
+        .await?
     }
 
     pub(crate) fn from_phc(phc: impl Into<String>) -> Self {
@@ -37,27 +59,51 @@ impl Password {
     }
 
     pub async fn verify(&self, password: &str) -> Result<bool, Error> {
-        // Semaphore acquisition stays async; only the CPU-bound hash verification runs on the
-        // blocking pool.
-        let _permit = consts::MAX_CPU_BOUND_SEMAPHORE
-            .acquire()
-            .await
-            .expect("cpu-bound semaphore should not be closed");
-
         let password = password.to_owned();
         let phc = self.0.clone();
+        let queue_span = tracing::info_span!(
+            "credentials.argon2.queue",
+            otel.kind = "internal",
+            cpu.operation = "argon2.verify"
+        );
 
-        tokio::task::spawn_blocking(move || {
-            let password_hash = PasswordHash::new(&phc)?;
+        run_cpu_bound(queue_span, move |parent| {
+            let span = tracing::info_span!(
+                parent: &parent,
+                "credentials.argon2.verify",
+                otel.kind = "internal",
+                otel.status_code = Empty,
+                otel.status_description = Empty,
+                argon2.memory_cost_kib = Empty,
+                argon2.time_cost = Empty,
+                argon2.parallelism = Empty,
+            );
+            let result = span.in_scope(|| {
+                let password_hash = PasswordHash::new(&phc)?;
+                if let Some(value) = password_hash.params.get_decimal("m") {
+                    span.record("argon2.memory_cost_kib", value);
+                }
+                if let Some(value) = password_hash.params.get_decimal("t") {
+                    span.record("argon2.time_cost", value);
+                }
+                if let Some(value) = password_hash.params.get_decimal("p") {
+                    span.record("argon2.parallelism", value);
+                }
 
-            match Argon2::default().verify_password(password.as_bytes(), &password_hash) {
-                Ok(()) => Ok(true),
-                Err(argon2::password_hash::Error::Password) => Err(Error::Password {
-                    source: argon2::password_hash::Error::Password,
-                    location: snafu::location!(),
-                }),
-                Err(_) => Ok(false),
+                match Argon2::default().verify_password(password.as_bytes(), &password_hash) {
+                    Ok(()) => Ok(true),
+                    Err(argon2::password_hash::Error::Password) => Err(Error::Password {
+                        source: argon2::password_hash::Error::Password,
+                        location: snafu::location!(),
+                    }),
+                    Err(_) => Ok(false),
+                }
+            });
+            if result.is_err() {
+                span.record("otel.status_code", "ERROR");
+                span.record("otel.status_description", "argon2 verification failed");
             }
+            result
         })
         .await?
     }
@@ -101,6 +147,12 @@ impl Totp {
         Self(totp)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "credentials.totp.generate",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub fn generate(issuer: &str, account_name: &str) -> Result<Self, Error> {
         let totp = TOTP {
             issuer: Some(issuer.to_string()),
@@ -115,6 +167,12 @@ impl Totp {
         self.0.get_url()
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "credentials.totp.decrypt",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub fn from_encrypted(base64_string: &str, key: &[u8]) -> Result<Self, Error> {
         let TotpStorage { nonce, payload } = {
             let decoded = STANDARD.decode(base64_string)?;
@@ -137,6 +195,12 @@ impl Totp {
         Ok(Self(totp))
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "credentials.totp.encrypt",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub fn to_encrypted(self, key: &[u8]) -> Result<EncryptedTotp, Error> {
         let nonce = XChaCha20Poly1305::generate_nonce(OsRng);
         let payload = {
@@ -162,6 +226,12 @@ impl Totp {
     ///
     /// Returns whether verification succeeded and, when it did, which time step
     /// matched the provided token.
+    #[tracing::instrument(
+        level = "info",
+        name = "credentials.totp.verify",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub fn verify(&self, token: &str) -> Result<TotpVerifyResult, Error> {
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
         let current_step = now / self.0.step;
@@ -188,6 +258,30 @@ impl Totp {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use std::io::{self, Write};
+    use std::sync::{Arc, Mutex};
+
+    use argon2::{Algorithm, Params, Version};
+    use tracing::Instrument as _;
+    use tracing_subscriber::fmt::format::FmtSpan;
+
+    #[derive(Clone)]
+    struct Buffer(Arc<Mutex<Vec<u8>>>);
+
+    impl Write for Buffer {
+        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+            self.0
+                .lock()
+                .expect("trace buffer lock")
+                .extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
 
     const TEST_KEY: &[u8] = b"0123456789abcdef0123456789abcdef";
 
@@ -265,5 +359,40 @@ mod tests {
             .expect("current TOTP token should be generated");
         let result = totp.verify(&token).expect("verification should succeed");
         assert!(result.success);
+    }
+
+    // NOTE: AI-generated test
+    #[tokio::test]
+    async fn argon2_spans_cross_blocking_dispatch_without_secrets() {
+        let bytes = Arc::new(Mutex::new(Vec::new()));
+        let writer = bytes.clone();
+        let subscriber = tracing_subscriber::fmt()
+            .with_writer(move || Buffer(writer.clone()))
+            .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
+            .finish();
+        let dispatch = tracing::Dispatch::new(subscriber);
+        let _default = tracing::dispatcher::set_default(&dispatch);
+
+        let password = "test-password-must-not-appear".to_owned();
+        let params = Params::new(8, 1, 1, Some(16)).expect("low-cost test params");
+        let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+        let phc = async {
+            Password::with_password(password.clone(), argon2)
+                .await
+                .expect("hash password")
+        }
+        .instrument(tracing::info_span!("test.request"))
+        .await;
+        assert!(phc.verify(&password).await.expect("verify password"));
+        let phc = phc.into_phc();
+
+        let output = String::from_utf8(bytes.lock().expect("trace buffer lock").clone())
+            .expect("utf8 trace output");
+        assert!(output.contains("credentials.argon2.queue"));
+        assert!(output.contains("credentials.argon2.hash"));
+        assert!(output.contains("credentials.argon2.verify"));
+        assert!(output.contains("test.request"));
+        assert!(!output.contains(&password));
+        assert!(!output.contains(&phc));
     }
 }

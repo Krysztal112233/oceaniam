@@ -176,6 +176,12 @@ impl ManagedApplications {
         }
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "applications.get_application_users",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn get_application_users(
         &self,
         application_id: Uuid,
@@ -183,6 +189,12 @@ impl ManagedApplications {
         Ok(self.get_or_init_scope(application_id).await?.users())
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "applications.get_model",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn get_model(&self, application_id: Uuid) -> Result<Arc<ApplicationModel>, Error> {
         self.is_application_exist(application_id).await?;
 
@@ -202,6 +214,12 @@ impl ManagedApplications {
     }
 
     #[allow(private_bounds)]
+    #[tracing::instrument(
+        level = "info",
+        name = "applications.find_user_by",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn find_user_by(
         &self,
         application_id: Uuid,
@@ -213,6 +231,12 @@ impl ManagedApplications {
             .await
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "applications.delete_application",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn delete_application(&self, application_id: Uuid) -> Result<(), Error> {
         self.is_application_exist(application_id).await?;
 
@@ -229,6 +253,12 @@ impl ManagedApplications {
         Ok(())
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "applications.create_application",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn create_application(
         &self,
         tenant_id: Uuid,
@@ -249,6 +279,12 @@ impl ManagedApplications {
         Ok(model)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "applications.get_configuration",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn get_configuration(
         &self,
         application_id: Uuid,
@@ -260,6 +296,12 @@ impl ManagedApplications {
             .clone())
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "applications.patch_configuration",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn patch_configuration(
         &self,
         application_id: Uuid,
@@ -300,6 +342,12 @@ impl ManagedApplications {
         Ok(configuration)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "applications.patch_application",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn patch_application(
         &self,
         application_id: Uuid,
@@ -372,6 +420,12 @@ impl ManagedApplications {
         &self.secrets
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "applications.challenges",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn challenges(&self, application_id: Uuid) -> Result<Arc<ManagedChallenges>, Error> {
         Ok(self.get_or_init_scope(application_id).await?.challenges())
     }
@@ -417,6 +471,12 @@ impl ApplicationUsers {
         }
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "application_users.find_user_by",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn find_user_by(&self, user_identifier: UserIdentifier) -> Result<UserModel, Error> {
         Ok(self
             .cache
@@ -467,6 +527,12 @@ impl ApplicationUsers {
         Ok(user)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "application_users.create_user_in_tx",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn create_user_in_tx(
         &self,
         application_id: Uuid,
@@ -484,7 +550,7 @@ impl ApplicationUsers {
         );
 
         self.shared_credential_vaults
-            .create_with_password_in_tx(user_id, password, &argon2, transaction)
+            .create_with_password_in_tx(user_id, password, argon2, transaction)
             .await
             .inspect_err(|e| {
                 error!(
@@ -511,6 +577,12 @@ impl ApplicationUsers {
         Ok(user)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "application_users.patch_user",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn patch_user(
         &self,
         application_id: Uuid,
@@ -556,6 +628,12 @@ impl ApplicationUsers {
     /// [`ManagedCredentialVaults::drop_credential_in_tx`], which cascades to `subjects` and
     /// `subject_roles` at the database level and evicts the credential cache. Finally the
     /// per-application user cache entries (`Id`, `Email`, `Phone`) are invalidated.
+    #[tracing::instrument(
+        level = "info",
+        name = "application_users.delete_user_in_tx",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     pub async fn delete_user_in_tx(
         &self,
         application_id: Uuid,

@@ -208,7 +208,12 @@ pub async fn create_administrator(
     let transaction = database.begin().await?;
 
     if let Err(error) = credentials
-        .create_with_password_in_tx(administrator_id, &initial_password, &argon2, &transaction)
+        .create_with_password_in_tx(
+            administrator_id,
+            initial_password.clone(),
+            argon2,
+            &transaction,
+        )
         .await
     {
         error!(
@@ -383,7 +388,7 @@ async fn patch_administrator_other(
 
         // TOO EXPENSIVE.
         state_credentials
-            .update_password_in_tx(target_id, password, &argon2, transaction)
+            .update_password_in_tx(target_id, password, argon2, transaction)
             .await?;
     }
 

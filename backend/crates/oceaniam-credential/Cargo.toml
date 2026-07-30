@@ -21,3 +21,6 @@ uuid.workspace = true
 
 oceaniam-common.workspace = true
 oceaniam-database.workspace = true
+
+[dev-dependencies]
+tracing-subscriber.workspace = true
