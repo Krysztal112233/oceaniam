@@ -16,6 +16,12 @@ use crate::{
 
 #[async_trait::async_trait]
 pub trait RevokedJwtsHelper {
+    #[tracing::instrument(
+        level = "info",
+        name = "db.revoked_jwts.revoke",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn revoke(
         jti: impl Into<Uuid> + Send,
         database: &impl SafeTransactionConnectionTrait,
@@ -29,6 +35,12 @@ pub trait RevokedJwtsHelper {
         .await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.revoked_jwts.stream_recent",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn stream_recent<C>(
         database: &C,
     ) -> Result<impl futures::stream::Stream<Item = Result<Model, DbErr>>, Error>
@@ -42,6 +54,12 @@ pub trait RevokedJwtsHelper {
             .await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.revoked_jwts.is_revoked",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn is_revoked(
         jti: Uuid,
         database: &impl SafeTransactionConnectionTrait,

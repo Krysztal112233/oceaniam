@@ -28,6 +28,12 @@ fn validate_granularity(g: &str) -> Result<(), Error> {
     }
 }
 
+#[tracing::instrument(
+    level = "info",
+    name = "db.trend.get_platform_trends",
+    skip_all,
+    fields(otel.kind = "internal")
+)]
 pub async fn get_platform_trends(
     granularity: &str,
     range_days: u64,
@@ -62,6 +68,12 @@ pub async fn get_platform_trends(
     Ok(rows)
 }
 
+#[tracing::instrument(
+    level = "info",
+    name = "db.trend.get_application_trends",
+    skip_all,
+    fields(otel.kind = "internal")
+)]
 pub async fn get_application_trends(
     application_id: Uuid,
     granularity: &str,

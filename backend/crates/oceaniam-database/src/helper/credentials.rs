@@ -9,6 +9,12 @@ use crate::{
 
 #[async_trait::async_trait]
 pub trait CredentialsHelper {
+    #[tracing::instrument(
+        level = "info",
+        name = "db.credentials.get_credential_by_id",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_credential_by_id(
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -16,6 +22,12 @@ pub trait CredentialsHelper {
         Ok(Credentials::find_by_id(id).one(database).await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.credentials.delete_credential_by_id",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn delete_credential_by_id(
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -24,6 +36,12 @@ pub trait CredentialsHelper {
         Ok(())
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.credentials.upsert_credential",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn upsert_credential(
         id: Uuid,
         phc: String,

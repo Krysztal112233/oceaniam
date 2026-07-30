@@ -60,6 +60,12 @@ where
     S: sea_orm::SelectorTrait + Send + Sync,
     <S as sea_orm::SelectorTrait>::Item: FromQueryResult + Send + Sync,
 {
+    #[tracing::instrument(
+        level = "info",
+        name = "db.pagination.fetch_paged",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn fetch_paged(
         self,
         page: PageParam,

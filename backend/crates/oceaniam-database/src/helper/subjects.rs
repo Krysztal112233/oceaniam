@@ -16,6 +16,12 @@ use crate::{
 
 #[async_trait::async_trait]
 pub trait SubjectsHelper {
+    #[tracing::instrument(
+        level = "info",
+        name = "db.subjects.get_subject_by_id",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_subject_by_id(
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -28,6 +34,12 @@ pub trait SubjectsHelper {
             })
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.subjects.create_subjects",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn create_subjects(
         id: Uuid,
         application_id: Uuid,
@@ -49,6 +61,12 @@ pub trait SubjectsHelper {
         Ok(result)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.subjects.resolve_subject_roles",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn resolve_subject_roles(
         id: Uuid,
         application_id: Uuid,

@@ -12,6 +12,12 @@ use crate::{
 
 #[async_trait::async_trait]
 pub trait ApplicationRolesHelper {
+    #[tracing::instrument(
+        level = "info",
+        name = "db.application_roles.resolve_role_name",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn resolve_role_name(
         role_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -28,6 +34,12 @@ pub trait ApplicationRolesHelper {
             .map(|r| r.name)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.application_roles.get_role_by_id",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_role_by_id(
         role_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -43,6 +55,12 @@ pub trait ApplicationRolesHelper {
             })
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.application_roles.get_roles_by_application",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_roles_by_application(
         application_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -53,6 +71,12 @@ pub trait ApplicationRolesHelper {
             .await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.application_roles.create_role",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn create_role(
         id: Uuid,
         application_id: Uuid,
@@ -70,6 +94,12 @@ pub trait ApplicationRolesHelper {
         .await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.application_roles.update_role_name",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn update_role_name(
         role_id: Uuid,
         name: String,
@@ -82,6 +112,12 @@ pub trait ApplicationRolesHelper {
         Ok(role.update(database).await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.application_roles.delete_role",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn delete_role(
         role_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -92,6 +128,12 @@ pub trait ApplicationRolesHelper {
         Ok(())
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.application_roles.get_roles_by_ids",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_roles_by_ids(
         role_ids: Vec<Uuid>,
         application_id: Uuid,

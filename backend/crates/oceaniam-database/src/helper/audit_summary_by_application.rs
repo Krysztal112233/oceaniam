@@ -28,6 +28,12 @@ pub trait AuditSummaryByApplicationHelper {
     /// A `Vec<Model>` where each element represents one day. The `bucket` field
     /// is set to `00:00:00 UTC` of that day, and `event_count` is the total
     /// number of events across all minutes within that day.
+    #[tracing::instrument(
+        level = "info",
+        name = "db.audit_summary_by_application.get_last_30days_by_application",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_last_30days_by_application(
         application_id: Uuid,
         audit_type: AuditType,

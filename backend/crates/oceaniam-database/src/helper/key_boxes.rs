@@ -22,6 +22,12 @@ pub trait KeyBoxesHelper {
     /// # Returns
     ///
     /// Returns a `Result` containing a vector of key models, or an error if the query fails.
+    #[tracing::instrument(
+        level = "info",
+        name = "db.key_boxes.get_system_keys",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_system_keys(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<model::key_boxes::Model>, Error> {
@@ -29,6 +35,12 @@ pub trait KeyBoxesHelper {
     }
 
     /// Retrieves all keys for a given tenant from the database.
+    #[tracing::instrument(
+        level = "info",
+        name = "db.key_boxes.get_tenant_keys",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_tenant_keys(
         tenant_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -46,6 +58,12 @@ pub trait KeyBoxesHelper {
     /// is an atomic upsert — existing rows are updated, new rows are inserted.
     /// No explicit transaction wrapper is needed because the single statement
     /// provides statement-level atomicity.
+    #[tracing::instrument(
+        level = "info",
+        name = "db.key_boxes.update_application_keys",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn update_application_keys(
         tenant_id: Uuid,
         keys: impl IntoIterator<Item = model::key_boxes::ActiveModel> + Send,

@@ -12,6 +12,12 @@ use crate::{
 
 #[async_trait::async_trait]
 pub trait RolePermissionsHelper {
+    #[tracing::instrument(
+        level = "info",
+        name = "db.role_permissions.get_role_permissions_map",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_role_permissions_map(
         role_ids: &[Uuid],
         database: &impl SafeTransactionConnectionTrait,
@@ -34,6 +40,12 @@ pub trait RolePermissionsHelper {
         Ok(map)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.role_permissions.set_role_permissions",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn set_role_permissions(
         role_id: Uuid,
         permissions: &[String],

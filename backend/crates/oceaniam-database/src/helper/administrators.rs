@@ -20,6 +20,12 @@ pub struct UpdateAdministratorModel {
 
 #[async_trait::async_trait]
 pub trait AdministratorsHelper {
+    #[tracing::instrument(
+        level = "info",
+        name = "db.administrators.get_all",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_all(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<model::administrators::Model>, Error> {
@@ -31,6 +37,12 @@ pub trait AdministratorsHelper {
             .await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.administrators.get_administrators",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_administrators(
         page: impl Into<PageParam> + Send,
         database: &impl SafeTransactionConnectionTrait,
@@ -47,6 +59,12 @@ pub trait AdministratorsHelper {
             .await
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.administrators.get_by_id",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_by_id(
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -57,6 +75,12 @@ pub trait AdministratorsHelper {
             .ok_or(administrator_not_found(id))
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.administrators.get_by_name",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_by_name(
         name: impl Into<String> + Send,
         database: &impl SafeTransactionConnectionTrait,
@@ -76,6 +100,12 @@ pub trait AdministratorsHelper {
             })??)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.administrators.create_administrator",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn create_administrator(
         id: Uuid,
         name: impl Into<String> + Send,
@@ -91,6 +121,12 @@ pub trait AdministratorsHelper {
         .await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.administrators.update_model",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn update_model(
         id: Uuid,
 

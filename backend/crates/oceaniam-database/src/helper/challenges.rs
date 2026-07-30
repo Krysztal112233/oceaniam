@@ -57,6 +57,12 @@ impl Default for CreateChallengeOpts {
 
 #[async_trait::async_trait]
 pub trait ChallengesHelper {
+    #[tracing::instrument(
+        level = "info",
+        name = "db.challenges.get_challenge",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_challenge(
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -72,6 +78,12 @@ pub trait ChallengesHelper {
             })
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.challenges.create_challenge",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn create_challenge(
         application_id: Uuid,
         subject_id: Uuid,
@@ -106,6 +118,12 @@ pub trait ChallengesHelper {
         .await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.challenges.consume_challenge",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn consume_challenge(
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,

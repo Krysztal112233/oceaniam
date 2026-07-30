@@ -22,6 +22,12 @@ pub struct CreateApplicationOptions {
 
 #[async_trait::async_trait]
 pub trait ApplicationHelper {
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications.create_application",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn create_application(
         id: Uuid,
         tenant_id: Uuid,
@@ -30,6 +36,12 @@ pub trait ApplicationHelper {
         Self::create_with_opts(id, tenant_id, CreateApplicationOptions::default(), database).await
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications.create_with_opts",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn create_with_opts(
         id: Uuid,
         tenant_id: Uuid,
@@ -55,6 +67,12 @@ pub trait ApplicationHelper {
         .await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications.is_exist",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn is_exist(
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -67,6 +85,12 @@ pub trait ApplicationHelper {
         )
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications.is_system_application_exist",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn is_system_application_exist(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<bool, Error> {
@@ -79,6 +103,12 @@ pub trait ApplicationHelper {
 
     /// NOTE: This helper intentionally excludes the system tenant and system
     /// application from regular application listing.
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications.get_applications",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_applications(
         tenant_id: Uuid,
         page: Option<PageParam>,
@@ -111,6 +141,12 @@ pub trait ApplicationHelper {
 
     /// NOTE: This helper intentionally excludes identifiers that belong to the
     /// internal system tenant or system application.
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications.get_all_application_ids",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_all_application_ids(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<Uuid>, Error> {
@@ -127,6 +163,12 @@ pub trait ApplicationHelper {
             .await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications.get_application",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_application(
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -140,6 +182,12 @@ pub trait ApplicationHelper {
         )
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications.get_system_application",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_system_application(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::applications::Model, Error> {
@@ -151,6 +199,12 @@ pub trait ApplicationHelper {
         )
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications.delete_application",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn delete_application(
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -164,6 +218,12 @@ pub trait ApplicationHelper {
         )
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications.replace_configuration",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn replace_configuration(
         application_id: Uuid,
         configuration: ApplicationConfiguration,
@@ -177,6 +237,12 @@ pub trait ApplicationHelper {
         Ok(model.update(database).await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications.update_comment",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn update_comment(
         application_id: Uuid,
         comment: Option<String>,

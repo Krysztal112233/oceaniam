@@ -10,6 +10,12 @@ use crate::{
 
 #[async_trait::async_trait]
 pub trait SubjectRolesHelper {
+    #[tracing::instrument(
+        level = "info",
+        name = "db.subject_roles.get_subject_role_ids",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_subject_role_ids(
         subject_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -22,6 +28,12 @@ pub trait SubjectRolesHelper {
         Ok(rows.into_iter().map(|r| r.role_id).collect())
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.subject_roles.assign_role",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn assign_role(
         subject_id: Uuid,
         role_id: Uuid,
@@ -46,6 +58,12 @@ pub trait SubjectRolesHelper {
         Ok(())
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.subject_roles.unassign_role",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn unassign_role(
         subject_id: Uuid,
         role_id: Uuid,

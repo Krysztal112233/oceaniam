@@ -31,28 +31,58 @@ pub struct AuditLogFinderOpts {
 
 #[async_trait::async_trait]
 pub trait AuditStatisticsHelper {
+    #[tracing::instrument(
+        level = "info",
+        name = "db.statistics.count_tenants",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn count_tenants(database: &impl SafeTransactionConnectionTrait) -> Result<u64, Error> {
         Ok(Tenants::find().count(database).await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.statistics.count_applications",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn count_applications(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<u64, Error> {
         Ok(Applications::find().count(database).await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.statistics.count_administrators",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn count_administrators(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<u64, Error> {
         Ok(Administrators::find().count(database).await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.statistics.count_application_users",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn count_application_users(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<u64, Error> {
         Ok(Users::find().count(database).await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.statistics.count_active_secrets",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn count_active_secrets(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<u64, Error> {
@@ -64,6 +94,12 @@ pub trait AuditStatisticsHelper {
             .await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.statistics.platform_counts",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn platform_counts(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<PlatformCounts, Error> {
@@ -84,6 +120,12 @@ pub trait AuditStatisticsHelper {
         })
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.statistics.application_counts",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn application_counts(
         app_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -100,6 +142,12 @@ pub trait AuditStatisticsHelper {
     }
 
     /// Paginated audit log, ordered by most recent first.
+    #[tracing::instrument(
+        level = "info",
+        name = "db.statistics.get_audit_logs",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_audit_logs(
         page: PageParam,
         opts: AuditLogFinderOpts,
@@ -132,6 +180,12 @@ pub trait AuditStatisticsHelper {
         })
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.statistics.count_application_users_by_app",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn count_application_users_by_app(
         app_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -144,6 +198,12 @@ pub trait AuditStatisticsHelper {
             .await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.statistics.count_active_secrets_by_app",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn count_active_secrets_by_app(
         app_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,

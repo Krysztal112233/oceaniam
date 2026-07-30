@@ -14,6 +14,12 @@ pub fn audit_model_to_active_model(model: model::audits::Model) -> model::audits
 
 #[async_trait::async_trait]
 pub trait AuditsHelper {
+    #[tracing::instrument(
+        level = "info",
+        name = "db.audits.insert_many_audits",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn insert_many_audits(
         models: Vec<model::audits::ActiveModel>,
         database: &impl SafeTransactionConnectionTrait,
@@ -22,6 +28,12 @@ pub trait AuditsHelper {
         Ok(())
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.audits.insert_audit_event",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn insert_audit_event(
         id: Uuid,
         audit_type: AuditType,

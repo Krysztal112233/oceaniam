@@ -17,6 +17,12 @@ use crate::{
 
 #[async_trait::async_trait]
 pub trait ApplicationSecretsHelper {
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications_secrets.create_secret_unbound",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn create_secret_unbound(
         id: Uuid,
         secret_prefix: impl Into<String> + Send,
@@ -37,6 +43,12 @@ pub trait ApplicationSecretsHelper {
         .await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications_secrets.create_secret",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn create_secret(
         application_id: Uuid,
         id: Uuid,
@@ -71,6 +83,12 @@ pub trait ApplicationSecretsHelper {
         Ok(model)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications_secrets.get_secret_models",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_secret_models(
         page: PageParam,
         database: &impl SafeTransactionConnectionTrait,
@@ -82,6 +100,12 @@ pub trait ApplicationSecretsHelper {
             .await
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications_secrets.get_all_secrets_of",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_all_secrets_of(
         application_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -98,6 +122,12 @@ pub trait ApplicationSecretsHelper {
             .collect())
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications_secrets.get_secret",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_secret(
         secret_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -113,6 +143,12 @@ pub trait ApplicationSecretsHelper {
             })
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications_secrets.get_application_ids_of_secret",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_application_ids_of_secret(
         secret_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -128,6 +164,12 @@ pub trait ApplicationSecretsHelper {
             .await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications_secrets.get_application_ids_grouped_by_secret_ids",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_application_ids_grouped_by_secret_ids(
         secret_ids: Option<&[Uuid]>,
         database: &impl SafeTransactionConnectionTrait,
@@ -156,6 +198,12 @@ pub trait ApplicationSecretsHelper {
         Ok(grouped)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications_secrets.find_active_secret_candidates",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn find_active_secret_candidates(
         secret_prefix: &str,
         database: &impl SafeTransactionConnectionTrait,
@@ -170,6 +218,12 @@ pub trait ApplicationSecretsHelper {
             .await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications_secrets.upgrade_secret_verifier",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn upgrade_secret_verifier(
         secret_id: Uuid,
         old_hmac_key_version: i32,
@@ -198,6 +252,12 @@ pub trait ApplicationSecretsHelper {
         Ok(result.rows_affected == 1)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications_secrets.get_hmac_key_versions",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_hmac_key_versions(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<i32>, Error> {
@@ -213,6 +273,12 @@ pub trait ApplicationSecretsHelper {
             .await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications_secrets.create_binding",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn create_binding(
         secret_id: Uuid,
         application_id: Uuid,
@@ -239,6 +305,12 @@ pub trait ApplicationSecretsHelper {
         Ok(())
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications_secrets.delete_secret",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn delete_secret(
         application_id: Uuid,
         secret_id: Uuid,
@@ -268,6 +340,12 @@ pub trait ApplicationSecretsHelper {
         Ok(())
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications_secrets.delete_secret_by_id",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn delete_secret_by_id(
         secret_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
@@ -281,6 +359,12 @@ pub trait ApplicationSecretsHelper {
         Ok(())
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications_secrets.get_all_secret_ids",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_all_secret_ids(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<Uuid>, Error> {
@@ -295,6 +379,12 @@ pub trait ApplicationSecretsHelper {
             .await?)
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.applications_secrets.get_all_secret_models",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_all_secret_models(
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<model::application_secrets::Model>, Error> {

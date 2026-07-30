@@ -12,6 +12,12 @@ use crate::model::prelude::*;
 /// Create a database connection from the given configuration.
 ///
 /// Applies pool size and slow-query logging settings before connecting.
+#[tracing::instrument(
+    level = "info",
+    name = "db.connect",
+    skip_all,
+    fields(otel.kind = "internal")
+)]
 pub async fn connect(config: &DatabaseConfig) -> Result<DatabaseConnection, Error> {
     let options = ConnectOptions::new(&config.dsn)
         .pipe_borrow_mut(|it| match config.slow_statements_logging_threshold {
@@ -44,6 +50,12 @@ pub async fn connect(config: &DatabaseConfig) -> Result<DatabaseConnection, Erro
 /// Ensure system tenant and system application exist.
 ///
 /// Called once at startup by both the backend and worker processes.
+#[tracing::instrument(
+    level = "info",
+    name = "db.init_system",
+    skip_all,
+    fields(otel.kind = "internal")
+)]
 pub async fn init_system(db: &DatabaseConnection) -> Result<(), Error> {
     if !Tenants::is_system_tenant_exist(db).await? {
         warn!(

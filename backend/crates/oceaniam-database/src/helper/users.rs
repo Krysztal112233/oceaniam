@@ -59,6 +59,12 @@ pub trait UserHelper {
     /// therefore only creates the subject and user records, and assumes the
     /// credential already exists inside the same transaction when atomicity is
     /// required.
+    #[tracing::instrument(
+        level = "info",
+        name = "db.users.create_user",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn create_user(
         id: Uuid,
         application_id: Uuid,
@@ -87,6 +93,12 @@ pub trait UserHelper {
         Ok(CreateUserResult { user, subject })
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.users.get_users",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_users(
         application_id: Uuid,
         page: Option<PageParam>,
@@ -124,6 +136,12 @@ pub trait UserHelper {
         })
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.users.get_user_of_application",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_user_of_application(
         application_id: Uuid,
         user_id: Uuid,
@@ -147,6 +165,12 @@ pub trait UserHelper {
             })
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.users.get_users_of_tenant",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn get_users_of_tenant(
         tenant_id: Uuid,
         page: Option<PageParam>,
@@ -189,6 +213,12 @@ pub trait UserHelper {
     }
 
     /// NOTE: Caller must escape user input for LIKE/ILIKE wildcard semantics before calling.
+    #[tracing::instrument(
+        level = "info",
+        name = "db.users.search_user",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn search_user(
         application_id: Uuid,
         by_nickname: Option<String>,
@@ -247,6 +277,12 @@ pub trait UserHelper {
         })
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.users.find_contact_user",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn find_contact_user(
         application_id: Uuid,
         opts: UserContactOpts,
@@ -295,6 +331,12 @@ pub trait UserHelper {
         }
     }
 
+    #[tracing::instrument(
+        level = "info",
+        name = "db.users.patch_user",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn patch_user(
         application_id: Uuid,
         user_id: Uuid,
@@ -339,6 +381,12 @@ pub trait UserHelper {
     /// row must be removed *before* the matching `credentials` row (whose cascade removes
     /// the `subjects` and `subject_roles` rows). The caller is responsible for deleting the
     /// credential within the same transaction.
+    #[tracing::instrument(
+        level = "info",
+        name = "db.users.delete_user",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
     async fn delete_user(
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
