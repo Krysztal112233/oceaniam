@@ -88,6 +88,8 @@ jobs:
         with:
           channel: stable
           flutter-version: 3.44.4
+      - name: Install `just`
+        uses: extractions/setup-just@v3
       - name: Install FVM
         run: dart pub global activate fvm
       - name: Run `just check`
