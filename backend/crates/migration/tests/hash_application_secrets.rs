@@ -28,7 +28,7 @@ impl Drop for TestSchema {
                 let base = Database::connect(&base_dsn)
                     .await
                     .expect("connect for schema cleanup");
-                base.execute(Statement::from_string(
+                base.execute_raw(Statement::from_string(
                     DatabaseBackend::Postgres,
                     format!("DROP SCHEMA IF EXISTS {name} CASCADE"),
                 ))
@@ -54,7 +54,7 @@ async fn isolated_database() -> (TestSchema, DatabaseConnection) {
              OCEANIAM_TEST_DATABASE_DSN, OCEANIAM_DATABASE__DSN, or DATABASE_URL: {error}"
         )
     });
-    base.execute(Statement::from_string(
+    base.execute_raw(Statement::from_string(
         DatabaseBackend::Postgres,
         format!("CREATE SCHEMA {name}"),
     ))
@@ -75,7 +75,7 @@ async fn isolated_database() -> (TestSchema, DatabaseConnection) {
 
 async fn assert_legacy_schema_intact(database: &DatabaseConnection, expected_secrets: &[&str]) {
     let columns: Vec<String> = database
-        .query_all(Statement::from_string(
+        .query_all_raw(Statement::from_string(
             DatabaseBackend::Postgres,
             "SELECT column_name FROM information_schema.columns \
              WHERE table_schema = current_schema() AND table_name = 'application_secrets'"
@@ -90,7 +90,7 @@ async fn assert_legacy_schema_intact(database: &DatabaseConnection, expected_sec
     assert!(!columns.iter().any(|column| column == "secret_verifier"));
 
     let stored: Vec<String> = database
-        .query_all(Statement::from_string(
+        .query_all_raw(Statement::from_string(
             DatabaseBackend::Postgres,
             "SELECT secret FROM application_secrets ORDER BY secret".to_owned(),
         ))
@@ -131,7 +131,7 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
     let secret_id = Uuid::now_v7();
     let second_secret_id = Uuid::now_v7();
     database
-        .execute(Statement::from_sql_and_values(
+        .execute_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "INSERT INTO tenants (id, comment, created_at) VALUES ($1, NULL, now())",
             [tenant_id.into()],
@@ -139,7 +139,7 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
         .await
         .unwrap();
     database
-        .execute(Statement::from_sql_and_values(
+        .execute_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "INSERT INTO applications (id, comment, tenant_id, created_at) \
              VALUES ($1, NULL, $2, now())",
@@ -148,7 +148,7 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
         .await
         .unwrap();
     database
-        .execute(Statement::from_sql_and_values(
+        .execute_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "INSERT INTO application_secrets (id, secret, created_at, revoked_at) \
              VALUES ($1, $2, now(), NULL)",
@@ -157,7 +157,7 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
         .await
         .unwrap();
     database
-        .execute(Statement::from_sql_and_values(
+        .execute_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "INSERT INTO application_secret_bindings (secret_id, application_id) VALUES ($1, $2)",
             vec![secret_id.into(), application_id.into()],
@@ -176,7 +176,7 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
     assert_legacy_schema_intact(&database, &[LEGACY_SECRET]).await;
 
     database
-        .execute(Statement::from_sql_and_values(
+        .execute_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "INSERT INTO application_secrets (id, secret, created_at, revoked_at) \
              VALUES ($1, $2, now(), NULL)",
@@ -191,7 +191,7 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
     assert_legacy_schema_intact(&database, &[LEGACY_SECRET, "malformed"]).await;
 
     database
-        .execute(Statement::from_sql_and_values(
+        .execute_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "UPDATE application_secrets SET secret = $1 WHERE id = $2",
             vec![LEGACY_SECRET.into(), second_secret_id.into()],
@@ -207,7 +207,7 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
     assert_legacy_schema_intact(&database, &[LEGACY_SECRET, LEGACY_SECRET]).await;
 
     database
-        .execute(Statement::from_sql_and_values(
+        .execute_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "UPDATE application_secrets SET secret = $1 WHERE id = $2",
             vec![SECOND_LEGACY_SECRET.into(), second_secret_id.into()],
@@ -217,7 +217,7 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
     Migrator::up(&database, Some(1)).await.unwrap();
 
     let row = database
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "SELECT secret_prefix, secret_verifier, hmac_key_version \
              FROM application_secrets WHERE id = $1",
@@ -244,7 +244,7 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
     assert!(keyring.verify(version, LEGACY_SECRET, &verifier).unwrap());
 
     let binding_count: i64 = database
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "SELECT count(*) AS count FROM application_secret_bindings WHERE secret_id = $1",
             [secret_id.into()],
@@ -257,7 +257,7 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
     assert_eq!(binding_count, 1);
 
     let constraint_names: Vec<String> = database
-        .query_all(Statement::from_string(
+        .query_all_raw(Statement::from_string(
             DatabaseBackend::Postgres,
             "SELECT conname FROM pg_constraint \
              WHERE conrelid = 'application_secrets'::regclass \
@@ -280,7 +280,7 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
     );
 
     let indexes: Vec<(String, String)> = database
-        .query_all(Statement::from_string(
+        .query_all_raw(Statement::from_string(
             DatabaseBackend::Postgres,
             "SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = current_schema() \
              AND tablename = 'application_secrets' \
@@ -305,7 +305,7 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
     assert!(indexes[1].1.starts_with("CREATE UNIQUE INDEX"));
 
     let nullability: Vec<(String, String)> = database
-        .query_all(Statement::from_string(
+        .query_all_raw(Statement::from_string(
             DatabaseBackend::Postgres,
             "SELECT column_name, is_nullable FROM information_schema.columns \
              WHERE table_schema = current_schema() AND table_name = 'application_secrets' \
@@ -327,7 +327,7 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
     assert!(nullability.iter().all(|(_, nullable)| nullable == "NO"));
 
     let malformed_prefix_insert = database
-        .execute(Statement::from_sql_and_values(
+        .execute_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "INSERT INTO application_secrets \
              (id, created_at, revoked_at, secret_prefix, secret_verifier, hmac_key_version) \
@@ -342,7 +342,7 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
     assert!(malformed_prefix_insert.is_err());
 
     let invalid_verifier_insert = database
-        .execute(Statement::from_sql_and_values(
+        .execute_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "INSERT INTO application_secrets \
              (id, created_at, revoked_at, secret_prefix, secret_verifier, hmac_key_version) \
@@ -357,7 +357,7 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
     assert!(invalid_verifier_insert.is_err());
 
     let plaintext_column_count: i64 = database
-        .query_one(Statement::from_string(
+        .query_one_raw(Statement::from_string(
             DatabaseBackend::Postgres,
             "SELECT count(*) AS count FROM information_schema.columns \
              WHERE table_schema = current_schema() \
@@ -372,7 +372,7 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
     assert_eq!(plaintext_column_count, 0);
 
     database
-        .execute(Statement::from_sql_and_values(
+        .execute_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "DELETE FROM seaql_migrations WHERE version = $1",
             [MIGRATION_VERSION.into()],

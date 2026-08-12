@@ -46,7 +46,7 @@ impl MigrationTrait for Migration {
 
         if has_plaintext {
             let rows = transaction
-                .query_all(Statement::from_string(
+                .query_all_raw(Statement::from_string(
                     DatabaseBackend::Postgres,
                     "SELECT id, secret FROM application_secrets ORDER BY id".to_owned(),
                 ))
@@ -72,7 +72,7 @@ impl MigrationTrait for Migration {
                 }
 
                 transaction
-                    .execute(Statement::from_sql_and_values(
+                    .execute_raw(Statement::from_sql_and_values(
                         DatabaseBackend::Postgres,
                         "UPDATE application_secrets
                          SET secret_prefix = $1, secret_verifier = $2, hmac_key_version = $3
@@ -129,7 +129,7 @@ impl MigrationTrait for Migration {
             .col(ApplicationSecrets::SecretPrefix)
             .to_owned();
         transaction
-            .execute(transaction.get_database_backend().build(&prefix_index))
+            .execute_raw(transaction.get_database_backend().build(&prefix_index))
             .await?;
 
         let verifier_index = Index::create()
@@ -141,7 +141,7 @@ impl MigrationTrait for Migration {
             .col(ApplicationSecrets::SecretVerifier)
             .to_owned();
         transaction
-            .execute(transaction.get_database_backend().build(&verifier_index))
+            .execute_raw(transaction.get_database_backend().build(&verifier_index))
             .await?;
 
         let plaintext_index = Index::drop()
@@ -150,7 +150,7 @@ impl MigrationTrait for Migration {
             .table(ApplicationSecrets::Table)
             .to_owned();
         transaction
-            .execute(transaction.get_database_backend().build(&plaintext_index))
+            .execute_raw(transaction.get_database_backend().build(&plaintext_index))
             .await?;
 
         transaction

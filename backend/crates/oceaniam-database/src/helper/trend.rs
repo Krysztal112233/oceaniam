@@ -59,7 +59,7 @@ pub async fn get_platform_trends(
     );
 
     let rows = database
-        .query_all(stmt)
+        .query_all_raw(stmt)
         .await?
         .into_iter()
         .map(|r| PlatformTrendRow::from_query_result(&r, ""))
@@ -100,7 +100,7 @@ pub async fn get_application_trends(
     );
 
     let rows = database
-        .query_all(stmt)
+        .query_all_raw(stmt)
         .await?
         .into_iter()
         .map(|r| ApplicationTrendRow::from_query_result(&r, ""))

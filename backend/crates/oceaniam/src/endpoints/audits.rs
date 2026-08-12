@@ -6,6 +6,7 @@ use oceaniam_api::{ApiResponse, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_database::helper::statistics::{AuditLogFinderOpts, AuditStatisticsHelper};
 use oceaniam_database::model::{prelude::Audits, sea_orm_active_enums::AuditType};
 use oceaniam_vo::statistics::{AuditLogQuery, AuditLogVO};
+use sea_orm::Iterable;
 use tap::Tap;
 use tracing::{Span, error, field};
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -63,7 +64,8 @@ async fn get_audit_logs(
     });
 
     let page_param = PageParam { page, per_page };
-    let audit_type = audit_type.and_then(|t| t.parse::<AuditType>().ok());
+    let audit_type =
+        audit_type.and_then(|t| AuditType::iter().find(|value| value.to_string() == t));
 
     let PagedResponse { items, page_info } = Audits::get_audit_logs(
         page_param,

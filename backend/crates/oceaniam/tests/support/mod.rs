@@ -413,7 +413,7 @@ async fn prepare_isolation_schema(test_config: &BackendConfig) -> String {
 
     // Create the schema
     root_database
-        .execute(Statement::from_string(
+        .execute_raw(Statement::from_string(
             sea_orm::DatabaseBackend::Postgres,
             format!("CREATE SCHEMA IF NOT EXISTS {}", schema_name),
         ))
@@ -425,7 +425,7 @@ async fn prepare_isolation_schema(test_config: &BackendConfig) -> String {
     let schema_ready = tokio::time::timeout(tokio::time::Duration::from_secs(5), async {
         loop {
             let result = root_database
-                .query_one(Statement::from_string(
+                .query_one_raw(Statement::from_string(
                     sea_orm::DatabaseBackend::Postgres,
                     format!(
                         "SELECT 1 FROM information_schema.schemata WHERE schema_name = '{}'",
@@ -476,7 +476,7 @@ async fn drop_schema(base_dsn: &str, schema_name: &str) -> Result<(), sea_orm::D
     // Since the application server has already been aborted, there should be no active connections to this specific schema.
 
     // Drop the schema (CASCADE will also drop all objects within the schema)
-    db.execute(Statement::from_string(
+    db.execute_raw(Statement::from_string(
         sea_orm::DatabaseBackend::Postgres,
         format!("DROP SCHEMA IF EXISTS {} CASCADE", schema_name),
     ))
@@ -514,7 +514,7 @@ mod tests {
 
         // Execute a simple query to verify the schema is usable
         let result = db
-            .query_one(Statement::from_string(
+            .query_one_raw(Statement::from_string(
                 sea_orm::DatabaseBackend::Postgres,
                 "SELECT 1 as num".to_string(),
             ))
@@ -536,7 +536,7 @@ mod tests {
             .await
             .expect("should connect to admin database");
         let result = admin_db
-            .query_one(Statement::from_string(
+            .query_one_raw(Statement::from_string(
                 sea_orm::DatabaseBackend::Postgres,
                 format!(
                     "SELECT 1 FROM information_schema.schemata WHERE schema_name = '{}'",

@@ -94,7 +94,7 @@ enum Administrators {
 mod generated {
     use crate::sea_orm::{DerivePrimaryKey, PrimaryKeyTrait};
 
-    use sea_orm::{ActiveModelBehavior, DeriveEntityModel, DeriveRelation, EnumIter};
+    use sea_orm::{ActiveModelBehavior, DeriveEntityModel, DeriveRelation, EntityTrait, EnumIter};
     use sea_orm_migration::prelude::*;
     use uuid::Uuid;
 

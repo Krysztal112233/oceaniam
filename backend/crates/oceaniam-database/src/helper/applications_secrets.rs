@@ -2,6 +2,7 @@ use crate::error::Error;
 use axum::http::StatusCode;
 use chrono::Utc;
 use oceaniam_vo::pagination::{PageParam, PagedResponse};
+use sea_orm::TransactionSession as _;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, EntityTrait, IntoActiveModel, PaginatorTrait,
     QueryFilter, QueryOrder, QuerySelect, TryInsertResult,

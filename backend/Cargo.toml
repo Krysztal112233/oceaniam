@@ -111,11 +111,11 @@ version = "5.7"
 features = ["gen_secret", "otpauth", "qr", "serde_support"]
 
 [workspace.dependencies.sea-orm]
-version = "1.1"
+version = "=2.0.1"
 features = ["runtime-tokio", "sqlx-postgres"]
 
 [workspace.dependencies.sea-orm-migration]
-version = "1.1"
+version = "=2.0.1"
 features = ["runtime-tokio", "sqlx-postgres"]
 
 [workspace.dependencies.axum-valid]

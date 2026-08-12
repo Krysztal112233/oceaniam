@@ -27,7 +27,7 @@ impl MigrationTrait for Migration {
 
         let txn = connection.begin().await?;
         let rows = txn
-            .query_all(Statement::from_sql_and_values(
+            .query_all_raw(Statement::from_sql_and_values(
                 DatabaseBackend::Postgres,
                 "SELECT id, secret FROM key_boxes",
                 [],
@@ -60,7 +60,7 @@ impl MigrationTrait for Migration {
                 "key_version": KEK_VERSION_CURRENT,
             });
 
-            txn.execute(Statement::from_sql_and_values(
+            txn.execute_raw(Statement::from_sql_and_values(
                 DatabaseBackend::Postgres,
                 "UPDATE key_boxes SET secret = $1 WHERE id = $2",
                 vec![encrypted_secret.into(), id.into()],

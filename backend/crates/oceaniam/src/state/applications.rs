@@ -1,3 +1,4 @@
+use sea_orm::TransactionSession as _;
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 

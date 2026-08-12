@@ -8,6 +8,7 @@ use oceaniam_vo::statistics::{
     ApplicationStatisticsVO, ApplicationTrendsVO, AuditLogQuery, AuditLogVO, TrendDataPoint,
     TrendQuery,
 };
+use sea_orm::Iterable;
 use tap::Tap;
 use tracing::{Span, error, field};
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -177,7 +178,8 @@ async fn get_application_audits(
     })?;
 
     let page_param = PageParam { page, per_page };
-    let audit_type = audit_type.and_then(|t| t.parse::<AuditType>().ok());
+    let audit_type =
+        audit_type.and_then(|t| AuditType::iter().find(|value| value.to_string() == t));
 
     let PagedResponse { items, page_info } = Audits::get_audit_logs(
         page_param,

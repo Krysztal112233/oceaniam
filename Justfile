@@ -2,12 +2,13 @@ default:
     just --list
 
 gen-entities:
+    test "$(sea-orm-cli --version)" = "sea-orm-cli 2.0.1" || (echo "sea-orm-cli 2.0.1 is required; install it with: cargo install sea-orm-cli --version 2.0.1 --locked" >&2; exit 1)
     cd ./backend && \
     sea-orm-cli generate entity -o ./crates/oceaniam-database/src/model \
     --with-serde both \
+    --entity-format compact \
     --enum-extra-derives Hash \
-    --enum-extra-derives strum::Display \
-    --enum-extra-derives strum::EnumString
+    --enum-extra-derives strum::Display
 
 watch-backend:
     cd ./backend && watchexec -e rs -r cargo run -p oceaniam

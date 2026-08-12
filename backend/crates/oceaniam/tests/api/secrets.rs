@@ -507,7 +507,7 @@ async fn created_secret_is_stored_only_as_prefix_and_verifier() {
     let database = app.database().await;
 
     let columns = database
-        .query_all(Statement::from_string(
+        .query_all_raw(Statement::from_string(
             DatabaseBackend::Postgres,
             "SELECT column_name FROM information_schema.columns \
              WHERE table_schema = current_schema() AND table_name = 'application_secrets'"
@@ -522,7 +522,7 @@ async fn created_secret_is_stored_only_as_prefix_and_verifier() {
     assert!(!column_names.iter().any(|column| column == "secret"));
 
     let row = database
-        .query_one(Statement::from_sql_and_values(
+        .query_one_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "SELECT secret_prefix, octet_length(secret_verifier) AS verifier_length, \
              hmac_key_version FROM application_secrets WHERE secret_prefix = $1",
@@ -549,7 +549,7 @@ async fn application_secret_authenticates_across_all_prefix_candidates() {
     let database = app.database().await;
 
     database
-        .execute(Statement::from_sql_and_values(
+        .execute_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "INSERT INTO application_secrets \
              (id, created_at, revoked_at, secret_prefix, secret_verifier, hmac_key_version) \
@@ -688,7 +688,7 @@ async fn revoked_secret_is_rejected_immediately() {
     let database = app.database().await;
 
     database
-        .execute(Statement::from_sql_and_values(
+        .execute_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "UPDATE application_secrets SET revoked_at = now() WHERE secret_prefix = $1",
             [plaintext[..12].to_owned().into()],
