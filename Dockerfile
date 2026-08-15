@@ -97,10 +97,8 @@ RUN git clone https://github.com/duckdb/pg_duckdb.git /tmp/pg_duckdb && \
 		rm -r /tmp/pg_duckdb
 # pgmq v1.12.0 provides the dev-account expiration queue; it does not need
 # shared_preload_libraries (activated via CREATE EXTENSION only).
-RUN git clone https://github.com/pgmq/pgmq.git /tmp/pgmq && \
-		cd /tmp/pgmq && \
-		git checkout v1.12.0 && \
-		cd pgmq && \
+RUN git clone --depth 1 --branch v1.12.0 https://github.com/pgmq/pgmq.git /tmp/pgmq && \
+		cd /tmp/pgmq/pgmq-extension && \
 		make -j$(nproc) && \
 		make install && \
 		rm -r /tmp/pgmq
