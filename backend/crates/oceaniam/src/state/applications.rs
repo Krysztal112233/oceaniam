@@ -5,6 +5,7 @@ use std::time::Duration;
 use crate::error::Error;
 use argon2::{Argon2, Params};
 use axum::http::StatusCode;
+use chrono::{DateTime, FixedOffset};
 use futures::future::join_all;
 use moka::future::Cache;
 use oceaniam_application_secret::ApplicationSecretKeyring;
@@ -13,17 +14,19 @@ use oceaniam_database::{
     helper::{
         SafeTransactionConnectionTrait,
         applications::{ApplicationHelper, CreateApplicationOptions},
+        subjects::SubjectsHelper,
         users::{CreateUserOpts, CreateUserResult, PatchUserOpts, UserContactOpts, UserHelper},
     },
     model::{
         applications::Model as ApplicationModel,
-        prelude::{Applications, Users},
+        prelude::{Applications, Subjects, Users},
         users::Model as UserModel,
     },
 };
 use oceaniam_vo::applications::{PatchApplicationConfigurationRequest, PatchApplicationRequest};
 use oceaniam_vo::auth::AuthVO;
 use oceaniam_vo::patch::PatchValue;
+use sea_orm::Statement;
 use sea_orm::prelude::*;
 use tap::Tap;
 use tracing::{error, info};
@@ -526,6 +529,91 @@ impl ApplicationUsers {
             .await?;
 
         Ok(user)
+    }
+
+    /// Creates a development account: a normal application user carrying an expiration
+    /// timestamp.
+    ///
+    /// The account rows are created with the regular ordering ([`ApplicationUsers::create_user_in_tx`]),
+    /// then `subjects.expires_at` is stamped and the expiration message is enqueued via
+    /// `pgmq.send` with `ttl_seconds` as the delay — **all on the same transaction**, so the
+    /// message exists if and only if the account does. The pgmq delay is the timer: the message
+    /// becomes visible exactly at `expires_at`, where the in-process consumer
+    /// ([`crate::state::dev_account_expiry`]) deletes the account.
+    ///
+    /// Returns the created user and its expiration timestamp.
+    #[tracing::instrument(
+        level = "info",
+        name = "application_users.create_dev_account_in_tx",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
+    pub async fn create_dev_account_in_tx(
+        &self,
+        application_id: Uuid,
+        opts: CreateUserOpts,
+        password: impl Into<String>,
+        ttl_seconds: u64,
+        transaction: &impl SafeTransactionConnectionTrait,
+    ) -> Result<(UserModel, DateTime<FixedOffset>), Error> {
+        // Validate BEFORE any computation or DB write: pgmq's delay parameter is an `integer`
+        // (seconds), and chrono panics on out-of-range arithmetic, so absurd values must be
+        // rejected here rather than via panic or transaction rollback.
+        let delay = i32::try_from(ttl_seconds).map_err(|_| {
+            Error::with_code(
+                StatusCode::BAD_REQUEST,
+                format!("ttl_seconds={ttl_seconds} exceeds the pgmq delay limit (i32::MAX)"),
+            )
+        })?;
+        let expires_at: DateTime<FixedOffset> =
+            (chrono::Utc::now() + chrono::Duration::seconds(i64::from(delay))).into();
+
+        let user = self
+            .create_user_in_tx(application_id, opts, password, transaction)
+            .await?;
+
+        Subjects::set_subject_expiration(user.id, expires_at, transaction)
+            .await
+            .inspect_err(|e| {
+                error!(
+                    "failed to set expiration for dev account: user_id={}, application_id={}, error={}",
+                    user.id, application_id, e
+                );
+            })?;
+
+        let payload = serde_json::json!({
+            "subject_id": user.id,
+            "application_id": application_id,
+        });
+        let stmt = Statement::from_sql_and_values(
+            transaction.get_database_backend(),
+            "SELECT pgmq.send($1, $2, $3)",
+            [
+                crate::state::dev_account_expiry::DEV_ACCOUNT_EXPIRATION_QUEUE.into(),
+                payload.into(),
+                delay.into(),
+            ],
+        );
+        transaction
+            .query_one_raw(stmt)
+            .await
+            .inspect_err(|e| {
+                error!(
+                    "failed to enqueue dev account expiration message: user_id={}, application_id={}, error={}",
+                    user.id, application_id, e
+                );
+            })?
+            .ok_or_else(|| Error::Internal {
+                msg: "pgmq.send returned no message id".to_owned(),
+                location: snafu::location!(),
+            })?;
+
+        info!(
+            "dev account created with expiration: user_id={}, application_id={}, ttl_seconds={}",
+            user.id, application_id, ttl_seconds
+        );
+
+        Ok((user, expires_at))
     }
 
     #[tracing::instrument(

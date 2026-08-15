@@ -8,7 +8,8 @@ use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
 use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{
-    AuditPayload, CreateApplicationUserPayload, DeleteApplicationUserPayload,
+    AuditPayload, CreateApplicationUserPayload, CreateDevAccountPayload,
+    DeleteApplicationUserPayload,
 };
 use oceaniam_common::{helpers::gen_random_name, sqid::Sqid};
 use oceaniam_database::{
@@ -17,8 +18,9 @@ use oceaniam_database::{
 };
 use oceaniam_vo::applications::{
     ApplicationUserVO, ApplicationUsersListQuery, ApplicationUsersSortOrder,
-    CreateApplicationUserRequest, PatchApplicationUserCredentialsRequest,
-    PatchApplicationUserRequest, SearchApplicationUsersQuery,
+    CreateApplicationUserRequest, CreatedApplicationUserVO, DevAccountOptions,
+    PatchApplicationUserCredentialsRequest, PatchApplicationUserRequest,
+    SearchApplicationUsersQuery,
 };
 use oceaniam_vo::auth::{EnrollTotpResponse, VerifyTotpRequest};
 use sea_orm::TransactionTrait;
@@ -34,6 +36,9 @@ use crate::{
     middlewares::auth::AuthenticatedOperator,
     state::{AppState, applications::UserIdentifier},
 };
+
+/// Default development-account time-to-live (1 hour) when `ttl_seconds` is omitted.
+const DEFAULT_DEV_ACCOUNT_TTL_SECONDS: u64 = 3600;
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
@@ -398,7 +403,10 @@ pub async fn get_application_user(
     ))
 }
 
-/// Create application user
+/// Create an application user
+///
+/// Omitting `development` creates a permanent user. Supplying `development` creates a
+/// time-limited development account; an empty object uses the default 3600-second TTL.
 #[utoipa::path(
         post,
         path = "/tenants/{tenant_id}/applications/{application_id}/users",
@@ -411,20 +419,20 @@ pub async fn get_application_user(
         ),
         request_body = CreateApplicationUserRequest,
         responses(
-            (status = 200, body = ApiResponse<ApplicationUserVO>),
+            (status = 200, body = ApiResponse<CreatedApplicationUserVO>),
             (status = 203, description = "Missing Authorization header and application secret header"),
-            (status = 400, description = "Bad request"),
+            (status = 400, description = "Bad request", body = ApiResponse<ErrorResponse>),
             (status = 401, description = "Unauthorized"),
             (status = 403, description = "Forbidden - secret does not belong to this application"),
-            (status = 404, description = "Application not found"),
-            (status = 500, description = "Internal server error"),
+            (status = 404, description = "Application not found", body = ApiResponse<ErrorResponse>),
+            (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
 #[tracing::instrument(
     level = "info",
     name = "tenant_application_users.create",
-    skip(applications, auditing, email, phone, nickname, password, database),
-    fields(otel.kind = "internal", tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty)
+    skip(applications, auditing, email, phone, nickname, password, development, database),
+    fields(otel.kind = "internal", tenant_id = field::Empty, application_id = field::Empty, user_id = field::Empty, account_type = field::Empty, ttl_seconds = field::Empty)
 )]
 pub async fn create_application_user(
     _: AdminJwtOrApplicationSecretGuard,
@@ -440,9 +448,13 @@ pub async fn create_application_user(
         phone,
         nickname,
         password,
+        development,
     })): Garde<Json<CreateApplicationUserRequest>>,
-) -> AppResult<ApplicationUserVO> {
+) -> AppResult<CreatedApplicationUserVO> {
     let application_id = app.id();
+    let ttl_seconds = development.map(|DevAccountOptions { ttl_seconds }| {
+        ttl_seconds.unwrap_or(DEFAULT_DEV_ACCOUNT_TTL_SECONDS)
+    });
 
     // NOTE: This field required more than 4 char if [Some] or [None].
     //
@@ -452,11 +464,20 @@ pub async fn create_application_user(
     let nickname = nickname.unwrap_or_else(gen_random_name);
     Span::current().tap(|it| {
         it.record("tenant_id", field::display(&app.tenant_id()))
-            .record("application_id", field::display(&application_id));
+            .record("application_id", field::display(&application_id))
+            .record(
+                "account_type",
+                field::display(if ttl_seconds.is_some() {
+                    "development"
+                } else {
+                    "permanent"
+                }),
+            )
+            .record("ttl_seconds", field::debug(&ttl_seconds));
     });
 
     let transaction = database.begin().await?;
-    let user = applications
+    let users = applications
         .get_application_users(application_id)
         .await
         .inspect_err(|e| {
@@ -465,50 +486,86 @@ pub async fn create_application_user(
                 error = %e,
                 "failed to get application users helper"
             )
-        })?
-        .create_user_in_tx(
-            application_id,
-            CreateUserOpts {
-                nickname,
-                email,
-                phone,
-            },
-            password,
-            &transaction,
-        )
-        .await
-        .inspect_err(|e| {
-            error!(
-                %application_id,
-                error = %e,
-                "application user creation failed"
-            )
         })?;
+    let opts = CreateUserOpts {
+        nickname,
+        email,
+        phone,
+    };
+    let (user, expires_at) = match ttl_seconds {
+        Some(ttl_seconds) => users
+            .create_dev_account_in_tx(application_id, opts, password, ttl_seconds, &transaction)
+            .await
+            .map(|(user, expires_at)| (user, Some(expires_at)))
+            .inspect_err(|e| {
+                error!(
+                    %application_id,
+                    error = %e,
+                    "development account creation failed"
+                )
+            })?,
+        None => users
+            .create_user_in_tx(application_id, opts, password, &transaction)
+            .await
+            .map(|user| (user, None))
+            .inspect_err(|e| {
+                error!(
+                    %application_id,
+                    error = %e,
+                    "permanent application user creation failed"
+                )
+            })?,
+    };
     transaction.commit().await?;
 
     Span::current().tap(|it| {
         it.record("user_id", field::display(&user.id));
     });
 
-    info!(
-        %application_id,
-        user_id = %user.id,
-        "application user created successfully"
-    );
+    let response = match expires_at {
+        Some(expires_at) => {
+            info!(
+                %application_id,
+                user_id = %user.id,
+                %expires_at,
+                "development account created successfully"
+            );
 
-    auditing
-        .write(AuditPayload::from(CreateApplicationUserPayload {
-            application_id,
-            user_id: user.id,
-            email: user.email.clone(),
-            phone: user.phone.clone(),
-            nickname: user.nickname.clone(),
-        }))
-        .await;
+            auditing
+                .write(AuditPayload::from(CreateDevAccountPayload {
+                    application_id,
+                    user_id: user.id,
+                    email: user.email.clone(),
+                    phone: user.phone.clone(),
+                    nickname: user.nickname.clone(),
+                    expires_at,
+                }))
+                .await;
 
-    Ok(ApiResponse::new(
-        crate::conversion::users::user_model_to_vo(user),
-    ))
+            crate::conversion::users::created_user_model_to_vo(user, Some(expires_at))
+        }
+        None => {
+            info!(
+                %application_id,
+                user_id = %user.id,
+                "permanent application user created successfully"
+            );
+
+            auditing
+                .write(AuditPayload::from(CreateApplicationUserPayload {
+                    application_id,
+                    user_id: user.id,
+                    email: user.email.clone(),
+                    phone: user.phone.clone(),
+                    nickname: user.nickname.clone(),
+                }))
+                .await;
+
+            crate::conversion::users::created_user_model_to_vo(user, None)
+        }
+    };
+
+    Ok(ApiResponse::new(response))
 }
 
 /// Patch application user profile fields (currently nickname only).

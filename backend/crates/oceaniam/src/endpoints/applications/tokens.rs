@@ -5,6 +5,8 @@ use oceaniam_auth::jwt::Claim;
 use oceaniam_common::consts;
 use oceaniam_database::config::application::ApplicationConfiguration;
 use oceaniam_database::helper::challenges::CreateChallengeOpts;
+use oceaniam_database::helper::subjects::SubjectsHelper;
+use oceaniam_database::model::prelude::Subjects;
 use oceaniam_database::model::sea_orm_active_enums::{ChallengeFactorType, ChallengePurposeType};
 use oceaniam_vo::auth::{AuthVO, SigninChallenge, SigninResponseOrChallenge};
 use tap::Tap;
@@ -74,6 +76,7 @@ pub async fn create_application_token(
         credentials,
         keyboxes,
         auditing,
+        database,
         cookie,
         ..
     }): State<AppState>,
@@ -134,6 +137,20 @@ pub async fn create_application_token(
             consts::USER_LOGIN_FAILED_MSG,
         ));
     }
+
+    // Lazy rejection of expired development accounts: covers the window between `expires_at`
+    // and the pgmq consumer deleting the account. Checked only after the password matches so
+    // the generic failure message cannot be used to probe account expiration.
+    Subjects::ensure_subject_active(user.id, &database)
+        .await
+        .inspect_err(|e| {
+            error!(
+                %application_id,
+                user_id = %user.id,
+                error = %e,
+                "signin rejected: subject expired or gone"
+            )
+        })?;
 
     if credentials.has_totp(user.id).await? {
         let challenges = applications.challenges(application_id).await?;

@@ -1,3 +1,4 @@
+use chrono::{DateTime, FixedOffset};
 use oceaniam_database::model::sea_orm_active_enums::{
     AuditType, ChallengeFactorType, ChallengePurposeType,
 };
@@ -32,6 +33,9 @@ pub enum AuditPayload {
     CreateApplicationUser(CreateApplicationUserPayload),
     DeleteApplicationUser(DeleteApplicationUserPayload),
 
+    CreateDevAccount(CreateDevAccountPayload),
+    DevAccountExpired(DevAccountExpiredPayload),
+
     CreateApplicationSecret(CreateApplicationSecretPayload),
     DeleteApplicationSecret(DeleteApplicationSecretPayload),
     BindApplicationSecret(BindApplicationSecretPayload),
@@ -61,6 +65,8 @@ impl AuditPayload {
             Self::PatchAdministrator(_) => AuditType::PatchAdministrator,
             Self::CreateApplicationUser(_) => AuditType::CreateApplicationUser,
             Self::DeleteApplicationUser(_) => AuditType::DeleteApplicationUser,
+            Self::CreateDevAccount(_) => AuditType::CreateDevAccount,
+            Self::DevAccountExpired(_) => AuditType::DevAccountExpired,
             Self::CreateApplicationSecret(_) => AuditType::CreateApplicationSecret,
             Self::DeleteApplicationSecret(_) => AuditType::DeleteApplicationSecret,
             Self::CreateChallenge(_) => AuditType::CreateChallenge,
@@ -158,6 +164,18 @@ impl From<CreateApplicationUserPayload> for AuditPayload {
 impl From<DeleteApplicationUserPayload> for AuditPayload {
     fn from(value: DeleteApplicationUserPayload) -> Self {
         Self::DeleteApplicationUser(value)
+    }
+}
+
+impl From<CreateDevAccountPayload> for AuditPayload {
+    fn from(value: CreateDevAccountPayload) -> Self {
+        Self::CreateDevAccount(value)
+    }
+}
+
+impl From<DevAccountExpiredPayload> for AuditPayload {
+    fn from(value: DevAccountExpiredPayload) -> Self {
+        Self::DevAccountExpired(value)
     }
 }
 
@@ -302,6 +320,22 @@ pub struct CreateApplicationUserPayload {
 pub struct DeleteApplicationUserPayload {
     pub application_id: Uuid,
     pub user_id: Uuid,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CreateDevAccountPayload {
+    pub application_id: Uuid,
+    pub user_id: Uuid,
+    pub email: Option<String>,
+    pub phone: Option<String>,
+    pub nickname: String,
+    pub expires_at: DateTime<FixedOffset>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DevAccountExpiredPayload {
+    pub application_id: Uuid,
+    pub subject_id: Uuid,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

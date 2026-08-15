@@ -134,6 +134,11 @@ pub struct CreateApplicationUserRequest {
 
     #[garde(skip)]
     pub password: String,
+
+    /// Optional development-account settings. When absent, creates a permanent user. An empty
+    /// object creates a development account with the default 3600-second TTL.
+    #[garde(dive)]
+    pub development: Option<DevAccountOptions>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ToSchema)]
@@ -223,6 +228,26 @@ pub struct ApplicationUserVO {
     pub email: Option<String>,
     pub phone: Option<String>,
     pub nickname: String,
+}
+
+/// Fields specific to development accounts.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Validate, Deserialize, ToSchema)]
+pub struct DevAccountOptions {
+    /// Time-to-live in seconds; defaults to 3600 (1 hour) when omitted. Upper bound matches
+    /// the pgmq delay parameter (PostgreSQL `integer`).
+    #[garde(range(min = 1, max = 2147483647))]
+    pub ttl_seconds: Option<u64>,
+}
+
+/// Response returned when an application user is created.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct CreatedApplicationUserVO {
+    #[serde(flatten)]
+    pub user: ApplicationUserVO,
+
+    /// Present only for a development account.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<DateTime<FixedOffset>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]

@@ -30,6 +30,7 @@ pub mod applications;
 pub mod audit;
 pub mod challenge;
 pub mod credentials;
+pub mod dev_account_expiry;
 pub mod keybox;
 pub mod revoked;
 pub mod secret;

@@ -64,6 +64,32 @@ async fn run_server() -> Result<(), Error> {
         .await
         .inspect_err(|e| error!(error = %e, "failed to build application state"))?;
 
+    // Spawn the development-account expiration consumer. It polls the pgmq queue whose delayed
+    // messages act as the dev-account timer; it must run inside the API process because
+    // deletion performs moka cache eviction (see `state::dev_account_expiry`). The consumer is
+    // supervised: a panic is logged and the consumer respawned so dev accounts keep being
+    // deleted (lazy rejection at sign-in/refresh bounds the damage while it is down).
+    {
+        let consumer_state = states.clone();
+        tokio::spawn(async move {
+            loop {
+                let result = tokio::spawn(oceaniam::state::dev_account_expiry::run(
+                    consumer_state.clone(),
+                    shutdown_signal(),
+                ))
+                .await;
+                match result {
+                    // Graceful shutdown requested.
+                    Ok(()) => break,
+                    Err(join_error) => {
+                        error!(error = %join_error, "dev account expiration consumer died; respawning");
+                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    }
+                }
+            }
+        });
+    }
+
     let router = app(states, cors);
 
     let listener = tokio::net::TcpListener::bind(addr.clone())

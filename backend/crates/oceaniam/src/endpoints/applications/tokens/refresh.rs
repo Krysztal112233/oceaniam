@@ -3,6 +3,8 @@ use oceaniam_api::{ApiResponse, ErrorResponse};
 use oceaniam_audit::types::{AuditPayload, RefreshJwtPayload};
 use oceaniam_auth::jwt::Claim;
 use oceaniam_database::config::application::ApplicationConfiguration;
+use oceaniam_database::helper::subjects::SubjectsHelper;
+use oceaniam_database::model::prelude::Subjects;
 use oceaniam_vo::auth::SigninResponseOrChallenge;
 use tap::Tap;
 use tracing::{Span, error, field, info, warn};
@@ -65,6 +67,7 @@ pub async fn refresh_application_token(
         keyboxes,
         applications,
         auditing,
+        database,
         cookie,
         ..
     }): State<AppState>,
@@ -88,6 +91,21 @@ pub async fn refresh_application_token(
     } = applications.get_configuration(application_id).await?;
 
     info!(%user_id, %application_id, old_jti = %jti, "token refresh requested");
+
+    // Lazy rejection of expired development accounts: covers the window between `expires_at`
+    // and the pgmq consumer deleting the account. Checked before revoking the old token so a
+    // rejected refresh does not burn it.
+    Subjects::ensure_subject_active(user_id, &database)
+        .await
+        .inspect_err(|e| {
+            warn!(
+                %user_id,
+                %application_id,
+                old_jti = %jti,
+                error = %e,
+                "token refresh rejected: subject expired or gone"
+            )
+        })?;
 
     if revoked_jwt.is_revoked(jti).await? {
         warn!(

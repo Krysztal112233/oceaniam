@@ -10,7 +10,8 @@ use oceaniam_common::sqid::Sqid;
 use oceaniam_database::{
     config::application::ApplicationConfiguration,
     helper::challenges::{ChallengesHelper, CreateChallengeOpts},
-    model::prelude::Challenges,
+    helper::subjects::SubjectsHelper,
+    model::prelude::{Challenges, Subjects},
     model::sea_orm_active_enums::ChallengeFactorType,
 };
 use oceaniam_vo::{applications::ApplicationChallengeVO, auth::SigninResponseOrChallenge};
@@ -224,7 +225,7 @@ pub async fn create_application_challenge(
 #[tracing::instrument(
     level = "info",
     name = "application_challenges.create_attempt",
-    skip(keyboxes, applications, auditing, token_mtd, payload),
+    skip(keyboxes, applications, auditing, token_mtd, payload, database),
     fields(otel.kind = "internal", application_id = field::Empty, challenge_id = field::Empty, user_id = field::Empty, token_dispatch = field::Empty)
 )]
 pub async fn create_application_challenge_attempt(
@@ -234,6 +235,7 @@ pub async fn create_application_challenge_attempt(
         applications,
         auditing,
         cookie,
+        database,
         ..
     }): State<AppState>,
     app: ResolvedApplication,
@@ -263,6 +265,20 @@ pub async fn create_application_challenge_attempt(
         .inspect_err(
             |e| error!(%application_id, %challenge_id, error = %e, "failed to verify challenge"),
         )?;
+
+    // Lazy rejection of expired development accounts: the challenge-verify leg completes
+    // sign-in, so it must apply the same expiry check as the password path (generic 401).
+    Subjects::ensure_subject_active(user_id, &database)
+        .await
+        .inspect_err(|e| {
+            error!(
+                %application_id,
+                %user_id,
+                %challenge_id,
+                error = %e,
+                "challenge completion rejected: subject expired or gone"
+            )
+        })?;
 
     let ApplicationConfiguration {
         auth: authentication,
