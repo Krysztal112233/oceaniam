@@ -121,8 +121,14 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
     }
 
     let (_schema, database) = isolated_database().await;
-    let migration_count = Migrator::migrations().len();
-    Migrator::up(&database, Some((migration_count - 1) as u32))
+    // Apply every migration that precedes the one under test, regardless of how
+    // many migrations are appended after it.
+    let migrations = Migrator::migrations();
+    let target_index = migrations
+        .iter()
+        .position(|migration| migration.name() == MIGRATION_VERSION)
+        .expect("hash_application_secrets migration must be registered");
+    Migrator::up(&database, Some(target_index as u32))
         .await
         .unwrap();
 

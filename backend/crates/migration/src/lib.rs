@@ -73,6 +73,7 @@ mod m20260614_082902_envelope_encrypt_keys;
 mod m20260615_081707_add_email_totp_challenge_factor;
 mod m20260620_085000_alter_audit_type_bind_unbind_secret;
 mod m20260726_142405_hash_application_secrets;
+mod m20260815_091648_create_dev_accounts;
 
 pub struct Migrator;
 
@@ -155,6 +156,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260615_081707_add_email_totp_challenge_factor::Migration),
             Box::new(m20260620_085000_alter_audit_type_bind_unbind_secret::Migration),
             Box::new(m20260726_142405_hash_application_secrets::Migration),
+            Box::new(m20260815_091648_create_dev_accounts::Migration),
         ]
     }
 }

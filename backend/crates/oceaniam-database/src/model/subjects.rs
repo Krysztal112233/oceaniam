@@ -12,6 +12,7 @@ pub struct Model {
     pub r#type: SubjectTypeEnum,
     pub application_id: Uuid,
     pub created_at: DateTimeWithTimeZone,
+    pub expires_at: Option<DateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

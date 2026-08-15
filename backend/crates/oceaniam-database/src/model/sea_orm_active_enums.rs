@@ -61,6 +61,10 @@ pub enum AuditType {
     BindApplicationSecret,
     #[sea_orm(string_value = "unbind_application_secret")]
     UnbindApplicationSecret,
+    #[sea_orm(string_value = "create_dev_account")]
+    CreateDevAccount,
+    #[sea_orm(string_value = "dev_account_expired")]
+    DevAccountExpired,
 }
 #[derive(
     Debug,
