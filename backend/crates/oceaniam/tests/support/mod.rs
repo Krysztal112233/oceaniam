@@ -2,6 +2,7 @@ use std::{collections::HashMap, net::SocketAddr, sync::OnceLock};
 
 use migration::{Migrator, MigratorTrait};
 use oceaniam::app::{app, build_state};
+use oceaniam::state::AppState;
 use oceaniam_application_secret::{ApplicationSecretHmacKey, ApplicationSecretKeyring};
 use oceaniam_common::config::{BackendConfig, CookieConfig};
 use oceaniam_database::{
@@ -31,6 +32,11 @@ pub struct TestApp {
 
     /// Base DSN (without schema parameter), used for cleaning up the schema.
     pub base_dsn: String,
+
+    /// The application state handed to the server. Cloning `AppState` shares the underlying
+    /// moka caches, so background tasks (e.g. the dev-account expiration consumer) can be
+    /// driven against the same cache state the server uses.
+    pub state: AppState,
 
     /// The root password for the test application.
     /// Populated from `MIGRATION_DEFAULT_ROOT_PASSWORD` env var or auto-generated.
@@ -348,13 +354,13 @@ pub async fn spawn_app_with_isolated_schema() -> TestApp {
     }
 
     // Start the application
-    let (server, address) = {
+    let (server, address, state) = {
         let addr = test_config.addr.clone();
         let cors = test_config.cors.clone();
         let state = build_state(test_config)
             .await
             .expect("failed to build integration test app state");
-        let router = app(state, cors);
+        let router = app(state.clone(), cors);
 
         let listener = tokio::net::TcpListener::bind(&addr)
             .await
@@ -370,6 +376,7 @@ pub async fn spawn_app_with_isolated_schema() -> TestApp {
                     .expect("integration test server exited unexpectedly");
             }),
             address,
+            state,
         )
     };
 
@@ -379,6 +386,7 @@ pub async fn spawn_app_with_isolated_schema() -> TestApp {
         server,
         schema_name,
         base_dsn,
+        state,
         root_password,
     }
 }
