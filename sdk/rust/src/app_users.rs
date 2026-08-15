@@ -46,12 +46,16 @@ impl OceanIamClient {
         self.send_inner(req).await
     }
 
+    /// Creates an application user.
+    ///
+    /// Omitting `body.development` creates a permanent user. Supplying it creates a time-limited
+    /// development account; `DevAccountOptions::default()` uses the default 3600-second TTL.
     pub async fn create_application_user(
         &self,
         tenant_id: &str,
         application_id: &str,
         body: &CreateApplicationUserRequest,
-    ) -> Result<ApplicationUserVO, Error> {
+    ) -> Result<CreatedApplicationUserVO, Error> {
         let path = paths::fmt2(paths::APP_USERS, tenant_id, application_id);
         let req = self
             .auth_req(Method::POST, &path, AuthMode::BearerOrAppSecret)?
