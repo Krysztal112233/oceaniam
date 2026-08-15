@@ -95,6 +95,15 @@ RUN git clone https://github.com/duckdb/pg_duckdb.git /tmp/pg_duckdb && \
 		mkdir /usr/share/doc/pg_duckdb && \
 		cp LICENSE README.md /usr/share/doc/pg_duckdb && \
 		rm -r /tmp/pg_duckdb
+# pgmq v1.12.0 provides the dev-account expiration queue; it does not need
+# shared_preload_libraries (activated via CREATE EXTENSION only).
+RUN git clone https://github.com/pgmq/pgmq.git /tmp/pgmq && \
+		cd /tmp/pgmq && \
+		git checkout v1.12.0 && \
+		cd pgmq && \
+		make -j$(nproc) && \
+		make install && \
+		rm -r /tmp/pgmq
 RUN apt-get remove -y build-essential postgresql-server-dev-18 libreadline-dev zlib1g-dev flex bison libxml2-dev \
 				libxslt-dev libssl-dev libxml2-utils xsltproc pkg-config libc++-dev \
 				libc++abi-dev libglib2.0-dev cmake libstdc++-12-dev \
