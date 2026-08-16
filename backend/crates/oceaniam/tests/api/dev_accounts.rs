@@ -697,3 +697,235 @@ async fn dev_account_ttl_validation_default_and_custom_value() {
         "custom expires_at should be ~now()+60s, got {remaining_seconds}s"
     );
 }
+
+/// Patches the application's `development_accounts` configuration as the root admin.
+async fn api_patch_development_accounts_config(
+    app: &TestApp,
+    token: &str,
+    fixture: &DevAccountFixture,
+    patch: Value,
+) -> reqwest::Response {
+    app.client
+        .patch(app.url(&format!(
+            "/tenants/{}/applications/{}/configuration",
+            fixture.tenant_id, fixture.application_id
+        )))
+        .header("Authorization", format!("Bearer {token}"))
+        .json(&json!({ "development_accounts": patch }))
+        .send()
+        .await
+        .expect("patch development_accounts configuration request failed")
+}
+
+/// Reads the application's `development_accounts` configuration as the root admin.
+async fn api_get_development_accounts_config(
+    app: &TestApp,
+    token: &str,
+    fixture: &DevAccountFixture,
+) -> Value {
+    let resp = app
+        .client
+        .get(app.url(&format!(
+            "/tenants/{}/applications/{}/configuration",
+            fixture.tenant_id, fixture.application_id
+        )))
+        .header("Authorization", format!("Bearer {token}"))
+        .send()
+        .await
+        .expect("get configuration request failed");
+    assert_eq!(resp.status(), 200);
+    let body: Value = resp.json().await.unwrap();
+    body["configuration"]["development_accounts"].clone()
+}
+
+/// Scenario 10: `enabled=false` rejects development-account creation with 403 while permanent
+/// user creation keeps working; re-enabling restores development-account creation.
+// NOTE: AI-generated test
+#[tokio::test]
+async fn dev_account_disabled_configuration_rejects_creation() {
+    let app = spawn_app_with_isolated_schema().await;
+    let token = app.root_signin().await;
+    let fixture = setup_fixture(&app, &token).await;
+
+    let disable =
+        api_patch_development_accounts_config(&app, &token, &fixture, json!({ "enabled": false }))
+            .await;
+    assert_eq!(disable.status(), 200, "disabling should succeed");
+    let config = api_get_development_accounts_config(&app, &token, &fixture).await;
+    assert_eq!(config["enabled"], false);
+
+    let rejected = api_create_development_user(
+        &app,
+        &token,
+        &fixture,
+        "dev-disabled@example.com",
+        "DevPassword123!",
+        None,
+    )
+    .await;
+    assert_eq!(
+        rejected.status(),
+        403,
+        "development-account creation should be rejected when disabled"
+    );
+
+    // The enabled check precedes TTL validation: even an invalid TTL gets 403.
+    let rejected_invalid_ttl = api_create_development_user(
+        &app,
+        &token,
+        &fixture,
+        "dev-disabled-zero@example.com",
+        "DevPassword123!",
+        Some(0),
+    )
+    .await;
+    assert_eq!(
+        rejected_invalid_ttl.status(),
+        403,
+        "disabled applications should fail with 403 regardless of the requested TTL"
+    );
+
+    // Permanent user creation is unaffected by the development-account switch.
+    let permanent = app
+        .client
+        .post(app.url(&format!(
+            "/tenants/{}/applications/{}/users",
+            fixture.tenant_id, fixture.application_id
+        )))
+        .header("Authorization", format!("Bearer {token}"))
+        .json(&json!({
+            "email": "permanent@example.com",
+            "password": "PermanentPassword123!",
+        }))
+        .send()
+        .await
+        .expect("create permanent user request failed");
+    assert_eq!(
+        permanent.status(),
+        200,
+        "permanent user creation should still work when development accounts are disabled"
+    );
+
+    let enable =
+        api_patch_development_accounts_config(&app, &token, &fixture, json!({ "enabled": true }))
+            .await;
+    assert_eq!(enable.status(), 200, "re-enabling should succeed");
+
+    let accepted = api_create_development_user(
+        &app,
+        &token,
+        &fixture,
+        "dev-enabled@example.com",
+        "DevPassword123!",
+        None,
+    )
+    .await;
+    assert_eq!(
+        accepted.status(),
+        200,
+        "development-account creation should work after re-enabling"
+    );
+}
+
+/// Scenario 11: custom `default_ttl_seconds` replaces the 3600-second default and
+/// `max_ttl_seconds` caps requested TTLs.
+// NOTE: AI-generated test
+#[tokio::test]
+async fn dev_account_custom_default_and_max_ttl() {
+    let app = spawn_app_with_isolated_schema().await;
+    let token = app.root_signin().await;
+    let fixture = setup_fixture(&app, &token).await;
+
+    let patch = api_patch_development_accounts_config(
+        &app,
+        &token,
+        &fixture,
+        json!({ "default_ttl_seconds": 120, "max_ttl_seconds": 300 }),
+    )
+    .await;
+    assert_eq!(patch.status(), 200);
+    let config = api_get_development_accounts_config(&app, &token, &fixture).await;
+    assert_eq!(config["default_ttl_seconds"], 120);
+    assert_eq!(config["max_ttl_seconds"], 300);
+
+    let above_max = api_create_development_user(
+        &app,
+        &token,
+        &fixture,
+        "dev-above-max@example.com",
+        "DevPassword123!",
+        Some(301),
+    )
+    .await;
+    assert_eq!(
+        above_max.status(),
+        400,
+        "ttl_seconds above max_ttl_seconds should be rejected"
+    );
+
+    let defaulted = api_create_development_user(
+        &app,
+        &token,
+        &fixture,
+        "dev-custom-default@example.com",
+        "DevPassword123!",
+        None,
+    )
+    .await;
+    assert_eq!(defaulted.status(), 200);
+    let defaulted_body: Value = defaulted.json().await.unwrap();
+    let defaulted_subject_id = sqid_to_uuid(defaulted_body["id"].as_str().unwrap());
+    let defaulted_row = read_queue_row(&app, defaulted_subject_id).await;
+    assert_eq!(
+        read_queue_delay_seconds(&app, defaulted_row.msg_id).await,
+        120,
+        "development: {{}} should use the configured default_ttl_seconds"
+    );
+
+    let at_max = api_create_development_user(
+        &app,
+        &token,
+        &fixture,
+        "dev-at-max@example.com",
+        "DevPassword123!",
+        Some(300),
+    )
+    .await;
+    assert_eq!(
+        at_max.status(),
+        200,
+        "ttl_seconds equal to max_ttl_seconds should be accepted"
+    );
+}
+
+/// Scenario 12: semantically invalid `development_accounts` patches are rejected with 400
+/// and leave the stored configuration unchanged.
+// NOTE: AI-generated test
+#[tokio::test]
+async fn dev_account_invalid_configuration_patch_rejected() {
+    let app = spawn_app_with_isolated_schema().await;
+    let token = app.root_signin().await;
+    let fixture = setup_fixture(&app, &token).await;
+
+    let before = api_get_development_accounts_config(&app, &token, &fixture).await;
+
+    for patch in [
+        json!({ "default_ttl_seconds": 0 }),
+        json!({ "max_ttl_seconds": 0 }),
+        json!({ "default_ttl_seconds": 7200, "max_ttl_seconds": 3600 }),
+        json!({ "max_ttl_seconds": i32::MAX as u64 + 1 }),
+    ] {
+        let resp = api_patch_development_accounts_config(&app, &token, &fixture, patch).await;
+        assert_eq!(
+            resp.status(),
+            400,
+            "invalid development_accounts patch should be rejected"
+        );
+    }
+
+    let after = api_get_development_accounts_config(&app, &token, &fixture).await;
+    assert_eq!(
+        before, after,
+        "rejected patches should not modify the stored configuration"
+    );
+}
