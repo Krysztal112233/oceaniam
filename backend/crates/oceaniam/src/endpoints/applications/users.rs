@@ -6,6 +6,7 @@ use axum::{
 };
 use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
+use chrono::{DateTime, FixedOffset};
 use oceaniam_api::{ApiResponse, Empty, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{
     AuditPayload, CreateApplicationUserPayload, CreateDevAccountPayload,
@@ -15,7 +16,7 @@ use oceaniam_common::{helpers::gen_random_name, sqid::Sqid};
 use oceaniam_database::{
     config::application::MAX_DEV_ACCOUNT_TTL_SECONDS,
     helper::users::{CreateUserOpts, PatchUserOpts, UserHelper},
-    model::prelude::Users,
+    model::{prelude::Users, users::Model as UserModel},
 };
 use oceaniam_vo::applications::{
     ApplicationUserVO, ApplicationUsersListQuery, ApplicationUsersSortOrder,
@@ -24,7 +25,7 @@ use oceaniam_vo::applications::{
     SearchApplicationUsersQuery,
 };
 use oceaniam_vo::auth::{EnrollTotpResponse, VerifyTotpRequest};
-use sea_orm::TransactionTrait;
+use sea_orm::{DatabaseConnection, TransactionTrait};
 use tap::Tap;
 use tracing::{Span, error, field, info};
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -35,7 +36,10 @@ use crate::{
     error::{AppResult, Error},
     middlewares::application::AdminJwtOrApplicationSecretGuard,
     middlewares::auth::AuthenticatedOperator,
-    state::{AppState, applications::UserIdentifier},
+    state::{
+        AppState,
+        applications::{ApplicationUsers, ManagedApplications, UserIdentifier},
+    },
 };
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
@@ -450,54 +454,6 @@ pub async fn create_application_user(
     })): Garde<Json<CreateApplicationUserRequest>>,
 ) -> AppResult<CreatedApplicationUserVO> {
     let application_id = app.id();
-    let ttl_seconds = match development {
-        Some(DevAccountOptions { ttl_seconds }) => {
-            let policy = applications
-                .get_configuration(application_id)
-                .await
-                .inspect_err(|e| {
-                    error!(
-                        %application_id,
-                        error = %e,
-                        "failed to load development-account configuration"
-                    )
-                })?
-                .development_accounts;
-
-            if !policy.enabled {
-                return Err(Error::with_code(
-                    StatusCode::FORBIDDEN,
-                    "development accounts are disabled for this application",
-                ));
-            }
-
-            let ttl_seconds = ttl_seconds.unwrap_or(policy.default_ttl_seconds);
-            if ttl_seconds == 0 {
-                return Err(Error::with_code(
-                    StatusCode::BAD_REQUEST,
-                    "ttl_seconds must be at least 1",
-                ));
-            }
-            if ttl_seconds > policy.max_ttl_seconds {
-                return Err(Error::with_code(
-                    StatusCode::BAD_REQUEST,
-                    format!(
-                        "ttl_seconds exceeds the configured maximum of {} seconds",
-                        policy.max_ttl_seconds
-                    ),
-                ));
-            }
-            if ttl_seconds > MAX_DEV_ACCOUNT_TTL_SECONDS {
-                return Err(Error::with_code(
-                    StatusCode::BAD_REQUEST,
-                    "ttl_seconds exceeds the pgmq integer delay limit",
-                ));
-            }
-
-            Some(ttl_seconds)
-        }
-        None => None,
-    };
 
     // NOTE: This field required more than 4 char if [Some] or [None].
     //
@@ -510,16 +466,14 @@ pub async fn create_application_user(
             .record("application_id", field::display(&application_id))
             .record(
                 "account_type",
-                field::display(if ttl_seconds.is_some() {
+                field::display(if development.is_some() {
                     "development"
                 } else {
                     "permanent"
                 }),
-            )
-            .record("ttl_seconds", field::debug(&ttl_seconds));
+            );
     });
 
-    let transaction = database.begin().await?;
     let users = applications
         .get_application_users(application_id)
         .await
@@ -535,45 +489,29 @@ pub async fn create_application_user(
         email,
         phone,
     };
-    let (user, expires_at) = match ttl_seconds {
-        Some(ttl_seconds) => users
-            .create_dev_account_in_tx(application_id, opts, password, ttl_seconds, &transaction)
-            .await
-            .map(|(user, expires_at)| (user, Some(expires_at)))
-            .inspect_err(|e| {
-                error!(
-                    %application_id,
-                    error = %e,
-                    "development account creation failed"
-                )
-            })?,
-        None => users
-            .create_user_in_tx(application_id, opts, password, &transaction)
-            .await
-            .map(|user| (user, None))
-            .inspect_err(|e| {
-                error!(
-                    %application_id,
-                    error = %e,
-                    "permanent application user creation failed"
-                )
-            })?,
-    };
-    transaction.commit().await?;
 
-    Span::current().tap(|it| {
-        it.record("user_id", field::display(&user.id));
-    });
+    let (user, expires_at) = match development {
+        Some(options) => {
+            let ttl_seconds =
+                resolve_dev_account_ttl(&applications, application_id, options).await?;
+            Span::current().record("ttl_seconds", field::debug(&ttl_seconds));
 
-    let response = match expires_at {
-        Some(expires_at) => {
+            let (user, expires_at) = create_dev_account(
+                &database,
+                &users,
+                application_id,
+                opts,
+                password,
+                ttl_seconds,
+            )
+            .await?;
+
             info!(
                 %application_id,
                 user_id = %user.id,
                 %expires_at,
                 "development account created successfully"
             );
-
             auditing
                 .write(AuditPayload::from(CreateDevAccountPayload {
                     application_id,
@@ -585,15 +523,17 @@ pub async fn create_application_user(
                 }))
                 .await;
 
-            crate::conversion::users::created_user_model_to_vo(user, Some(expires_at))
+            (user, Some(expires_at))
         }
         None => {
+            let user =
+                create_permanent_user(&database, &users, application_id, opts, password).await?;
+
             info!(
                 %application_id,
                 user_id = %user.id,
                 "permanent application user created successfully"
             );
-
             auditing
                 .write(AuditPayload::from(CreateApplicationUserPayload {
                     application_id,
@@ -604,11 +544,122 @@ pub async fn create_application_user(
                 }))
                 .await;
 
-            crate::conversion::users::created_user_model_to_vo(user, None)
+            (user, None)
         }
     };
 
-    Ok(ApiResponse::new(response))
+    Span::current().tap(|it| {
+        it.record("user_id", field::display(&user.id));
+    });
+
+    Ok(ApiResponse::new(
+        crate::conversion::users::created_user_model_to_vo(user, expires_at),
+    ))
+}
+
+/// Resolves the effective TTL for a development account against the application's
+/// `development_accounts` policy.
+///
+/// Fails with 403 when development accounts are disabled (before any TTL validation,
+/// so the policy outcome does not depend on the requested value), and with 400 when
+/// the resolved TTL is out of bounds.
+async fn resolve_dev_account_ttl(
+    applications: &ManagedApplications,
+    application_id: Uuid,
+    options: DevAccountOptions,
+) -> Result<u64, Error> {
+    let policy = applications
+        .get_configuration(application_id)
+        .await
+        .inspect_err(|e| {
+            error!(
+                %application_id,
+                error = %e,
+                "failed to load development-account configuration"
+            )
+        })?
+        .development_accounts;
+
+    if !policy.enabled {
+        return Err(Error::with_code(
+            StatusCode::FORBIDDEN,
+            "development accounts are disabled for this application",
+        ));
+    }
+
+    let ttl_seconds = options.ttl_seconds.unwrap_or(policy.default_ttl_seconds);
+    if ttl_seconds == 0 {
+        return Err(Error::with_code(
+            StatusCode::BAD_REQUEST,
+            "ttl_seconds must be at least 1",
+        ));
+    }
+    if ttl_seconds > policy.max_ttl_seconds {
+        return Err(Error::with_code(
+            StatusCode::BAD_REQUEST,
+            format!(
+                "ttl_seconds exceeds the configured maximum of {} seconds",
+                policy.max_ttl_seconds
+            ),
+        ));
+    }
+    if ttl_seconds > MAX_DEV_ACCOUNT_TTL_SECONDS {
+        return Err(Error::with_code(
+            StatusCode::BAD_REQUEST,
+            "ttl_seconds exceeds the pgmq integer delay limit",
+        ));
+    }
+
+    Ok(ttl_seconds)
+}
+
+/// Creates a development account in its own transaction, returning the user and its expiry.
+async fn create_dev_account(
+    database: &DatabaseConnection,
+    users: &ApplicationUsers,
+    application_id: Uuid,
+    opts: CreateUserOpts,
+    password: String,
+    ttl_seconds: u64,
+) -> Result<(UserModel, DateTime<FixedOffset>), Error> {
+    let transaction = database.begin().await?;
+    let result = users
+        .create_dev_account_in_tx(application_id, opts, password, ttl_seconds, &transaction)
+        .await
+        .inspect_err(|e| {
+            error!(
+                %application_id,
+                error = %e,
+                "development account creation failed"
+            )
+        })?;
+    transaction.commit().await?;
+
+    Ok(result)
+}
+
+/// Creates a permanent application user in its own transaction.
+async fn create_permanent_user(
+    database: &DatabaseConnection,
+    users: &ApplicationUsers,
+    application_id: Uuid,
+    opts: CreateUserOpts,
+    password: String,
+) -> Result<UserModel, Error> {
+    let transaction = database.begin().await?;
+    let user = users
+        .create_user_in_tx(application_id, opts, password, &transaction)
+        .await
+        .inspect_err(|e| {
+            error!(
+                %application_id,
+                error = %e,
+                "permanent application user creation failed"
+            )
+        })?;
+    transaction.commit().await?;
+
+    Ok(user)
 }
 
 /// Patch application user profile fields (currently nickname only).
