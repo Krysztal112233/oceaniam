@@ -13,6 +13,7 @@ use oceaniam_audit::types::{
 };
 use oceaniam_common::{helpers::gen_random_name, sqid::Sqid};
 use oceaniam_database::{
+    config::application::MAX_DEV_ACCOUNT_TTL_SECONDS,
     helper::users::{CreateUserOpts, PatchUserOpts, UserHelper},
     model::prelude::Users,
 };
@@ -31,15 +32,11 @@ use uuid::Uuid;
 
 use super::ResolvedApplication;
 use crate::{
-    error::AppResult,
+    error::{AppResult, Error},
     middlewares::application::AdminJwtOrApplicationSecretGuard,
     middlewares::auth::AuthenticatedOperator,
     state::{AppState, applications::UserIdentifier},
 };
-
-/// Default development-account time-to-live (1 hour) when `ttl_seconds` is omitted.
-const DEFAULT_DEV_ACCOUNT_TTL_SECONDS: u64 = 3600;
-
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(routes!(get_application_users))
@@ -406,7 +403,8 @@ pub async fn get_application_user(
 /// Create an application user
 ///
 /// Omitting `development` creates a permanent user. Supplying `development` creates a
-/// time-limited development account; an empty object uses the default 3600-second TTL.
+/// time-limited development account; an empty object uses the application's configured
+/// default TTL.
 #[utoipa::path(
         post,
         path = "/tenants/{tenant_id}/applications/{application_id}/users",
@@ -452,9 +450,54 @@ pub async fn create_application_user(
     })): Garde<Json<CreateApplicationUserRequest>>,
 ) -> AppResult<CreatedApplicationUserVO> {
     let application_id = app.id();
-    let ttl_seconds = development.map(|DevAccountOptions { ttl_seconds }| {
-        ttl_seconds.unwrap_or(DEFAULT_DEV_ACCOUNT_TTL_SECONDS)
-    });
+    let ttl_seconds = match development {
+        Some(DevAccountOptions { ttl_seconds }) => {
+            let policy = applications
+                .get_configuration(application_id)
+                .await
+                .inspect_err(|e| {
+                    error!(
+                        %application_id,
+                        error = %e,
+                        "failed to load development-account configuration"
+                    )
+                })?
+                .development_accounts;
+
+            if !policy.enabled {
+                return Err(Error::with_code(
+                    StatusCode::FORBIDDEN,
+                    "development accounts are disabled for this application",
+                ));
+            }
+
+            let ttl_seconds = ttl_seconds.unwrap_or(policy.default_ttl_seconds);
+            if ttl_seconds == 0 {
+                return Err(Error::with_code(
+                    StatusCode::BAD_REQUEST,
+                    "ttl_seconds must be at least 1",
+                ));
+            }
+            if ttl_seconds > policy.max_ttl_seconds {
+                return Err(Error::with_code(
+                    StatusCode::BAD_REQUEST,
+                    format!(
+                        "ttl_seconds exceeds the configured maximum of {} seconds",
+                        policy.max_ttl_seconds
+                    ),
+                ));
+            }
+            if ttl_seconds > MAX_DEV_ACCOUNT_TTL_SECONDS {
+                return Err(Error::with_code(
+                    StatusCode::BAD_REQUEST,
+                    "ttl_seconds exceeds the pgmq integer delay limit",
+                ));
+            }
+
+            Some(ttl_seconds)
+        }
+        None => None,
+    };
 
     // NOTE: This field required more than 4 char if [Some] or [None].
     //

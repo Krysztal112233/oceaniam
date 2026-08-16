@@ -47,9 +47,30 @@ pub struct RegistrationConfigurationVO {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct DevelopmentAccountsConfigurationVO {
+    pub enabled: bool,
+    pub default_ttl_seconds: u64,
+    pub max_ttl_seconds: u64,
+}
+
+impl Default for DevelopmentAccountsConfigurationVO {
+    /// Matches the backend defaults so responses from pre-migration backends
+    /// (which lack the field entirely) remain deserializable.
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            default_ttl_seconds: 3600,
+            max_ttl_seconds: 86400,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct ApplicationConfigurationVO {
     pub auth: AuthConfigurationVO,
     pub registration: RegistrationConfigurationVO,
+    #[serde(default)]
+    pub development_accounts: DevelopmentAccountsConfigurationVO,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ToSchema)]
@@ -69,9 +90,17 @@ pub struct PatchRegistrationConfigurationVO {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ToSchema)]
+pub struct PatchDevelopmentAccountsConfigurationVO {
+    pub enabled: Option<bool>,
+    pub default_ttl_seconds: Option<u64>,
+    pub max_ttl_seconds: Option<u64>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ToSchema)]
 pub struct PatchApplicationConfigurationRequest {
     pub auth: Option<PatchAuthConfigurationVO>,
     pub registration: Option<PatchRegistrationConfigurationVO>,
+    pub development_accounts: Option<PatchDevelopmentAccountsConfigurationVO>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -136,7 +165,7 @@ pub struct CreateApplicationUserRequest {
     pub password: String,
 
     /// Optional development-account settings. When absent, creates a permanent user. An empty
-    /// object creates a development account with the default 3600-second TTL.
+    /// object creates a development account with the application's configured default TTL.
     #[garde(dive)]
     pub development: Option<DevAccountOptions>,
 }
@@ -233,9 +262,11 @@ pub struct ApplicationUserVO {
 /// Fields specific to development accounts.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Validate, Deserialize, ToSchema)]
 pub struct DevAccountOptions {
-    /// Time-to-live in seconds; defaults to 3600 (1 hour) when omitted. Upper bound matches
-    /// the pgmq delay parameter (PostgreSQL `integer`).
-    #[garde(range(min = 1, max = 2147483647))]
+    /// Time-to-live in seconds; defaults to the application's `development_accounts.default_ttl_seconds`
+    /// and is capped by its `development_accounts.max_ttl_seconds`. Bounds are validated in the
+    /// endpoint after the enabled check, so disabled applications always fail with 403 regardless
+    /// of the requested TTL.
+    #[garde(skip)]
     pub ttl_seconds: Option<u64>,
 }
 

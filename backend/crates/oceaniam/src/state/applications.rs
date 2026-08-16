@@ -10,7 +10,7 @@ use futures::future::join_all;
 use moka::future::Cache;
 use oceaniam_application_secret::ApplicationSecretKeyring;
 use oceaniam_database::{
-    config::application::ApplicationConfiguration,
+    config::application::{ApplicationConfiguration, MAX_DEV_ACCOUNT_TTL_SECONDS},
     helper::{
         SafeTransactionConnectionTrait,
         applications::{ApplicationHelper, CreateApplicationOptions},
@@ -329,7 +329,35 @@ impl ManagedApplications {
             {
                 it.registration.enabled = enabled;
             }
+
+            if let Some(development_accounts) = patch.development_accounts {
+                if let Some(enabled) = development_accounts.enabled {
+                    it.development_accounts.enabled = enabled;
+                }
+
+                if let Some(default_ttl_seconds) = development_accounts.default_ttl_seconds {
+                    it.development_accounts.default_ttl_seconds = default_ttl_seconds;
+                }
+
+                if let Some(max_ttl_seconds) = development_accounts.max_ttl_seconds {
+                    it.development_accounts.max_ttl_seconds = max_ttl_seconds;
+                }
+            }
         });
+
+        let development_accounts = &patched_configuration.development_accounts;
+        if development_accounts.default_ttl_seconds == 0
+            || development_accounts.max_ttl_seconds == 0
+            || development_accounts.default_ttl_seconds > development_accounts.max_ttl_seconds
+            || development_accounts.max_ttl_seconds > MAX_DEV_ACCOUNT_TTL_SECONDS
+        {
+            return Err(Error::with_code(
+                StatusCode::BAD_REQUEST,
+                format!(
+                    "invalid development_accounts configuration: require 1 <= default_ttl_seconds <= max_ttl_seconds <= {MAX_DEV_ACCOUNT_TTL_SECONDS}"
+                ),
+            ));
+        }
 
         let configuration = ApplicationConfiguration::from(
             Applications::replace_configuration(

@@ -1,10 +1,12 @@
 use oceaniam_database::config::application::{
     ApplicationConfiguration, Argon2Configuration as DbArgon2Configuration, AuthConfiguration,
-    PasswordConfiguration, RegistrationConfiguration, TokenConfiguration,
+    DevelopmentAccountsConfiguration, PasswordConfiguration, RegistrationConfiguration,
+    TokenConfiguration,
 };
 use oceaniam_vo::applications::{
-    ApplicationConfigurationVO, Argon2Configuration, AuthConfigurationVO, PasswordConfigurationVO,
-    RegistrationConfigurationVO, TokenConfigurationVO,
+    ApplicationConfigurationVO, Argon2Configuration, AuthConfigurationVO,
+    DevelopmentAccountsConfigurationVO, PasswordConfigurationVO, RegistrationConfigurationVO,
+    TokenConfigurationVO,
 };
 
 pub fn token_configuration_to_vo(config: TokenConfiguration) -> TokenConfigurationVO {
@@ -47,12 +49,32 @@ pub fn registration_configuration_to_vo(
     RegistrationConfigurationVO { enabled }
 }
 
+pub fn development_accounts_configuration_to_vo(
+    config: DevelopmentAccountsConfiguration,
+) -> DevelopmentAccountsConfigurationVO {
+    let DevelopmentAccountsConfiguration {
+        enabled,
+        default_ttl_seconds,
+        max_ttl_seconds,
+    } = config;
+    DevelopmentAccountsConfigurationVO {
+        enabled,
+        default_ttl_seconds,
+        max_ttl_seconds,
+    }
+}
+
 pub fn application_configuration_to_vo(
     config: ApplicationConfiguration,
 ) -> ApplicationConfigurationVO {
-    let ApplicationConfiguration { auth, registration } = config;
+    let ApplicationConfiguration {
+        auth,
+        registration,
+        development_accounts,
+    } = config;
     ApplicationConfigurationVO {
         auth: auth_configuration_to_vo(auth),
         registration: registration_configuration_to_vo(registration),
+        development_accounts: development_accounts_configuration_to_vo(development_accounts),
     }
 }
