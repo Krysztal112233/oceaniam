@@ -13,15 +13,15 @@ deletes it after the requested TTL.
 | Granularity | A normal user/subject inside an **existing** application, carrying an expiry timestamp. No temporary tenants/applications. |
 | API contract | `POST /tenants/{tenant}/applications/{app}/users`. Absence of `development` creates a permanent user; `development: {}` creates a dev user with the default TTL. |
 | Caller & auth | `AdminJwtOrApplicationSecretGuard` — an application holding an `app_` secret self-serves users for itself; platform admins may also create them. No unauthenticated path. |
-| TTL semantics | `development.ttl_seconds` is optional. Default **3600** (1 hour) when omitted inside `development`. Valid range is `1..=2147483647`, matching pgmq's PostgreSQL `integer` delay. No renewal/extension (for now). |
+| TTL semantics | `development.ttl_seconds` is optional. When omitted inside `development`, the application's `development_accounts.default_ttl_seconds` applies (default **3600**, 1 hour). Valid range is `1..=min(development_accounts.max_ttl_seconds, 2147483647)`, matching pgmq's PostgreSQL `integer` delay. No renewal/extension (for now). |
 | Discriminator | Plain column `subjects.expires_at TIMESTAMPTZ NULL`; `NULL` means a normal account. No new `subject_type_enum` variant. |
 | Expiry execution | **pgmq delayed message + in-API-process consumer** (see below). No periodic sweep. |
 | Lazy rejection | Sign-in and token-refresh reject accounts whose `expires_at <= now()`. |
 | Poison/idempotency | Deleting an already-gone account is success. Transient errors are left for visibility-timeout redelivery. `read_ct >= 10` → archive to `pgmq.a_dev_account_expiration` (dead letter). |
-| Guardrails | No per-application toggle or rate limiting (for now). |
+| Guardrails | Per-application `development_accounts` configuration (`enabled` / `default_ttl_seconds` / `max_ttl_seconds`, see below). No rate limiting (for now). |
 | Token lifetime | Access tokens issued before expiry remain valid until their own `exp`; token clamping to `expires_at` is explicitly out of scope. Operators should keep access-token TTLs short for dev-account-heavy applications. |
 | Dead letters | A dead-lettered expiration message (`pgmq.a_dev_account_expiration`) means the account is **never deleted** (it is still lazy-rejected at sign-in/refresh). Operators should monitor the archive table. |
-| SDK | Rust SDK updated through `create_application_user`; Dart SDK untouched. |
+| SDK | Rust SDK updated through `create_application_user`; configuration VOs flow through `oceaniam-vo`. Dart SDK models `development_accounts` (nullable on read for compatibility with pre-migration backends). |
 
 ## Data model
 
@@ -58,9 +58,37 @@ The `development` field has presence-sensitive semantics:
 
 - field absent: create a permanent user with `subjects.expires_at = NULL`, enqueue no
   pgmq message, and write `CreateApplicationUserPayload`;
-- `"development": {}`: create a development account with the default 3600-second TTL;
+- `"development": {}`: create a development account with the configured
+  `default_ttl_seconds` (3600 unless patched);
 - `"development": {"ttl_seconds": N}`: create a development account with the requested
-  validated TTL.
+  validated TTL (`N <= max_ttl_seconds`, else 400).
+
+Creation is rejected with 403 when the application's `development_accounts.enabled`
+is `false`; permanent user creation is unaffected.
+
+## Per-application configuration
+
+`applications.configuration` (JSONB) carries a `development_accounts` section:
+
+```json
+{
+  "development_accounts": {
+    "enabled": true,
+    "default_ttl_seconds": 3600,
+    "max_ttl_seconds": 86400
+  }
+}
+```
+
+- Migration `m20260816_044628_alter_application_configuration_development_accounts`
+  backfills the section on existing rows and sets the column default; the Rust config
+  struct also uses `#[serde(default)]`, so pre-migration rows remain deserializable.
+- `PATCH /tenants/{tenant}/applications/{app}/configuration` merges
+  `development_accounts` fields (all optional). The merged result must satisfy
+  `1 <= default_ttl_seconds <= max_ttl_seconds <= 2147483647`, else the patch is
+  rejected with 400 and nothing is persisted.
+- The creation endpoint reads the cached configuration per request, so changes take
+  effect after the normal cache invalidation on patch.
 
 For a development account, inside the same database transaction as account creation
 (the `create_user_in_tx` path):
@@ -130,7 +158,10 @@ between expiry and message consumption.
 
 - Rust SDK (`sdk/rust`): `create_application_user(...)` accepts
   `CreateApplicationUserRequest.development` and returns the unified creation response.
-- Dart SDK: deliberately not updated.
+  Configuration VOs come from `oceaniam-vo`, so `development_accounts` is exposed
+  automatically.
+- Dart SDK: `DevelopmentAccountsConfiguration` and its patch counterpart are modeled;
+  the field is nullable on read for compatibility with pre-migration backends.
 
 ## Testing
 
@@ -151,3 +182,10 @@ Integration tests (schema-isolation harness, `backend/crates/oceaniam/tests`):
 8. An application-secret caller can create a development account for its own application.
 9. Nested TTL validation rejects zero and values above PostgreSQL `integer`; `development: {}`
    uses 3600 seconds, while a non-default custom TTL controls both `expires_at` and pgmq delay.
+10. `enabled=false` rejects development-account creation (403) while permanent user creation
+    still works; re-enabling restores it.
+11. A patched `default_ttl_seconds` replaces the 3600-second default and
+    `max_ttl_seconds` caps requested TTLs (400 above the cap, 200 at the cap).
+12. Semantically invalid `development_accounts` patches (zero TTL, default above max,
+    max above the pgmq integer limit) are rejected with 400 and leave the stored
+    configuration unchanged.
