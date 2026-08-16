@@ -918,6 +918,224 @@ abstract class _RegistrationConfiguration implements RegistrationConfiguration {
       get copyWith => throw _privateConstructorUsedError;
 }
 
+DevelopmentAccountsConfiguration _$DevelopmentAccountsConfigurationFromJson(
+    Map<String, dynamic> json) {
+  return _DevelopmentAccountsConfiguration.fromJson(json);
+}
+
+/// @nodoc
+mixin _$DevelopmentAccountsConfiguration {
+  bool get enabled => throw _privateConstructorUsedError;
+  @JsonKey(name: 'default_ttl_seconds')
+  int get defaultTtlSeconds => throw _privateConstructorUsedError;
+  @JsonKey(name: 'max_ttl_seconds')
+  int get maxTtlSeconds => throw _privateConstructorUsedError;
+
+  /// Serializes this DevelopmentAccountsConfiguration to a JSON map.
+  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
+
+  /// Create a copy of DevelopmentAccountsConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $DevelopmentAccountsConfigurationCopyWith<DevelopmentAccountsConfiguration>
+      get copyWith => throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $DevelopmentAccountsConfigurationCopyWith<$Res> {
+  factory $DevelopmentAccountsConfigurationCopyWith(
+          DevelopmentAccountsConfiguration value,
+          $Res Function(DevelopmentAccountsConfiguration) then) =
+      _$DevelopmentAccountsConfigurationCopyWithImpl<$Res,
+          DevelopmentAccountsConfiguration>;
+  @useResult
+  $Res call(
+      {bool enabled,
+      @JsonKey(name: 'default_ttl_seconds') int defaultTtlSeconds,
+      @JsonKey(name: 'max_ttl_seconds') int maxTtlSeconds});
+}
+
+/// @nodoc
+class _$DevelopmentAccountsConfigurationCopyWithImpl<$Res,
+        $Val extends DevelopmentAccountsConfiguration>
+    implements $DevelopmentAccountsConfigurationCopyWith<$Res> {
+  _$DevelopmentAccountsConfigurationCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of DevelopmentAccountsConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? enabled = null,
+    Object? defaultTtlSeconds = null,
+    Object? maxTtlSeconds = null,
+  }) {
+    return _then(_value.copyWith(
+      enabled: null == enabled
+          ? _value.enabled
+          : enabled // ignore: cast_nullable_to_non_nullable
+              as bool,
+      defaultTtlSeconds: null == defaultTtlSeconds
+          ? _value.defaultTtlSeconds
+          : defaultTtlSeconds // ignore: cast_nullable_to_non_nullable
+              as int,
+      maxTtlSeconds: null == maxTtlSeconds
+          ? _value.maxTtlSeconds
+          : maxTtlSeconds // ignore: cast_nullable_to_non_nullable
+              as int,
+    ) as $Val);
+  }
+}
+
+/// @nodoc
+abstract class _$$DevelopmentAccountsConfigurationImplCopyWith<$Res>
+    implements $DevelopmentAccountsConfigurationCopyWith<$Res> {
+  factory _$$DevelopmentAccountsConfigurationImplCopyWith(
+          _$DevelopmentAccountsConfigurationImpl value,
+          $Res Function(_$DevelopmentAccountsConfigurationImpl) then) =
+      __$$DevelopmentAccountsConfigurationImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call(
+      {bool enabled,
+      @JsonKey(name: 'default_ttl_seconds') int defaultTtlSeconds,
+      @JsonKey(name: 'max_ttl_seconds') int maxTtlSeconds});
+}
+
+/// @nodoc
+class __$$DevelopmentAccountsConfigurationImplCopyWithImpl<$Res>
+    extends _$DevelopmentAccountsConfigurationCopyWithImpl<$Res,
+        _$DevelopmentAccountsConfigurationImpl>
+    implements _$$DevelopmentAccountsConfigurationImplCopyWith<$Res> {
+  __$$DevelopmentAccountsConfigurationImplCopyWithImpl(
+      _$DevelopmentAccountsConfigurationImpl _value,
+      $Res Function(_$DevelopmentAccountsConfigurationImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of DevelopmentAccountsConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? enabled = null,
+    Object? defaultTtlSeconds = null,
+    Object? maxTtlSeconds = null,
+  }) {
+    return _then(_$DevelopmentAccountsConfigurationImpl(
+      enabled: null == enabled
+          ? _value.enabled
+          : enabled // ignore: cast_nullable_to_non_nullable
+              as bool,
+      defaultTtlSeconds: null == defaultTtlSeconds
+          ? _value.defaultTtlSeconds
+          : defaultTtlSeconds // ignore: cast_nullable_to_non_nullable
+              as int,
+      maxTtlSeconds: null == maxTtlSeconds
+          ? _value.maxTtlSeconds
+          : maxTtlSeconds // ignore: cast_nullable_to_non_nullable
+              as int,
+    ));
+  }
+}
+
+/// @nodoc
+@JsonSerializable()
+class _$DevelopmentAccountsConfigurationImpl
+    implements _DevelopmentAccountsConfiguration {
+  const _$DevelopmentAccountsConfigurationImpl(
+      {required this.enabled,
+      @JsonKey(name: 'default_ttl_seconds') required this.defaultTtlSeconds,
+      @JsonKey(name: 'max_ttl_seconds') required this.maxTtlSeconds});
+
+  factory _$DevelopmentAccountsConfigurationImpl.fromJson(
+          Map<String, dynamic> json) =>
+      _$$DevelopmentAccountsConfigurationImplFromJson(json);
+
+  @override
+  final bool enabled;
+  @override
+  @JsonKey(name: 'default_ttl_seconds')
+  final int defaultTtlSeconds;
+  @override
+  @JsonKey(name: 'max_ttl_seconds')
+  final int maxTtlSeconds;
+
+  @override
+  String toString() {
+    return 'DevelopmentAccountsConfiguration(enabled: $enabled, defaultTtlSeconds: $defaultTtlSeconds, maxTtlSeconds: $maxTtlSeconds)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$DevelopmentAccountsConfigurationImpl &&
+            (identical(other.enabled, enabled) || other.enabled == enabled) &&
+            (identical(other.defaultTtlSeconds, defaultTtlSeconds) ||
+                other.defaultTtlSeconds == defaultTtlSeconds) &&
+            (identical(other.maxTtlSeconds, maxTtlSeconds) ||
+                other.maxTtlSeconds == maxTtlSeconds));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode =>
+      Object.hash(runtimeType, enabled, defaultTtlSeconds, maxTtlSeconds);
+
+  /// Create a copy of DevelopmentAccountsConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$DevelopmentAccountsConfigurationImplCopyWith<
+          _$DevelopmentAccountsConfigurationImpl>
+      get copyWith => __$$DevelopmentAccountsConfigurationImplCopyWithImpl<
+          _$DevelopmentAccountsConfigurationImpl>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$$DevelopmentAccountsConfigurationImplToJson(
+      this,
+    );
+  }
+}
+
+abstract class _DevelopmentAccountsConfiguration
+    implements DevelopmentAccountsConfiguration {
+  const factory _DevelopmentAccountsConfiguration(
+          {required final bool enabled,
+          @JsonKey(name: 'default_ttl_seconds')
+          required final int defaultTtlSeconds,
+          @JsonKey(name: 'max_ttl_seconds') required final int maxTtlSeconds}) =
+      _$DevelopmentAccountsConfigurationImpl;
+
+  factory _DevelopmentAccountsConfiguration.fromJson(
+          Map<String, dynamic> json) =
+      _$DevelopmentAccountsConfigurationImpl.fromJson;
+
+  @override
+  bool get enabled;
+  @override
+  @JsonKey(name: 'default_ttl_seconds')
+  int get defaultTtlSeconds;
+  @override
+  @JsonKey(name: 'max_ttl_seconds')
+  int get maxTtlSeconds;
+
+  /// Create a copy of DevelopmentAccountsConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$DevelopmentAccountsConfigurationImplCopyWith<
+          _$DevelopmentAccountsConfigurationImpl>
+      get copyWith => throw _privateConstructorUsedError;
+}
+
 ApplicationConfiguration _$ApplicationConfigurationFromJson(
     Map<String, dynamic> json) {
   return _ApplicationConfiguration.fromJson(json);
@@ -927,6 +1145,9 @@ ApplicationConfiguration _$ApplicationConfigurationFromJson(
 mixin _$ApplicationConfiguration {
   AuthConfiguration get auth => throw _privateConstructorUsedError;
   RegistrationConfiguration get registration =>
+      throw _privateConstructorUsedError;
+  @JsonKey(name: 'development_accounts')
+  DevelopmentAccountsConfiguration? get developmentAccounts =>
       throw _privateConstructorUsedError;
 
   /// Serializes this ApplicationConfiguration to a JSON map.
@@ -945,10 +1166,15 @@ abstract class $ApplicationConfigurationCopyWith<$Res> {
           $Res Function(ApplicationConfiguration) then) =
       _$ApplicationConfigurationCopyWithImpl<$Res, ApplicationConfiguration>;
   @useResult
-  $Res call({AuthConfiguration auth, RegistrationConfiguration registration});
+  $Res call(
+      {AuthConfiguration auth,
+      RegistrationConfiguration registration,
+      @JsonKey(name: 'development_accounts')
+      DevelopmentAccountsConfiguration? developmentAccounts});
 
   $AuthConfigurationCopyWith<$Res> get auth;
   $RegistrationConfigurationCopyWith<$Res> get registration;
+  $DevelopmentAccountsConfigurationCopyWith<$Res>? get developmentAccounts;
 }
 
 /// @nodoc
@@ -969,6 +1195,7 @@ class _$ApplicationConfigurationCopyWithImpl<$Res,
   $Res call({
     Object? auth = null,
     Object? registration = null,
+    Object? developmentAccounts = freezed,
   }) {
     return _then(_value.copyWith(
       auth: null == auth
@@ -979,6 +1206,10 @@ class _$ApplicationConfigurationCopyWithImpl<$Res,
           ? _value.registration
           : registration // ignore: cast_nullable_to_non_nullable
               as RegistrationConfiguration,
+      developmentAccounts: freezed == developmentAccounts
+          ? _value.developmentAccounts
+          : developmentAccounts // ignore: cast_nullable_to_non_nullable
+              as DevelopmentAccountsConfiguration?,
     ) as $Val);
   }
 
@@ -1002,6 +1233,21 @@ class _$ApplicationConfigurationCopyWithImpl<$Res,
       return _then(_value.copyWith(registration: value) as $Val);
     });
   }
+
+  /// Create a copy of ApplicationConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $DevelopmentAccountsConfigurationCopyWith<$Res>? get developmentAccounts {
+    if (_value.developmentAccounts == null) {
+      return null;
+    }
+
+    return $DevelopmentAccountsConfigurationCopyWith<$Res>(
+        _value.developmentAccounts!, (value) {
+      return _then(_value.copyWith(developmentAccounts: value) as $Val);
+    });
+  }
 }
 
 /// @nodoc
@@ -1013,12 +1259,18 @@ abstract class _$$ApplicationConfigurationImplCopyWith<$Res>
       __$$ApplicationConfigurationImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({AuthConfiguration auth, RegistrationConfiguration registration});
+  $Res call(
+      {AuthConfiguration auth,
+      RegistrationConfiguration registration,
+      @JsonKey(name: 'development_accounts')
+      DevelopmentAccountsConfiguration? developmentAccounts});
 
   @override
   $AuthConfigurationCopyWith<$Res> get auth;
   @override
   $RegistrationConfigurationCopyWith<$Res> get registration;
+  @override
+  $DevelopmentAccountsConfigurationCopyWith<$Res>? get developmentAccounts;
 }
 
 /// @nodoc
@@ -1038,6 +1290,7 @@ class __$$ApplicationConfigurationImplCopyWithImpl<$Res>
   $Res call({
     Object? auth = null,
     Object? registration = null,
+    Object? developmentAccounts = freezed,
   }) {
     return _then(_$ApplicationConfigurationImpl(
       auth: null == auth
@@ -1048,6 +1301,10 @@ class __$$ApplicationConfigurationImplCopyWithImpl<$Res>
           ? _value.registration
           : registration // ignore: cast_nullable_to_non_nullable
               as RegistrationConfiguration,
+      developmentAccounts: freezed == developmentAccounts
+          ? _value.developmentAccounts
+          : developmentAccounts // ignore: cast_nullable_to_non_nullable
+              as DevelopmentAccountsConfiguration?,
     ));
   }
 }
@@ -1056,7 +1313,9 @@ class __$$ApplicationConfigurationImplCopyWithImpl<$Res>
 @JsonSerializable()
 class _$ApplicationConfigurationImpl implements _ApplicationConfiguration {
   const _$ApplicationConfigurationImpl(
-      {required this.auth, required this.registration});
+      {required this.auth,
+      required this.registration,
+      @JsonKey(name: 'development_accounts') this.developmentAccounts});
 
   factory _$ApplicationConfigurationImpl.fromJson(Map<String, dynamic> json) =>
       _$$ApplicationConfigurationImplFromJson(json);
@@ -1065,10 +1324,13 @@ class _$ApplicationConfigurationImpl implements _ApplicationConfiguration {
   final AuthConfiguration auth;
   @override
   final RegistrationConfiguration registration;
+  @override
+  @JsonKey(name: 'development_accounts')
+  final DevelopmentAccountsConfiguration? developmentAccounts;
 
   @override
   String toString() {
-    return 'ApplicationConfiguration(auth: $auth, registration: $registration)';
+    return 'ApplicationConfiguration(auth: $auth, registration: $registration, developmentAccounts: $developmentAccounts)';
   }
 
   @override
@@ -1078,12 +1340,15 @@ class _$ApplicationConfigurationImpl implements _ApplicationConfiguration {
             other is _$ApplicationConfigurationImpl &&
             (identical(other.auth, auth) || other.auth == auth) &&
             (identical(other.registration, registration) ||
-                other.registration == registration));
+                other.registration == registration) &&
+            (identical(other.developmentAccounts, developmentAccounts) ||
+                other.developmentAccounts == developmentAccounts));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, auth, registration);
+  int get hashCode =>
+      Object.hash(runtimeType, auth, registration, developmentAccounts);
 
   /// Create a copy of ApplicationConfiguration
   /// with the given fields replaced by the non-null parameter values.
@@ -1105,7 +1370,9 @@ class _$ApplicationConfigurationImpl implements _ApplicationConfiguration {
 abstract class _ApplicationConfiguration implements ApplicationConfiguration {
   const factory _ApplicationConfiguration(
           {required final AuthConfiguration auth,
-          required final RegistrationConfiguration registration}) =
+          required final RegistrationConfiguration registration,
+          @JsonKey(name: 'development_accounts')
+          final DevelopmentAccountsConfiguration? developmentAccounts}) =
       _$ApplicationConfigurationImpl;
 
   factory _ApplicationConfiguration.fromJson(Map<String, dynamic> json) =
@@ -1115,6 +1382,9 @@ abstract class _ApplicationConfiguration implements ApplicationConfiguration {
   AuthConfiguration get auth;
   @override
   RegistrationConfiguration get registration;
+  @override
+  @JsonKey(name: 'development_accounts')
+  DevelopmentAccountsConfiguration? get developmentAccounts;
 
   /// Create a copy of ApplicationConfiguration
   /// with the given fields replaced by the non-null parameter values.
@@ -1648,6 +1918,225 @@ abstract class _PatchRegistrationConfiguration
       get copyWith => throw _privateConstructorUsedError;
 }
 
+PatchDevelopmentAccountsConfiguration
+    _$PatchDevelopmentAccountsConfigurationFromJson(Map<String, dynamic> json) {
+  return _PatchDevelopmentAccountsConfiguration.fromJson(json);
+}
+
+/// @nodoc
+mixin _$PatchDevelopmentAccountsConfiguration {
+  bool? get enabled => throw _privateConstructorUsedError;
+  @JsonKey(name: 'default_ttl_seconds')
+  int? get defaultTtlSeconds => throw _privateConstructorUsedError;
+  @JsonKey(name: 'max_ttl_seconds')
+  int? get maxTtlSeconds => throw _privateConstructorUsedError;
+
+  /// Serializes this PatchDevelopmentAccountsConfiguration to a JSON map.
+  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
+
+  /// Create a copy of PatchDevelopmentAccountsConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $PatchDevelopmentAccountsConfigurationCopyWith<
+          PatchDevelopmentAccountsConfiguration>
+      get copyWith => throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $PatchDevelopmentAccountsConfigurationCopyWith<$Res> {
+  factory $PatchDevelopmentAccountsConfigurationCopyWith(
+          PatchDevelopmentAccountsConfiguration value,
+          $Res Function(PatchDevelopmentAccountsConfiguration) then) =
+      _$PatchDevelopmentAccountsConfigurationCopyWithImpl<$Res,
+          PatchDevelopmentAccountsConfiguration>;
+  @useResult
+  $Res call(
+      {bool? enabled,
+      @JsonKey(name: 'default_ttl_seconds') int? defaultTtlSeconds,
+      @JsonKey(name: 'max_ttl_seconds') int? maxTtlSeconds});
+}
+
+/// @nodoc
+class _$PatchDevelopmentAccountsConfigurationCopyWithImpl<$Res,
+        $Val extends PatchDevelopmentAccountsConfiguration>
+    implements $PatchDevelopmentAccountsConfigurationCopyWith<$Res> {
+  _$PatchDevelopmentAccountsConfigurationCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of PatchDevelopmentAccountsConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? enabled = freezed,
+    Object? defaultTtlSeconds = freezed,
+    Object? maxTtlSeconds = freezed,
+  }) {
+    return _then(_value.copyWith(
+      enabled: freezed == enabled
+          ? _value.enabled
+          : enabled // ignore: cast_nullable_to_non_nullable
+              as bool?,
+      defaultTtlSeconds: freezed == defaultTtlSeconds
+          ? _value.defaultTtlSeconds
+          : defaultTtlSeconds // ignore: cast_nullable_to_non_nullable
+              as int?,
+      maxTtlSeconds: freezed == maxTtlSeconds
+          ? _value.maxTtlSeconds
+          : maxTtlSeconds // ignore: cast_nullable_to_non_nullable
+              as int?,
+    ) as $Val);
+  }
+}
+
+/// @nodoc
+abstract class _$$PatchDevelopmentAccountsConfigurationImplCopyWith<$Res>
+    implements $PatchDevelopmentAccountsConfigurationCopyWith<$Res> {
+  factory _$$PatchDevelopmentAccountsConfigurationImplCopyWith(
+          _$PatchDevelopmentAccountsConfigurationImpl value,
+          $Res Function(_$PatchDevelopmentAccountsConfigurationImpl) then) =
+      __$$PatchDevelopmentAccountsConfigurationImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call(
+      {bool? enabled,
+      @JsonKey(name: 'default_ttl_seconds') int? defaultTtlSeconds,
+      @JsonKey(name: 'max_ttl_seconds') int? maxTtlSeconds});
+}
+
+/// @nodoc
+class __$$PatchDevelopmentAccountsConfigurationImplCopyWithImpl<$Res>
+    extends _$PatchDevelopmentAccountsConfigurationCopyWithImpl<$Res,
+        _$PatchDevelopmentAccountsConfigurationImpl>
+    implements _$$PatchDevelopmentAccountsConfigurationImplCopyWith<$Res> {
+  __$$PatchDevelopmentAccountsConfigurationImplCopyWithImpl(
+      _$PatchDevelopmentAccountsConfigurationImpl _value,
+      $Res Function(_$PatchDevelopmentAccountsConfigurationImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of PatchDevelopmentAccountsConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? enabled = freezed,
+    Object? defaultTtlSeconds = freezed,
+    Object? maxTtlSeconds = freezed,
+  }) {
+    return _then(_$PatchDevelopmentAccountsConfigurationImpl(
+      enabled: freezed == enabled
+          ? _value.enabled
+          : enabled // ignore: cast_nullable_to_non_nullable
+              as bool?,
+      defaultTtlSeconds: freezed == defaultTtlSeconds
+          ? _value.defaultTtlSeconds
+          : defaultTtlSeconds // ignore: cast_nullable_to_non_nullable
+              as int?,
+      maxTtlSeconds: freezed == maxTtlSeconds
+          ? _value.maxTtlSeconds
+          : maxTtlSeconds // ignore: cast_nullable_to_non_nullable
+              as int?,
+    ));
+  }
+}
+
+/// @nodoc
+
+@JsonSerializable(includeIfNull: false, explicitToJson: true)
+class _$PatchDevelopmentAccountsConfigurationImpl
+    implements _PatchDevelopmentAccountsConfiguration {
+  const _$PatchDevelopmentAccountsConfigurationImpl(
+      {this.enabled,
+      @JsonKey(name: 'default_ttl_seconds') this.defaultTtlSeconds,
+      @JsonKey(name: 'max_ttl_seconds') this.maxTtlSeconds});
+
+  factory _$PatchDevelopmentAccountsConfigurationImpl.fromJson(
+          Map<String, dynamic> json) =>
+      _$$PatchDevelopmentAccountsConfigurationImplFromJson(json);
+
+  @override
+  final bool? enabled;
+  @override
+  @JsonKey(name: 'default_ttl_seconds')
+  final int? defaultTtlSeconds;
+  @override
+  @JsonKey(name: 'max_ttl_seconds')
+  final int? maxTtlSeconds;
+
+  @override
+  String toString() {
+    return 'PatchDevelopmentAccountsConfiguration(enabled: $enabled, defaultTtlSeconds: $defaultTtlSeconds, maxTtlSeconds: $maxTtlSeconds)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$PatchDevelopmentAccountsConfigurationImpl &&
+            (identical(other.enabled, enabled) || other.enabled == enabled) &&
+            (identical(other.defaultTtlSeconds, defaultTtlSeconds) ||
+                other.defaultTtlSeconds == defaultTtlSeconds) &&
+            (identical(other.maxTtlSeconds, maxTtlSeconds) ||
+                other.maxTtlSeconds == maxTtlSeconds));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode =>
+      Object.hash(runtimeType, enabled, defaultTtlSeconds, maxTtlSeconds);
+
+  /// Create a copy of PatchDevelopmentAccountsConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$PatchDevelopmentAccountsConfigurationImplCopyWith<
+          _$PatchDevelopmentAccountsConfigurationImpl>
+      get copyWith => __$$PatchDevelopmentAccountsConfigurationImplCopyWithImpl<
+          _$PatchDevelopmentAccountsConfigurationImpl>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$$PatchDevelopmentAccountsConfigurationImplToJson(
+      this,
+    );
+  }
+}
+
+abstract class _PatchDevelopmentAccountsConfiguration
+    implements PatchDevelopmentAccountsConfiguration {
+  const factory _PatchDevelopmentAccountsConfiguration(
+          {final bool? enabled,
+          @JsonKey(name: 'default_ttl_seconds') final int? defaultTtlSeconds,
+          @JsonKey(name: 'max_ttl_seconds') final int? maxTtlSeconds}) =
+      _$PatchDevelopmentAccountsConfigurationImpl;
+
+  factory _PatchDevelopmentAccountsConfiguration.fromJson(
+          Map<String, dynamic> json) =
+      _$PatchDevelopmentAccountsConfigurationImpl.fromJson;
+
+  @override
+  bool? get enabled;
+  @override
+  @JsonKey(name: 'default_ttl_seconds')
+  int? get defaultTtlSeconds;
+  @override
+  @JsonKey(name: 'max_ttl_seconds')
+  int? get maxTtlSeconds;
+
+  /// Create a copy of PatchDevelopmentAccountsConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$PatchDevelopmentAccountsConfigurationImplCopyWith<
+          _$PatchDevelopmentAccountsConfigurationImpl>
+      get copyWith => throw _privateConstructorUsedError;
+}
+
 PatchApplicationConfiguration _$PatchApplicationConfigurationFromJson(
     Map<String, dynamic> json) {
   return _PatchApplicationConfiguration.fromJson(json);
@@ -1657,6 +2146,9 @@ PatchApplicationConfiguration _$PatchApplicationConfigurationFromJson(
 mixin _$PatchApplicationConfiguration {
   PatchAuthConfiguration? get auth => throw _privateConstructorUsedError;
   PatchRegistrationConfiguration? get registration =>
+      throw _privateConstructorUsedError;
+  @JsonKey(name: 'development_accounts')
+  PatchDevelopmentAccountsConfiguration? get developmentAccounts =>
       throw _privateConstructorUsedError;
 
   /// Serializes this PatchApplicationConfiguration to a JSON map.
@@ -1679,10 +2171,13 @@ abstract class $PatchApplicationConfigurationCopyWith<$Res> {
   @useResult
   $Res call(
       {PatchAuthConfiguration? auth,
-      PatchRegistrationConfiguration? registration});
+      PatchRegistrationConfiguration? registration,
+      @JsonKey(name: 'development_accounts')
+      PatchDevelopmentAccountsConfiguration? developmentAccounts});
 
   $PatchAuthConfigurationCopyWith<$Res>? get auth;
   $PatchRegistrationConfigurationCopyWith<$Res>? get registration;
+  $PatchDevelopmentAccountsConfigurationCopyWith<$Res>? get developmentAccounts;
 }
 
 /// @nodoc
@@ -1703,6 +2198,7 @@ class _$PatchApplicationConfigurationCopyWithImpl<$Res,
   $Res call({
     Object? auth = freezed,
     Object? registration = freezed,
+    Object? developmentAccounts = freezed,
   }) {
     return _then(_value.copyWith(
       auth: freezed == auth
@@ -1713,6 +2209,10 @@ class _$PatchApplicationConfigurationCopyWithImpl<$Res,
           ? _value.registration
           : registration // ignore: cast_nullable_to_non_nullable
               as PatchRegistrationConfiguration?,
+      developmentAccounts: freezed == developmentAccounts
+          ? _value.developmentAccounts
+          : developmentAccounts // ignore: cast_nullable_to_non_nullable
+              as PatchDevelopmentAccountsConfiguration?,
     ) as $Val);
   }
 
@@ -1744,6 +2244,22 @@ class _$PatchApplicationConfigurationCopyWithImpl<$Res,
       return _then(_value.copyWith(registration: value) as $Val);
     });
   }
+
+  /// Create a copy of PatchApplicationConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $PatchDevelopmentAccountsConfigurationCopyWith<$Res>?
+      get developmentAccounts {
+    if (_value.developmentAccounts == null) {
+      return null;
+    }
+
+    return $PatchDevelopmentAccountsConfigurationCopyWith<$Res>(
+        _value.developmentAccounts!, (value) {
+      return _then(_value.copyWith(developmentAccounts: value) as $Val);
+    });
+  }
 }
 
 /// @nodoc
@@ -1757,12 +2273,16 @@ abstract class _$$PatchApplicationConfigurationImplCopyWith<$Res>
   @useResult
   $Res call(
       {PatchAuthConfiguration? auth,
-      PatchRegistrationConfiguration? registration});
+      PatchRegistrationConfiguration? registration,
+      @JsonKey(name: 'development_accounts')
+      PatchDevelopmentAccountsConfiguration? developmentAccounts});
 
   @override
   $PatchAuthConfigurationCopyWith<$Res>? get auth;
   @override
   $PatchRegistrationConfigurationCopyWith<$Res>? get registration;
+  @override
+  $PatchDevelopmentAccountsConfigurationCopyWith<$Res>? get developmentAccounts;
 }
 
 /// @nodoc
@@ -1782,6 +2302,7 @@ class __$$PatchApplicationConfigurationImplCopyWithImpl<$Res>
   $Res call({
     Object? auth = freezed,
     Object? registration = freezed,
+    Object? developmentAccounts = freezed,
   }) {
     return _then(_$PatchApplicationConfigurationImpl(
       auth: freezed == auth
@@ -1792,6 +2313,10 @@ class __$$PatchApplicationConfigurationImplCopyWithImpl<$Res>
           ? _value.registration
           : registration // ignore: cast_nullable_to_non_nullable
               as PatchRegistrationConfiguration?,
+      developmentAccounts: freezed == developmentAccounts
+          ? _value.developmentAccounts
+          : developmentAccounts // ignore: cast_nullable_to_non_nullable
+              as PatchDevelopmentAccountsConfiguration?,
     ));
   }
 }
@@ -1801,7 +2326,10 @@ class __$$PatchApplicationConfigurationImplCopyWithImpl<$Res>
 @JsonSerializable(includeIfNull: false, explicitToJson: true)
 class _$PatchApplicationConfigurationImpl
     implements _PatchApplicationConfiguration {
-  const _$PatchApplicationConfigurationImpl({this.auth, this.registration});
+  const _$PatchApplicationConfigurationImpl(
+      {this.auth,
+      this.registration,
+      @JsonKey(name: 'development_accounts') this.developmentAccounts});
 
   factory _$PatchApplicationConfigurationImpl.fromJson(
           Map<String, dynamic> json) =>
@@ -1811,10 +2339,13 @@ class _$PatchApplicationConfigurationImpl
   final PatchAuthConfiguration? auth;
   @override
   final PatchRegistrationConfiguration? registration;
+  @override
+  @JsonKey(name: 'development_accounts')
+  final PatchDevelopmentAccountsConfiguration? developmentAccounts;
 
   @override
   String toString() {
-    return 'PatchApplicationConfiguration(auth: $auth, registration: $registration)';
+    return 'PatchApplicationConfiguration(auth: $auth, registration: $registration, developmentAccounts: $developmentAccounts)';
   }
 
   @override
@@ -1824,12 +2355,15 @@ class _$PatchApplicationConfigurationImpl
             other is _$PatchApplicationConfigurationImpl &&
             (identical(other.auth, auth) || other.auth == auth) &&
             (identical(other.registration, registration) ||
-                other.registration == registration));
+                other.registration == registration) &&
+            (identical(other.developmentAccounts, developmentAccounts) ||
+                other.developmentAccounts == developmentAccounts));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, auth, registration);
+  int get hashCode =>
+      Object.hash(runtimeType, auth, registration, developmentAccounts);
 
   /// Create a copy of PatchApplicationConfiguration
   /// with the given fields replaced by the non-null parameter values.
@@ -1853,7 +2387,9 @@ abstract class _PatchApplicationConfiguration
     implements PatchApplicationConfiguration {
   const factory _PatchApplicationConfiguration(
           {final PatchAuthConfiguration? auth,
-          final PatchRegistrationConfiguration? registration}) =
+          final PatchRegistrationConfiguration? registration,
+          @JsonKey(name: 'development_accounts')
+          final PatchDevelopmentAccountsConfiguration? developmentAccounts}) =
       _$PatchApplicationConfigurationImpl;
 
   factory _PatchApplicationConfiguration.fromJson(Map<String, dynamic> json) =
@@ -1863,6 +2399,9 @@ abstract class _PatchApplicationConfiguration
   PatchAuthConfiguration? get auth;
   @override
   PatchRegistrationConfiguration? get registration;
+  @override
+  @JsonKey(name: 'development_accounts')
+  PatchDevelopmentAccountsConfiguration? get developmentAccounts;
 
   /// Create a copy of PatchApplicationConfiguration
   /// with the given fields replaced by the non-null parameter values.

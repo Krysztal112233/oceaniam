@@ -59,10 +59,25 @@ class RegistrationConfiguration with _$RegistrationConfiguration {
 }
 
 @freezed
+class DevelopmentAccountsConfiguration with _$DevelopmentAccountsConfiguration {
+  const factory DevelopmentAccountsConfiguration({
+    required bool enabled,
+    @JsonKey(name: 'default_ttl_seconds') required int defaultTtlSeconds,
+    @JsonKey(name: 'max_ttl_seconds') required int maxTtlSeconds,
+  }) = _DevelopmentAccountsConfiguration;
+
+  factory DevelopmentAccountsConfiguration.fromJson(
+          Map<String, dynamic> json) =>
+      _$DevelopmentAccountsConfigurationFromJson(json);
+}
+
+@freezed
 class ApplicationConfiguration with _$ApplicationConfiguration {
   const factory ApplicationConfiguration({
     required AuthConfiguration auth,
     required RegistrationConfiguration registration,
+    @JsonKey(name: 'development_accounts')
+    DevelopmentAccountsConfiguration? developmentAccounts,
   }) = _ApplicationConfiguration;
 
   factory ApplicationConfiguration.fromJson(Map<String, dynamic> json) =>
@@ -103,11 +118,29 @@ class PatchRegistrationConfiguration with _$PatchRegistrationConfiguration {
 }
 
 @freezed
+class PatchDevelopmentAccountsConfiguration
+    with _$PatchDevelopmentAccountsConfiguration {
+  @JsonSerializable(includeIfNull: false, explicitToJson: true)
+  const factory PatchDevelopmentAccountsConfiguration({
+    bool? enabled,
+    @JsonKey(name: 'default_ttl_seconds') int? defaultTtlSeconds,
+    @JsonKey(name: 'max_ttl_seconds') int? maxTtlSeconds,
+  }) = _PatchDevelopmentAccountsConfiguration;
+
+  factory PatchDevelopmentAccountsConfiguration.fromJson(
+    Map<String, dynamic> json,
+  ) =>
+      _$PatchDevelopmentAccountsConfigurationFromJson(json);
+}
+
+@freezed
 class PatchApplicationConfiguration with _$PatchApplicationConfiguration {
   @JsonSerializable(includeIfNull: false, explicitToJson: true)
   const factory PatchApplicationConfiguration({
     PatchAuthConfiguration? auth,
     PatchRegistrationConfiguration? registration,
+    @JsonKey(name: 'development_accounts')
+    PatchDevelopmentAccountsConfiguration? developmentAccounts,
   }) = _PatchApplicationConfiguration;
 
   factory PatchApplicationConfiguration.fromJson(Map<String, dynamic> json) =>

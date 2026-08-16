@@ -146,6 +146,11 @@ void main() {
           },
         },
         'registration': {'enabled': false},
+        'development_accounts': {
+          'enabled': true,
+          'default_ttl_seconds': 3600,
+          'max_ttl_seconds': 86400,
+        },
       });
 
       expect(configuration.auth.token.issuer, 'OceanIAM');
@@ -154,6 +159,9 @@ void main() {
       expect(configuration.auth.password.argon2.tCost, 3);
       expect(configuration.auth.password.argon2.pCost, 1);
       expect(configuration.registration.enabled, false);
+      expect(configuration.developmentAccounts?.enabled, true);
+      expect(configuration.developmentAccounts?.defaultTtlSeconds, 3600);
+      expect(configuration.developmentAccounts?.maxTtlSeconds, 86400);
     });
 
     test('PatchApplicationConfiguration omits unchanged fields', () {
@@ -161,12 +169,16 @@ void main() {
         auth: PatchAuthConfiguration(
           token: PatchTokenConfiguration(issuer: 'Example'),
         ),
+        developmentAccounts: PatchDevelopmentAccountsConfiguration(
+          enabled: false,
+        ),
       );
 
       expect(patch.toJson(), {
         'auth': {
           'token': {'issuer': 'Example'},
         },
+        'development_accounts': {'enabled': false},
       });
     });
   });
@@ -281,6 +293,11 @@ void main() {
                   },
                 },
                 'registration': {'enabled': false},
+                'development_accounts': {
+                  'enabled': true,
+                  'default_ttl_seconds': 3600,
+                  'max_ttl_seconds': 86400,
+                },
               },
             }),
             200,
@@ -296,6 +313,10 @@ void main() {
               },
             },
             'registration': {'enabled': true},
+            'development_accounts': {
+              'enabled': false,
+              'max_ttl_seconds': 7200,
+            },
           });
           return http.Response('', 200);
         }
@@ -399,6 +420,10 @@ void main() {
             ),
           ),
           registration: PatchRegistrationConfiguration(enabled: true),
+          developmentAccounts: PatchDevelopmentAccountsConfiguration(
+            enabled: false,
+            maxTtlSeconds: 7200,
+          ),
         ),
       );
     });

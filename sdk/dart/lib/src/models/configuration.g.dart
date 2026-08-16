@@ -77,12 +77,33 @@ Map<String, dynamic> _$$RegistrationConfigurationImplToJson(
       'enabled': instance.enabled,
     };
 
+_$DevelopmentAccountsConfigurationImpl
+    _$$DevelopmentAccountsConfigurationImplFromJson(
+            Map<String, dynamic> json) =>
+        _$DevelopmentAccountsConfigurationImpl(
+          enabled: json['enabled'] as bool,
+          defaultTtlSeconds: (json['default_ttl_seconds'] as num).toInt(),
+          maxTtlSeconds: (json['max_ttl_seconds'] as num).toInt(),
+        );
+
+Map<String, dynamic> _$$DevelopmentAccountsConfigurationImplToJson(
+        _$DevelopmentAccountsConfigurationImpl instance) =>
+    <String, dynamic>{
+      'enabled': instance.enabled,
+      'default_ttl_seconds': instance.defaultTtlSeconds,
+      'max_ttl_seconds': instance.maxTtlSeconds,
+    };
+
 _$ApplicationConfigurationImpl _$$ApplicationConfigurationImplFromJson(
         Map<String, dynamic> json) =>
     _$ApplicationConfigurationImpl(
       auth: AuthConfiguration.fromJson(json['auth'] as Map<String, dynamic>),
       registration: RegistrationConfiguration.fromJson(
           json['registration'] as Map<String, dynamic>),
+      developmentAccounts: json['development_accounts'] == null
+          ? null
+          : DevelopmentAccountsConfiguration.fromJson(
+              json['development_accounts'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$$ApplicationConfigurationImplToJson(
@@ -90,6 +111,7 @@ Map<String, dynamic> _$$ApplicationConfigurationImplToJson(
     <String, dynamic>{
       'auth': instance.auth,
       'registration': instance.registration,
+      'development_accounts': instance.developmentAccounts,
     };
 
 _$PatchTokenConfigurationImpl _$$PatchTokenConfigurationImplFromJson(
@@ -135,6 +157,24 @@ Map<String, dynamic> _$$PatchRegistrationConfigurationImplToJson(
       if (instance.enabled case final value?) 'enabled': value,
     };
 
+_$PatchDevelopmentAccountsConfigurationImpl
+    _$$PatchDevelopmentAccountsConfigurationImplFromJson(
+            Map<String, dynamic> json) =>
+        _$PatchDevelopmentAccountsConfigurationImpl(
+          enabled: json['enabled'] as bool?,
+          defaultTtlSeconds: (json['default_ttl_seconds'] as num?)?.toInt(),
+          maxTtlSeconds: (json['max_ttl_seconds'] as num?)?.toInt(),
+        );
+
+Map<String, dynamic> _$$PatchDevelopmentAccountsConfigurationImplToJson(
+        _$PatchDevelopmentAccountsConfigurationImpl instance) =>
+    <String, dynamic>{
+      if (instance.enabled case final value?) 'enabled': value,
+      if (instance.defaultTtlSeconds case final value?)
+        'default_ttl_seconds': value,
+      if (instance.maxTtlSeconds case final value?) 'max_ttl_seconds': value,
+    };
+
 _$PatchApplicationConfigurationImpl
     _$$PatchApplicationConfigurationImplFromJson(Map<String, dynamic> json) =>
         _$PatchApplicationConfigurationImpl(
@@ -146,6 +186,10 @@ _$PatchApplicationConfigurationImpl
               ? null
               : PatchRegistrationConfiguration.fromJson(
                   json['registration'] as Map<String, dynamic>),
+          developmentAccounts: json['development_accounts'] == null
+              ? null
+              : PatchDevelopmentAccountsConfiguration.fromJson(
+                  json['development_accounts'] as Map<String, dynamic>),
         );
 
 Map<String, dynamic> _$$PatchApplicationConfigurationImplToJson(
@@ -154,4 +198,6 @@ Map<String, dynamic> _$$PatchApplicationConfigurationImplToJson(
       if (instance.auth?.toJson() case final value?) 'auth': value,
       if (instance.registration?.toJson() case final value?)
         'registration': value,
+      if (instance.developmentAccounts?.toJson() case final value?)
+        'development_accounts': value,
     };
