@@ -2871,6 +2871,7 @@ dependencies = [
  "serde_json",
  "snafu",
  "tracing",
+ "url",
  "utoipa",
  "uuid",
 ]
