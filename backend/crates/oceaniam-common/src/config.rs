@@ -1,12 +1,81 @@
 use std::collections::HashMap;
 
 use config::Config;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+use snafu::Snafu;
 use url::Url;
 
 use oceaniam_application_secret::ApplicationSecretKeyring;
 
 use crate::error::Error;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PublicBaseUrl(Url);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Snafu)]
+pub enum PublicBaseUrlError {
+    #[snafu(display("public base URL must use the `http` or `https` scheme"))]
+    UnsupportedScheme,
+
+    #[snafu(display("public base URL must include a host"))]
+    MissingHost,
+
+    #[snafu(display("public base URL must not include credentials"))]
+    CredentialsNotAllowed,
+
+    #[snafu(display("public base URL must not include a non-root path"))]
+    NonRootPathNotAllowed,
+
+    #[snafu(display("public base URL must not include a query"))]
+    QueryNotAllowed,
+
+    #[snafu(display("public base URL must not include a fragment"))]
+    FragmentNotAllowed,
+}
+
+impl PublicBaseUrl {
+    pub fn as_url(&self) -> &Url {
+        &self.0
+    }
+}
+
+impl TryFrom<Url> for PublicBaseUrl {
+    type Error = PublicBaseUrlError;
+
+    fn try_from(value: Url) -> Result<Self, Self::Error> {
+        if !matches!(value.scheme(), "http" | "https") {
+            return Err(PublicBaseUrlError::UnsupportedScheme);
+        }
+        if value.host().is_none() {
+            return Err(PublicBaseUrlError::MissingHost);
+        }
+        if !value.username().is_empty() || value.password().is_some() {
+            return Err(PublicBaseUrlError::CredentialsNotAllowed);
+        }
+        if value.path() != "/" {
+            return Err(PublicBaseUrlError::NonRootPathNotAllowed);
+        }
+        if value.query().is_some() {
+            return Err(PublicBaseUrlError::QueryNotAllowed);
+        }
+        if value.fragment().is_some() {
+            return Err(PublicBaseUrlError::FragmentNotAllowed);
+        }
+
+        Ok(Self(value))
+    }
+}
+
+impl<'de> Deserialize<'de> for PublicBaseUrl {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Url::deserialize(deserializer)?
+            .try_into()
+            .map_err(serde::de::Error::custom)
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseConfig {
@@ -85,6 +154,7 @@ const fn default_trace_sample_ratio() -> f64 {
 #[derive(Debug, Deserialize)]
 pub struct BackendConfig {
     pub addr: String,
+    pub public_base_url: PublicBaseUrl,
     pub database: DatabaseConfig,
     pub cors: CorsConfig,
 
@@ -115,5 +185,38 @@ impl BackendConfig {
             )
             .build()?
             .try_deserialize()?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // NOTE: AI-generated test
+    #[test]
+    fn public_base_url_accepts_http_and_https_origins() {
+        for value in ["http://localhost:8000", "https://iam.example.com"] {
+            let base_url = serde_json::from_str::<PublicBaseUrl>(&format!("\"{value}\""))
+                .expect("valid public base URL");
+
+            assert_eq!(base_url.as_url().path(), "/");
+        }
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn public_base_url_rejects_ambiguous_or_unsafe_components() {
+        for value in [
+            "ftp://iam.example.com",
+            "https://user:password@iam.example.com",
+            "https://iam.example.com/nested",
+            "https://iam.example.com?region=test",
+            "https://iam.example.com#fragment",
+        ] {
+            assert!(
+                serde_json::from_str::<PublicBaseUrl>(&format!("\"{value}\"")).is_err(),
+                "unexpectedly accepted {value}"
+            );
+        }
     }
 }

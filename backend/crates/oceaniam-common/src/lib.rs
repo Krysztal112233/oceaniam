@@ -4,6 +4,7 @@ mod cpu_bound;
 pub mod crypto;
 pub mod error;
 pub mod helpers;
+pub mod oidc;
 pub mod patch;
 pub mod sqid;
 pub mod validation;

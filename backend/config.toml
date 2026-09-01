@@ -1,4 +1,8 @@
 addr = "0.0.0.0:8000"
+# Canonical externally visible origin used to build protocol URLs. Do not include a path,
+# credentials, query, or fragment. Use HTTPS outside local development.
+public_base_url = "http://localhost:8000"
+
 # Required: inject OCEANIAM_MASTER_KEY with a generated 64-char hex key.
 # Generate with: openssl rand -hex 32
 master_key = ""
