@@ -33,3 +33,7 @@ Environment files are split by runtime surface:
 `backend/.env` uses `localhost` for PostgreSQL because cargo commands run on the
 host. Root and deploy compose files use the `postgres` service hostname because
 backend services run inside Docker.
+
+Both compose stacks require `OCEANIAM_PUBLIC_BASE_URL` before startup. The root
+example uses the local nginx gateway at `http://localhost:8900`; deployments must
+replace the empty value in `deploy/.env.example` with their canonical HTTPS origin.

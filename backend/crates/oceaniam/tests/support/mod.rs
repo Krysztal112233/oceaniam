@@ -19,7 +19,7 @@ use uuid::Uuid;
 
 const DEFAULT_ROOT_PASSWORD_ENV: &str = "MIGRATION_DEFAULT_ROOT_PASSWORD";
 static TEST_ROOT_PASSWORD: OnceLock<String> = OnceLock::new();
-static TEST_APPLICATION_SECRET_HMAC_ENV: OnceLock<()> = OnceLock::new();
+static TEST_CONFIG_ENV: OnceLock<()> = OnceLock::new();
 
 #[allow(unused)]
 pub struct TestApp {
@@ -245,11 +245,13 @@ const TEST_MASTER_KEY_HEX: &str =
 const TEST_APPLICATION_SECRET_HMAC_KEY_HEX: &str =
     "89abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234567";
 
-fn ensure_test_application_secret_hmac_env() {
-    TEST_APPLICATION_SECRET_HMAC_ENV.get_or_init(|| {
-        // SAFETY: every integration-test app uses this same non-secret test key. OnceLock ensures
-        // the process environment is initialized once before any test migration reads it.
+fn ensure_test_config_env() {
+    TEST_CONFIG_ENV.get_or_init(|| {
+        // SAFETY: every integration-test app uses these same non-secret test values. OnceLock
+        // ensures the process environment is initialized once before configuration or migrations
+        // read it.
         unsafe {
+            std::env::set_var("OCEANIAM_PUBLIC_BASE_URL", "http://localhost:8000");
             std::env::set_var("OCEANIAM_APPLICATION_SECRET_HMAC__CURRENT_VERSION", "1");
             std::env::set_var(
                 "OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__1",
@@ -274,7 +276,7 @@ fn test_application_secret_keyring() -> ApplicationSecretKeyring {
 }
 
 fn test_config() -> BackendConfig {
-    ensure_test_application_secret_hmac_env();
+    ensure_test_config_env();
 
     BackendConfig {
         addr: "0.0.0.0:0".to_owned(),
