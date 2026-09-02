@@ -2862,6 +2862,7 @@ dependencies = [
 name = "oceaniam-auth"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "chrono",
  "im",
  "jsonwebtoken",
@@ -2869,7 +2870,9 @@ dependencies = [
  "parking_lot",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "snafu",
+ "subtle",
  "tracing",
  "url",
  "utoipa",

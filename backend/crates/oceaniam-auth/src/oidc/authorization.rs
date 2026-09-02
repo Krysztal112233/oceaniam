@@ -2,17 +2,19 @@
 //!
 //! This module deliberately does not validate client registration, tenant ownership, or exact
 //! redirect URI registration, and it does not decide whether an error may be returned by redirect.
-//! A future endpoint/parser must also define handling for duplicate, unknown, and unsupported
-//! extension parameters before this type becomes reachable over HTTP.
+//! A future endpoint/parser must also enforce a request-target/query size limit before
+//! deserialization and define handling for duplicate, unknown, and unsupported extension
+//! parameters before this type becomes reachable over HTTP.
 
 use serde::Deserialize;
 use snafu::Snafu;
 use url::Url;
 
+use super::pkce::decode_s256_code_challenge;
+
 const RESPONSE_TYPE_CODE: &str = "code";
 const SCOPE_OPENID: &str = "openid";
 const CODE_CHALLENGE_METHOD_S256: &str = "S256";
-const S256_CODE_CHALLENGE_LENGTH: usize = 43;
 
 /// Deserializable Authorization Endpoint parameters before protocol validation.
 ///
@@ -191,7 +193,7 @@ impl TryFrom<RawAuthorizationRequest> for AuthorizationRequest {
 
         let code_challenge =
             code_challenge.ok_or(AuthorizationRequestError::MissingCodeChallenge)?;
-        if !is_canonical_s256_code_challenge(&code_challenge) {
+        if decode_s256_code_challenge(&code_challenge).is_none() {
             return Err(AuthorizationRequestError::InvalidCodeChallenge);
         }
 
@@ -207,13 +209,6 @@ impl TryFrom<RawAuthorizationRequest> for AuthorizationRequest {
             code_challenge,
         })
     }
-}
-
-fn is_canonical_s256_code_challenge(value: &str) -> bool {
-    value.len() == S256_CODE_CHALLENGE_LENGTH
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
 #[cfg(test)]
@@ -378,6 +373,11 @@ mod tests {
             (
                 "non-base64url code challenge",
                 |raw| raw.code_challenge = Some(format!("{}.", "A".repeat(42))),
+                AuthorizationRequestError::InvalidCodeChallenge,
+            ),
+            (
+                "non-canonical base64url trailing bits",
+                |raw| raw.code_challenge = Some(format!("{}B", "A".repeat(42))),
                 AuthorizationRequestError::InvalidCodeChallenge,
             ),
             (
