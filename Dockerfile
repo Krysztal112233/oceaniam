@@ -10,7 +10,6 @@ RUN cargo build --all -r
 
 FROM docker.io/library/debian:trixie-slim AS base
 WORKDIR /app
-COPY backend/config.toml .
 RUN apt-get update && \
     apt-get install -y ca-certificates && \
     apt-get clean && \
@@ -33,8 +32,8 @@ CMD [ "./oceaniam-worker" ]
 FROM base AS migration
 COPY --from=backend-builder /builder/target/release/migration /app/
 # Required env: OCEANIAM_MASTER_KEY. The Application Secret HMAC migration specifically reads
-# OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__1=<64-char hex>; it must exactly match runtime version 1,
-# even when runtime configuration comes from TOML. Generate each key independently with:
+# OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__1=<64-char hex>; it must exactly match runtime version 1.
+# Generate each key independently with:
 # openssl rand -hex 32
 CMD [ "./migration" ]
 

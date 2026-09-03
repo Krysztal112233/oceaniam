@@ -1,4 +1,4 @@
-use std::{collections::HashMap, net::SocketAddr, sync::OnceLock};
+use std::{net::SocketAddr, sync::OnceLock};
 
 use migration::{Migrator, MigratorTrait};
 use oceaniam::app::{app, build_state};
@@ -249,14 +249,23 @@ fn ensure_test_config_env() {
     TEST_CONFIG_ENV.get_or_init(|| {
         // SAFETY: every integration-test app uses these same non-secret test values. OnceLock
         // ensures the process environment is initialized once before configuration or migrations
-        // read it.
+        // read it. The DSN fallback respects a pre-configured OCEANIAM_DATABASE__DSN (CI or
+        // .env via dotenvy) and only fills in the documented local default.
         unsafe {
             std::env::set_var("OCEANIAM_PUBLIC_BASE_URL", "http://localhost:8000");
+            std::env::set_var("OCEANIAM_CORS__ALLOW_ORIGIN", "http://localhost:8000");
+            std::env::set_var("OCEANIAM_MASTER_KEY", TEST_MASTER_KEY_HEX);
             std::env::set_var("OCEANIAM_APPLICATION_SECRET_HMAC__CURRENT_VERSION", "1");
             std::env::set_var(
                 "OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__1",
                 TEST_APPLICATION_SECRET_HMAC_KEY_HEX,
             );
+            if std::env::var_os("OCEANIAM_DATABASE__DSN").is_none() {
+                std::env::set_var(
+                    "OCEANIAM_DATABASE__DSN",
+                    "postgresql://postgres:postgres@localhost:5432/postgres",
+                );
+            }
         }
     });
 }
@@ -280,7 +289,6 @@ fn test_config() -> BackendConfig {
 
     BackendConfig {
         addr: "0.0.0.0:0".to_owned(),
-        workers: HashMap::new(),
         cookie: CookieConfig::default(),
         master_key: TEST_MASTER_KEY_HEX.to_owned(),
         application_secret_hmac: Some(test_application_secret_keyring()),

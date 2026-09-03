@@ -77,12 +77,31 @@ impl<'de> Deserialize<'de> for PublicBaseUrl {
     }
 }
 
+pub const DEFAULT_SLOW_STATEMENTS_LOGGING_THRESHOLD: u64 = 200;
+pub const DEFAULT_DATABASE_MAX_CONNECTIONS: u32 = 128;
+pub const DEFAULT_DATABASE_MIN_CONNECTIONS: u32 = 4;
+
+const fn default_slow_statements_logging_threshold() -> Option<u64> {
+    Some(DEFAULT_SLOW_STATEMENTS_LOGGING_THRESHOLD)
+}
+
+const fn default_database_max_connections() -> Option<u32> {
+    Some(DEFAULT_DATABASE_MAX_CONNECTIONS)
+}
+
+const fn default_database_min_connections() -> Option<u32> {
+    Some(DEFAULT_DATABASE_MIN_CONNECTIONS)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DatabaseConfig {
     pub dsn: String,
 
+    #[serde(default = "default_slow_statements_logging_threshold")]
     pub slow_statements_logging_threshold: Option<u64>,
+    #[serde(default = "default_database_max_connections")]
     pub max_connections: Option<u32>,
+    #[serde(default = "default_database_min_connections")]
     pub min_connections: Option<u32>,
 }
 
@@ -97,9 +116,10 @@ pub struct CookieConfig {
     pub secure: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkerConfiguration {
-    pub cron: String,
+pub const DEFAULT_ADDR: &str = "0.0.0.0:8000";
+
+fn default_addr() -> String {
+    DEFAULT_ADDR.to_owned()
 }
 
 pub const DEFAULT_TELEMETRY_SERVICE_NAME: &str = "oceaniam";
@@ -153,13 +173,11 @@ const fn default_trace_sample_ratio() -> f64 {
 
 #[derive(Debug, Deserialize)]
 pub struct BackendConfig {
+    #[serde(default = "default_addr")]
     pub addr: String,
     pub public_base_url: PublicBaseUrl,
     pub database: DatabaseConfig,
     pub cors: CorsConfig,
-
-    #[serde(default)]
-    pub workers: HashMap<String, WorkerConfiguration>,
 
     #[serde(default)]
     pub cookie: CookieConfig,
@@ -174,9 +192,15 @@ pub struct BackendConfig {
 }
 
 impl BackendConfig {
+    /// Loads configuration from `OCEANIAM_` environment variables.
+    ///
+    /// Environment variables are the single configuration source; the serde
+    /// defaults in this module provide the fallback values. Nested keys use
+    /// `__` (for example `OCEANIAM_DATABASE__DSN` maps to `database.dsn`).
+    /// The repository-root `.env.example` documents every key and is kept in
+    /// sync with this schema by the drift tests below.
     pub fn new() -> Result<Self, Error> {
         Ok(Config::builder()
-            .add_source(config::File::with_name("config.toml").required(false))
             .add_source(
                 config::Environment::with_prefix("OCEANIAM")
                     .prefix_separator("_")
@@ -218,5 +242,156 @@ mod tests {
                 "unexpectedly accepted {value}"
             );
         }
+    }
+
+    // Drift guards: keep the repository-root `.env.example` in sync with the
+    // configuration schema in this module. When you add, rename, or remove a
+    // configuration field, update `.env.example` and these lists in the same
+    // commit — the tests below fail otherwise.
+
+    /// Every static configuration key on the schema side.
+    const KNOWN_ENV_KEYS: &[&str] = &[
+        "OCEANIAM_ADDR",
+        "OCEANIAM_APPLICATION_SECRET_HMAC__CURRENT_VERSION",
+        "OCEANIAM_COOKIE__SECURE",
+        "OCEANIAM_CORS__ALLOW_ORIGIN",
+        "OCEANIAM_DATABASE__DSN",
+        "OCEANIAM_DATABASE__MAX_CONNECTIONS",
+        "OCEANIAM_DATABASE__MIN_CONNECTIONS",
+        "OCEANIAM_DATABASE__SLOW_STATEMENTS_LOGGING_THRESHOLD",
+        "OCEANIAM_MASTER_KEY",
+        "OCEANIAM_PUBLIC_BASE_URL",
+        "OCEANIAM_TELEMETRY__ENABLED",
+        "OCEANIAM_TELEMETRY__OTLP_ENDPOINT",
+        "OCEANIAM_TELEMETRY__OTLP_TRACES_ENDPOINT",
+        "OCEANIAM_TELEMETRY__SERVICE_NAME",
+        "OCEANIAM_TELEMETRY__TRACE_SAMPLE_RATIO",
+    ];
+
+    /// Dynamic key families (versioned keyrings and header maps).
+    const DYNAMIC_KEY_PREFIXES: &[&str] = &[
+        "OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__",
+        "OCEANIAM_TELEMETRY__OTLP_HEADERS__",
+    ];
+
+    /// Keys without built-in defaults: the example must set them actively.
+    const REQUIRED_ENV_KEYS: &[&str] = &[
+        "OCEANIAM_CORS__ALLOW_ORIGIN",
+        "OCEANIAM_DATABASE__DSN",
+        "OCEANIAM_MASTER_KEY",
+        "OCEANIAM_PUBLIC_BASE_URL",
+    ];
+
+    /// Parses the repository-root `.env.example` into `(key, value, commented)`.
+    fn env_example_entries() -> Vec<(String, String, bool)> {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../.env.example");
+        let content = std::fs::read_to_string(path).expect("read repository-root .env.example");
+
+        content
+            .lines()
+            .filter_map(|line| {
+                let line = line.trim();
+                if line.is_empty() {
+                    return None;
+                }
+                let commented = line.starts_with('#');
+                let line = line.trim_start_matches('#').trim();
+                let (key, value) = line.split_once('=')?;
+                if !key.starts_with("OCEANIAM_") {
+                    return None;
+                }
+                let value = value.trim();
+                let value = value
+                    .strip_prefix('"')
+                    .and_then(|it| it.strip_suffix('"'))
+                    .unwrap_or(value)
+                    .to_owned();
+                Some((key.to_owned(), value, commented))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn env_example_contains_no_unknown_keys() {
+        for (key, _, _) in env_example_entries() {
+            let known = KNOWN_ENV_KEYS.contains(&key.as_str())
+                || DYNAMIC_KEY_PREFIXES
+                    .iter()
+                    .any(|prefix| key.starts_with(prefix));
+            assert!(
+                known,
+                "unknown key `{key}` in .env.example; align the example with the \
+                 configuration schema (or update the drift lists for intentional changes)"
+            );
+        }
+    }
+
+    #[test]
+    fn env_example_documents_every_schema_key() {
+        let documented: std::collections::HashSet<String> = env_example_entries()
+            .into_iter()
+            .map(|(key, _, _)| key)
+            .collect();
+
+        for key in KNOWN_ENV_KEYS {
+            assert!(
+                documented.contains(*key),
+                "config key `{key}` missing from .env.example; document it there \
+                 (commented is acceptable for optional keys)"
+            );
+        }
+    }
+
+    #[test]
+    fn env_example_actively_sets_required_keys() {
+        let entries = env_example_entries();
+
+        for required in REQUIRED_ENV_KEYS {
+            let entry = entries.iter().find(|(key, _, _)| key == required);
+            assert!(
+                matches!(entry, Some((_, _, false))),
+                "required key `{required}` must be set (not commented) in .env.example"
+            );
+        }
+    }
+
+    #[test]
+    fn env_example_values_deserialize_into_backend_config() {
+        let mut body = String::new();
+
+        for (key, value, commented) in env_example_entries() {
+            if commented {
+                continue;
+            }
+
+            // The example ships an empty placeholder for the HMAC keyring; the
+            // keyring deserializer validates eagerly, so substitute a valid key.
+            let value = if key.starts_with("OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__")
+                && value.is_empty()
+            {
+                "ab".repeat(32)
+            } else {
+                value
+            };
+
+            let rendered = if value.parse::<bool>().is_ok() || value.parse::<f64>().is_ok() {
+                value
+            } else {
+                format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))
+            };
+
+            let path = key
+                .trim_start_matches("OCEANIAM_")
+                .to_lowercase()
+                .replace("__", ".");
+            body.push_str(&format!("{path} = {rendered}\n"));
+        }
+
+        Config::builder()
+            .add_source(config::File::from_str(&body, config::FileFormat::Toml))
+            .build()
+            .expect("build config from .env.example values")
+            .try_deserialize::<BackendConfig>()
+            .expect(".env.example values must deserialize into BackendConfig");
     }
 }

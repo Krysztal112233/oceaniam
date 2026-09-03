@@ -43,6 +43,38 @@ jobs:
       - name: Build docker compose
         run: docker compose build
 
+  migration-policy:
+    name: Check new migrations implement down()
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Check down() on newly added migrations
+        run: |
+          set -euo pipefail
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          new_migrations=$(git diff --name-only --diff-filter=A "origin/${{ github.base_ref }}...HEAD" -- 'backend/crates/migration/src/m*.rs' || true)
+          if [ -z "$new_migrations" ]; then
+            echo "No new migrations in this pull request"
+            exit 0
+          fi
+          failed=0
+          for file in $new_migrations; do
+            body=$(awk '/async fn down/{f=1} f{print} f&&/^    }$/{exit}' "$file")
+            if echo "$body" | grep -qi 'irreversible'; then
+              echo "OK (marked irreversible): $file"
+            elif echo "$body" | grep -q 'manager\.'; then
+              echo "OK (implements down): $file"
+            else
+              echo "FAIL: $file has an empty down(); implement it or return an"
+              echo "error whose message starts with 'irreversible:'"
+              failed=1
+            fi
+          done
+          exit $failed
+
   test:
     name: Run `cargo test --workspace`
     runs-on: ubuntu-latest

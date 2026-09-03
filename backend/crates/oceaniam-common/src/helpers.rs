@@ -5,16 +5,12 @@ pub fn gen_random(len: usize) -> String {
                             abcdefghijklmnopqrstuvwxyz\
                             0123456789)(*&^%$#@!~";
 
-    gen_random_with_charset(len, CHARSET)
-}
-
-pub fn gen_random_with_charset(len: usize, charset: &[u8]) -> String {
     let mut rng = rand::thread_rng();
 
     (0..len)
         .map(|_| {
-            let idx = rng.gen_range(0..charset.len());
-            charset[idx] as char
+            let idx = rng.gen_range(0..CHARSET.len());
+            CHARSET[idx] as char
         })
         .collect()
 }

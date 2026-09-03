@@ -78,15 +78,22 @@ impl MigrationTrait for Migration {
         Ok(())
     }
 
-    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager
-            .get_connection()
-            .execute_unprepared(include_str!(
-                "./m20260614_082902_envelope_encrypt_keys/down.sql"
-            ))
-            .await?;
-
-        Ok(())
+    /// Irreversible: `up` overwrites plaintext PEMs with envelope-encrypted
+    /// ciphertexts, which SQL cannot decrypt back. Restore from a backup to
+    /// roll back.
+    ///
+    /// Historical note: the committed `down.sql` shipped unrelated, destructive
+    /// statements (`UPDATE applications SET comment = ''`, `DELETE FROM
+    /// application_secrets ...`) belonging to other migrations' concerns. It was
+    /// removed on 2026-09-02 under the down-side repair exception in
+    /// `backend/AGENTS.md` (the change cannot affect any database that already
+    /// applied this migration, since `down` never ran against them).
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "irreversible: m20260614_082902_envelope_encrypt_keys cannot be rolled back; \
+             restore from a database backup"
+                .to_owned(),
+        ))
     }
 }
 

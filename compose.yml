@@ -43,8 +43,6 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    environment:
-      OCEANIAM_PUBLIC_BASE_URL: "${OCEANIAM_PUBLIC_BASE_URL:?Set OCEANIAM_PUBLIC_BASE_URL in .env}"
     depends_on:
       backend-migration:
         condition: service_completed_successfully
