@@ -14,6 +14,7 @@ mod administrators;
 pub mod applications;
 mod audits;
 mod authentication;
+mod oidc;
 mod secrets;
 mod statistics;
 mod tenants;
@@ -36,6 +37,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
         .pipe(administrators::endpoint)
         .pipe(applications::endpoint)
         .pipe(authentication::endpoint)
+        .pipe(oidc::endpoint)
         .pipe(secrets::endpoint)
         .pipe(statistics::endpoint)
         .pipe(audits::endpoint)

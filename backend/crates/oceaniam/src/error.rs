@@ -168,6 +168,15 @@ impl From<oceaniam_auth::AuthError> for Error {
     }
 }
 
+impl From<oceaniam_auth::oidc::OidcJwksError> for Error {
+    fn from(e: oceaniam_auth::oidc::OidcJwksError) -> Self {
+        Self::Internal {
+            msg: e.to_string(),
+            location: snafu::location!(),
+        }
+    }
+}
+
 impl From<oceaniam_database::error::Error> for Error {
     fn from(e: oceaniam_database::error::Error) -> Self {
         match e {

@@ -3,6 +3,7 @@ mod applications;
 mod challenges;
 mod dev_accounts;
 mod keys;
+mod oidc;
 mod secrets;
 mod tenants;
 mod users;

@@ -49,6 +49,7 @@ mimalloc = { version = "0.1", features = ["v3"] }
 moka = { version = "0.12", features = ["future"] }
 names = { version = "0.14", default-features = false }
 num_cpus = "1.17"
+openidconnect = { version = "4.0.1", default-features = false }
 parking_lot = "0.12"
 opentelemetry = { version = "0.32", default-features = false, features = ["logs", "trace"] }
 opentelemetry_sdk = { version = "0.32", default-features = false, features = ["logs", "trace", "internal-logs"] }

@@ -8,6 +8,7 @@ base64 = "0.22"
 chrono.workspace = true
 im.workspace = true
 jsonwebtoken.workspace = true
+openidconnect.workspace = true
 parking_lot.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -48,6 +48,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
             (status = 203, description = "Missing Authorization header"),
             (status = 400, description = "Invalid ids", body = ApiResponse<ErrorResponse>),
             (status = 401, description = "Unauthorized"),
+            (status = 404, description = "Tenant not found", body = ApiResponse<ErrorResponse>),
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
@@ -102,6 +103,7 @@ pub async fn get_tenant_keys(
         responses(
             (status = 200, body = ApiResponse<Empty>),
             (status = 400, description = "Invalid ids", body = ApiResponse<ErrorResponse>),
+            (status = 404, description = "Tenant not found", body = ApiResponse<ErrorResponse>),
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
@@ -172,7 +174,7 @@ pub async fn rotate_tenant_key(
         responses(
             (status = 200, body = ApiResponse<Empty>),
             (status = 400, description = "Invalid ids", body = ApiResponse<ErrorResponse>),
-            (status = 404, description = "Key not found", body = ApiResponse<ErrorResponse>),
+            (status = 404, description = "Key or tenant not found", body = ApiResponse<ErrorResponse>),
             (status = 500, description = "Internal server error", body = ApiResponse<ErrorResponse>),
         ),
     )]
