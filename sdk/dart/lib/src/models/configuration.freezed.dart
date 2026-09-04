@@ -1136,6 +1136,175 @@ abstract class _DevelopmentAccountsConfiguration
       get copyWith => throw _privateConstructorUsedError;
 }
 
+OidcConfiguration _$OidcConfigurationFromJson(Map<String, dynamic> json) {
+  return _OidcConfiguration.fromJson(json);
+}
+
+/// @nodoc
+mixin _$OidcConfiguration {
+  @JsonKey(name: 'allow_insecure_loopback_redirect_uris')
+  bool get allowInsecureLoopbackRedirectUris =>
+      throw _privateConstructorUsedError;
+
+  /// Serializes this OidcConfiguration to a JSON map.
+  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
+
+  /// Create a copy of OidcConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $OidcConfigurationCopyWith<OidcConfiguration> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $OidcConfigurationCopyWith<$Res> {
+  factory $OidcConfigurationCopyWith(
+          OidcConfiguration value, $Res Function(OidcConfiguration) then) =
+      _$OidcConfigurationCopyWithImpl<$Res, OidcConfiguration>;
+  @useResult
+  $Res call(
+      {@JsonKey(name: 'allow_insecure_loopback_redirect_uris')
+      bool allowInsecureLoopbackRedirectUris});
+}
+
+/// @nodoc
+class _$OidcConfigurationCopyWithImpl<$Res, $Val extends OidcConfiguration>
+    implements $OidcConfigurationCopyWith<$Res> {
+  _$OidcConfigurationCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of OidcConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? allowInsecureLoopbackRedirectUris = null,
+  }) {
+    return _then(_value.copyWith(
+      allowInsecureLoopbackRedirectUris: null ==
+              allowInsecureLoopbackRedirectUris
+          ? _value.allowInsecureLoopbackRedirectUris
+          : allowInsecureLoopbackRedirectUris // ignore: cast_nullable_to_non_nullable
+              as bool,
+    ) as $Val);
+  }
+}
+
+/// @nodoc
+abstract class _$$OidcConfigurationImplCopyWith<$Res>
+    implements $OidcConfigurationCopyWith<$Res> {
+  factory _$$OidcConfigurationImplCopyWith(_$OidcConfigurationImpl value,
+          $Res Function(_$OidcConfigurationImpl) then) =
+      __$$OidcConfigurationImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call(
+      {@JsonKey(name: 'allow_insecure_loopback_redirect_uris')
+      bool allowInsecureLoopbackRedirectUris});
+}
+
+/// @nodoc
+class __$$OidcConfigurationImplCopyWithImpl<$Res>
+    extends _$OidcConfigurationCopyWithImpl<$Res, _$OidcConfigurationImpl>
+    implements _$$OidcConfigurationImplCopyWith<$Res> {
+  __$$OidcConfigurationImplCopyWithImpl(_$OidcConfigurationImpl _value,
+      $Res Function(_$OidcConfigurationImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of OidcConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? allowInsecureLoopbackRedirectUris = null,
+  }) {
+    return _then(_$OidcConfigurationImpl(
+      allowInsecureLoopbackRedirectUris: null ==
+              allowInsecureLoopbackRedirectUris
+          ? _value.allowInsecureLoopbackRedirectUris
+          : allowInsecureLoopbackRedirectUris // ignore: cast_nullable_to_non_nullable
+              as bool,
+    ));
+  }
+}
+
+/// @nodoc
+@JsonSerializable()
+class _$OidcConfigurationImpl implements _OidcConfiguration {
+  const _$OidcConfigurationImpl(
+      {@JsonKey(name: 'allow_insecure_loopback_redirect_uris')
+      required this.allowInsecureLoopbackRedirectUris});
+
+  factory _$OidcConfigurationImpl.fromJson(Map<String, dynamic> json) =>
+      _$$OidcConfigurationImplFromJson(json);
+
+  @override
+  @JsonKey(name: 'allow_insecure_loopback_redirect_uris')
+  final bool allowInsecureLoopbackRedirectUris;
+
+  @override
+  String toString() {
+    return 'OidcConfiguration(allowInsecureLoopbackRedirectUris: $allowInsecureLoopbackRedirectUris)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$OidcConfigurationImpl &&
+            (identical(other.allowInsecureLoopbackRedirectUris,
+                    allowInsecureLoopbackRedirectUris) ||
+                other.allowInsecureLoopbackRedirectUris ==
+                    allowInsecureLoopbackRedirectUris));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode =>
+      Object.hash(runtimeType, allowInsecureLoopbackRedirectUris);
+
+  /// Create a copy of OidcConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$OidcConfigurationImplCopyWith<_$OidcConfigurationImpl> get copyWith =>
+      __$$OidcConfigurationImplCopyWithImpl<_$OidcConfigurationImpl>(
+          this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$$OidcConfigurationImplToJson(
+      this,
+    );
+  }
+}
+
+abstract class _OidcConfiguration implements OidcConfiguration {
+  const factory _OidcConfiguration(
+          {@JsonKey(name: 'allow_insecure_loopback_redirect_uris')
+          required final bool allowInsecureLoopbackRedirectUris}) =
+      _$OidcConfigurationImpl;
+
+  factory _OidcConfiguration.fromJson(Map<String, dynamic> json) =
+      _$OidcConfigurationImpl.fromJson;
+
+  @override
+  @JsonKey(name: 'allow_insecure_loopback_redirect_uris')
+  bool get allowInsecureLoopbackRedirectUris;
+
+  /// Create a copy of OidcConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$OidcConfigurationImplCopyWith<_$OidcConfigurationImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
 ApplicationConfiguration _$ApplicationConfigurationFromJson(
     Map<String, dynamic> json) {
   return _ApplicationConfiguration.fromJson(json);
@@ -1149,6 +1318,7 @@ mixin _$ApplicationConfiguration {
   @JsonKey(name: 'development_accounts')
   DevelopmentAccountsConfiguration? get developmentAccounts =>
       throw _privateConstructorUsedError;
+  OidcConfiguration? get oidc => throw _privateConstructorUsedError;
 
   /// Serializes this ApplicationConfiguration to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -1170,11 +1340,13 @@ abstract class $ApplicationConfigurationCopyWith<$Res> {
       {AuthConfiguration auth,
       RegistrationConfiguration registration,
       @JsonKey(name: 'development_accounts')
-      DevelopmentAccountsConfiguration? developmentAccounts});
+      DevelopmentAccountsConfiguration? developmentAccounts,
+      OidcConfiguration? oidc});
 
   $AuthConfigurationCopyWith<$Res> get auth;
   $RegistrationConfigurationCopyWith<$Res> get registration;
   $DevelopmentAccountsConfigurationCopyWith<$Res>? get developmentAccounts;
+  $OidcConfigurationCopyWith<$Res>? get oidc;
 }
 
 /// @nodoc
@@ -1196,6 +1368,7 @@ class _$ApplicationConfigurationCopyWithImpl<$Res,
     Object? auth = null,
     Object? registration = null,
     Object? developmentAccounts = freezed,
+    Object? oidc = freezed,
   }) {
     return _then(_value.copyWith(
       auth: null == auth
@@ -1210,6 +1383,10 @@ class _$ApplicationConfigurationCopyWithImpl<$Res,
           ? _value.developmentAccounts
           : developmentAccounts // ignore: cast_nullable_to_non_nullable
               as DevelopmentAccountsConfiguration?,
+      oidc: freezed == oidc
+          ? _value.oidc
+          : oidc // ignore: cast_nullable_to_non_nullable
+              as OidcConfiguration?,
     ) as $Val);
   }
 
@@ -1248,6 +1425,20 @@ class _$ApplicationConfigurationCopyWithImpl<$Res,
       return _then(_value.copyWith(developmentAccounts: value) as $Val);
     });
   }
+
+  /// Create a copy of ApplicationConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $OidcConfigurationCopyWith<$Res>? get oidc {
+    if (_value.oidc == null) {
+      return null;
+    }
+
+    return $OidcConfigurationCopyWith<$Res>(_value.oidc!, (value) {
+      return _then(_value.copyWith(oidc: value) as $Val);
+    });
+  }
 }
 
 /// @nodoc
@@ -1263,7 +1454,8 @@ abstract class _$$ApplicationConfigurationImplCopyWith<$Res>
       {AuthConfiguration auth,
       RegistrationConfiguration registration,
       @JsonKey(name: 'development_accounts')
-      DevelopmentAccountsConfiguration? developmentAccounts});
+      DevelopmentAccountsConfiguration? developmentAccounts,
+      OidcConfiguration? oidc});
 
   @override
   $AuthConfigurationCopyWith<$Res> get auth;
@@ -1271,6 +1463,8 @@ abstract class _$$ApplicationConfigurationImplCopyWith<$Res>
   $RegistrationConfigurationCopyWith<$Res> get registration;
   @override
   $DevelopmentAccountsConfigurationCopyWith<$Res>? get developmentAccounts;
+  @override
+  $OidcConfigurationCopyWith<$Res>? get oidc;
 }
 
 /// @nodoc
@@ -1291,6 +1485,7 @@ class __$$ApplicationConfigurationImplCopyWithImpl<$Res>
     Object? auth = null,
     Object? registration = null,
     Object? developmentAccounts = freezed,
+    Object? oidc = freezed,
   }) {
     return _then(_$ApplicationConfigurationImpl(
       auth: null == auth
@@ -1305,6 +1500,10 @@ class __$$ApplicationConfigurationImplCopyWithImpl<$Res>
           ? _value.developmentAccounts
           : developmentAccounts // ignore: cast_nullable_to_non_nullable
               as DevelopmentAccountsConfiguration?,
+      oidc: freezed == oidc
+          ? _value.oidc
+          : oidc // ignore: cast_nullable_to_non_nullable
+              as OidcConfiguration?,
     ));
   }
 }
@@ -1315,7 +1514,8 @@ class _$ApplicationConfigurationImpl implements _ApplicationConfiguration {
   const _$ApplicationConfigurationImpl(
       {required this.auth,
       required this.registration,
-      @JsonKey(name: 'development_accounts') this.developmentAccounts});
+      @JsonKey(name: 'development_accounts') this.developmentAccounts,
+      this.oidc});
 
   factory _$ApplicationConfigurationImpl.fromJson(Map<String, dynamic> json) =>
       _$$ApplicationConfigurationImplFromJson(json);
@@ -1327,10 +1527,12 @@ class _$ApplicationConfigurationImpl implements _ApplicationConfiguration {
   @override
   @JsonKey(name: 'development_accounts')
   final DevelopmentAccountsConfiguration? developmentAccounts;
+  @override
+  final OidcConfiguration? oidc;
 
   @override
   String toString() {
-    return 'ApplicationConfiguration(auth: $auth, registration: $registration, developmentAccounts: $developmentAccounts)';
+    return 'ApplicationConfiguration(auth: $auth, registration: $registration, developmentAccounts: $developmentAccounts, oidc: $oidc)';
   }
 
   @override
@@ -1342,13 +1544,14 @@ class _$ApplicationConfigurationImpl implements _ApplicationConfiguration {
             (identical(other.registration, registration) ||
                 other.registration == registration) &&
             (identical(other.developmentAccounts, developmentAccounts) ||
-                other.developmentAccounts == developmentAccounts));
+                other.developmentAccounts == developmentAccounts) &&
+            (identical(other.oidc, oidc) || other.oidc == oidc));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   int get hashCode =>
-      Object.hash(runtimeType, auth, registration, developmentAccounts);
+      Object.hash(runtimeType, auth, registration, developmentAccounts, oidc);
 
   /// Create a copy of ApplicationConfiguration
   /// with the given fields replaced by the non-null parameter values.
@@ -1369,11 +1572,11 @@ class _$ApplicationConfigurationImpl implements _ApplicationConfiguration {
 
 abstract class _ApplicationConfiguration implements ApplicationConfiguration {
   const factory _ApplicationConfiguration(
-          {required final AuthConfiguration auth,
-          required final RegistrationConfiguration registration,
-          @JsonKey(name: 'development_accounts')
-          final DevelopmentAccountsConfiguration? developmentAccounts}) =
-      _$ApplicationConfigurationImpl;
+      {required final AuthConfiguration auth,
+      required final RegistrationConfiguration registration,
+      @JsonKey(name: 'development_accounts')
+      final DevelopmentAccountsConfiguration? developmentAccounts,
+      final OidcConfiguration? oidc}) = _$ApplicationConfigurationImpl;
 
   factory _ApplicationConfiguration.fromJson(Map<String, dynamic> json) =
       _$ApplicationConfigurationImpl.fromJson;
@@ -1385,6 +1588,8 @@ abstract class _ApplicationConfiguration implements ApplicationConfiguration {
   @override
   @JsonKey(name: 'development_accounts')
   DevelopmentAccountsConfiguration? get developmentAccounts;
+  @override
+  OidcConfiguration? get oidc;
 
   /// Create a copy of ApplicationConfiguration
   /// with the given fields replaced by the non-null parameter values.
@@ -2137,6 +2342,181 @@ abstract class _PatchDevelopmentAccountsConfiguration
       get copyWith => throw _privateConstructorUsedError;
 }
 
+PatchOidcConfiguration _$PatchOidcConfigurationFromJson(
+    Map<String, dynamic> json) {
+  return _PatchOidcConfiguration.fromJson(json);
+}
+
+/// @nodoc
+mixin _$PatchOidcConfiguration {
+  @JsonKey(name: 'allow_insecure_loopback_redirect_uris')
+  bool? get allowInsecureLoopbackRedirectUris =>
+      throw _privateConstructorUsedError;
+
+  /// Serializes this PatchOidcConfiguration to a JSON map.
+  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
+
+  /// Create a copy of PatchOidcConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $PatchOidcConfigurationCopyWith<PatchOidcConfiguration> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $PatchOidcConfigurationCopyWith<$Res> {
+  factory $PatchOidcConfigurationCopyWith(PatchOidcConfiguration value,
+          $Res Function(PatchOidcConfiguration) then) =
+      _$PatchOidcConfigurationCopyWithImpl<$Res, PatchOidcConfiguration>;
+  @useResult
+  $Res call(
+      {@JsonKey(name: 'allow_insecure_loopback_redirect_uris')
+      bool? allowInsecureLoopbackRedirectUris});
+}
+
+/// @nodoc
+class _$PatchOidcConfigurationCopyWithImpl<$Res,
+        $Val extends PatchOidcConfiguration>
+    implements $PatchOidcConfigurationCopyWith<$Res> {
+  _$PatchOidcConfigurationCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of PatchOidcConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? allowInsecureLoopbackRedirectUris = freezed,
+  }) {
+    return _then(_value.copyWith(
+      allowInsecureLoopbackRedirectUris: freezed ==
+              allowInsecureLoopbackRedirectUris
+          ? _value.allowInsecureLoopbackRedirectUris
+          : allowInsecureLoopbackRedirectUris // ignore: cast_nullable_to_non_nullable
+              as bool?,
+    ) as $Val);
+  }
+}
+
+/// @nodoc
+abstract class _$$PatchOidcConfigurationImplCopyWith<$Res>
+    implements $PatchOidcConfigurationCopyWith<$Res> {
+  factory _$$PatchOidcConfigurationImplCopyWith(
+          _$PatchOidcConfigurationImpl value,
+          $Res Function(_$PatchOidcConfigurationImpl) then) =
+      __$$PatchOidcConfigurationImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call(
+      {@JsonKey(name: 'allow_insecure_loopback_redirect_uris')
+      bool? allowInsecureLoopbackRedirectUris});
+}
+
+/// @nodoc
+class __$$PatchOidcConfigurationImplCopyWithImpl<$Res>
+    extends _$PatchOidcConfigurationCopyWithImpl<$Res,
+        _$PatchOidcConfigurationImpl>
+    implements _$$PatchOidcConfigurationImplCopyWith<$Res> {
+  __$$PatchOidcConfigurationImplCopyWithImpl(
+      _$PatchOidcConfigurationImpl _value,
+      $Res Function(_$PatchOidcConfigurationImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of PatchOidcConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? allowInsecureLoopbackRedirectUris = freezed,
+  }) {
+    return _then(_$PatchOidcConfigurationImpl(
+      allowInsecureLoopbackRedirectUris: freezed ==
+              allowInsecureLoopbackRedirectUris
+          ? _value.allowInsecureLoopbackRedirectUris
+          : allowInsecureLoopbackRedirectUris // ignore: cast_nullable_to_non_nullable
+              as bool?,
+    ));
+  }
+}
+
+/// @nodoc
+
+@JsonSerializable(includeIfNull: false, explicitToJson: true)
+class _$PatchOidcConfigurationImpl implements _PatchOidcConfiguration {
+  const _$PatchOidcConfigurationImpl(
+      {@JsonKey(name: 'allow_insecure_loopback_redirect_uris')
+      this.allowInsecureLoopbackRedirectUris});
+
+  factory _$PatchOidcConfigurationImpl.fromJson(Map<String, dynamic> json) =>
+      _$$PatchOidcConfigurationImplFromJson(json);
+
+  @override
+  @JsonKey(name: 'allow_insecure_loopback_redirect_uris')
+  final bool? allowInsecureLoopbackRedirectUris;
+
+  @override
+  String toString() {
+    return 'PatchOidcConfiguration(allowInsecureLoopbackRedirectUris: $allowInsecureLoopbackRedirectUris)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$PatchOidcConfigurationImpl &&
+            (identical(other.allowInsecureLoopbackRedirectUris,
+                    allowInsecureLoopbackRedirectUris) ||
+                other.allowInsecureLoopbackRedirectUris ==
+                    allowInsecureLoopbackRedirectUris));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode =>
+      Object.hash(runtimeType, allowInsecureLoopbackRedirectUris);
+
+  /// Create a copy of PatchOidcConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$PatchOidcConfigurationImplCopyWith<_$PatchOidcConfigurationImpl>
+      get copyWith => __$$PatchOidcConfigurationImplCopyWithImpl<
+          _$PatchOidcConfigurationImpl>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$$PatchOidcConfigurationImplToJson(
+      this,
+    );
+  }
+}
+
+abstract class _PatchOidcConfiguration implements PatchOidcConfiguration {
+  const factory _PatchOidcConfiguration(
+          {@JsonKey(name: 'allow_insecure_loopback_redirect_uris')
+          final bool? allowInsecureLoopbackRedirectUris}) =
+      _$PatchOidcConfigurationImpl;
+
+  factory _PatchOidcConfiguration.fromJson(Map<String, dynamic> json) =
+      _$PatchOidcConfigurationImpl.fromJson;
+
+  @override
+  @JsonKey(name: 'allow_insecure_loopback_redirect_uris')
+  bool? get allowInsecureLoopbackRedirectUris;
+
+  /// Create a copy of PatchOidcConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$PatchOidcConfigurationImplCopyWith<_$PatchOidcConfigurationImpl>
+      get copyWith => throw _privateConstructorUsedError;
+}
+
 PatchApplicationConfiguration _$PatchApplicationConfigurationFromJson(
     Map<String, dynamic> json) {
   return _PatchApplicationConfiguration.fromJson(json);
@@ -2150,6 +2530,7 @@ mixin _$PatchApplicationConfiguration {
   @JsonKey(name: 'development_accounts')
   PatchDevelopmentAccountsConfiguration? get developmentAccounts =>
       throw _privateConstructorUsedError;
+  PatchOidcConfiguration? get oidc => throw _privateConstructorUsedError;
 
   /// Serializes this PatchApplicationConfiguration to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -2173,11 +2554,13 @@ abstract class $PatchApplicationConfigurationCopyWith<$Res> {
       {PatchAuthConfiguration? auth,
       PatchRegistrationConfiguration? registration,
       @JsonKey(name: 'development_accounts')
-      PatchDevelopmentAccountsConfiguration? developmentAccounts});
+      PatchDevelopmentAccountsConfiguration? developmentAccounts,
+      PatchOidcConfiguration? oidc});
 
   $PatchAuthConfigurationCopyWith<$Res>? get auth;
   $PatchRegistrationConfigurationCopyWith<$Res>? get registration;
   $PatchDevelopmentAccountsConfigurationCopyWith<$Res>? get developmentAccounts;
+  $PatchOidcConfigurationCopyWith<$Res>? get oidc;
 }
 
 /// @nodoc
@@ -2199,6 +2582,7 @@ class _$PatchApplicationConfigurationCopyWithImpl<$Res,
     Object? auth = freezed,
     Object? registration = freezed,
     Object? developmentAccounts = freezed,
+    Object? oidc = freezed,
   }) {
     return _then(_value.copyWith(
       auth: freezed == auth
@@ -2213,6 +2597,10 @@ class _$PatchApplicationConfigurationCopyWithImpl<$Res,
           ? _value.developmentAccounts
           : developmentAccounts // ignore: cast_nullable_to_non_nullable
               as PatchDevelopmentAccountsConfiguration?,
+      oidc: freezed == oidc
+          ? _value.oidc
+          : oidc // ignore: cast_nullable_to_non_nullable
+              as PatchOidcConfiguration?,
     ) as $Val);
   }
 
@@ -2260,6 +2648,20 @@ class _$PatchApplicationConfigurationCopyWithImpl<$Res,
       return _then(_value.copyWith(developmentAccounts: value) as $Val);
     });
   }
+
+  /// Create a copy of PatchApplicationConfiguration
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $PatchOidcConfigurationCopyWith<$Res>? get oidc {
+    if (_value.oidc == null) {
+      return null;
+    }
+
+    return $PatchOidcConfigurationCopyWith<$Res>(_value.oidc!, (value) {
+      return _then(_value.copyWith(oidc: value) as $Val);
+    });
+  }
 }
 
 /// @nodoc
@@ -2275,7 +2677,8 @@ abstract class _$$PatchApplicationConfigurationImplCopyWith<$Res>
       {PatchAuthConfiguration? auth,
       PatchRegistrationConfiguration? registration,
       @JsonKey(name: 'development_accounts')
-      PatchDevelopmentAccountsConfiguration? developmentAccounts});
+      PatchDevelopmentAccountsConfiguration? developmentAccounts,
+      PatchOidcConfiguration? oidc});
 
   @override
   $PatchAuthConfigurationCopyWith<$Res>? get auth;
@@ -2283,6 +2686,8 @@ abstract class _$$PatchApplicationConfigurationImplCopyWith<$Res>
   $PatchRegistrationConfigurationCopyWith<$Res>? get registration;
   @override
   $PatchDevelopmentAccountsConfigurationCopyWith<$Res>? get developmentAccounts;
+  @override
+  $PatchOidcConfigurationCopyWith<$Res>? get oidc;
 }
 
 /// @nodoc
@@ -2303,6 +2708,7 @@ class __$$PatchApplicationConfigurationImplCopyWithImpl<$Res>
     Object? auth = freezed,
     Object? registration = freezed,
     Object? developmentAccounts = freezed,
+    Object? oidc = freezed,
   }) {
     return _then(_$PatchApplicationConfigurationImpl(
       auth: freezed == auth
@@ -2317,6 +2723,10 @@ class __$$PatchApplicationConfigurationImplCopyWithImpl<$Res>
           ? _value.developmentAccounts
           : developmentAccounts // ignore: cast_nullable_to_non_nullable
               as PatchDevelopmentAccountsConfiguration?,
+      oidc: freezed == oidc
+          ? _value.oidc
+          : oidc // ignore: cast_nullable_to_non_nullable
+              as PatchOidcConfiguration?,
     ));
   }
 }
@@ -2329,7 +2739,8 @@ class _$PatchApplicationConfigurationImpl
   const _$PatchApplicationConfigurationImpl(
       {this.auth,
       this.registration,
-      @JsonKey(name: 'development_accounts') this.developmentAccounts});
+      @JsonKey(name: 'development_accounts') this.developmentAccounts,
+      this.oidc});
 
   factory _$PatchApplicationConfigurationImpl.fromJson(
           Map<String, dynamic> json) =>
@@ -2342,10 +2753,12 @@ class _$PatchApplicationConfigurationImpl
   @override
   @JsonKey(name: 'development_accounts')
   final PatchDevelopmentAccountsConfiguration? developmentAccounts;
+  @override
+  final PatchOidcConfiguration? oidc;
 
   @override
   String toString() {
-    return 'PatchApplicationConfiguration(auth: $auth, registration: $registration, developmentAccounts: $developmentAccounts)';
+    return 'PatchApplicationConfiguration(auth: $auth, registration: $registration, developmentAccounts: $developmentAccounts, oidc: $oidc)';
   }
 
   @override
@@ -2357,13 +2770,14 @@ class _$PatchApplicationConfigurationImpl
             (identical(other.registration, registration) ||
                 other.registration == registration) &&
             (identical(other.developmentAccounts, developmentAccounts) ||
-                other.developmentAccounts == developmentAccounts));
+                other.developmentAccounts == developmentAccounts) &&
+            (identical(other.oidc, oidc) || other.oidc == oidc));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   int get hashCode =>
-      Object.hash(runtimeType, auth, registration, developmentAccounts);
+      Object.hash(runtimeType, auth, registration, developmentAccounts, oidc);
 
   /// Create a copy of PatchApplicationConfiguration
   /// with the given fields replaced by the non-null parameter values.
@@ -2389,7 +2803,8 @@ abstract class _PatchApplicationConfiguration
           {final PatchAuthConfiguration? auth,
           final PatchRegistrationConfiguration? registration,
           @JsonKey(name: 'development_accounts')
-          final PatchDevelopmentAccountsConfiguration? developmentAccounts}) =
+          final PatchDevelopmentAccountsConfiguration? developmentAccounts,
+          final PatchOidcConfiguration? oidc}) =
       _$PatchApplicationConfigurationImpl;
 
   factory _PatchApplicationConfiguration.fromJson(Map<String, dynamic> json) =
@@ -2402,6 +2817,8 @@ abstract class _PatchApplicationConfiguration
   @override
   @JsonKey(name: 'development_accounts')
   PatchDevelopmentAccountsConfiguration? get developmentAccounts;
+  @override
+  PatchOidcConfiguration? get oidc;
 
   /// Create a copy of PatchApplicationConfiguration
   /// with the given fields replaced by the non-null parameter values.

@@ -1,12 +1,12 @@
 use oceaniam_database::config::application::{
     ApplicationConfiguration, Argon2Configuration as DbArgon2Configuration, AuthConfiguration,
-    DevelopmentAccountsConfiguration, PasswordConfiguration, RegistrationConfiguration,
-    TokenConfiguration,
+    DevelopmentAccountsConfiguration, OidcConfiguration, PasswordConfiguration,
+    RegistrationConfiguration, TokenConfiguration,
 };
 use oceaniam_vo::applications::{
     ApplicationConfigurationVO, Argon2Configuration, AuthConfigurationVO,
-    DevelopmentAccountsConfigurationVO, PasswordConfigurationVO, RegistrationConfigurationVO,
-    TokenConfigurationVO,
+    DevelopmentAccountsConfigurationVO, OidcConfigurationVO, PasswordConfigurationVO,
+    RegistrationConfigurationVO, TokenConfigurationVO,
 };
 
 pub fn token_configuration_to_vo(config: TokenConfiguration) -> TokenConfigurationVO {
@@ -64,6 +64,15 @@ pub fn development_accounts_configuration_to_vo(
     }
 }
 
+pub fn oidc_configuration_to_vo(config: OidcConfiguration) -> OidcConfigurationVO {
+    let OidcConfiguration {
+        allow_insecure_loopback_redirect_uris,
+    } = config;
+    OidcConfigurationVO {
+        allow_insecure_loopback_redirect_uris,
+    }
+}
+
 pub fn application_configuration_to_vo(
     config: ApplicationConfiguration,
 ) -> ApplicationConfigurationVO {
@@ -71,10 +80,12 @@ pub fn application_configuration_to_vo(
         auth,
         registration,
         development_accounts,
+        oidc,
     } = config;
     ApplicationConfigurationVO {
         auth: auth_configuration_to_vo(auth),
         registration: registration_configuration_to_vo(registration),
         development_accounts: development_accounts_configuration_to_vo(development_accounts),
+        oidc: oidc_configuration_to_vo(oidc),
     }
 }

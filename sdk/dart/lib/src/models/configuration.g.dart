@@ -94,6 +94,20 @@ Map<String, dynamic> _$$DevelopmentAccountsConfigurationImplToJson(
       'max_ttl_seconds': instance.maxTtlSeconds,
     };
 
+_$OidcConfigurationImpl _$$OidcConfigurationImplFromJson(
+        Map<String, dynamic> json) =>
+    _$OidcConfigurationImpl(
+      allowInsecureLoopbackRedirectUris:
+          json['allow_insecure_loopback_redirect_uris'] as bool,
+    );
+
+Map<String, dynamic> _$$OidcConfigurationImplToJson(
+        _$OidcConfigurationImpl instance) =>
+    <String, dynamic>{
+      'allow_insecure_loopback_redirect_uris':
+          instance.allowInsecureLoopbackRedirectUris,
+    };
+
 _$ApplicationConfigurationImpl _$$ApplicationConfigurationImplFromJson(
         Map<String, dynamic> json) =>
     _$ApplicationConfigurationImpl(
@@ -104,6 +118,9 @@ _$ApplicationConfigurationImpl _$$ApplicationConfigurationImplFromJson(
           ? null
           : DevelopmentAccountsConfiguration.fromJson(
               json['development_accounts'] as Map<String, dynamic>),
+      oidc: json['oidc'] == null
+          ? null
+          : OidcConfiguration.fromJson(json['oidc'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$$ApplicationConfigurationImplToJson(
@@ -112,6 +129,7 @@ Map<String, dynamic> _$$ApplicationConfigurationImplToJson(
       'auth': instance.auth,
       'registration': instance.registration,
       'development_accounts': instance.developmentAccounts,
+      'oidc': instance.oidc,
     };
 
 _$PatchTokenConfigurationImpl _$$PatchTokenConfigurationImplFromJson(
@@ -175,6 +193,20 @@ Map<String, dynamic> _$$PatchDevelopmentAccountsConfigurationImplToJson(
       if (instance.maxTtlSeconds case final value?) 'max_ttl_seconds': value,
     };
 
+_$PatchOidcConfigurationImpl _$$PatchOidcConfigurationImplFromJson(
+        Map<String, dynamic> json) =>
+    _$PatchOidcConfigurationImpl(
+      allowInsecureLoopbackRedirectUris:
+          json['allow_insecure_loopback_redirect_uris'] as bool?,
+    );
+
+Map<String, dynamic> _$$PatchOidcConfigurationImplToJson(
+        _$PatchOidcConfigurationImpl instance) =>
+    <String, dynamic>{
+      if (instance.allowInsecureLoopbackRedirectUris case final value?)
+        'allow_insecure_loopback_redirect_uris': value,
+    };
+
 _$PatchApplicationConfigurationImpl
     _$$PatchApplicationConfigurationImplFromJson(Map<String, dynamic> json) =>
         _$PatchApplicationConfigurationImpl(
@@ -190,6 +222,10 @@ _$PatchApplicationConfigurationImpl
               ? null
               : PatchDevelopmentAccountsConfiguration.fromJson(
                   json['development_accounts'] as Map<String, dynamic>),
+          oidc: json['oidc'] == null
+              ? null
+              : PatchOidcConfiguration.fromJson(
+                  json['oidc'] as Map<String, dynamic>),
         );
 
 Map<String, dynamic> _$$PatchApplicationConfigurationImplToJson(
@@ -200,4 +236,5 @@ Map<String, dynamic> _$$PatchApplicationConfigurationImplToJson(
         'registration': value,
       if (instance.developmentAccounts?.toJson() case final value?)
         'development_accounts': value,
+      if (instance.oidc?.toJson() case final value?) 'oidc': value,
     };

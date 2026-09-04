@@ -53,6 +53,11 @@ pub struct DevelopmentAccountsConfigurationVO {
     pub max_ttl_seconds: u64,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct OidcConfigurationVO {
+    pub allow_insecure_loopback_redirect_uris: bool,
+}
+
 impl Default for DevelopmentAccountsConfigurationVO {
     /// Matches the backend defaults so responses from pre-migration backends
     /// (which lack the field entirely) remain deserializable.
@@ -71,6 +76,8 @@ pub struct ApplicationConfigurationVO {
     pub registration: RegistrationConfigurationVO,
     #[serde(default)]
     pub development_accounts: DevelopmentAccountsConfigurationVO,
+    #[serde(default)]
+    pub oidc: OidcConfigurationVO,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ToSchema)]
@@ -97,10 +104,16 @@ pub struct PatchDevelopmentAccountsConfigurationVO {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ToSchema)]
+pub struct PatchOidcConfigurationVO {
+    pub allow_insecure_loopback_redirect_uris: Option<bool>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default, ToSchema)]
 pub struct PatchApplicationConfigurationRequest {
     pub auth: Option<PatchAuthConfigurationVO>,
     pub registration: Option<PatchRegistrationConfigurationVO>,
     pub development_accounts: Option<PatchDevelopmentAccountsConfigurationVO>,
+    pub oidc: Option<PatchOidcConfigurationVO>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]

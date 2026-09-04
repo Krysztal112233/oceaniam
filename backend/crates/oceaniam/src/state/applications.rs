@@ -343,6 +343,14 @@ impl ManagedApplications {
                     it.development_accounts.max_ttl_seconds = max_ttl_seconds;
                 }
             }
+
+            if let Some(oidc) = patch.oidc
+                && let Some(allow_insecure_loopback_redirect_uris) =
+                    oidc.allow_insecure_loopback_redirect_uris
+            {
+                it.oidc.allow_insecure_loopback_redirect_uris =
+                    allow_insecure_loopback_redirect_uris;
+            }
         });
 
         let development_accounts = &patched_configuration.development_accounts;

@@ -94,6 +94,95 @@ async fn create_and_delete_application() {
     );
 }
 
+/// Tests the per-application OIDC development redirect policy.
+///
+/// The policy defaults to fail-closed and can be explicitly enabled through the existing
+/// application-configuration endpoint.
+// NOTE: AI-generated test
+#[tokio::test]
+async fn oidc_insecure_loopback_redirect_policy_defaults_off_and_can_be_enabled() {
+    let app = spawn_app_with_isolated_schema().await;
+    let token = app.root_signin().await;
+    let tenant = app.api_create_tenant(&token).await;
+    let tenant_id = tenant["id"].as_str().unwrap();
+    let application = app.api_create_application(&token, tenant_id).await;
+    let application_id = application["application_id"].as_str().unwrap();
+    let second_application = app.api_create_application(&token, tenant_id).await;
+    let second_application_id = second_application["application_id"].as_str().unwrap();
+    let configuration_url = app.url(&format!(
+        "/tenants/{tenant_id}/applications/{application_id}/configuration"
+    ));
+    let second_configuration_url = app.url(&format!(
+        "/tenants/{tenant_id}/applications/{second_application_id}/configuration"
+    ));
+
+    let configuration: serde_json::Value = app
+        .client
+        .get(&configuration_url)
+        .header("Authorization", format!("Bearer {token}"))
+        .send()
+        .await
+        .expect("get application configuration request failed")
+        .error_for_status()
+        .expect("get application configuration should succeed")
+        .json()
+        .await
+        .expect("get application configuration response parse failed");
+    assert_eq!(
+        configuration["configuration"]["oidc"]["allow_insecure_loopback_redirect_uris"],
+        false
+    );
+
+    app.client
+        .patch(&configuration_url)
+        .header("Authorization", format!("Bearer {token}"))
+        .json(&serde_json::json!({
+            "oidc": {
+                "allow_insecure_loopback_redirect_uris": true
+            }
+        }))
+        .send()
+        .await
+        .expect("patch application configuration request failed")
+        .error_for_status()
+        .expect("patch application configuration should succeed");
+
+    let configuration: serde_json::Value = app
+        .client
+        .get(configuration_url)
+        .header("Authorization", format!("Bearer {token}"))
+        .send()
+        .await
+        .expect("get patched application configuration request failed")
+        .error_for_status()
+        .expect("get patched application configuration should succeed")
+        .json()
+        .await
+        .expect("get patched application configuration response parse failed");
+    assert_eq!(
+        configuration["configuration"]["oidc"]["allow_insecure_loopback_redirect_uris"],
+        true
+    );
+
+    let second_configuration: serde_json::Value = app
+        .client
+        .get(second_configuration_url)
+        .header("Authorization", format!("Bearer {token}"))
+        .send()
+        .await
+        .expect("get second application configuration request failed")
+        .error_for_status()
+        .expect("get second application configuration should succeed")
+        .json()
+        .await
+        .expect("get second application configuration response parse failed");
+    assert_eq!(
+        second_configuration["configuration"]["oidc"]["allow_insecure_loopback_redirect_uris"],
+        false,
+        "OIDC development policy must remain scoped to one application"
+    );
+}
+
 /// Tests `GET /tenants/{tenant_id}/.well-known/jwks.json`.
 ///
 /// Public endpoint — no auth required. Returns the tenant's JWK set.

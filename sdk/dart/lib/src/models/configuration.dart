@@ -72,12 +72,24 @@ class DevelopmentAccountsConfiguration with _$DevelopmentAccountsConfiguration {
 }
 
 @freezed
+class OidcConfiguration with _$OidcConfiguration {
+  const factory OidcConfiguration({
+    @JsonKey(name: 'allow_insecure_loopback_redirect_uris')
+    required bool allowInsecureLoopbackRedirectUris,
+  }) = _OidcConfiguration;
+
+  factory OidcConfiguration.fromJson(Map<String, dynamic> json) =>
+      _$OidcConfigurationFromJson(json);
+}
+
+@freezed
 class ApplicationConfiguration with _$ApplicationConfiguration {
   const factory ApplicationConfiguration({
     required AuthConfiguration auth,
     required RegistrationConfiguration registration,
     @JsonKey(name: 'development_accounts')
     DevelopmentAccountsConfiguration? developmentAccounts,
+    OidcConfiguration? oidc,
   }) = _ApplicationConfiguration;
 
   factory ApplicationConfiguration.fromJson(Map<String, dynamic> json) =>
@@ -134,6 +146,18 @@ class PatchDevelopmentAccountsConfiguration
 }
 
 @freezed
+class PatchOidcConfiguration with _$PatchOidcConfiguration {
+  @JsonSerializable(includeIfNull: false, explicitToJson: true)
+  const factory PatchOidcConfiguration({
+    @JsonKey(name: 'allow_insecure_loopback_redirect_uris')
+    bool? allowInsecureLoopbackRedirectUris,
+  }) = _PatchOidcConfiguration;
+
+  factory PatchOidcConfiguration.fromJson(Map<String, dynamic> json) =>
+      _$PatchOidcConfigurationFromJson(json);
+}
+
+@freezed
 class PatchApplicationConfiguration with _$PatchApplicationConfiguration {
   @JsonSerializable(includeIfNull: false, explicitToJson: true)
   const factory PatchApplicationConfiguration({
@@ -141,6 +165,7 @@ class PatchApplicationConfiguration with _$PatchApplicationConfiguration {
     PatchRegistrationConfiguration? registration,
     @JsonKey(name: 'development_accounts')
     PatchDevelopmentAccountsConfiguration? developmentAccounts,
+    PatchOidcConfiguration? oidc,
   }) = _PatchApplicationConfiguration;
 
   factory PatchApplicationConfiguration.fromJson(Map<String, dynamic> json) =>

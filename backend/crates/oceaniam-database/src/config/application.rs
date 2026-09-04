@@ -11,6 +11,8 @@ pub struct ApplicationConfiguration {
     pub registration: RegistrationConfiguration,
     #[serde(default)]
     pub development_accounts: DevelopmentAccountsConfiguration,
+    #[serde(default)]
+    pub oidc: OidcConfiguration,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -47,6 +49,13 @@ pub struct DevelopmentAccountsConfiguration {
     pub max_ttl_seconds: u64,
 }
 
+/// Per-application policy for OIDC Provider behavior.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct OidcConfiguration {
+    /// Allows explicitly registered HTTP redirect URIs on loopback hosts for development.
+    pub allow_insecure_loopback_redirect_uris: bool,
+}
+
 impl Default for DevelopmentAccountsConfiguration {
     fn default() -> Self {
         Self {
@@ -80,5 +89,26 @@ impl Default for TokenConfiguration {
             issuer: consts::DEFAULT_JWT_ISSUER.to_owned(),
             audience: vec![consts::DEFAULT_JWT_AUDIENCE.to_owned()],
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // NOTE: AI-generated test
+    #[test]
+    fn legacy_application_configuration_defaults_to_secure_oidc_redirects() {
+        let mut value = serde_json::to_value(ApplicationConfiguration::default())
+            .expect("default application configuration should serialize");
+        value
+            .as_object_mut()
+            .expect("application configuration should be an object")
+            .remove("oidc");
+
+        let configuration: ApplicationConfiguration = serde_json::from_value(value)
+            .expect("legacy application configuration should deserialize");
+
+        assert!(!configuration.oidc.allow_insecure_loopback_redirect_uris);
     }
 }

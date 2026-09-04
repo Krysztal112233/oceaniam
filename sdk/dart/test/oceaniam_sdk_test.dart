@@ -151,6 +151,7 @@ void main() {
           'default_ttl_seconds': 3600,
           'max_ttl_seconds': 86400,
         },
+        'oidc': {'allow_insecure_loopback_redirect_uris': false},
       });
 
       expect(configuration.auth.token.issuer, 'OceanIAM');
@@ -162,6 +163,21 @@ void main() {
       expect(configuration.developmentAccounts?.enabled, true);
       expect(configuration.developmentAccounts?.defaultTtlSeconds, 3600);
       expect(configuration.developmentAccounts?.maxTtlSeconds, 86400);
+      expect(configuration.oidc?.allowInsecureLoopbackRedirectUris, false);
+    });
+
+    test('ApplicationConfiguration accepts legacy responses without oidc', () {
+      final configuration = ApplicationConfiguration.fromJson({
+        'auth': {
+          'token': {'issuer': 'OceanIAM', 'audience': <String>[]},
+          'password': {
+            'argon2': {'m_cost': 12288, 't_cost': 3, 'p_cost': 1},
+          },
+        },
+        'registration': {'enabled': false},
+      });
+
+      expect(configuration.oidc, isNull);
     });
 
     test('PatchApplicationConfiguration omits unchanged fields', () {
@@ -172,6 +188,9 @@ void main() {
         developmentAccounts: PatchDevelopmentAccountsConfiguration(
           enabled: false,
         ),
+        oidc: PatchOidcConfiguration(
+          allowInsecureLoopbackRedirectUris: true,
+        ),
       );
 
       expect(patch.toJson(), {
@@ -179,6 +198,7 @@ void main() {
           'token': {'issuer': 'Example'},
         },
         'development_accounts': {'enabled': false},
+        'oidc': {'allow_insecure_loopback_redirect_uris': true},
       });
     });
   });
@@ -298,6 +318,9 @@ void main() {
                   'default_ttl_seconds': 3600,
                   'max_ttl_seconds': 86400,
                 },
+                'oidc': {
+                  'allow_insecure_loopback_redirect_uris': false,
+                },
               },
             }),
             200,
@@ -316,6 +339,9 @@ void main() {
             'development_accounts': {
               'enabled': false,
               'max_ttl_seconds': 7200,
+            },
+            'oidc': {
+              'allow_insecure_loopback_redirect_uris': true,
             },
           });
           return http.Response('', 200);
@@ -408,6 +434,7 @@ void main() {
       expect(configuration.auth.token.issuer, 'OceanIAM');
       expect(configuration.auth.password.argon2.mCost, 12288);
       expect(configuration.registration.enabled, false);
+      expect(configuration.oidc?.allowInsecureLoopbackRedirectUris, false);
 
       await client.updateApplicationConfiguration(
         't1',
@@ -423,6 +450,9 @@ void main() {
           developmentAccounts: PatchDevelopmentAccountsConfiguration(
             enabled: false,
             maxTtlSeconds: 7200,
+          ),
+          oidc: PatchOidcConfiguration(
+            allowInsecureLoopbackRedirectUris: true,
           ),
         ),
       );
