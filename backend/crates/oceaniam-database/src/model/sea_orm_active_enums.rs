@@ -195,6 +195,44 @@ pub enum KeyStatus {
     Hash,
     strum :: Display,
 )]
+#[sea_orm(
+    rs_type = "Enum",
+    db_type = "Enum",
+    enum_name = "oidc_application_type"
+)]
+pub enum OidcApplicationType {
+    #[sea_orm(string_value = "web")]
+    Web,
+}
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Serialize,
+    Deserialize,
+    Hash,
+    strum :: Display,
+)]
+#[sea_orm(rs_type = "Enum", db_type = "Enum", enum_name = "oidc_client_type")]
+pub enum OidcClientType {
+    #[sea_orm(string_value = "public")]
+    Public,
+}
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Serialize,
+    Deserialize,
+    Hash,
+    strum :: Display,
+)]
 #[sea_orm(rs_type = "Enum", db_type = "Enum", enum_name = "subject_type_enum")]
 pub enum SubjectTypeEnum {
     #[sea_orm(string_value = "user")]

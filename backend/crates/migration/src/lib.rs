@@ -76,6 +76,8 @@ mod m20260726_142405_hash_application_secrets;
 mod m20260815_091648_create_dev_accounts;
 mod m20260816_044628_alter_application_configuration_development_accounts;
 mod m20260902_020917_purge_application_configuration_totp;
+mod m20260903_163718_create_oidc_clients;
+mod m20260904_031809_alter_oidc_client_types_to_enums;
 
 pub struct Migrator;
 
@@ -161,6 +163,8 @@ impl MigratorTrait for Migrator {
                 m20260816_044628_alter_application_configuration_development_accounts::Migration,
             ),
             Box::new(m20260902_020917_purge_application_configuration_totp::Migration),
+            Box::new(m20260903_163718_create_oidc_clients::Migration),
+            Box::new(m20260904_031809_alter_oidc_client_types_to_enums::Migration),
         ]
     }
 }

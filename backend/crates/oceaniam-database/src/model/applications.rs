@@ -21,6 +21,8 @@ pub enum Relation {
     ApplicationRoles,
     #[sea_orm(has_many = "super::application_secret_bindings::Entity")]
     ApplicationSecretBindings,
+    #[sea_orm(has_many = "super::oidc_clients::Entity")]
+    OidcClients,
     #[sea_orm(has_many = "super::subjects::Entity")]
     Subjects,
     #[sea_orm(
@@ -44,6 +46,12 @@ impl Related<super::application_roles::Entity> for Entity {
 impl Related<super::application_secret_bindings::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ApplicationSecretBindings.def()
+    }
+}
+
+impl Related<super::oidc_clients::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::OidcClients.def()
     }
 }
 
