@@ -2976,6 +2976,7 @@ dependencies = [
  "oceaniam-credential",
  "oceaniam-database",
  "oceaniam-keybox",
+ "oceaniam-oidc",
  "oceaniam-permission",
  "oceaniam-telemetry",
  "oceaniam-vo",
@@ -3046,20 +3047,15 @@ dependencies = [
 name = "oceaniam-auth"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
  "chrono",
  "im",
  "jsonwebtoken",
  "oceaniam-common",
- "openidconnect",
  "parking_lot",
  "serde",
  "serde_json",
- "sha2 0.10.9",
  "snafu",
- "subtle",
  "tracing",
- "url",
  "utoipa",
  "uuid",
 ]
@@ -3167,6 +3163,22 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "zeroize",
+]
+
+[[package]]
+name = "oceaniam-oidc"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "im",
+ "oceaniam-auth",
+ "openidconnect",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "snafu",
+ "subtle",
+ "url",
 ]
 
 [[package]]

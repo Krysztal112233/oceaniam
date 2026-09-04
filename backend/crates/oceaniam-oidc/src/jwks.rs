@@ -1,6 +1,6 @@
 //! OIDC protocol-boundary JWK Set built on `openidconnect` core types.
 //!
-//! The internal [`JwkSet`](crate::jwks::JwkSet) stays the source of truth for tenant keyboxes;
+//! The internal [`JwkSet`](oceaniam_auth::jwks::JwkSet) stays the source of truth for tenant keyboxes;
 //! this module converts it into the official [`CoreJsonWebKeySet`] at the OIDC protocol boundary
 //! so the public OIDC surface speaks the same wire format as the `openidconnect` crate.
 
@@ -9,7 +9,7 @@ use openidconnect::core::{CoreJsonWebKey, CoreJsonWebKeySet};
 use serde_json::json;
 use snafu::{Location, Snafu};
 
-use crate::jwks::JwkSet;
+use oceaniam_auth::jwks::JwkSet;
 
 /// Deterministic failures while converting an internal JWK Set into the OIDC core type.
 ///
@@ -48,7 +48,7 @@ pub enum OidcJwksError {
     },
 }
 
-/// Converts an internal tenant [`JwkSet`](crate::jwks::JwkSet) into the official
+/// Converts an internal tenant [`JwkSet`](oceaniam_auth::jwks::JwkSet) into the official
 /// [`CoreJsonWebKeySet`], preserving the `kty`/`kid`/`use`/`alg`/`n`/`e` wire values of every
 /// public RSA signing key.
 pub fn core_jwk_set(jwks: &JwkSet) -> Result<CoreJsonWebKeySet, OidcJwksError> {
@@ -68,7 +68,7 @@ pub fn core_jwk_set(jwks: &JwkSet) -> Result<CoreJsonWebKeySet, OidcJwksError> {
 /// constructor leaves it unset), so the official key is built by deserializing the equivalent
 /// JWK JSON. The explicit `kty`/`n`/`e` validation above prevents the crate's lenient option
 /// deserialization from silently dropping malformed parameters.
-fn core_jwk(index: usize, jwk: &crate::jwks::Jwk) -> Result<CoreJsonWebKey, OidcJwksError> {
+fn core_jwk(index: usize, jwk: &oceaniam_auth::jwks::Jwk) -> Result<CoreJsonWebKey, OidcJwksError> {
     if jwk.kty != "RSA" {
         return Err(OidcJwksError::UnsupportedKeyType {
             index,
@@ -125,7 +125,7 @@ mod tests {
     use im::vector;
 
     use super::*;
-    use crate::jwks::{Jwk, JwkSet};
+    use oceaniam_auth::jwks::{Jwk, JwkSet};
 
     fn sample_modulus() -> String {
         URL_SAFE_NO_PAD.encode([0x01, 0x02, 0x03, 0x04])

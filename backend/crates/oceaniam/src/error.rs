@@ -168,8 +168,8 @@ impl From<oceaniam_auth::AuthError> for Error {
     }
 }
 
-impl From<oceaniam_auth::oidc::OidcJwksError> for Error {
-    fn from(e: oceaniam_auth::oidc::OidcJwksError) -> Self {
+impl From<oceaniam_oidc::OidcJwksError> for Error {
+    fn from(e: oceaniam_oidc::OidcJwksError) -> Self {
         Self::Internal {
             msg: e.to_string(),
             location: snafu::location!(),

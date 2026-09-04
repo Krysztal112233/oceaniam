@@ -11,9 +11,9 @@ use axum::{
 };
 use oceaniam_api::{ApiResponse, ErrorResponse};
 use oceaniam_auth::jwks::JwkSetSchema;
-use oceaniam_auth::oidc::{CoreJsonWebKeySet, core_jwk_set};
 use oceaniam_common::sqid::Sqid;
 use oceaniam_database::helper::tenants::TenantsHelper;
+use oceaniam_oidc::{CoreJsonWebKeySet, core_jwk_set};
 use tap::{Tap, TapFallible};
 use tracing::{Span, error, field};
 use utoipa_axum::{router::OpenApiRouter, routes};

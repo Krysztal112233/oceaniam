@@ -10,6 +10,7 @@ members = [
 	"crates/oceaniam-credential",
 	"crates/oceaniam-database",
 	"crates/oceaniam-keybox",
+	"crates/oceaniam-oidc",
 	"crates/oceaniam-permission",
 	"crates/oceaniam-telemetry",
 	"crates/oceaniam-vo",
@@ -100,6 +101,7 @@ oceaniam-common = { path = "./crates/oceaniam-common/" }
 oceaniam-credential = { path = "./crates/oceaniam-credential/" }
 oceaniam-database = { path = "./crates/oceaniam-database/" }
 oceaniam-keybox = { path = "./crates/oceaniam-keybox/" }
+oceaniam-oidc = { path = "./crates/oceaniam-oidc/" }
 oceaniam-permission = { path = "./crates/oceaniam-permission/" }
 oceaniam-telemetry = { path = "./crates/oceaniam-telemetry/" }
 oceaniam = { path = "./crates/oceaniam/" }

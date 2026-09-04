@@ -1,0 +1,19 @@
+[package]
+name = "oceaniam-oidc"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+base64 = "0.22"
+openidconnect.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+snafu.workspace = true
+subtle.workspace = true
+url.workspace = true
+
+oceaniam-auth.workspace = true
+
+[dev-dependencies]
+im.workspace = true
