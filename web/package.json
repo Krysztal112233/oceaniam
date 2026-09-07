@@ -1,0 +1,56 @@
+{
+  "name": "@oceaniam/frontend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "build": "pnpm --filter @oceaniam/sdk build && vue-tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && vite build",
+    "dev": "vite --host 0.0.0.0",
+    "lint": "eslint . --max-warnings 0",
+    "preview": "vite preview --host 0.0.0.0",
+    "test:e2e": "playwright test",
+    "test:e2e:mock": "playwright test tests/e2e/mock-console.spec.ts --project=firefox",
+    "test:unit": "vitest run",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json"
+  },
+  "dependencies": {
+    "@iconify-icons/material-symbols": "^2.0.1",
+    "@iconify/vue": "^5.0.0",
+    "@oceaniam/sdk": "workspace:*",
+    "@tanstack/vue-query": "^5.90.20",
+    "@vee-validate/zod": "^4.15.1",
+    "chart.js": "^4.5.1",
+    "pinia": "^3.0.4",
+    "vee-validate": "^4.15.1",
+    "vue": "^3.5.25",
+    "vue-chartjs": "^5.3.3",
+    "vue-i18n": "^11.1.12",
+    "vue-router": "^4.6.4",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.1",
+    "@tailwindcss/vite": "^4.2.1",
+    "@tsconfig/node24": "^24.0.1",
+    "@types/node": "^24.10.1",
+    "@vitejs/plugin-vue": "^6.0.2",
+    "@vitest/eslint-plugin": "^1.5.1",
+    "@vue/eslint-config-typescript": "^14.6.0",
+    "@vue/test-utils": "^2.4.6",
+    "@vue/tsconfig": "^0.8.1",
+    "daisyui": "^5.5.19",
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-vue": "^10.6.2",
+    "jsdom": "^27.2.0",
+    "tailwindcss": "^4.2.1",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.48.1",
+    "vite": "^8.0.0",
+    "vitest": "^4.0.15",
+    "vue-tsc": "^3.1.5"
+  }
+}

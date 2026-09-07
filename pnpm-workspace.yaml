@@ -1,0 +1,7 @@
+packages:
+  - web
+  - sdk/typescript
+
+allowBuilds:
+  esbuild: true
+  vue-demi: true

@@ -1,0 +1,6897 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OceanIAM",
+    "description": "Pretty simple IAM implemented in Rust",
+    "contact": {
+      "name": "Krysztal Huang",
+      "email": "krysztal.huang@outlook.com"
+    },
+    "license": {
+      "name": "MIT OR Apache-2.0",
+      "identifier": "MIT OR Apache-2.0"
+    },
+    "version": "0.2.0"
+  },
+  "paths": {
+    "/": {
+      "get": {
+        "tags": ["Meta"],
+        "operationId": "root",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Empty"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/administrators": {
+      "get": {
+        "tags": ["Administrators"],
+        "summary": "Get administrator list",
+        "operationId": "get_administrators",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Items per page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PagedResponse_AdministratorVO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Administrators"],
+        "summary": "Create administrator",
+        "operationId": "create_administrator",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAdministratorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CreateAdministratorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "409": {
+            "description": "Administrator already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/administrators/me": {
+      "get": {
+        "tags": ["Administrators"],
+        "summary": "Get current administrator profile with permissions",
+        "operationId": "get_administrator_self",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_AdministratorProfileVO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/administrators/{administrator_id}": {
+      "patch": {
+        "tags": ["Administrators"],
+        "summary": "Update administrator",
+        "operationId": "patch_administrator",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "administrator_id",
+            "in": "path",
+            "description": "Administrator ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchAdministratorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_AdministratorVO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Administrator not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Administrator already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/audits": {
+      "get": {
+        "tags": ["Audits"],
+        "summary": "Paginated platform-wide audit logs",
+        "operationId": "get_audit_logs",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Items per page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "audit_type",
+            "in": "query",
+            "description": "Filter by audit type (e.g. SignJwt)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PagedResponse_AuditLogVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid token or bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions"
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/tokens": {
+      "post": {
+        "tags": ["SystemAuthentication"],
+        "summary": "Create auth token (signin)",
+        "description": "Authenticates user with credentials (name and password) and returns a JWT token.\nThe token is valid for 5 days and must be included in the Authorization header\nfor subsequent requests.\n\n# Errors\n\nReturns 401 if credentials are invalid (all failures return 401 to prevent enumeration)\nReturns 500 if system keybox is unavailable or cannot generate token",
+        "operationId": "create_auth_token",
+        "parameters": [
+          {
+            "name": "X-OceanIAM-Token-Dispatch",
+            "in": "header",
+            "description": "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both.",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SystemSigninRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SigninResponseOrChallenge"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body"
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["SystemAuthentication"],
+        "summary": "Delete auth token (signout)",
+        "description": "Revokes the current JWT token by adding its JTI (JWT ID) to the revoked tokens list.\nAfter revocation, the token cannot be used for authentication anymore.\n\n# Authorization\n\nRequires a valid JWT token in the Authorization header.\n\n# Errors\n\nReturns 401 if the token is invalid or has already been revoked\nReturns 500 if database operation fails",
+        "operationId": "delete_auth_token",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for authentication",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SignoutResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired token"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/auth/tokens/refresh": {
+      "post": {
+        "tags": ["SystemAuthentication"],
+        "summary": "Refresh auth token",
+        "description": "Rotates the current JWT by revoking its JTI and issuing a new token.\n\nThe new token can be delivered back to the client via JSON response body and/or\nan HTTP cookie, controlled by the `X-OceanIAM-Token-Dispatch` request header:\n\n- `json`: JSON body only\n- `cookie`: cookie only (JSON body will be empty: `{}`)\n- `both`: JSON body + cookie (default)\n\nCookie name: `auth_token`.\n\n# Authorization\n\nRequires `Authorization: Bearer <jwt>`.\n\n# Security\n\nThe old token's JTI is added to the revoked tokens list, preventing replay attacks.\nThe new token has a fresh 5-day expiration period.\n\n# Errors\n\nReturns 203 if the `Authorization` header is missing\nReturns 400 if the token is malformed, invalid/expired, or already revoked\nReturns 500 if the database operation fails or a new token cannot be signed",
+        "operationId": "refresh_auth_token",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token to refresh",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-OceanIAM-Token-Dispatch",
+            "in": "header",
+            "description": "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both.",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token refreshed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SigninResponseOrChallenge"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid, expired, or revoked token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/users": {
+      "post": {
+        "tags": ["SystemAuthentication"],
+        "summary": "Create auth user (signup)",
+        "description": "Placeholder endpoint retained for compatibility.\n\n# Note\n\nSystem account creation is not implemented yet. The route remains reserved, but requests\nreturn 501 instead of reporting a successful no-op.\n\n# Errors\n\nReturns 400 if request body is invalid\nReturns 501 because system account creation is not implemented",
+        "operationId": "create_auth_user",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SystemSigninRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Invalid request body"
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "System account creation is not implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/secrets": {
+      "get": {
+        "tags": ["Secrets"],
+        "operationId": "get_secrets",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Items per page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PagedResponse_SecretVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid token or bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Secrets"],
+        "operationId": "create_secret",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Secret created; the full value is revealed only in this response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SecretVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid token or bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/secrets/{secret_id}": {
+      "get": {
+        "tags": ["Secrets"],
+        "operationId": "get_secret",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "secret_id",
+            "in": "path",
+            "description": "Secret ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SecretVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid token or bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Secret not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Secrets"],
+        "operationId": "delete_secret",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "secret_id",
+            "in": "path",
+            "description": "Secret ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Empty"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid token or bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Secret not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/secrets/{secret_id}/bindings": {
+      "post": {
+        "tags": ["Secrets"],
+        "operationId": "bind_secret_to_application",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "secret_id",
+            "in": "path",
+            "description": "Secret ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BindSecretRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Secret bound to application",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Empty"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid token or bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Secret or application not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Binding already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/secrets/{secret_id}/bindings/{application_id}": {
+      "delete": {
+        "tags": ["Secrets"],
+        "operationId": "unbind_secret_from_application",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "secret_id",
+            "in": "path",
+            "description": "Secret ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Secret unbound from application",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Empty"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid token or bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Binding not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/statistics": {
+      "get": {
+        "tags": ["Statistics"],
+        "summary": "Platform overview statistics",
+        "operationId": "get_statistics",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_OverviewVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid token or bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions"
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/statistics/trends": {
+      "get": {
+        "tags": ["Statistics"],
+        "summary": "Platform-level creation trends over time",
+        "operationId": "get_statistics_trends",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "granularity",
+            "in": "query",
+            "description": "Aggregation granularity: day, week, or month",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "range",
+            "in": "query",
+            "description": "Lookback range in days (default 30)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PlatformTrendsVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions"
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants": {
+      "get": {
+        "tags": ["Tenants"],
+        "summary": "Get tenant list",
+        "operationId": "get_tenants",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Items per page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PagedResponse_TenantVO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Tenants"],
+        "summary": "Create a new tenant",
+        "description": "Creates a tenant with the specified ID",
+        "operationId": "create_tenant",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTenantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TenantVO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}": {
+      "get": {
+        "tags": ["Tenants"],
+        "summary": "Get tenant by ID",
+        "description": "Retrieves detailed information of a specific tenant",
+        "operationId": "get_tenant",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TenantVO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Tenant not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Tenants"],
+        "summary": "Delete a tenant",
+        "description": "Deletes a tenant by its ID",
+        "operationId": "delete_tenant",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Empty"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Tenant not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Tenants"],
+        "summary": "Update tenant",
+        "operationId": "patch_tenant",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchTenantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TenantVO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Tenant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/.well-known/jwks.json": {
+      "get": {
+        "tags": ["Tenants"],
+        "summary": "Get tenant JWKS",
+        "operationId": "get_tenant_jwks",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JwkSetSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid tenant id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tenant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications": {
+      "get": {
+        "tags": ["Applications"],
+        "summary": "Get application list under a tenant",
+        "operationId": "get_applications",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Items per page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PagedResponse_ApplicationVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid token or bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Applications"],
+        "summary": "Create new application under a tenant",
+        "operationId": "create_application",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApplicationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CreateApplicationResponse"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid token or bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}": {
+      "get": {
+        "tags": ["Applications"],
+        "summary": "Get application detail",
+        "operationId": "get_application",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-OceanIAM-Application-Secret",
+            "in": "header",
+            "description": "Application secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ApplicationDetailVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header and application secret header"
+          },
+          "400": {
+            "description": "Invalid ids",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - secret does not belong to this application"
+          },
+          "404": {
+            "description": "Application not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Applications"],
+        "summary": "Delete application",
+        "operationId": "delete_application",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Empty"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid ids",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Application not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Applications"],
+        "summary": "Patch application",
+        "operationId": "patch_application",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchApplicationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ApplicationDetailVO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid ids",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Application not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/audits": {
+      "get": {
+        "tags": ["Audits"],
+        "summary": "Application-scoped audit logs",
+        "operationId": "get_application_audits",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Items per page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "audit_type",
+            "in": "query",
+            "description": "Filter by audit type (e.g. SignJwt)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PagedResponse_AuditLogVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid token or bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions"
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/challenges": {
+      "post": {
+        "tags": ["ApplicationChallenges"],
+        "summary": "Create a challenge for MFA verification",
+        "description": "Creates a new challenge for the specified subject. The client can then present the challenge to\nthe user and submit the verification via `POST .../challenges/{challenge_id}`.\n\nAuthentication is required via either a backend administrator Bearer JWT or the application's\nown `X-OceanIAM-Application-Secret`.",
+        "operationId": "create_application_challenge",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-OceanIAM-Application-Secret",
+            "in": "header",
+            "description": "Application secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateChallengeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ApplicationChallengeVO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid ids or request body"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - secret does not belong to this application"
+          },
+          "404": {
+            "description": "Application not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/challenges/{challenge_id}": {
+      "get": {
+        "tags": ["ApplicationChallenges"],
+        "summary": "Retrieve a pending challenge's metadata by its ID.",
+        "description": "Returns the challenge details (factor type, purpose, status, expiry) for a challenge that\nbelongs to the specified application. The caller must authenticate either as a backend\nadministrator (Bearer JWT) or with the application's own secret\n(`X-OceanIAM-Application-Secret`).\n\nOnce a challenge is consumed, expired, or no longer in `Pending` status, this endpoint returns\n`404 Not Found`.",
+        "operationId": "get_application_challenge",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-OceanIAM-Application-Secret",
+            "in": "header",
+            "description": "Application secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "challenge_id",
+            "in": "path",
+            "description": "Challenge ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ApplicationChallengeVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header and application secret header"
+          },
+          "400": {
+            "description": "Invalid ids",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - secret does not belong to this application"
+          },
+          "404": {
+            "description": "Application or challenge not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["ApplicationChallenges"],
+        "summary": "Submit a verification payload for a pending challenge and, on success, receive a signed JWT.",
+        "description": "This is the second step of the application MFA challenge flow (after a challenge has been\ncreated by the application during sign-in). The caller provides the MFA verification payload\n(e.g. a TOTP code) as a JSON body. No authentication is required because security is provided\nby the challenge itself (short TTL, max attempts).\n\nOn successful verification the challenge is marked as `Consumed` and a signed application JWT is\nissued for the subject that owns the challenge. The token can be dispatched as a JSON body, as\nan `auth_token` cookie, or both, controlled by the `X-OceanIAM-Token-Dispatch` header.",
+        "operationId": "create_application_challenge_attempt",
+        "parameters": [
+          {
+            "name": "X-OceanIAM-Token-Dispatch",
+            "in": "header",
+            "description": "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both.",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "challenge_id",
+            "in": "path",
+            "description": "Challenge ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Invalid ids or request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - secret does not belong to this application"
+          },
+          "404": {
+            "description": "Application or challenge not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/configuration": {
+      "get": {
+        "tags": ["Applications"],
+        "summary": "Get application configuration",
+        "operationId": "get_application_configuration",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-OceanIAM-Application-Secret",
+            "in": "header",
+            "description": "Application secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_GetApplicationConfigurationResponse"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header and application secret header"
+          },
+          "400": {
+            "description": "Invalid application id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - secret does not belong to this application"
+          },
+          "404": {
+            "description": "Application not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["Applications"],
+        "summary": "Patch application configuration",
+        "operationId": "patch_application_configuration",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchApplicationConfigurationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Empty"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid application id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Application not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/roles": {
+      "get": {
+        "tags": ["ApplicationRoles"],
+        "summary": "List all roles for the current application",
+        "operationId": "list_roles",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PagedResponse_ApplicationRoleVO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "post": {
+        "tags": ["ApplicationRoles"],
+        "summary": "Create a custom role",
+        "operationId": "create_role",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApplicationRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ApplicationRoleVO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/roles/subjects/{subject_id}/roles": {
+      "get": {
+        "tags": ["ApplicationRoles"],
+        "summary": "Get all roles for a subject",
+        "operationId": "get_subject_roles",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subject_id",
+            "in": "path",
+            "description": "Subject ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SubjectRolesVO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "post": {
+        "tags": ["ApplicationRoles"],
+        "summary": "Assign role to subject",
+        "operationId": "assign_role",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subject_id",
+            "in": "path",
+            "description": "Subject ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SubjectRolesVO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Role not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/roles/subjects/{subject_id}/roles/{role_id}": {
+      "delete": {
+        "tags": ["ApplicationRoles"],
+        "summary": "Unassign role from subject",
+        "operationId": "unassign_role",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "subject_id",
+            "in": "path",
+            "description": "Subject ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "role_id",
+            "in": "path",
+            "description": "Role ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Role unassigned successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/roles/{role_id}": {
+      "get": {
+        "tags": ["ApplicationRoles"],
+        "summary": "Get a single role with permissions",
+        "operationId": "get_role",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "role_id",
+            "in": "path",
+            "description": "Role ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ApplicationRoleVO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Role not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["ApplicationRoles"],
+        "summary": "Delete role (non-system only)",
+        "operationId": "delete_role",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "role_id",
+            "in": "path",
+            "description": "Role ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Role deleted successfully"
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - cannot delete system roles"
+          },
+          "404": {
+            "description": "Role not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "patch": {
+        "tags": ["ApplicationRoles"],
+        "summary": "Update role name (non-system only)",
+        "operationId": "patch_role",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "role_id",
+            "in": "path",
+            "description": "Role ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchApplicationRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ApplicationRoleVO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - cannot modify system roles"
+          },
+          "404": {
+            "description": "Role not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/roles/{role_id}/permissions": {
+      "get": {
+        "tags": ["ApplicationRoles"],
+        "summary": "Get permissions for a role",
+        "operationId": "get_role_permissions",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "role_id",
+            "in": "path",
+            "description": "Role ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RolePermissionsVO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Role not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "put": {
+        "tags": ["ApplicationRoles"],
+        "summary": "Replace all permissions for a role",
+        "operationId": "set_role_permissions",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "role_id",
+            "in": "path",
+            "description": "Role ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRolePermissionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_RolePermissionsVO"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Role not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/secrets": {
+      "get": {
+        "tags": ["ApplicationSecrets"],
+        "summary": "List all API secrets bound to an application",
+        "operationId": "get_application_secrets",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PagedResponse_SecretVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid ids",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Application not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/statistics": {
+      "get": {
+        "tags": ["Statistics"],
+        "summary": "Application-level statistics",
+        "operationId": "get_application_statistics",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ApplicationStatisticsVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid token or bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions"
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/statistics/trends": {
+      "get": {
+        "tags": ["Statistics"],
+        "summary": "Application-level creation trends over time",
+        "operationId": "get_application_statistics_trends",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "granularity",
+            "in": "query",
+            "description": "Aggregation granularity: day, week, or month",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "range",
+            "in": "query",
+            "description": "Lookback range in days (default 30)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ApplicationTrendsVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid query parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions"
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/tokens": {
+      "post": {
+        "tags": ["ApplicationTokens"],
+        "summary": "Create application token",
+        "operationId": "create_application_token",
+        "parameters": [
+          {
+            "name": "X-OceanIAM-Application-Secret",
+            "in": "header",
+            "description": "Application secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-OceanIAM-Token-Dispatch",
+            "in": "header",
+            "description": "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both.",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthVO"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SigninResponseOrChallenge"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Invalid credentials (all failures return 401 to prevent enumeration)"
+          },
+          "403": {
+            "description": "Forbidden - secret does not belong to this application"
+          },
+          "404": {
+            "description": "Application not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["ApplicationTokens"],
+        "summary": "Delete application token",
+        "operationId": "delete_application_token",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-OceanIAM-Application-Secret",
+            "in": "header",
+            "description": "Application secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SignoutResponse"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid, expired, or revoked token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - secret does not belong to this application"
+          },
+          "404": {
+            "description": "Application not found"
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/tokens/refresh": {
+      "post": {
+        "tags": ["ApplicationTokens"],
+        "summary": "Refresh application token",
+        "operationId": "refresh_application_token",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token to refresh",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-OceanIAM-Application-Secret",
+            "in": "header",
+            "description": "Application secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-OceanIAM-Token-Dispatch",
+            "in": "header",
+            "description": "Optional token dispatch method. Values: cookie|json|both (case-insensitive; whitespace ignored). Defaults to both.",
+            "required": false,
+            "schema": {
+              "type": ["string", "null"]
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SigninResponseOrChallenge"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid, expired, or revoked token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - secret does not belong to this application"
+          },
+          "404": {
+            "description": "Application not found"
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/users": {
+      "get": {
+        "tags": ["ApplicationUsers"],
+        "summary": "Get application user list",
+        "operationId": "get_application_users",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-OceanIAM-Application-Secret",
+            "in": "header",
+            "description": "Application secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Items per page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "description": "Sort order by created_at",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ApplicationUsersSortOrder"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PagedResponse_ApplicationUserVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header and application secret header"
+          },
+          "400": {
+            "description": "Invalid token or bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - secret does not belong to this application"
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["ApplicationUsers"],
+        "summary": "Create an application user",
+        "description": "Omitting `development` creates a permanent user. Supplying `development` creates a\ntime-limited development account; an empty object uses the default 3600-second TTL.",
+        "operationId": "create_application_user",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-OceanIAM-Application-Secret",
+            "in": "header",
+            "description": "Application secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApplicationUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CreatedApplicationUserVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header and application secret header"
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - secret does not belong to this application"
+          },
+          "404": {
+            "description": "Application not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/users/search": {
+      "get": {
+        "tags": ["ApplicationUsers"],
+        "summary": "Search application users",
+        "description": "NOTE: Due to system constraints, searching by `by_id` is always an exact match because the value\nmust be converted into a `Uuid` before lookup. Once `by_id` is provided, all other search\nconditions are ignored because this condition is unique by itself.",
+        "operationId": "search_application_users",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-OceanIAM-Application-Secret",
+            "in": "header",
+            "description": "Application secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "by_nickname",
+            "in": "query",
+            "description": "Search users by nickname with fuzzy matching",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "by_email",
+            "in": "query",
+            "description": "Search users by email with fuzzy matching",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "by_phone",
+            "in": "query",
+            "description": "Search users by phone with fuzzy matching",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "by_id",
+            "in": "query",
+            "description": "Search users by id with exact matching; ignores other search conditions once provided",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Items per page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "description": "Sort order by created_at",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ApplicationUsersSortOrder"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PagedResponse_ApplicationUserVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header and application secret header"
+          },
+          "400": {
+            "description": "Invalid token or bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - secret does not belong to this application"
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/users/{user_id}": {
+      "get": {
+        "tags": ["ApplicationUsers"],
+        "summary": "Get application user detail",
+        "operationId": "get_application_user",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-OceanIAM-Application-Secret",
+            "in": "header",
+            "description": "Application secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "description": "User ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ApplicationUserVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header and application secret header"
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - secret does not belong to this application"
+          },
+          "404": {
+            "description": "User not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["ApplicationUsers"],
+        "summary": "Delete application user",
+        "operationId": "delete_application_user",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-OceanIAM-Application-Secret",
+            "in": "header",
+            "description": "Application secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "description": "User ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Empty"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header and application secret header"
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - secret does not belong to this application"
+          },
+          "404": {
+            "description": "Application or user not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["ApplicationUsers"],
+        "summary": "Patch application user profile fields (currently nickname only).",
+        "description": "When `nickname` is provided it must be at least 4 characters long.",
+        "operationId": "patch_application_user",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-OceanIAM-Application-Secret",
+            "in": "header",
+            "description": "Application secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "description": "User ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchApplicationUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ApplicationUserVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header and application secret header"
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - secret does not belong to this application"
+          },
+          "404": {
+            "description": "Application or user not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/users/{user_id}/credentials": {
+      "patch": {
+        "tags": ["ApplicationUsers"],
+        "summary": "Patch application user credentials\nNOTE: `password`, when provided, must be at least 12 characters long.",
+        "operationId": "patch_application_user_credentials",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-OceanIAM-Application-Secret",
+            "in": "header",
+            "description": "Application secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "description": "User ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchApplicationUserCredentialsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ApplicationUserVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header and application secret header"
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - secret does not belong to this application"
+          },
+          "404": {
+            "description": "Application or user not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/users/{user_id}/totp": {
+      "delete": {
+        "tags": ["ApplicationUsers"],
+        "summary": "Disable TOTP multi-factor authentication",
+        "description": "Removes the TOTP secret from the user's credentials. After this, MFA will no longer be required\nduring sign-in.",
+        "operationId": "remove_totp",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-OceanIAM-Application-Secret",
+            "in": "header",
+            "description": "Application secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "description": "User ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Empty"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header and application secret header"
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - secret does not belong to this application"
+          },
+          "404": {
+            "description": "Application or user not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/users/{user_id}/totp/enroll": {
+      "post": {
+        "tags": ["ApplicationUsers"],
+        "summary": "Enroll in TOTP multi-factor authentication",
+        "description": "Generates a TOTP secret and returns a provisioning URI for the user to scan with their\nauthenticator app. The secret is cached temporarily — call the verify endpoint with the\nTOTP code shown in the authenticator app to complete enrollment.",
+        "operationId": "enroll_totp",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-OceanIAM-Application-Secret",
+            "in": "header",
+            "description": "Application secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "description": "User ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_EnrollTotpResponse"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header and application secret header"
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - secret does not belong to this application"
+          },
+          "404": {
+            "description": "Application or user not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/users/{user_id}/totp/verify": {
+      "post": {
+        "tags": ["ApplicationUsers"],
+        "summary": "Verify TOTP enrollment code",
+        "description": "Completes TOTP enrollment by verifying the code from the user's authenticator app against the\npreviously generated secret. Once verified, TOTP is enabled for this user and will be required\nduring sign-in.",
+        "operationId": "verify_totp_enrollment",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-OceanIAM-Application-Secret",
+            "in": "header",
+            "description": "Application secret",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user_id",
+            "in": "path",
+            "description": "User ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyTotpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Empty"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header and application secret header"
+          },
+          "400": {
+            "description": "Bad request or invalid code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden - secret does not belong to this application"
+          },
+          "404": {
+            "description": "Application or user not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/keys": {
+      "get": {
+        "tags": ["TenantKeys"],
+        "summary": "List all keys for a tenant",
+        "operationId": "get_tenant_keys",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PagedResponse_ApplicationKeyVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid ids",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["TenantKeys"],
+        "summary": "Rotate (generate a new) key for a tenant",
+        "operationId": "rotate_tenant_key",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Empty"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid ids",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/keys/{key_id}": {
+      "delete": {
+        "tags": ["TenantKeys"],
+        "summary": "Revoke a specific key for a tenant",
+        "operationId": "revoke_tenant_key",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "key_id",
+            "in": "path",
+            "description": "Key ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Empty"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid ids",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Key not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/users": {
+      "get": {
+        "tags": ["Tenants"],
+        "summary": "Get users of tenant",
+        "operationId": "get_tenant_users",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Items per page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PagedResponse_ApplicationUserVO"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AdministratorProfileVO": {
+        "type": "object",
+        "required": ["id", "name", "permissions"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "role": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "AdministratorVO": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponse_AdministratorProfileVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["id", "name", "permissions"],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "permissions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "uniqueItems": true
+              },
+              "role": {
+                "type": ["string", "null"]
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_AdministratorVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["id", "name"],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_ApplicationChallengeVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "application_id",
+              "subject_id",
+              "factor_type",
+              "purpose",
+              "status",
+              "attempt_count",
+              "remaining_attempts",
+              "expires_at",
+              "created_at"
+            ],
+            "properties": {
+              "application_id": {
+                "type": "string"
+              },
+              "attempt_count": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "consumed_at": {
+                "type": ["string", "null"],
+                "format": "date-time"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "factor_type": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "purpose": {
+                "type": "string"
+              },
+              "remaining_attempts": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "status": {
+                "type": "string"
+              },
+              "subject_id": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_ApplicationDetailVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["id", "tenant_id", "configuration"],
+            "properties": {
+              "comment": {
+                "type": ["string", "null"]
+              },
+              "configuration": {
+                "$ref": "#/components/schemas/ApplicationConfigurationVO"
+              },
+              "id": {
+                "type": "string"
+              },
+              "tenant_id": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_ApplicationRoleVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": [
+              "id",
+              "application_id",
+              "name",
+              "is_system",
+              "permissions"
+            ],
+            "properties": {
+              "application_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "is_system": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              },
+              "permissions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_ApplicationStatisticsVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["total_users", "total_active_keys"],
+            "properties": {
+              "total_active_keys": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "total_users": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_ApplicationTrendsVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["granularity", "range", "new_users"],
+            "properties": {
+              "granularity": {
+                "$ref": "#/components/schemas/Granularity"
+              },
+              "new_users": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TrendDataPoint"
+                }
+              },
+              "range": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_ApplicationUserVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["id", "nickname"],
+            "properties": {
+              "email": {
+                "type": ["string", "null"]
+              },
+              "id": {
+                "type": "string"
+              },
+              "nickname": {
+                "type": "string"
+              },
+              "phone": {
+                "type": ["string", "null"]
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_CreateAdministratorResponse": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["administrator", "initial_password"],
+            "properties": {
+              "administrator": {
+                "$ref": "#/components/schemas/AdministratorVO"
+              },
+              "initial_password": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_CreateApplicationResponse": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["tenant_id", "application_id"],
+            "properties": {
+              "application_id": {
+                "type": "string"
+              },
+              "comment": {
+                "type": ["string", "null"]
+              },
+              "tenant_id": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_CreatedApplicationUserVO": {
+        "allOf": [
+          {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApplicationUserVO"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "expires_at": {
+                    "type": ["string", "null"],
+                    "format": "date-time",
+                    "description": "Present only for a development account."
+                  }
+                }
+              }
+            ],
+            "description": "Response returned when an application user is created."
+          }
+        ]
+      },
+      "ApiResponse_Empty": {
+        "allOf": [
+          {
+            "type": "object"
+          }
+        ]
+      },
+      "ApiResponse_EnrollTotpResponse": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["provisioning_uri"],
+            "properties": {
+              "provisioning_uri": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_ErrorResponse": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["msg", "error_id"],
+            "properties": {
+              "error_id": {
+                "type": "string"
+              },
+              "msg": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_GetApplicationConfigurationResponse": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["configuration"],
+            "properties": {
+              "configuration": {
+                "$ref": "#/components/schemas/ApplicationConfigurationVO"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_OverviewVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": [
+              "total_tenants",
+              "total_applications",
+              "total_administrators",
+              "total_application_users",
+              "total_active_secrets"
+            ],
+            "properties": {
+              "total_active_secrets": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "total_administrators": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "total_application_users": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "total_applications": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "total_tenants": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_PagedResponse_AdministratorVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["items", "page_info"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["id", "name"],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "page_info": {
+                "$ref": "#/components/schemas/PageInfo"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_PagedResponse_ApplicationKeyVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["items", "page_info"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "key_id",
+                    "algorithm",
+                    "status",
+                    "created_at",
+                    "activated_at",
+                    "retired_at",
+                    "expires_at"
+                  ],
+                  "properties": {
+                    "activated_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "algorithm": {
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "expires_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "key_id": {
+                      "type": "string"
+                    },
+                    "retired_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "revoked_at": {
+                      "type": ["string", "null"],
+                      "format": "date-time"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "page_info": {
+                "$ref": "#/components/schemas/PageInfo"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_PagedResponse_ApplicationRoleVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["items", "page_info"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "application_id",
+                    "name",
+                    "is_system",
+                    "permissions"
+                  ],
+                  "properties": {
+                    "application_id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "is_system": {
+                      "type": "boolean"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "permissions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              },
+              "page_info": {
+                "$ref": "#/components/schemas/PageInfo"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_PagedResponse_ApplicationUserVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["items", "page_info"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["id", "nickname"],
+                  "properties": {
+                    "email": {
+                      "type": ["string", "null"]
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "nickname": {
+                      "type": "string"
+                    },
+                    "phone": {
+                      "type": ["string", "null"]
+                    }
+                  }
+                }
+              },
+              "page_info": {
+                "$ref": "#/components/schemas/PageInfo"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_PagedResponse_ApplicationVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["items", "page_info"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["id", "tenant_id"],
+                  "properties": {
+                    "comment": {
+                      "type": ["string", "null"]
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "tenant_id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "page_info": {
+                "$ref": "#/components/schemas/PageInfo"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_PagedResponse_AuditLogVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["items", "page_info"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["id", "audit_type", "payload", "created_at"],
+                  "properties": {
+                    "audit_type": {
+                      "type": "string"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "payload": {}
+                  }
+                }
+              },
+              "page_info": {
+                "$ref": "#/components/schemas/PageInfo"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_PagedResponse_SecretVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["items", "page_info"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["id", "secret", "created_at", "application_ids"],
+                  "properties": {
+                    "application_ids": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "created_at": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "revoked_at": {
+                      "type": ["string", "null"]
+                    },
+                    "secret": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "page_info": {
+                "$ref": "#/components/schemas/PageInfo"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_PagedResponse_TenantVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["items", "page_info"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["id"],
+                  "properties": {
+                    "comment": {
+                      "type": ["string", "null"]
+                    },
+                    "id": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "page_info": {
+                "$ref": "#/components/schemas/PageInfo"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_PlatformTrendsVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": [
+              "granularity",
+              "range",
+              "tenants",
+              "applications",
+              "users",
+              "administrators"
+            ],
+            "properties": {
+              "administrators": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TrendDataPoint"
+                }
+              },
+              "applications": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TrendDataPoint"
+                }
+              },
+              "granularity": {
+                "$ref": "#/components/schemas/Granularity"
+              },
+              "range": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "tenants": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TrendDataPoint"
+                }
+              },
+              "users": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/TrendDataPoint"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_RolePermissionsVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["permissions"],
+            "properties": {
+              "permissions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_SecretVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["id", "secret", "created_at", "application_ids"],
+            "properties": {
+              "application_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "id": {
+                "type": "string"
+              },
+              "revoked_at": {
+                "type": ["string", "null"]
+              },
+              "secret": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_SigninResponseOrChallenge": {
+        "allOf": [
+          {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SignupResponse"
+              },
+              {
+                "$ref": "#/components/schemas/SigninChallenge"
+              }
+            ]
+          }
+        ]
+      },
+      "ApiResponse_SignoutResponse": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["msg"],
+            "properties": {
+              "msg": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_SubjectRolesVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["subject_id", "role_ids"],
+            "properties": {
+              "role_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "format": "uuid"
+                }
+              },
+              "subject_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_TenantVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "comment": {
+                "type": ["string", "null"]
+              },
+              "id": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "ApplicationChallengeVO": {
+        "type": "object",
+        "required": [
+          "id",
+          "application_id",
+          "subject_id",
+          "factor_type",
+          "purpose",
+          "status",
+          "attempt_count",
+          "remaining_attempts",
+          "expires_at",
+          "created_at"
+        ],
+        "properties": {
+          "application_id": {
+            "type": "string"
+          },
+          "attempt_count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "consumed_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "factor_type": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "remaining_attempts": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "status": {
+            "type": "string"
+          },
+          "subject_id": {
+            "type": "string"
+          }
+        }
+      },
+      "ApplicationConfigurationVO": {
+        "type": "object",
+        "required": ["auth", "registration"],
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/AuthConfigurationVO"
+          },
+          "registration": {
+            "$ref": "#/components/schemas/RegistrationConfigurationVO"
+          }
+        }
+      },
+      "ApplicationDetailVO": {
+        "type": "object",
+        "required": ["id", "tenant_id", "configuration"],
+        "properties": {
+          "comment": {
+            "type": ["string", "null"]
+          },
+          "configuration": {
+            "$ref": "#/components/schemas/ApplicationConfigurationVO"
+          },
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          }
+        }
+      },
+      "ApplicationKeyVO": {
+        "type": "object",
+        "required": [
+          "key_id",
+          "algorithm",
+          "status",
+          "created_at",
+          "activated_at",
+          "retired_at",
+          "expires_at"
+        ],
+        "properties": {
+          "activated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "algorithm": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "key_id": {
+            "type": "string"
+          },
+          "retired_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revoked_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "ApplicationRoleVO": {
+        "type": "object",
+        "required": [
+          "id",
+          "application_id",
+          "name",
+          "is_system",
+          "permissions"
+        ],
+        "properties": {
+          "application_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "is_system": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ApplicationStatisticsVO": {
+        "type": "object",
+        "required": ["total_users", "total_active_keys"],
+        "properties": {
+          "total_active_keys": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "total_users": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "ApplicationTrendsVO": {
+        "type": "object",
+        "required": ["granularity", "range", "new_users"],
+        "properties": {
+          "granularity": {
+            "$ref": "#/components/schemas/Granularity"
+          },
+          "new_users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrendDataPoint"
+            }
+          },
+          "range": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "ApplicationUserVO": {
+        "type": "object",
+        "required": ["id", "nickname"],
+        "properties": {
+          "email": {
+            "type": ["string", "null"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "nickname": {
+            "type": "string"
+          },
+          "phone": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "ApplicationUsersSortOrder": {
+        "type": "string",
+        "enum": ["asc", "desc"]
+      },
+      "ApplicationVO": {
+        "type": "object",
+        "required": ["id", "tenant_id"],
+        "properties": {
+          "comment": {
+            "type": ["string", "null"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          }
+        }
+      },
+      "Argon2Configuration": {
+        "type": "object",
+        "required": ["m_cost", "t_cost", "p_cost"],
+        "properties": {
+          "m_cost": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "p_cost": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "t_cost": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
+      "AssignRoleRequest": {
+        "type": "object",
+        "required": ["role_id"],
+        "properties": {
+          "role_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "AuditLogVO": {
+        "type": "object",
+        "required": ["id", "audit_type", "payload", "created_at"],
+        "properties": {
+          "audit_type": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string"
+          },
+          "payload": {}
+        }
+      },
+      "AuthConfigurationVO": {
+        "type": "object",
+        "required": ["token", "password"],
+        "properties": {
+          "password": {
+            "$ref": "#/components/schemas/PasswordConfigurationVO"
+          },
+          "token": {
+            "$ref": "#/components/schemas/TokenConfigurationVO"
+          }
+        }
+      },
+      "AuthVO": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Login via email",
+            "required": ["email", "password"],
+            "properties": {
+              "email": {
+                "type": "string"
+              },
+              "password": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "description": "Login via phonenumber",
+            "required": ["phone", "password"],
+            "properties": {
+              "password": {
+                "type": "string"
+              },
+              "phone": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "BindSecretRequest": {
+        "type": "object",
+        "required": ["application_id"],
+        "properties": {
+          "application_id": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateAdministratorRequest": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateAdministratorResponse": {
+        "type": "object",
+        "required": ["administrator", "initial_password"],
+        "properties": {
+          "administrator": {
+            "$ref": "#/components/schemas/AdministratorVO"
+          },
+          "initial_password": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateApplicationRequest": {
+        "type": "object",
+        "properties": {
+          "comment": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "CreateApplicationResponse": {
+        "type": "object",
+        "required": ["tenant_id", "application_id"],
+        "properties": {
+          "application_id": {
+            "type": "string"
+          },
+          "comment": {
+            "type": ["string", "null"]
+          },
+          "tenant_id": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateApplicationRoleRequest": {
+        "type": "object",
+        "required": ["name", "permissions"],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "CreateApplicationUserRequest": {
+        "type": "object",
+        "description": "VO for creating a new application user\n\nEither `phone` or `email` must be provided (mutually exclusive)",
+        "required": ["password"],
+        "properties": {
+          "development": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DevAccountOptions",
+                "description": "Optional development-account settings. When absent, creates a permanent user. An empty\nobject creates a development account with the default 3600-second TTL."
+              }
+            ]
+          },
+          "email": {
+            "type": ["string", "null"],
+            "description": "User email address (optional, but either phone or email must be provided)"
+          },
+          "nickname": {
+            "type": ["string", "null"],
+            "description": "User nickname (optional, if not provided, a random name will be generated)"
+          },
+          "password": {
+            "type": "string"
+          },
+          "phone": {
+            "type": ["string", "null"],
+            "description": "User phone number (optional, but either phone or email must be provided)"
+          }
+        }
+      },
+      "CreateChallengeRequest": {
+        "type": "object",
+        "required": ["subject_id"],
+        "properties": {
+          "factor_type": {
+            "type": ["string", "null"]
+          },
+          "payload": {},
+          "subject_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "CreateTenantRequest": {
+        "type": "object",
+        "properties": {
+          "comment": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "CreatedApplicationUserVO": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApplicationUserVO"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "expires_at": {
+                "type": ["string", "null"],
+                "format": "date-time",
+                "description": "Present only for a development account."
+              }
+            }
+          }
+        ],
+        "description": "Response returned when an application user is created."
+      },
+      "DevAccountOptions": {
+        "type": "object",
+        "description": "Fields specific to development accounts.",
+        "properties": {
+          "ttl_seconds": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "description": "Time-to-live in seconds; defaults to 3600 (1 hour) when omitted. Upper bound matches\nthe pgmq delay parameter (PostgreSQL `integer`).",
+            "minimum": 0
+          }
+        }
+      },
+      "Empty": {
+        "type": "object"
+      },
+      "EnrollTotpResponse": {
+        "type": "object",
+        "required": ["provisioning_uri"],
+        "properties": {
+          "provisioning_uri": {
+            "type": "string"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["msg", "error_id"],
+        "properties": {
+          "error_id": {
+            "type": "string"
+          },
+          "msg": {
+            "type": "string"
+          }
+        }
+      },
+      "GetApplicationConfigurationResponse": {
+        "type": "object",
+        "required": ["configuration"],
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/ApplicationConfigurationVO"
+          }
+        }
+      },
+      "Granularity": {
+        "type": "string",
+        "enum": ["day", "week", "month"]
+      },
+      "Jwk": {
+        "type": "object",
+        "required": ["kty"],
+        "properties": {
+          "alg": {
+            "type": ["string", "null"]
+          },
+          "e": {
+            "type": ["string", "null"]
+          },
+          "kid": {
+            "type": ["string", "null"]
+          },
+          "kty": {
+            "type": "string"
+          },
+          "n": {
+            "type": ["string", "null"]
+          },
+          "use": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "JwkSetSchema": {
+        "type": "object",
+        "description": "NOTE: THIS STRUCT JUST FOR SIMPLE SCHEMA. DONT CONSTRUCT OR USE IT.",
+        "required": ["keys"],
+        "properties": {
+          "keys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Jwk"
+            }
+          }
+        }
+      },
+      "OverviewVO": {
+        "type": "object",
+        "required": [
+          "total_tenants",
+          "total_applications",
+          "total_administrators",
+          "total_application_users",
+          "total_active_secrets"
+        ],
+        "properties": {
+          "total_active_secrets": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "total_administrators": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "total_application_users": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "total_applications": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "total_tenants": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "PageInfo": {
+        "type": "object",
+        "required": ["has_next", "total"],
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "PasswordConfigurationVO": {
+        "type": "object",
+        "required": ["argon2"],
+        "properties": {
+          "argon2": {
+            "$ref": "#/components/schemas/Argon2Configuration"
+          }
+        }
+      },
+      "PatchAdministratorRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": ["string", "null"]
+          },
+          "password": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "PatchApplicationConfigurationRequest": {
+        "type": "object",
+        "properties": {
+          "auth": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PatchAuthConfigurationVO"
+              }
+            ]
+          },
+          "registration": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PatchRegistrationConfigurationVO"
+              }
+            ]
+          }
+        }
+      },
+      "PatchApplicationRequest": {
+        "type": "object",
+        "properties": {
+          "comment": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "PatchApplicationRoleRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "PatchApplicationUserCredentialsRequest": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "PatchApplicationUserRequest": {
+        "type": "object",
+        "properties": {
+          "nickname": {
+            "type": ["string", "null"],
+            "description": "New nickname (optional; when present must be at least 4 characters)"
+          }
+        }
+      },
+      "PatchAuthConfigurationVO": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PatchTokenConfigurationVO"
+              }
+            ]
+          }
+        }
+      },
+      "PatchRegistrationConfigurationVO": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": ["boolean", "null"]
+          }
+        }
+      },
+      "PatchTenantRequest": {
+        "type": "object",
+        "properties": {
+          "comment": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "PatchTokenConfigurationVO": {
+        "type": "object",
+        "properties": {
+          "audience": {
+            "type": ["array", "null"],
+            "items": {
+              "type": "string"
+            }
+          },
+          "issuer": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "PlatformTrendsVO": {
+        "type": "object",
+        "required": [
+          "granularity",
+          "range",
+          "tenants",
+          "applications",
+          "users",
+          "administrators"
+        ],
+        "properties": {
+          "administrators": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrendDataPoint"
+            }
+          },
+          "applications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrendDataPoint"
+            }
+          },
+          "granularity": {
+            "$ref": "#/components/schemas/Granularity"
+          },
+          "range": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "tenants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrendDataPoint"
+            }
+          },
+          "users": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrendDataPoint"
+            }
+          }
+        }
+      },
+      "RegistrationConfigurationVO": {
+        "type": "object",
+        "required": ["enabled"],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RolePermissionsVO": {
+        "type": "object",
+        "required": ["permissions"],
+        "properties": {
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SecretVO": {
+        "type": "object",
+        "required": ["id", "secret", "created_at", "application_ids"],
+        "properties": {
+          "application_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "revoked_at": {
+            "type": ["string", "null"]
+          },
+          "secret": {
+            "type": "string"
+          }
+        }
+      },
+      "SetRolePermissionsRequest": {
+        "type": "object",
+        "required": ["permissions"],
+        "properties": {
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SigninChallenge": {
+        "type": "object",
+        "required": ["challenge_id", "factor_type", "expires_at"],
+        "properties": {
+          "challenge_id": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "factor_type": {
+            "type": "string"
+          }
+        }
+      },
+      "SigninResponseOrChallenge": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SignupResponse"
+          },
+          {
+            "$ref": "#/components/schemas/SigninChallenge"
+          }
+        ]
+      },
+      "SignoutResponse": {
+        "type": "object",
+        "required": ["msg"],
+        "properties": {
+          "msg": {
+            "type": "string"
+          }
+        }
+      },
+      "SignupResponse": {
+        "type": "object",
+        "required": ["jwt"],
+        "properties": {
+          "jwt": {
+            "type": "string"
+          }
+        }
+      },
+      "SubjectRolesVO": {
+        "type": "object",
+        "required": ["subject_id", "role_ids"],
+        "properties": {
+          "role_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "subject_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "SystemSigninRequest": {
+        "oneOf": [
+          {
+            "type": "object",
+            "description": "Login via username",
+            "required": ["name", "password"],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "password": {
+                "type": "string"
+              }
+            }
+          }
+        ]
+      },
+      "TenantVO": {
+        "type": "object",
+        "required": ["id"],
+        "properties": {
+          "comment": {
+            "type": ["string", "null"]
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "TokenConfigurationVO": {
+        "type": "object",
+        "required": ["issuer", "audience"],
+        "properties": {
+          "audience": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "issuer": {
+            "type": "string"
+          }
+        }
+      },
+      "TrendDataPoint": {
+        "type": "object",
+        "required": ["bucket", "count"],
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "VerifyTotpRequest": {
+        "type": "object",
+        "required": ["code"],
+        "properties": {
+          "code": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

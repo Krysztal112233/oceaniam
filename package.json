@@ -1,0 +1,24 @@
+{
+  "name": "oceaniam-workspace",
+  "private": true,
+  "packageManager": "pnpm@11.15.1",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "build": "pnpm --filter @oceaniam/sdk build && pnpm --filter @oceaniam/frontend build",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "dev": "pnpm --filter @oceaniam/frontend dev",
+    "format": "prettier --write web sdk/typescript package.json pnpm-workspace.yaml",
+    "format:check": "prettier --check web sdk/typescript package.json pnpm-workspace.yaml",
+    "generate:api": "pnpm --filter @oceaniam/sdk generate",
+    "lint": "pnpm --filter @oceaniam/frontend lint",
+    "test": "pnpm --filter @oceaniam/frontend test:unit",
+    "test:e2e": "pnpm --filter @oceaniam/frontend test:e2e",
+    "test:e2e:mock": "pnpm --filter @oceaniam/frontend test:e2e:mock",
+    "typecheck": "pnpm --filter @oceaniam/sdk typecheck && pnpm --filter @oceaniam/frontend typecheck"
+  },
+  "devDependencies": {
+    "prettier": "^3.8.1"
+  }
+}
