@@ -13,8 +13,7 @@ You can find all related designs in [./docs/design](./docs/design)
 ## Frontend
 
 The active administration console is stored at [./web/](./web/) and powered by
-Vue 3, TypeScript, Tailwind CSS, and DaisyUI. The previous Flutter client remains
-in [./frontend/](./frontend/) while the migration is evaluated.
+Vue 3, TypeScript, Tailwind CSS, and DaisyUI.
 
 The web application uses `/api` by default, matching the bundled Nginx gateway.
 For a different deployment, set `VITE_API_BASE_URL` at build time.
