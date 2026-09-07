@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use reqwest::{Method, RequestBuilder};
+use reqwest::{Method, RequestBuilder, StatusCode};
 
 use crate::error::Error;
 
@@ -92,7 +92,7 @@ impl OceanIamClient {
         let status = resp.status();
         let body = resp.text().await?;
 
-        if status.is_success() {
+        if status.is_success() && status != StatusCode::NON_AUTHORITATIVE_INFORMATION {
             Ok(serde_json::from_str(&body)?)
         } else {
             let msg = serde_json::from_str::<serde_json::Value>(&body)
@@ -108,7 +108,28 @@ impl OceanIamClient {
     }
 
     pub(crate) async fn send_empty(&self, req: RequestBuilder) -> Result<(), Error> {
-        self.send_inner::<serde_json::Value>(req).await?;
-        Ok(())
+        let resp = req.send().await?;
+        let status = resp.status();
+        let body = resp.text().await?;
+
+        // OceanIAM reserves 203 for a missing Authorization header, so it is not an API success
+        // even though HTTP classifies it as a 2xx response.
+        if status.is_success() && status != StatusCode::NON_AUTHORITATIVE_INFORMATION {
+            return Ok(());
+        }
+
+        let message = serde_json::from_str::<serde_json::Value>(&body)
+            .ok()
+            .and_then(|value| {
+                value
+                    .get("msg")
+                    .and_then(|message| message.as_str().map(String::from))
+            })
+            .unwrap_or(body);
+        Err(Error::Api {
+            status: status.as_u16(),
+            message,
+            location: snafu::location!(),
+        })
     }
 }

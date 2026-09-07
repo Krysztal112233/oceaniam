@@ -207,7 +207,10 @@ class OceanIAMClient {
         throw ArgumentError('Unsupported HTTP method: $method');
     }
 
-    if (response.statusCode >= 200 && response.statusCode < 300) {
+    // OceanIAM reserves 203 for a missing Authorization header.
+    if (response.statusCode >= 200 &&
+        response.statusCode < 300 &&
+        response.statusCode != 203) {
       return;
     }
 
@@ -220,7 +223,8 @@ class OceanIAMClient {
 
     throw OceanIAMError(
       statusCode: response.statusCode,
-      message: errorBody?['error']?.toString() ??
+      message: errorBody?['msg']?.toString() ??
+          errorBody?['error']?.toString() ??
           response.reasonPhrase ??
           'Unknown error',
       details: errorBody,
@@ -444,6 +448,13 @@ class OceanIAMClient {
   // OIDC Clients
   // =========================================================================
 
+  String _oidcClientItemPath(
+    String tenantId,
+    String applicationId,
+    String clientId,
+  ) =>
+      '/tenants/$tenantId/applications/$applicationId/oidc-clients/${Uri.encodeComponent(clientId)}';
+
   Future<PagedResponse<OidcClient>> listOidcClients(
     String tenantId,
     String applicationId, {
@@ -487,10 +498,34 @@ class OceanIAMClient {
   ) async {
     final data = await _request(
       'GET',
-      '/tenants/$tenantId/applications/$applicationId/oidc-clients/$clientId',
+      _oidcClientItemPath(tenantId, applicationId, clientId),
     );
     return OidcClient.fromJson(data);
   }
+
+  Future<OidcClient> patchOidcClient(
+    String tenantId,
+    String applicationId,
+    String clientId,
+    PatchOidcClientRequest request,
+  ) async {
+    final data = await _request(
+      'PATCH',
+      _oidcClientItemPath(tenantId, applicationId, clientId),
+      body: request.toJson(),
+    );
+    return OidcClient.fromJson(data);
+  }
+
+  Future<void> deleteOidcClient(
+    String tenantId,
+    String applicationId,
+    String clientId,
+  ) =>
+      _requestNoContent(
+        'DELETE',
+        _oidcClientItemPath(tenantId, applicationId, clientId),
+      );
 
   // =========================================================================
   // Application Users

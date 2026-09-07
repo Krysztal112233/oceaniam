@@ -45,3 +45,19 @@ Map<String, dynamic> _$$CreateOidcClientRequestImplToJson(
       'name': instance.name,
       'redirect_uris': instance.redirectUris,
     };
+
+_$PatchOidcClientRequestImpl _$$PatchOidcClientRequestImplFromJson(
+        Map<String, dynamic> json) =>
+    _$PatchOidcClientRequestImpl(
+      name: json['name'] as String?,
+      redirectUris: (json['redirect_uris'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
+    );
+
+Map<String, dynamic> _$$PatchOidcClientRequestImplToJson(
+        _$PatchOidcClientRequestImpl instance) =>
+    <String, dynamic>{
+      if (instance.name case final value?) 'name': value,
+      if (instance.redirectUris case final value?) 'redirect_uris': value,
+    };

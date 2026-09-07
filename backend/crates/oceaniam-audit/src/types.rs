@@ -22,6 +22,8 @@ pub enum AuditPayload {
     DeleteApplication(DeleteApplicationPayload),
 
     CreateOidcClient(CreateOidcClientPayload),
+    PatchOidcClient(PatchOidcClientPayload),
+    DeleteOidcClient(DeleteOidcClientPayload),
 
     PatchApplicationConfiguration(PatchApplicationConfigurationPayload),
 
@@ -61,6 +63,8 @@ impl AuditPayload {
             Self::PatchApplicationConfiguration(_) => AuditType::PatchApplicationConfiguration,
             Self::DeleteApplication(_) => AuditType::DeleteApplication,
             Self::CreateOidcClient(_) => AuditType::CreateOidcClient,
+            Self::PatchOidcClient(_) => AuditType::PatchOidcClient,
+            Self::DeleteOidcClient(_) => AuditType::DeleteOidcClient,
             Self::CreateTenants(_) => AuditType::CreateTenants,
             Self::DeleteTenants(_) => AuditType::DeleteTenants,
             Self::PatchTenant(_) => AuditType::PatchTenant,
@@ -131,6 +135,18 @@ impl From<DeleteApplicationPayload> for AuditPayload {
 impl From<CreateOidcClientPayload> for AuditPayload {
     fn from(value: CreateOidcClientPayload) -> Self {
         Self::CreateOidcClient(value)
+    }
+}
+
+impl From<PatchOidcClientPayload> for AuditPayload {
+    fn from(value: PatchOidcClientPayload) -> Self {
+        Self::PatchOidcClient(value)
+    }
+}
+
+impl From<DeleteOidcClientPayload> for AuditPayload {
+    fn from(value: DeleteOidcClientPayload) -> Self {
+        Self::DeleteOidcClient(value)
     }
 }
 
@@ -283,6 +299,27 @@ pub struct DeleteApplicationPayload {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CreateOidcClientPayload {
+    pub operator_id: Uuid,
+    pub tenant_id: Uuid,
+    pub application_id: Uuid,
+    pub oidc_client_id: Uuid,
+    pub client_id: String,
+    pub name: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PatchOidcClientPayload {
+    pub operator_id: Uuid,
+    pub tenant_id: Uuid,
+    pub application_id: Uuid,
+    pub oidc_client_id: Uuid,
+    pub client_id: String,
+    pub name: String,
+    pub changed_fields: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeleteOidcClientPayload {
     pub operator_id: Uuid,
     pub tenant_id: Uuid,
     pub application_id: Uuid,

@@ -51,6 +51,23 @@ void main() {
         'name': 'Web client',
         'redirect_uris': ['https://client.example/callback'],
       });
+
+      const emptyPatch = PatchOidcClientRequest();
+      expect(emptyPatch.toJson(), isEmpty);
+      const redirectPatch = PatchOidcClientRequest(
+        redirectUris: ['https://CLIENT.example/callback/%2Fraw'],
+      );
+      expect(redirectPatch.toJson(), {
+        'redirect_uris': ['https://CLIENT.example/callback/%2Fraw'],
+      });
+      expect(
+        () => PatchOidcClientRequest.fromJson({'name': null}),
+        throwsFormatException,
+      );
+      expect(
+        () => PatchOidcClientRequest.fromJson({'redirect_uris': null}),
+        throwsFormatException,
+      );
     });
 
     test('SigninRequest toJson', () {
@@ -437,6 +454,43 @@ void main() {
             200,
           );
         }
+        if (request.url.path ==
+                '/tenants/t1/applications/app1/oidc-clients/client-sqid' &&
+            request.method == 'PATCH') {
+          expect(jsonDecode(request.body), {
+            'redirect_uris': ['https://CLIENT.example/callback/%2Fraw'],
+          });
+          return http.Response(
+            jsonEncode({
+              'client_id': 'client-sqid',
+              'application_id': 'app1',
+              'name': 'Web client',
+              'client_type': 'public',
+              'application_type': 'web',
+              'redirect_uris': ['https://CLIENT.example/callback/%2Fraw'],
+              'created_at': '2026-09-07T00:00:00Z',
+            }),
+            200,
+          );
+        }
+        if (request.url.path ==
+                '/tenants/t1/applications/app1/oidc-clients/missing-client' &&
+            request.method == 'DELETE') {
+          return http.Response(
+            jsonEncode({'msg': 'OIDC client not found'}),
+            404,
+          );
+        }
+        if (request.url.toString() ==
+                'http://localhost:8000/tenants/t1/applications/app1/oidc-clients/client%3Frevision%3D1%2Fpart%23%252F' &&
+            request.method == 'DELETE') {
+          return http.Response('', 204);
+        }
+        if (request.url.path ==
+                '/tenants/t1/applications/app1/oidc-clients/client-sqid' &&
+            request.method == 'DELETE') {
+          return http.Response('', 204);
+        }
         return http.Response('Not found', 404);
       });
 
@@ -551,17 +605,20 @@ void main() {
 
     test('OIDC methods surface missing authentication as OceanIAMError',
         () async {
+      final missingAuth = isA<OceanIAMError>()
+          .having((error) => error.statusCode, 'statusCode', 203)
+          .having(
+            (error) => error.message,
+            'message',
+            'missing authorization',
+          );
       await expectLater(
         client.listOidcClients('t1', 'app1'),
-        throwsA(
-          isA<OceanIAMError>()
-              .having((error) => error.statusCode, 'statusCode', 203)
-              .having(
-                (error) => error.message,
-                'message',
-                'missing authorization',
-              ),
-        ),
+        throwsA(missingAuth),
+      );
+      await expectLater(
+        client.deleteOidcClient('t1', 'app1', 'client-sqid'),
+        throwsA(missingAuth),
       );
     });
 
@@ -593,6 +650,39 @@ void main() {
       );
       expect(detail.clientId, 'client-sqid');
       expect(detail.redirectUris, ['https://client.example/callback']);
+
+      final patched = await client.patchOidcClient(
+        't1',
+        'app1',
+        'client-sqid',
+        const PatchOidcClientRequest(
+          redirectUris: ['https://CLIENT.example/callback/%2Fraw'],
+        ),
+      );
+      expect(patched.clientId, 'client-sqid');
+      expect(patched.redirectUris, [
+        'https://CLIENT.example/callback/%2Fraw',
+      ]);
+
+      await client.deleteOidcClient('t1', 'app1', 'client-sqid');
+      await client.deleteOidcClient(
+        't1',
+        'app1',
+        'client?revision=1/part#%2F',
+      );
+
+      await expectLater(
+        client.deleteOidcClient('t1', 'app1', 'missing-client'),
+        throwsA(
+          isA<OceanIAMError>()
+              .having((error) => error.statusCode, 'statusCode', 404)
+              .having(
+                (error) => error.message,
+                'message',
+                'OIDC client not found',
+              ),
+        ),
+      );
     });
 
     test('throws OceanIAMError on 404', () async {

@@ -1,8 +1,8 @@
 use axum::http::StatusCode;
 use oceaniam_vo::pagination::{PageParam, PagedResponse};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter,
-    QueryOrder,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait,
+    QueryFilter, QueryOrder, QuerySelect,
 };
 use uuid::Uuid;
 
@@ -114,12 +114,85 @@ pub trait OidcClientsHelper {
             .filter(ClientId.eq(client_id))
             .one(database)
             .await?
-            .ok_or_else(|| {
-                Error::with_code(
-                    StatusCode::NOT_FOUND,
-                    "OIDC client not found in this application",
-                )
-            })
+            .ok_or_else(oidc_client_not_found)
+    }
+
+    #[tracing::instrument(
+        level = "info",
+        name = "db.oidc_clients.get_for_update",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
+    async fn get_client_for_update(
+        application_id: Uuid,
+        client_id: &str,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::oidc_clients::Model, Error> {
+        use model::oidc_clients::Column::*;
+
+        OidcClients::find()
+            .filter(ApplicationId.eq(application_id))
+            .filter(ClientId.eq(client_id))
+            .lock_exclusive()
+            .one(database)
+            .await?
+            .ok_or_else(oidc_client_not_found)
+    }
+
+    #[tracing::instrument(
+        level = "info",
+        name = "db.oidc_clients.update_name",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
+    async fn update_client_name(
+        client: model::oidc_clients::Model,
+        name: String,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::oidc_clients::Model, Error> {
+        let mut client = client.into_active_model();
+        client.name = Set(name);
+        Ok(client.update(database).await?)
+    }
+
+    #[tracing::instrument(
+        level = "info",
+        name = "db.oidc_clients.replace_redirect_uris",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
+    async fn replace_redirect_uris(
+        oidc_client_id: Uuid,
+        redirect_uris: Vec<String>,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<Vec<model::oidc_client_redirect_uris::Model>, Error> {
+        use model::oidc_client_redirect_uris::Column::OidcClientId;
+
+        OidcClientRedirectUris::delete_many()
+            .filter(OidcClientId.eq(oidc_client_id))
+            .exec(database)
+            .await?;
+        Self::create_redirect_uris(oidc_client_id, redirect_uris, database).await
+    }
+
+    #[tracing::instrument(
+        level = "info",
+        name = "db.oidc_clients.delete",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
+    async fn delete_locked_client(
+        oidc_client_id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<(), Error> {
+        let result = OidcClients::delete_by_id(oidc_client_id)
+            .exec(database)
+            .await?;
+        if result.rows_affected != 1 {
+            return Err(oidc_client_not_found());
+        }
+
+        Ok(())
     }
 
     #[tracing::instrument(
@@ -145,6 +218,13 @@ pub trait OidcClientsHelper {
             .all(database)
             .await?)
     }
+}
+
+fn oidc_client_not_found() -> Error {
+    Error::with_code(
+        StatusCode::NOT_FOUND,
+        "OIDC client not found in this application",
+    )
 }
 
 impl OidcClientsHelper for OidcClients {}

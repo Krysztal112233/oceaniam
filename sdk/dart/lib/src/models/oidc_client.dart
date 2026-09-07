@@ -31,3 +31,24 @@ class CreateOidcClientRequest with _$CreateOidcClientRequest {
   factory CreateOidcClientRequest.fromJson(Map<String, dynamic> json) =>
       _$CreateOidcClientRequestFromJson(json);
 }
+
+@freezed
+class PatchOidcClientRequest with _$PatchOidcClientRequest {
+  @JsonSerializable(includeIfNull: false)
+  const factory PatchOidcClientRequest({
+    String? name,
+    @JsonKey(name: 'redirect_uris') List<String>? redirectUris,
+  }) = _PatchOidcClientRequest;
+
+  factory PatchOidcClientRequest.fromJson(Map<String, dynamic> json) =>
+      _$PatchOidcClientRequestFromJson(_rejectNullPatchFields(json));
+}
+
+Map<String, dynamic> _rejectNullPatchFields(Map<String, dynamic> json) {
+  for (final field in ['name', 'redirect_uris']) {
+    if (json.containsKey(field) && json[field] == null) {
+      throw FormatException('$field must not be null');
+    }
+  }
+  return json;
+}

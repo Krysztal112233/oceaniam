@@ -516,3 +516,197 @@ abstract class _CreateOidcClientRequest implements CreateOidcClientRequest {
   _$$CreateOidcClientRequestImplCopyWith<_$CreateOidcClientRequestImpl>
       get copyWith => throw _privateConstructorUsedError;
 }
+
+PatchOidcClientRequest _$PatchOidcClientRequestFromJson(
+    Map<String, dynamic> json) {
+  return _PatchOidcClientRequest.fromJson(json);
+}
+
+/// @nodoc
+mixin _$PatchOidcClientRequest {
+  String? get name => throw _privateConstructorUsedError;
+  @JsonKey(name: 'redirect_uris')
+  List<String>? get redirectUris => throw _privateConstructorUsedError;
+
+  /// Serializes this PatchOidcClientRequest to a JSON map.
+  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
+
+  /// Create a copy of PatchOidcClientRequest
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $PatchOidcClientRequestCopyWith<PatchOidcClientRequest> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $PatchOidcClientRequestCopyWith<$Res> {
+  factory $PatchOidcClientRequestCopyWith(PatchOidcClientRequest value,
+          $Res Function(PatchOidcClientRequest) then) =
+      _$PatchOidcClientRequestCopyWithImpl<$Res, PatchOidcClientRequest>;
+  @useResult
+  $Res call(
+      {String? name,
+      @JsonKey(name: 'redirect_uris') List<String>? redirectUris});
+}
+
+/// @nodoc
+class _$PatchOidcClientRequestCopyWithImpl<$Res,
+        $Val extends PatchOidcClientRequest>
+    implements $PatchOidcClientRequestCopyWith<$Res> {
+  _$PatchOidcClientRequestCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of PatchOidcClientRequest
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? name = freezed,
+    Object? redirectUris = freezed,
+  }) {
+    return _then(_value.copyWith(
+      name: freezed == name
+          ? _value.name
+          : name // ignore: cast_nullable_to_non_nullable
+              as String?,
+      redirectUris: freezed == redirectUris
+          ? _value.redirectUris
+          : redirectUris // ignore: cast_nullable_to_non_nullable
+              as List<String>?,
+    ) as $Val);
+  }
+}
+
+/// @nodoc
+abstract class _$$PatchOidcClientRequestImplCopyWith<$Res>
+    implements $PatchOidcClientRequestCopyWith<$Res> {
+  factory _$$PatchOidcClientRequestImplCopyWith(
+          _$PatchOidcClientRequestImpl value,
+          $Res Function(_$PatchOidcClientRequestImpl) then) =
+      __$$PatchOidcClientRequestImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call(
+      {String? name,
+      @JsonKey(name: 'redirect_uris') List<String>? redirectUris});
+}
+
+/// @nodoc
+class __$$PatchOidcClientRequestImplCopyWithImpl<$Res>
+    extends _$PatchOidcClientRequestCopyWithImpl<$Res,
+        _$PatchOidcClientRequestImpl>
+    implements _$$PatchOidcClientRequestImplCopyWith<$Res> {
+  __$$PatchOidcClientRequestImplCopyWithImpl(
+      _$PatchOidcClientRequestImpl _value,
+      $Res Function(_$PatchOidcClientRequestImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of PatchOidcClientRequest
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? name = freezed,
+    Object? redirectUris = freezed,
+  }) {
+    return _then(_$PatchOidcClientRequestImpl(
+      name: freezed == name
+          ? _value.name
+          : name // ignore: cast_nullable_to_non_nullable
+              as String?,
+      redirectUris: freezed == redirectUris
+          ? _value._redirectUris
+          : redirectUris // ignore: cast_nullable_to_non_nullable
+              as List<String>?,
+    ));
+  }
+}
+
+/// @nodoc
+
+@JsonSerializable(includeIfNull: false)
+class _$PatchOidcClientRequestImpl implements _PatchOidcClientRequest {
+  const _$PatchOidcClientRequestImpl(
+      {this.name,
+      @JsonKey(name: 'redirect_uris') final List<String>? redirectUris})
+      : _redirectUris = redirectUris;
+
+  factory _$PatchOidcClientRequestImpl.fromJson(Map<String, dynamic> json) =>
+      _$$PatchOidcClientRequestImplFromJson(json);
+
+  @override
+  final String? name;
+  final List<String>? _redirectUris;
+  @override
+  @JsonKey(name: 'redirect_uris')
+  List<String>? get redirectUris {
+    final value = _redirectUris;
+    if (value == null) return null;
+    if (_redirectUris is EqualUnmodifiableListView) return _redirectUris;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(value);
+  }
+
+  @override
+  String toString() {
+    return 'PatchOidcClientRequest(name: $name, redirectUris: $redirectUris)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$PatchOidcClientRequestImpl &&
+            (identical(other.name, name) || other.name == name) &&
+            const DeepCollectionEquality()
+                .equals(other._redirectUris, _redirectUris));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode => Object.hash(
+      runtimeType, name, const DeepCollectionEquality().hash(_redirectUris));
+
+  /// Create a copy of PatchOidcClientRequest
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$PatchOidcClientRequestImplCopyWith<_$PatchOidcClientRequestImpl>
+      get copyWith => __$$PatchOidcClientRequestImplCopyWithImpl<
+          _$PatchOidcClientRequestImpl>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$$PatchOidcClientRequestImplToJson(
+      this,
+    );
+  }
+}
+
+abstract class _PatchOidcClientRequest implements PatchOidcClientRequest {
+  const factory _PatchOidcClientRequest(
+          {final String? name,
+          @JsonKey(name: 'redirect_uris') final List<String>? redirectUris}) =
+      _$PatchOidcClientRequestImpl;
+
+  factory _PatchOidcClientRequest.fromJson(Map<String, dynamic> json) =
+      _$PatchOidcClientRequestImpl.fromJson;
+
+  @override
+  String? get name;
+  @override
+  @JsonKey(name: 'redirect_uris')
+  List<String>? get redirectUris;
+
+  /// Create a copy of PatchOidcClientRequest
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$PatchOidcClientRequestImplCopyWith<_$PatchOidcClientRequestImpl>
+      get copyWith => throw _privateConstructorUsedError;
+}

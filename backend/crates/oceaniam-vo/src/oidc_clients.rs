@@ -3,6 +3,8 @@ use garde::Validate;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+use crate::patch::PatchValue;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Validate, Deserialize, ToSchema)]
 pub struct CreateOidcClientRequest {
     #[garde(length(min = 1, max = 128), custom(require_non_blank_oidc_client_name))]
@@ -10,6 +12,17 @@ pub struct CreateOidcClientRequest {
 
     #[garde(length(min = 1, max = 100))]
     pub redirect_uris: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct PatchOidcClientRequest {
+    #[serde(default, skip_serializing_if = "PatchValue::is_missing")]
+    #[schema(value_type = String)]
+    pub name: PatchValue<String>,
+
+    #[serde(default, skip_serializing_if = "PatchValue::is_missing")]
+    #[schema(value_type = Vec<String>)]
+    pub redirect_uris: PatchValue<Vec<String>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -58,5 +71,30 @@ mod tests {
             serde_json::to_value(OidcApplicationTypeVO::Web).unwrap(),
             serde_json::json!("web")
         );
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn oidc_client_patch_distinguishes_missing_null_and_values() {
+        let missing: PatchOidcClientRequest =
+            serde_json::from_value(serde_json::json!({})).unwrap();
+        assert_eq!(missing, PatchOidcClientRequest::default());
+        assert_eq!(
+            serde_json::to_value(missing).unwrap(),
+            serde_json::json!({})
+        );
+
+        let patch: PatchOidcClientRequest = serde_json::from_value(serde_json::json!({
+            "name": null,
+            "redirect_uris": ["https://client.example/callback"],
+            "client_id": "immutable-value-is-ignored"
+        }))
+        .unwrap();
+        assert!(matches!(patch.name, PatchValue::Null));
+        assert!(matches!(
+            patch.redirect_uris,
+            PatchValue::Value(ref values)
+                if values == &["https://client.example/callback".to_owned()]
+        ));
     }
 }

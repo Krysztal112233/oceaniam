@@ -14,3 +14,7 @@ tracing = "0.1"
 uuid = { version = "1.18", features = ["v7"] }
 
 oceaniam-vo = { path = "../../backend/crates/oceaniam-vo" }
+percent-encoding = "2.3"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread"] }

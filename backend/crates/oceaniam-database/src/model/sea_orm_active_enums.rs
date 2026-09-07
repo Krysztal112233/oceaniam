@@ -67,6 +67,10 @@ pub enum AuditType {
     DevAccountExpired,
     #[sea_orm(string_value = "create_oidc_client")]
     CreateOidcClient,
+    #[sea_orm(string_value = "patch_oidc_client")]
+    PatchOidcClient,
+    #[sea_orm(string_value = "delete_oidc_client")]
+    DeleteOidcClient,
 }
 #[derive(
     Debug,
