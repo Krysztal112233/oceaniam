@@ -24,6 +24,12 @@ pub enum Permission {
     ApplicationConfigurationPatch,
     ApplicationConfigurationRead,
 
+    // ── Platform: OIDC Clients ──
+    OidcClientCreate,
+    OidcClientDelete,
+    OidcClientPatch,
+    OidcClientRead,
+
     // ── Platform: Application Secrets ──
     SecretCreate,
     SecretDelete,
@@ -102,5 +108,22 @@ mod tests {
     fn serialized_as_snake_case() {
         let json = serde_json::to_value(Permission::ApplicationUserRead).unwrap();
         assert_eq!(json, serde_json::json!("application_user_read"));
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn oidc_client_permissions_use_stable_wire_names() {
+        for (permission, wire_name) in [
+            (Permission::OidcClientCreate, "oidc_client_create"),
+            (Permission::OidcClientDelete, "oidc_client_delete"),
+            (Permission::OidcClientPatch, "oidc_client_patch"),
+            (Permission::OidcClientRead, "oidc_client_read"),
+        ] {
+            assert_eq!(
+                serde_json::to_value(permission).unwrap(),
+                serde_json::json!(wire_name)
+            );
+            assert_eq!(wire_name.parse::<Permission>().unwrap(), permission);
+        }
     }
 }

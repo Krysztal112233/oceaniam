@@ -37,6 +37,10 @@ platform_perm!(ApplicationPatch => Permission::ApplicationPatch);
 platform_perm!(ApplicationDelete => Permission::ApplicationDelete);
 platform_perm!(ApplicationConfigurationRead => Permission::ApplicationConfigurationRead);
 platform_perm!(ApplicationConfigurationPatch => Permission::ApplicationConfigurationPatch);
+platform_perm!(OidcClientRead => Permission::OidcClientRead);
+platform_perm!(OidcClientCreate => Permission::OidcClientCreate);
+platform_perm!(OidcClientPatch => Permission::OidcClientPatch);
+platform_perm!(OidcClientDelete => Permission::OidcClientDelete);
 platform_perm!(SecretRead => Permission::SecretRead);
 platform_perm!(SecretCreate => Permission::SecretCreate);
 platform_perm!(SecretDelete => Permission::SecretDelete);
@@ -107,5 +111,19 @@ impl<P: PlatformPermission> FromRequestParts<AppState> for PlatformPermissionGua
             claim: token.claims,
             _permission: std::marker::PhantomData,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // NOTE: AI-generated test
+    #[test]
+    fn oidc_client_markers_reference_their_matching_permissions() {
+        assert_eq!(OidcClientRead::PERMISSION, Permission::OidcClientRead);
+        assert_eq!(OidcClientCreate::PERMISSION, Permission::OidcClientCreate);
+        assert_eq!(OidcClientPatch::PERMISSION, Permission::OidcClientPatch);
+        assert_eq!(OidcClientDelete::PERMISSION, Permission::OidcClientDelete);
     }
 }

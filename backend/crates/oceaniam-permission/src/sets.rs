@@ -49,6 +49,8 @@ pub(crate) static PLATFORM_READ_BASE: LazyLock<HashSet<Permission>> = LazyLock::
 
         ApplicationConfigurationRead,
 
+        OidcClientRead,
+
         SecretRead,
 
         KeyRead,
@@ -74,6 +76,10 @@ pub(crate) static PLATFORM_TENANT_ADMIN_PERMS: LazyLock<HashSet<Permission>> = L
             ApplicationPatch,
             ApplicationDelete,
             ApplicationConfigurationPatch,
+
+            OidcClientCreate,
+            OidcClientPatch,
+            OidcClientDelete,
 
             SecretCreate,
             SecretDelete,
@@ -103,8 +109,8 @@ pub(crate) static PLATFORM_SUPER_ADMIN_PERMS: LazyLock<HashSet<Permission>> = La
 mod tests {
     use super::*;
 
-    /// All 26 permission variants. Keep in sync with [`Permission`].
-    const ALL_PERMISSIONS: [Permission; 26] = [
+    /// All 30 permission variants. Keep in sync with [`Permission`].
+    const ALL_PERMISSIONS: [Permission; 30] = [
         Permission::TenantCreate,
         Permission::TenantDelete,
         Permission::TenantPatch,
@@ -115,6 +121,10 @@ mod tests {
         Permission::ApplicationRead,
         Permission::ApplicationConfigurationPatch,
         Permission::ApplicationConfigurationRead,
+        Permission::OidcClientCreate,
+        Permission::OidcClientDelete,
+        Permission::OidcClientPatch,
+        Permission::OidcClientRead,
         Permission::SecretCreate,
         Permission::SecretDelete,
         Permission::SecretRead,

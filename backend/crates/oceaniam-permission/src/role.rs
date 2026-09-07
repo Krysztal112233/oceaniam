@@ -71,6 +71,9 @@ mod tests {
             Permission::ApplicationDelete,
             Permission::ApplicationPatch,
             Permission::ApplicationConfigurationPatch,
+            Permission::OidcClientCreate,
+            Permission::OidcClientDelete,
+            Permission::OidcClientPatch,
             Permission::SecretCreate,
             Permission::SecretDelete,
             Permission::KeyRotate,
@@ -90,6 +93,7 @@ mod tests {
             Permission::TenantRead,
             Permission::ApplicationRead,
             Permission::ApplicationConfigurationRead,
+            Permission::OidcClientRead,
             Permission::SecretRead,
             Permission::KeyRead,
             Permission::AdministratorRead,
@@ -113,6 +117,10 @@ mod tests {
             Permission::ApplicationRead,
             Permission::ApplicationConfigurationPatch,
             Permission::ApplicationConfigurationRead,
+            Permission::OidcClientCreate,
+            Permission::OidcClientDelete,
+            Permission::OidcClientPatch,
+            Permission::OidcClientRead,
             Permission::SecretCreate,
             Permission::SecretDelete,
             Permission::SecretRead,
@@ -139,6 +147,46 @@ mod tests {
             Permission::AdministratorRead,
         ] {
             assert!(!perms.contains(&p), "TenantAdmin should NOT have {p:?}");
+        }
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn tenant_admin_can_manage_oidc_clients() {
+        let perms = PlatformRole::TenantAdmin.permissions();
+        for permission in [
+            Permission::OidcClientCreate,
+            Permission::OidcClientDelete,
+            Permission::OidcClientPatch,
+            Permission::OidcClientRead,
+        ] {
+            assert!(
+                perms.contains(&permission),
+                "TenantAdmin should have {permission:?}"
+            );
+        }
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn application_roles_have_no_oidc_client_management_permissions() {
+        for role in [
+            AppRole::Owner,
+            AppRole::Admin,
+            AppRole::Member,
+            AppRole::Reader,
+        ] {
+            for permission in [
+                Permission::OidcClientCreate,
+                Permission::OidcClientDelete,
+                Permission::OidcClientPatch,
+                Permission::OidcClientRead,
+            ] {
+                assert!(
+                    !role.permissions().contains(&permission),
+                    "{role:?} should NOT have {permission:?}"
+                );
+            }
         }
     }
 
