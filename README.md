@@ -12,15 +12,21 @@ You can find all related designs in [./docs/design](./docs/design)
 
 ## Frontend
 
-All frontend source code is stored at [./frontend/](./frontend/) and powered by Flutter Web.
+The active administration console is stored at [./web/](./web/) and powered by
+Vue 3, TypeScript, Tailwind CSS, and DaisyUI. The previous Flutter client remains
+in [./frontend/](./frontend/) while the migration is evaluated.
 
-The web build resolves the backend URL in this order:
+The web application uses `/api` by default, matching the bundled Nginx gateway.
+For a different deployment, set `VITE_API_BASE_URL` at build time.
 
-1. `OCEANIAM_BACKEND_URL` passed at build time via `--dart-define`.
-2. Otherwise, at runtime, it falls back to `${window.location.origin}/api`,
-   so the same built artifact can be deployed behind any reverse-proxy / gateway.
+```bash
+corepack pnpm install
+corepack pnpm dev
+```
 
-Use `fvm flutter build web --release` (or `just build-flutter`) to build it locally.
+Use `just build-web` for a production build. The TypeScript SDK in
+`sdk/typescript/` is generated from the backend OpenAPI document; run
+`just gen-openapi` after changing endpoint contracts.
 
 ## Deploy
 
