@@ -9,6 +9,7 @@ export 'src/models/auth.dart';
 export 'src/models/challenge.dart';
 export 'src/models/configuration.dart';
 export 'src/models/key.dart';
+export 'src/models/oidc_client.dart';
 export 'src/models/pagination.dart';
 export 'src/models/role.dart';
 export 'src/models/secret.dart';

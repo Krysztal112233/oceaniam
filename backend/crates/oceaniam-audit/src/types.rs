@@ -21,6 +21,8 @@ pub enum AuditPayload {
     PatchApplication(PatchApplicationPayload),
     DeleteApplication(DeleteApplicationPayload),
 
+    CreateOidcClient(CreateOidcClientPayload),
+
     PatchApplicationConfiguration(PatchApplicationConfigurationPayload),
 
     CreateTenants(CreateTenantsPayload),
@@ -58,6 +60,7 @@ impl AuditPayload {
             Self::PatchApplication(_) => AuditType::PatchApplication,
             Self::PatchApplicationConfiguration(_) => AuditType::PatchApplicationConfiguration,
             Self::DeleteApplication(_) => AuditType::DeleteApplication,
+            Self::CreateOidcClient(_) => AuditType::CreateOidcClient,
             Self::CreateTenants(_) => AuditType::CreateTenants,
             Self::DeleteTenants(_) => AuditType::DeleteTenants,
             Self::PatchTenant(_) => AuditType::PatchTenant,
@@ -122,6 +125,12 @@ impl From<PatchApplicationConfigurationPayload> for AuditPayload {
 impl From<DeleteApplicationPayload> for AuditPayload {
     fn from(value: DeleteApplicationPayload) -> Self {
         Self::DeleteApplication(value)
+    }
+}
+
+impl From<CreateOidcClientPayload> for AuditPayload {
+    fn from(value: CreateOidcClientPayload) -> Self {
+        Self::CreateOidcClient(value)
     }
 }
 
@@ -270,6 +279,16 @@ pub struct PatchApplicationConfigurationPayload {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeleteApplicationPayload {
     pub application_id: Uuid,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CreateOidcClientPayload {
+    pub operator_id: Uuid,
+    pub tenant_id: Uuid,
+    pub application_id: Uuid,
+    pub oidc_client_id: Uuid,
+    pub client_id: String,
+    pub name: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

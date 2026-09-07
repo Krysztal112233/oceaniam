@@ -2,6 +2,7 @@ pub mod administrators;
 pub mod application_roles;
 pub mod applications;
 pub mod auth;
+pub mod oidc_clients;
 pub mod pagination;
 pub mod patch;
 pub mod response;

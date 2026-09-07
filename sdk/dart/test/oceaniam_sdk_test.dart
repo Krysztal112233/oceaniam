@@ -28,6 +28,31 @@ void main() {
       expect(app.tenantId, 'tenant1');
     });
 
+    test('OIDC client models use the backend wire field names', () {
+      final client = OidcClient.fromJson({
+        'client_id': 'client-sqid',
+        'application_id': 'app1',
+        'name': 'Web client',
+        'client_type': 'public',
+        'application_type': 'web',
+        'redirect_uris': ['https://client.example/callback'],
+        'created_at': '2026-09-07T00:00:00Z',
+      });
+      expect(client.clientId, 'client-sqid');
+      expect(client.applicationId, 'app1');
+      expect(client.clientType, 'public');
+      expect(client.applicationType, 'web');
+
+      const request = CreateOidcClientRequest(
+        name: 'Web client',
+        redirectUris: ['https://client.example/callback'],
+      );
+      expect(request.toJson(), {
+        'name': 'Web client',
+        'redirect_uris': ['https://client.example/callback'],
+      });
+    });
+
     test('SigninRequest toJson', () {
       final req = SigninRequest(name: 'admin', password: 'pass');
       final json = req.toJson();
@@ -346,6 +371,72 @@ void main() {
           });
           return http.Response('', 200);
         }
+        if (request.url.path.startsWith(
+              '/tenants/t1/applications/app1/oidc-clients',
+            ) &&
+            !request.headers.containsKey('authorization')) {
+          return http.Response(
+            jsonEncode({'msg': 'missing authorization'}),
+            203,
+          );
+        }
+        if (request.url.path == '/tenants/t1/applications/app1/oidc-clients' &&
+            request.method == 'GET') {
+          expect(request.url.queryParameters['page'], '2');
+          expect(request.url.queryParameters['per_page'], '10');
+          return http.Response(
+            jsonEncode({
+              'items': [
+                {
+                  'client_id': 'client-sqid',
+                  'application_id': 'app1',
+                  'name': 'Web client',
+                  'client_type': 'public',
+                  'application_type': 'web',
+                  'redirect_uris': ['https://client.example/callback'],
+                  'created_at': '2026-09-07T00:00:00Z',
+                },
+              ],
+              'page_info': {'has_next': false, 'total': 1},
+            }),
+            200,
+          );
+        }
+        if (request.url.path == '/tenants/t1/applications/app1/oidc-clients' &&
+            request.method == 'POST') {
+          expect(jsonDecode(request.body), {
+            'name': 'Web client',
+            'redirect_uris': ['https://client.example/callback'],
+          });
+          return http.Response(
+            jsonEncode({
+              'client_id': 'client-sqid',
+              'application_id': 'app1',
+              'name': 'Web client',
+              'client_type': 'public',
+              'application_type': 'web',
+              'redirect_uris': ['https://client.example/callback'],
+              'created_at': '2026-09-07T00:00:00Z',
+            }),
+            200,
+          );
+        }
+        if (request.url.path ==
+                '/tenants/t1/applications/app1/oidc-clients/client-sqid' &&
+            request.method == 'GET') {
+          return http.Response(
+            jsonEncode({
+              'client_id': 'client-sqid',
+              'application_id': 'app1',
+              'name': 'Web client',
+              'client_type': 'public',
+              'application_type': 'web',
+              'redirect_uris': ['https://client.example/callback'],
+              'created_at': '2026-09-07T00:00:00Z',
+            }),
+            200,
+          );
+        }
         return http.Response('Not found', 404);
       });
 
@@ -456,6 +547,52 @@ void main() {
           ),
         ),
       );
+    });
+
+    test('OIDC methods surface missing authentication as OceanIAMError',
+        () async {
+      await expectLater(
+        client.listOidcClients('t1', 'app1'),
+        throwsA(
+          isA<OceanIAMError>()
+              .having((error) => error.statusCode, 'statusCode', 203)
+              .having(
+                (error) => error.message,
+                'message',
+                'missing authorization',
+              ),
+        ),
+      );
+    });
+
+    test('manages OIDC clients with the application-scoped routes', () async {
+      await client.signin('admin', 'password');
+
+      final listed = await client.listOidcClients(
+        't1',
+        'app1',
+        page: 2,
+        pageSize: 10,
+      );
+      expect(listed.pageInfo.total, 1);
+      expect(listed.items.single.clientId, 'client-sqid');
+
+      final created = await client.createOidcClient(
+        't1',
+        'app1',
+        name: 'Web client',
+        redirectUris: ['https://client.example/callback'],
+      );
+      expect(created.clientType, 'public');
+      expect(created.applicationType, 'web');
+
+      final detail = await client.getOidcClient(
+        't1',
+        'app1',
+        'client-sqid',
+      );
+      expect(detail.clientId, 'client-sqid');
+      expect(detail.redirectUris, ['https://client.example/callback']);
     });
 
     test('throws OceanIAMError on 404', () async {

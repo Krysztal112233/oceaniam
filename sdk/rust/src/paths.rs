@@ -31,6 +31,8 @@ pub const APP_TOKENS_REFRESH: &str = concatcp!(APP_TOKENS, "/refresh");
 pub const APP_CHALLENGE: &str = concatcp!(TENANT_APP, "/challenges/{}");
 pub const APP_KEYS: &str = concatcp!(TENANT_APP, "/keys");
 pub const APP_KEY: &str = concatcp!(APP_KEYS, "/{}");
+pub const APP_OIDC_CLIENTS: &str = concatcp!(TENANT_APP, "/oidc-clients");
+pub const APP_OIDC_CLIENT: &str = concatcp!(APP_OIDC_CLIENTS, "/{}");
 
 // JWKS (tenant-scoped)
 pub const JWKS: &str = concatcp!(TENANT, "/.well-known/jwks.json");

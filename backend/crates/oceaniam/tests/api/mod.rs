@@ -4,6 +4,7 @@ mod challenges;
 mod dev_accounts;
 mod keys;
 mod oidc;
+mod oidc_clients;
 mod secrets;
 mod tenants;
 mod users;

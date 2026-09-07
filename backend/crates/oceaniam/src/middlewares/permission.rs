@@ -3,8 +3,12 @@ use axum::{
     http::{StatusCode, request::Parts},
 };
 use oceaniam_auth::jwt::SystemClaim;
-use oceaniam_permission::Permission;
+use oceaniam_common::consts;
+use oceaniam_database::model::prelude::{AdministratorTenants, Administrators};
+use oceaniam_permission::{Permission, PlatformRole};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use tracing::error;
+use uuid::Uuid;
 
 use crate::error::Error;
 use crate::middlewares::auth::PlatformAuthGuard;
@@ -70,6 +74,68 @@ platform_perm!(AdministratorPatch => Permission::AdministratorPatch);
 pub struct PlatformPermissionGuard<P: PlatformPermission> {
     pub claim: SystemClaim,
     _permission: std::marker::PhantomData<P>,
+}
+
+impl<P: PlatformPermission> PlatformPermissionGuard<P> {
+    /// Enforce the tenant organization boundary after the activity permission has been resolved.
+    ///
+    /// Super administrators can access every tenant. Readonly administrators are platform-wide
+    /// observers. Tenant administrators must have an explicit `administrator_tenants` assignment.
+    pub async fn ensure_tenant_scope(
+        &self,
+        tenant_id: Uuid,
+        database: &DatabaseConnection,
+    ) -> Result<(), Error> {
+        let operator_id = self.claim.sub;
+        if operator_id == consts::SYSTEM_APPLICATION_UUID {
+            return Ok(());
+        }
+
+        let administrator = Administrators::find_by_id(operator_id)
+            .one(database)
+            .await?
+            .ok_or_else(|| {
+                Error::with_code(StatusCode::FORBIDDEN, "administrator is not available")
+            })?;
+        let role = administrator
+            .role
+            .as_deref()
+            .and_then(|role| role.parse::<PlatformRole>().ok())
+            .ok_or_else(|| {
+                Error::with_code(StatusCode::FORBIDDEN, "administrator role is invalid")
+            })?;
+
+        // The permission resolver is cached. Recheck the freshly loaded role before combining its
+        // scope with a cached activity set, otherwise a TenantAdmin -> ReadonlyAdmin transition
+        // could temporarily retain write permission while gaining global read scope.
+        if !role.permissions().contains(&P::PERMISSION) {
+            return Err(Error::with_code(
+                StatusCode::FORBIDDEN,
+                "insufficient permissions",
+            ));
+        }
+
+        if matches!(role, PlatformRole::SuperAdmin | PlatformRole::ReadonlyAdmin) {
+            return Ok(());
+        }
+
+        use oceaniam_database::model::administrator_tenants::Column::*;
+        let assigned = AdministratorTenants::find()
+            .filter(AdministratorId.eq(operator_id))
+            .filter(TenantId.eq(tenant_id))
+            .one(database)
+            .await?
+            .is_some();
+
+        if !assigned {
+            return Err(Error::with_code(
+                StatusCode::FORBIDDEN,
+                "insufficient tenant scope",
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 impl<P: PlatformPermission> FromRequestParts<AppState> for PlatformPermissionGuard<P> {

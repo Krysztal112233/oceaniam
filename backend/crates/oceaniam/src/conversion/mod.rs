@@ -4,6 +4,7 @@ pub mod applications;
 pub mod challenges;
 pub mod configurations;
 pub mod keys;
+pub mod oidc_clients;
 pub mod secrets;
 pub mod sqid;
 pub mod statistics;

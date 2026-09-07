@@ -16,6 +16,7 @@ mod apps;
 mod challenges;
 mod configuration;
 mod keys;
+mod oidc_clients;
 mod roles;
 mod secrets;
 mod statistics;
@@ -100,6 +101,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
         .pipe(challenges::endpoint)
         .pipe(configuration::endpoint)
         .pipe(keys::endpoint)
+        .pipe(oidc_clients::endpoint)
         .pipe(roles::endpoint)
         .pipe(secrets::endpoint)
         .pipe(tokens::endpoint)

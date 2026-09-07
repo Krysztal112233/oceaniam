@@ -8,6 +8,7 @@ import '../models/audit.dart';
 import '../models/auth.dart';
 import '../models/configuration.dart';
 import '../models/key.dart';
+import '../models/oidc_client.dart';
 import '../models/pagination.dart';
 import '../models/role.dart';
 import '../models/secret.dart';
@@ -96,7 +97,11 @@ class OceanIAMClient {
         throw ArgumentError('Unsupported HTTP method: $method');
     }
 
-    if (response.statusCode >= 200 && response.statusCode < 300) {
+    // OceanIAM uses 203 specifically for a missing Authorization header. Although it is in the
+    // HTTP 2xx range, it is an authentication failure rather than a successful API response.
+    if (response.statusCode >= 200 &&
+        response.statusCode < 300 &&
+        response.statusCode != 203) {
       if (response.body.isEmpty) return {};
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
@@ -110,7 +115,8 @@ class OceanIAMClient {
 
     throw OceanIAMError(
       statusCode: response.statusCode,
-      message: errorBody?['error']?.toString() ??
+      message: errorBody?['msg']?.toString() ??
+          errorBody?['error']?.toString() ??
           response.reasonPhrase ??
           'Unknown error',
       details: errorBody,
@@ -432,6 +438,58 @@ class OceanIAMClient {
       '/tenants/$tenantId/applications/$applicationId/configuration',
       body: config.toJson(),
     );
+  }
+
+  // =========================================================================
+  // OIDC Clients
+  // =========================================================================
+
+  Future<PagedResponse<OidcClient>> listOidcClients(
+    String tenantId,
+    String applicationId, {
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    final data = await _request(
+      'GET',
+      '/tenants/$tenantId/applications/$applicationId/oidc-clients?page=$page&per_page=$pageSize',
+    );
+    return PagedResponse<OidcClient>(
+      items: (data['items'] as List<dynamic>)
+          .map((e) => OidcClient.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      pageInfo: PageInfo.fromJson(data['page_info'] as Map<String, dynamic>),
+    );
+  }
+
+  Future<OidcClient> createOidcClient(
+    String tenantId,
+    String applicationId, {
+    required String name,
+    required List<String> redirectUris,
+  }) async {
+    final body = CreateOidcClientRequest(
+      name: name,
+      redirectUris: redirectUris,
+    );
+    final data = await _request(
+      'POST',
+      '/tenants/$tenantId/applications/$applicationId/oidc-clients',
+      body: body.toJson(),
+    );
+    return OidcClient.fromJson(data);
+  }
+
+  Future<OidcClient> getOidcClient(
+    String tenantId,
+    String applicationId,
+    String clientId,
+  ) async {
+    final data = await _request(
+      'GET',
+      '/tenants/$tenantId/applications/$applicationId/oidc-clients/$clientId',
+    );
+    return OidcClient.fromJson(data);
   }
 
   // =========================================================================
