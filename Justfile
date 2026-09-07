@@ -16,18 +16,23 @@ watch-backend:
 fmt:
     cd ./backend && cargo fmt
     cd ./sdk/rust && cargo fmt
-    cd ./frontend && fvm dart format .
     cd ./sdk/dart && fvm dart format .
+    corepack pnpm format
 
 build:
     cd ./backend && cargo build --all -r
-    cd ./sdk/dart && fvm dart run build_runner build
-    cd ./frontend && fvm dart run build_runner build
+    cd ./sdk/rust && cargo build --all -r
+    corepack pnpm build
 
-build-flutter:
-    cd ./sdk/dart && fvm dart run build_runner build
-    cd ./frontend/ && fvm dart run build_runner build
-    cd ./frontend/ && fvm flutter build web --release
+build-web:
+    corepack pnpm build
+
+gen-openapi:
+    cd ./backend && cargo run -p oceaniam --release -- openapi --output ../sdk/typescript/openapi.json
+    corepack pnpm generate:api
+
+check-openapi: gen-openapi
+    git diff --exit-code -- sdk/typescript/openapi.json sdk/typescript/src/schema.ts
 
 check:
     cd ./backend && cargo test --all -r
@@ -35,5 +40,4 @@ check:
     cd ./sdk/rust && cargo test --all -r
     cd ./sdk/rust && cargo build --all -r
     cd ./sdk/dart && fvm dart test
-    cd ./frontend && fvm dart analyze
-    cd ./frontend && fvm flutter build web --release
+    corepack pnpm check

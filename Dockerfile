@@ -41,29 +41,22 @@ CMD [ "./migration" ]
 # FRONTEND BUILDER #
 ####################
 
-FROM docker.io/library/debian:trixie AS frontend-builder
-WORKDIR /builder/frontend
-RUN apt-get update && apt-get install -y \
-    curl git ca-certificates unzip && \
-    rm -rf /var/lib/apt/lists/*
+FROM docker.io/library/node:24-alpine AS frontend-builder
+WORKDIR /builder
+RUN corepack enable
 
-RUN useradd -m flutter
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY sdk/typescript/package.json sdk/typescript/package.json
+COPY web/package.json web/package.json
+RUN pnpm install --frozen-lockfile
 
-COPY frontend/.fvmrc frontend/pubspec.yaml frontend/pubspec.lock ./
-
-COPY sdk/dart/ /builder/sdk/dart/
-COPY frontend/ .
-
-RUN chown -R flutter:flutter /builder
-
-USER flutter
-RUN curl -fsSL https://fvm.app/install.sh | bash
-ENV PATH="/home/flutter/fvm/bin:$PATH"
-RUN fvm flutter build web --release
+COPY sdk/typescript/ sdk/typescript/
+COPY web/ web/
+RUN pnpm --filter @oceaniam/frontend build
 
 FROM docker.io/library/nginx:1.29-alpine AS frontend
 COPY docker/nginx/frontend.conf /etc/nginx/conf.d/default.conf
-COPY --from=frontend-builder /builder/frontend/build/web/ /usr/share/nginx/html/
+COPY --from=frontend-builder /builder/web/dist/ /usr/share/nginx/html/
 
 ####################
 #  GATEWAY BUILDER #

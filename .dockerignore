@@ -3,9 +3,13 @@
 # Rust
 **/target
 
-# JavaScript / Vue (removed, keep for safety)
+# JavaScript / Vue
 **/.react-router
 **/node_modules
+**/dist
+**/playwright-report
+**/test-results
+**/*.tsbuildinfo
 
 # Flutter / Dart
 **/.dart_tool

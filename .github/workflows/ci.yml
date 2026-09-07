@@ -124,6 +124,21 @@ jobs:
         uses: extractions/setup-just@v3
       - name: Install FVM
         run: dart pub global activate fvm
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install web dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Firefox for web smoke tests
+        run: pnpm --filter @oceaniam/frontend exec playwright install --with-deps firefox
       - name: Run `just check`
         run: |
           just check
+      - name: Run Firefox web smoke test
+        run: pnpm test:e2e:mock
+      - name: Check generated OpenAPI client
+        run: just check-openapi
