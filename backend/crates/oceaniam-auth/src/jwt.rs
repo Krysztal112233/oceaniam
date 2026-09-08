@@ -1,9 +1,8 @@
-use jsonwebtoken::{Header, TokenData, Validation};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-use crate::error::Error;
+use crate::{Header, TokenData, Validation, error::Error};
 
 pub trait JwtCodec<T>
 where
@@ -157,5 +156,47 @@ impl std::ops::Deref for JwtValidator {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::{Claim, ClaimHelper, SystemClaim};
+    use uuid::Uuid;
+
+    // NOTE: AI-generated test
+    #[test]
+    fn claim_construction_preserves_legacy_wire_fields_and_five_day_ttl() {
+        let subject =
+            Uuid::parse_str("018f47a6-7b53-7cc0-8f5c-5c8bf2d6b8cf").expect("fixed subject UUID");
+        let issuer = Some("https://issuer.oceaniam.test".to_owned());
+        let audience = Some(vec!["client-a".to_owned(), "client-b".to_owned()]);
+        let claim = Claim::new(subject, 5 * 24 * 60 * 60, issuer.clone(), audience.clone());
+        let system_claim =
+            SystemClaim::new(subject, 5 * 24 * 60 * 60, issuer.clone(), audience.clone());
+
+        assert_eq!(claim.exp - claim.iat, 432_000);
+        assert_eq!(system_claim.exp - system_claim.iat, 432_000);
+        assert_eq!(claim.sub, subject);
+        assert_eq!(system_claim.sub, subject);
+        assert_eq!(claim.iss, issuer);
+        assert_eq!(claim.aud, audience);
+        assert_eq!(claim.jti.get_version_num(), 7);
+        assert_eq!(system_claim.jti.get_version_num(), 7);
+
+        let value = serde_json::to_value(&claim).expect("serialize claim");
+        assert_eq!(value["sub"], json!(subject));
+        assert!(value["exp"].is_i64());
+        assert!(value["iat"].is_i64());
+        assert_eq!(value["iss"], json!("https://issuer.oceaniam.test"));
+        assert_eq!(value["aud"], json!(["client-a", "client-b"]));
+        assert!(value["jti"].is_string());
+
+        let without_policy = SystemClaim::new(subject, 60, None, None);
+        let value = serde_json::to_value(without_policy).expect("serialize system claim");
+        assert!(value["iss"].is_null());
+        assert!(value["aud"].is_null());
     }
 }

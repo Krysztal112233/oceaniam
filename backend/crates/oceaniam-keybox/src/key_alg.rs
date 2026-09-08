@@ -1,4 +1,4 @@
-use jsonwebtoken::Algorithm;
+use oceaniam_crypto::Algorithm;
 use oceaniam_database::model::sea_orm_active_enums::KeyAlg as DatabaseKeyAlgorithm;
 use serde::{Deserialize, Serialize};
 

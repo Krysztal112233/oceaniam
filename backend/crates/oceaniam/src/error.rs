@@ -280,8 +280,8 @@ impl From<DbErr> for Error {
     }
 }
 
-impl From<jsonwebtoken::errors::Error> for Error {
-    fn from(e: jsonwebtoken::errors::Error) -> Self {
+impl From<oceaniam_crypto::JwtError> for Error {
+    fn from(e: oceaniam_crypto::JwtError) -> Self {
         Self::Internal {
             msg: e.to_string(),
             location: snafu::location!(),

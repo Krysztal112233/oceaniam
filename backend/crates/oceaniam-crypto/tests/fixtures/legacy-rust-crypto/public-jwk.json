@@ -1,0 +1,7 @@
+{
+  "alg": "PS512",
+  "kid": "018f47a5-f53c-7bd0-bad8-764ae9bac80b",
+  "kty": "RSA",
+  "n": "plw6EUR5rdv3GMeOc1OzBWk5PMEDkCicwJaL1DPt8zscdOQ5U6MbXc1SaLb1Vi2oZS-2BfOAiVBBPY0JRO3IUAxNhWebBE-TrxtNFKtOVjN4Q4eo4ozZLQRw6qBKiVhKJAlgPx7qr9UYmXHM4cNXePx8llWdbwdMyQ9DS0A9aaaoQjd7flljf1ZeroWX8jWqzvKwKQv6xeACS83Xb3els4kvKTP_lu6ef8lv9DUcn9CGy2QHEjKYzHw9MT20hytKAYrvg7WcM9GFIRhC4GiWSU5Q5kD-IOm3NNPdVK-kxVWKqTHeJTv74ZRRq6IoXuFAR8gAhmNuirnzvxd13zSpQQ",
+  "e": "AQAB"
+}

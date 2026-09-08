@@ -8,6 +8,7 @@ members = [
 	"crates/oceaniam-auth",
 	"crates/oceaniam-common",
 	"crates/oceaniam-credential",
+	"crates/oceaniam-crypto",
 	"crates/oceaniam-database",
 	"crates/oceaniam-keybox",
 	"crates/oceaniam-oidc",
@@ -43,7 +44,7 @@ hex = "0.4"
 hmac = "0.12"
 im = { version = "15.1", features = ["serde"] }
 itertools = "0.14"
-jsonwebtoken = { version = "10", features = ["rust_crypto"] }
+jsonwebtoken = { version = "10", features = ["aws_lc_rs"] }
 linkme = "0.3"
 log = "0.4"
 mimalloc = { version = "0.1", features = ["v3"] }
@@ -99,6 +100,7 @@ oceaniam-audit = { path = "./crates/oceaniam-audit/" }
 oceaniam-auth = { path = "./crates/oceaniam-auth/" }
 oceaniam-common = { path = "./crates/oceaniam-common/" }
 oceaniam-credential = { path = "./crates/oceaniam-credential/" }
+oceaniam-crypto = { path = "./crates/oceaniam-crypto/" }
 oceaniam-database = { path = "./crates/oceaniam-database/" }
 oceaniam-keybox = { path = "./crates/oceaniam-keybox/" }
 oceaniam-oidc = { path = "./crates/oceaniam-oidc/" }

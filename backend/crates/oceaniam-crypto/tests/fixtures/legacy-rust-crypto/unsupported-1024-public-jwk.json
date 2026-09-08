@@ -1,0 +1,7 @@
+{
+  "alg": "RS256",
+  "kid": "018f47a5-f53c-7bd0-bad8-764ae9bac80c",
+  "kty": "RSA",
+  "n": "tfs9uUDJdasNqyf-0VVJfJdLVmgP7U6P0IBPHlvysRDui3tDUQIxuHfyDTz8JLlkzjGTHmWrlMGxDEPawVAusioTSFHcmFa8xhxdvcpZmN_GsG3POGYvNRc1kKh5apOM5C_fd1s3FYYphKextky6BwHn9wf6f78vAU4Z-nRwbb8",
+  "e": "AQAB"
+}

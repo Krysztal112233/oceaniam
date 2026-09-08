@@ -1,4 +1,4 @@
-use jsonwebtoken::Algorithm;
+use oceaniam_crypto::Algorithm;
 use oceaniam_database::model::sea_orm_active_enums::KeyAlg;
 use snafu::{Location, Snafu};
 use uuid::Uuid;
@@ -22,7 +22,7 @@ pub enum Error {
 
     #[snafu(display("{source} at {location}"))]
     Jwt {
-        source: jsonwebtoken::errors::Error,
+        source: oceaniam_crypto::JwtError,
         location: Location,
     },
 
@@ -76,6 +76,13 @@ impl Error {
             location: snafu::location!(),
         }
     }
+
+    pub(crate) fn is_jwt_provider_initialization(&self) -> bool {
+        matches!(
+            self,
+            Self::Jwt { source, .. } if source.is_provider_initialization()
+        )
+    }
 }
 
 impl From<sea_orm::error::DbErr> for Error {
@@ -96,8 +103,8 @@ impl From<rsa::Error> for Error {
     }
 }
 
-impl From<jsonwebtoken::errors::Error> for Error {
-    fn from(source: jsonwebtoken::errors::Error) -> Self {
+impl From<oceaniam_crypto::JwtError> for Error {
+    fn from(source: oceaniam_crypto::JwtError) -> Self {
         Error::Jwt {
             source,
             location: snafu::location!(),

@@ -1,0 +1,31 @@
+# Legacy RustCrypto JWT fixture
+
+These files are public, test-only compatibility material. They must never be used outside tests.
+
+They were captured from OceanIAM commit `a586d2d2568bed5b0bed40ae1adf08105cd22ad8`
+before switching providers, using locked `jsonwebtoken 10.4.0` with its `rust_crypto` feature and
+`rsa 0.9.10`. The 2048-bit PKCS#8 key was generated with OpenSSL 3.6.3, parsed by `rsa`, exported as
+PKCS#1 DER through the same bridge used by `RsaKey`, and used to sign the fixed claims in
+`tokens.json`. RSA-PSS tokens are intentionally nondeterministic; the captured signatures are
+verified rather than reproduced byte-for-byte. The `unsupported-1024-*` files were produced by the
+same isolated RustCrypto harness from a separate 1024-bit test key. Only its public key, JWK, and
+RS256 token are retained; they prove that AWS-LC rejects a structurally valid key below its
+2048-bit verification floor without a fallback.
+
+The matching encrypted `SecretField` fixture is in
+`oceaniam-keybox/tests/fixtures/legacy-rsa-secret.json`. It was sealed by the baseline keybox code
+with test master key
+`0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef`.
+
+SHA-256:
+
+- `private-key.pkcs8.pem`: `5a3917671762544b2d57795410140d26f0a6e890a5025ea764d2779d38c73b8e`
+- `private-key.pkcs1.der`: `23550e5285877c0a4f7e813e0e3db11ae19fcee1dfbdd3898d35ed306483383b`
+- `public-key.pkcs1.der`: `a616d05c5b7429eaf1ccbcbfb6819b17e01866072d4ed233dd0a360aa9f6b559`
+- `public-jwk.json`: `d69a89ee1a8d16f0d08769b45d1a94995a154c552ea967f950d414df5d7276dd`
+- `tokens.json`: `1c6f2dfe6fdc7ab13b4cf239c61deff4e29ccc3e3e812daaa18dcdfc0418cea1`
+- `unrelated-public-key.pkcs1.der`: `01f0b36e826c00f948e41e6e4f3bc82e48c9650a277dc0697e7b984d92304d39`
+- `unsupported-1024-public-key.pkcs1.der`: `2646c7b73c564e60426e5f8a8b7199d439269f458da0585fa84a4c12784719f9`
+- `unsupported-1024-public-jwk.json`: `287b4b272c8ce184ffb4920026f7700e4074a07b0b8df9a0d74c48bca90cdbe1`
+- `unsupported-1024-rs256.jwt`: `492495a0ba553d22ce752a5d170b27f71772b7966a65ab10674892f19eb75d59`
+- matching encrypted secret: `d3e0138aaf67ea0d5081ed5cd16fc923537701d5f4c163ffbcb312b2e1c71f47`

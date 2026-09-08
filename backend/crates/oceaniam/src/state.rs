@@ -82,6 +82,8 @@ impl AppState {
         application_secret_keyring: Arc<ApplicationSecretKeyring>,
         cookie: CookieConfig,
     ) -> Result<Self, Error> {
+        oceaniam_crypto::initialize_jwt_provider()?;
+
         let keybox = ManagedKeyBoxes::new(database.clone(), master_key.clone());
 
         initial_system_keybox(keybox.clone(), &database, master_key.clone()).await?;
@@ -144,11 +146,11 @@ async fn initial_system_jwks(
         .into_iter()
         .map(|it| (it.id, it))
         .collect();
-    let system_jwks = ManagedJwkSet::new(JwkSet::from(KeyBox::with_keys(
+    let system_jwks = ManagedJwkSet::new(JwkSet::try_from(KeyBox::with_keys(
         consts::SYSTEM_TENANT_UUID,
         keys,
         master_key,
-    )));
+    ))?);
 
     if system_jwks.jwks().keys.is_empty() {
         warn!("could not find any jwks, the system may not be functioning correctly.")

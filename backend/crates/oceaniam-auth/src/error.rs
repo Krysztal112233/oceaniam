@@ -4,7 +4,7 @@ use snafu::{Location, Snafu};
 pub enum Error {
     #[snafu(display("{source} at {location}"))]
     Jwt {
-        source: jsonwebtoken::errors::Error,
+        source: oceaniam_crypto::JwtError,
         location: Location,
     },
 
@@ -15,8 +15,8 @@ pub enum Error {
     Internal { msg: String, location: Location },
 }
 
-impl From<jsonwebtoken::errors::Error> for Error {
-    fn from(source: jsonwebtoken::errors::Error) -> Self {
+impl From<oceaniam_crypto::JwtError> for Error {
+    fn from(source: oceaniam_crypto::JwtError) -> Self {
         Error::Jwt {
             source,
             location: snafu::location!(),

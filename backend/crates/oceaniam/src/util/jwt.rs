@@ -89,3 +89,26 @@ pub(crate) async fn check_jti_not_revoked(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use axum::http::{Request, StatusCode, header};
+
+    use super::extract_bearer_token;
+
+    // NOTE: AI-generated test
+    #[test]
+    fn bearer_token_without_key_id_is_rejected_at_extraction() {
+        let token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.e30.signature";
+        let (parts, _) = Request::builder()
+            .header(header::AUTHORIZATION, format!("Bearer {token}"))
+            .body(())
+            .expect("construct bearer request")
+            .into_parts();
+
+        assert!(matches!(
+            extract_bearer_token(&parts),
+            Err(StatusCode::BAD_REQUEST)
+        ));
+    }
+}

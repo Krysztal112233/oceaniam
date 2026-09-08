@@ -13,7 +13,6 @@ use oceaniam_database::{
 use sea_orm::IntoActiveModel;
 use serde_json::Value;
 use std::{collections::HashMap, sync::Arc};
-use tracing::error;
 use uuid::Uuid;
 
 use crate::{
@@ -401,33 +400,34 @@ impl KeyBox {
     }
 }
 
-impl From<KeyBox> for oceaniam_auth::jwks::JwkSet {
-    /// Converts a KeyBox into a JWK Set (JSON Web Key Set)
+impl TryFrom<KeyBox> for oceaniam_auth::jwks::JwkSet {
+    type Error = Error;
+
+    /// Converts all non-revoked RSA keys into a JWK set.
     ///
-    /// Only includes non-revoked RSA keys. Other key types are ignored.
-    /// Failed conversions are logged but don't stop the process.
-    fn from(value: KeyBox) -> Self {
+    /// Provider-initialization errors fail the whole conversion so an unknown JWT backend cannot
+    /// masquerade as an empty set. Individual unreadable stored keys retain the legacy
+    /// availability behavior: they are logged and skipped without suppressing healthy keys.
+    fn try_from(value: KeyBox) -> Result<Self, Self::Error> {
         let master_key = value.master_key.clone();
-        let keys = value
+        let mut keys = Vec::new();
+
+        for key in value
             .keys
             .values()
-            .filter(|it| it.status != KeyStatus::Revoked)
+            .filter(|key| key.status != KeyStatus::Revoked)
             .cloned()
-            .flat_map(|it| match it.key_alg {
-                sea_orm_active_enums::KeyAlg::Rs256
-                | sea_orm_active_enums::KeyAlg::Rs384
-                | sea_orm_active_enums::KeyAlg::Rs512
-                | sea_orm_active_enums::KeyAlg::Ps256
-                | sea_orm_active_enums::KeyAlg::Ps384
-                | sea_orm_active_enums::KeyAlg::Ps512 => RsaKey::from_key(it, &master_key)
-                    .inspect_err(|e| error!("{e}"))
-                    .map(|it| it.try_into_jwk())
-                    .ok(),
-            })
-            .flatten()
-            .collect();
+        {
+            match RsaKey::from_key(key, &master_key).and_then(TryIntoJwk::try_into_jwk) {
+                Ok(jwk) => keys.push(jwk),
+                Err(error) if error.is_jwt_provider_initialization() => return Err(error),
+                Err(error) => tracing::error!(%error, "failed to publish stored RSA key"),
+            }
+        }
 
-        Self { keys }
+        Ok(Self {
+            keys: keys.into_iter().collect(),
+        })
     }
 }
 
@@ -440,8 +440,8 @@ mod tests {
     use crate::key::rsa_key::RsaKey;
 
     use chrono::{Duration, Utc};
-    use jsonwebtoken::{Algorithm, Header, TokenData, Validation};
     use oceaniam_auth::{
+        Algorithm, Header, TokenData, Validation,
         jwks::JwkSet,
         jwt::{ClaimHelper, JwtCodec, SystemClaim},
     };
@@ -815,6 +815,43 @@ mod tests {
         );
     }
 
+    // NOTE: AI-generated test
+    #[test]
+    fn jwk_set_conversion_preserves_healthy_keys_when_another_key_is_unreadable() {
+        let tenant_id = Uuid::now_v7();
+        let healthy_key_id = Uuid::now_v7();
+        let unreadable_key_id = Uuid::now_v7();
+        let master_key = test_master_key();
+        let now = now_fixed();
+        let options = || KeyOption {
+            created_at: now,
+            activated_at: now,
+            retired_at: now + Duration::days(30),
+            expires_at: now + Duration::days(60),
+        };
+        let healthy = RsaKey::with_bit_size(healthy_key_id, InnerKeyAlg::Rs256, 2048)
+            .expect("generate healthy test RSA key")
+            .try_into_key_model(tenant_id, &master_key, options())
+            .expect("seal healthy test key");
+        let mut unreadable = RsaKey::with_bit_size(unreadable_key_id, InnerKeyAlg::Rs256, 2048)
+            .expect("generate unreadable test RSA key")
+            .try_into_key_model(tenant_id, &master_key, options())
+            .expect("seal unreadable test key");
+        unreadable.secret["ciphertext"] = Value::String("not-base64".to_owned());
+        let keybox = KeyBox::with_keys(
+            tenant_id,
+            HashMap::from([(healthy_key_id, healthy), (unreadable_key_id, unreadable)]),
+            master_key,
+        );
+
+        let jwks = JwkSet::try_from(keybox).expect("unreadable stored key should be skipped");
+        assert_eq!(jwks.keys.len(), 1);
+        assert_eq!(
+            jwks.keys[0].kid.as_deref(),
+            Some(healthy_key_id.to_string()).as_deref()
+        );
+    }
+
     #[test]
     fn test_keybox_into_jwks() {
         let mut keybox = KeyBox::new(Uuid::nil(), test_master_key());
@@ -824,6 +861,6 @@ mod tests {
         keybox.add_key(create_rsa_key()).unwrap();
         keybox.add_key(create_rsa_key()).unwrap();
 
-        let _ = JwkSet::from(keybox);
+        let _ = JwkSet::try_from(keybox).unwrap();
     }
 }

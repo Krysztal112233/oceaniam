@@ -132,7 +132,7 @@ impl ManagedKeyBoxes {
         Ok(self
             .jwks
             .try_get_with(tenant_id, async {
-                Ok(JwkSet::from(self.clone().get_keybox(tenant_id).await?))
+                Ok(JwkSet::try_from(self.clone().get_keybox(tenant_id).await?)?)
             })
             .await?)
     }
@@ -374,8 +374,7 @@ mod tests {
     use std::io::{self, Write};
     use std::sync::Mutex;
 
-    use jsonwebtoken::{Algorithm, TokenData, Validation};
-    use oceaniam_auth::jwt::SystemClaim;
+    use oceaniam_auth::{Algorithm, TokenData, Validation, jwt::SystemClaim};
     use tracing::Instrument as _;
     use tracing_subscriber::fmt::format::FmtSpan;
 
