@@ -7,6 +7,7 @@ use super::sqid::uuid_to_sqid;
 pub fn user_model_to_vo(model: model::users::Model) -> ApplicationUserVO {
     let model::users::Model {
         id,
+        oidc_sub,
         email,
         phone,
         nickname,
@@ -14,6 +15,7 @@ pub fn user_model_to_vo(model: model::users::Model) -> ApplicationUserVO {
     } = model;
     ApplicationUserVO {
         id: uuid_to_sqid(id),
+        oidc_sub: oidc_sub.to_string(),
         email,
         phone,
         nickname,

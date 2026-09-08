@@ -13,6 +13,8 @@ pub struct Model {
     pub phone: Option<String>,
     pub nickname: String,
     pub created_at: DateTimeWithTimeZone,
+    #[sea_orm(unique)]
+    pub oidc_sub: Uuid,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -7,6 +7,8 @@ part 'user.g.dart';
 class ApplicationUser with _$ApplicationUser {
   const factory ApplicationUser({
     required String id,
+    // ignore: invalid_annotation_target
+    @JsonKey(name: 'oidc_sub') required String oidcSub,
     String? email,
     String? phone,
     required String nickname,

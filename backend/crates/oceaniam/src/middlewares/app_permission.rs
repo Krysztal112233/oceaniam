@@ -59,7 +59,7 @@ impl<P: AppPermission> FromRequestParts<AppState> for AppPermissionGuard<P> {
                 Error::with_code(code, "authentication failed")
             })?;
 
-        let subject_id = auth.token.claims.sub;
+        let subject_id = auth.subject_id;
         let application_id = auth.application_id;
 
         let perms = state

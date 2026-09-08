@@ -80,6 +80,7 @@ mod m20260903_163718_create_oidc_clients;
 mod m20260904_031809_alter_oidc_client_types_to_enums;
 mod m20260907_094244_alter_audit_type_create_oidc_client;
 mod m20260907_132433_alter_audit_type_patch_delete_oidc_client;
+mod m20260907_174633_add_users_oidc_sub;
 
 pub struct Migrator;
 
@@ -169,6 +170,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260904_031809_alter_oidc_client_types_to_enums::Migration),
             Box::new(m20260907_094244_alter_audit_type_create_oidc_client::Migration),
             Box::new(m20260907_132433_alter_audit_type_patch_delete_oidc_client::Migration),
+            Box::new(m20260907_174633_add_users_oidc_sub::Migration),
         ]
     }
 }

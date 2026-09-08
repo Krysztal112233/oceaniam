@@ -1,6 +1,11 @@
 //! Integration tests for development accounts (see `docs/design/DEVELOPMENT_ACCOUNTS.md`).
 
-use oceaniam::state::dev_account_expiry::{DevAccountExpirationRow, process_expiration_message};
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+use oceaniam::state::{
+    dev_account_expiry::{DevAccountExpirationRow, process_expiration_message},
+    keybox::{EncodedJwt, SignJwtOptions},
+};
+use oceaniam_auth::jwt::Claim;
 use oceaniam_common::sqid::Sqid;
 use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
 use serde_json::{Value, json};
@@ -11,6 +16,7 @@ use crate::support::{TestApp, spawn_app_with_isolated_schema};
 struct DevAccountFixture {
     tenant_id: String,
     application_id: String,
+    secret_id: String,
     secret: String,
 }
 
@@ -47,6 +53,7 @@ async fn setup_fixture(app: &TestApp, token: &str) -> DevAccountFixture {
     DevAccountFixture {
         tenant_id,
         application_id,
+        secret_id,
         secret,
     }
 }
@@ -100,6 +107,19 @@ async fn api_sign_in(
 
 fn sqid_to_uuid(sqid: &str) -> Uuid {
     Uuid::try_from(sqid.parse::<Sqid>().expect("invalid sqid")).expect("invalid uuid")
+}
+
+fn jwt_subject(jwt: &str) -> Uuid {
+    let payload = jwt
+        .split('.')
+        .nth(1)
+        .expect("jwt payload should be present");
+    let decoded = URL_SAFE_NO_PAD
+        .decode(payload)
+        .expect("jwt payload should be base64url");
+    let claim: Value = serde_json::from_slice(&decoded).expect("jwt payload should be JSON");
+    Uuid::parse_str(claim["sub"].as_str().expect("jwt sub should be present"))
+        .expect("jwt sub should be a UUID")
 }
 
 /// Reads the queue row for a subject from `pgmq.q_dev_account_expiration`.
@@ -164,6 +184,15 @@ async fn create_development_user_then_sign_in_works() {
     let body: Value = resp.json().await.unwrap();
     let user_id = body["id"].as_str().expect("user id should be present");
     assert!(!user_id.is_empty(), "user id should not be empty");
+    let internal_id = sqid_to_uuid(user_id);
+    let oidc_sub = Uuid::parse_str(
+        body["oidc_sub"]
+            .as_str()
+            .expect("oidc_sub should be present"),
+    )
+    .expect("oidc_sub should be a UUID");
+    assert_ne!(oidc_sub, internal_id);
+    assert_eq!(oidc_sub.get_version_num(), 7);
     assert_eq!(body["email"].as_str(), Some("dev@example.com"));
     assert!(
         body["expires_at"].as_str().is_some(),
@@ -179,10 +208,11 @@ async fn create_development_user_then_sign_in_works() {
         .query_one_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
             "SELECT \
-                ABS(EXTRACT(EPOCH FROM expires_at - $1::timestamptz)) < 1 AS matches_response, \
-                EXTRACT(EPOCH FROM expires_at - now())::bigint AS remaining_seconds \
-             FROM subjects WHERE id = $2",
-            [expires_at.into(), sqid_to_uuid(user_id).into()],
+                ABS(EXTRACT(EPOCH FROM subjects.expires_at - $1::timestamptz)) < 1 AS matches_response, \
+                EXTRACT(EPOCH FROM subjects.expires_at - now())::bigint AS remaining_seconds, \
+                users.oidc_sub \
+             FROM subjects JOIN users ON users.id = subjects.id WHERE subjects.id = $2",
+            [expires_at.into(), internal_id.into()],
         ))
         .await
         .unwrap()
@@ -196,14 +226,15 @@ async fn create_development_user_then_sign_in_works() {
         (3595..=3600).contains(&remaining),
         "expires_at should be ~now()+ttl, got remaining={remaining}s"
     );
+    assert_eq!(check.try_get::<Uuid>("", "oidc_sub").unwrap(), oidc_sub);
 
     let signin = api_sign_in(&app, &fixture, "dev@example.com", "DevPassword123!").await;
     assert_eq!(signin.status(), 200, "dev account sign-in should succeed");
     let signin_body: Value = signin.json().await.unwrap();
-    assert!(
-        signin_body["jwt"].as_str().is_some(),
-        "sign-in should return a jwt"
-    );
+    let jwt = signin_body["jwt"]
+        .as_str()
+        .expect("sign-in should return a jwt");
+    assert_eq!(jwt_subject(jwt), oidc_sub);
 }
 
 /// Scenario 2: forcing `expires_at` into the past makes sign-in reject with 401.
@@ -461,6 +492,138 @@ async fn normal_account_sign_in_unaffected() {
     );
     let signin_body: Value = signin.json().await.unwrap();
     assert!(signin_body["jwt"].as_str().is_some());
+}
+
+/// Application JWT subjects resolve through the persisted, application-scoped external subject.
+// NOTE: AI-generated test
+#[tokio::test]
+async fn application_token_uses_oidc_sub_without_internal_id_fallback_or_cross_app_access() {
+    let app = spawn_app_with_isolated_schema().await;
+    let root_token = app.root_signin().await;
+    let fixture = setup_fixture(&app, &root_token).await;
+    let user = app
+        .api_create_user(&root_token, &fixture.tenant_id, &fixture.application_id)
+        .await;
+    let internal_id = sqid_to_uuid(user["id"].as_str().unwrap());
+    let oidc_sub = Uuid::parse_str(user["oidc_sub"].as_str().unwrap()).unwrap();
+    assert_ne!(internal_id, oidc_sub);
+
+    let signin = api_sign_in(&app, &fixture, "test@example.com", "TestPassword123!").await;
+    assert_eq!(signin.status(), 200);
+    let signin_body: Value = signin.json().await.unwrap();
+    let jwt = signin_body["jwt"].as_str().unwrap().to_owned();
+    assert_eq!(jwt_subject(&jwt), oidc_sub);
+
+    let application_uuid = sqid_to_uuid(&fixture.application_id);
+    let tenant_uuid = sqid_to_uuid(&fixture.tenant_id);
+    let configuration = app
+        .state
+        .applications
+        .get_configuration(application_uuid)
+        .await
+        .unwrap();
+    let EncodedJwt { jwt: forged, .. } = app
+        .state
+        .keyboxes
+        .clone()
+        .sign_jwt::<Claim>(
+            internal_id,
+            SignJwtOptions {
+                tenant_id: tenant_uuid,
+                iss: configuration.auth.token.issuer.clone(),
+                aud: configuration.auth.token.audience.clone(),
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        api_refresh(&app, &fixture, &forged).await.status(),
+        400,
+        "a signed token using a new user's internal ID must not fall back to users.id"
+    );
+
+    let sibling = app
+        .api_create_application(&root_token, &fixture.tenant_id)
+        .await;
+    let sibling_id = sibling["application_id"].as_str().unwrap();
+    let bind = app
+        .client
+        .post(app.url(&format!("/secrets/{}/bindings", fixture.secret_id)))
+        .header("Authorization", format!("Bearer {root_token}"))
+        .json(&json!({ "application_id": sibling_id }))
+        .send()
+        .await
+        .unwrap();
+    assert!(bind.status().is_success());
+
+    let cross_application = app
+        .client
+        .post(app.url(&format!(
+            "/tenants/{}/applications/{sibling_id}/tokens/refresh",
+            fixture.tenant_id
+        )))
+        .header("Authorization", format!("Bearer {jwt}"))
+        .header("X-OceanIAM-Application-Secret", &fixture.secret)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(cross_application.status(), 400);
+
+    let refreshed = api_refresh(&app, &fixture, &jwt).await;
+    assert_eq!(refreshed.status(), 200);
+    let refreshed_body: Value = refreshed.json().await.unwrap();
+    let refreshed_jwt = refreshed_body["jwt"].as_str().unwrap().to_owned();
+    assert_eq!(jwt_subject(&refreshed_jwt), oidc_sub);
+    let signout = app
+        .client
+        .delete(app.url(&format!(
+            "/tenants/{}/applications/{}/tokens",
+            fixture.tenant_id, fixture.application_id
+        )))
+        .header("Authorization", format!("Bearer {refreshed_jwt}"))
+        .header("X-OceanIAM-Application-Secret", &fixture.secret)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(signout.status(), 200);
+
+    app.database()
+        .await
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE users SET oidc_sub = id WHERE id = $1",
+            [internal_id.into()],
+        ))
+        .await
+        .unwrap();
+    let EncodedJwt {
+        jwt: backfilled_token,
+        ..
+    } = app
+        .state
+        .keyboxes
+        .clone()
+        .sign_jwt::<Claim>(
+            internal_id,
+            SignJwtOptions {
+                tenant_id: tenant_uuid,
+                iss: configuration.auth.token.issuer,
+                aud: configuration.auth.token.audience,
+            },
+        )
+        .await
+        .unwrap();
+    let backfilled_refresh = api_refresh(&app, &fixture, &backfilled_token).await;
+    assert_eq!(
+        backfilled_refresh.status(),
+        200,
+        "a pre-migration subject equal to users.id must retain token continuity"
+    );
+    let backfilled_body: Value = backfilled_refresh.json().await.unwrap();
+    assert_eq!(
+        jwt_subject(backfilled_body["jwt"].as_str().unwrap()),
+        internal_id
+    );
 }
 
 /// Scenario 6: token refresh succeeds before expiry and is rejected with 401 after the account

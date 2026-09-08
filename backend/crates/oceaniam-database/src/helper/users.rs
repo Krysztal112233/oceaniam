@@ -79,6 +79,12 @@ pub trait UserHelper {
         let subject =
             Subjects::create_subjects(id, application_id, SubjectTypeEnum::User, database).await?;
 
+        let oidc_sub = loop {
+            let candidate = Uuid::now_v7();
+            if candidate != id {
+                break candidate;
+            }
+        };
         let user = UserModel {
             id: subject.id,
             application_id,
@@ -86,6 +92,7 @@ pub trait UserHelper {
             phone,
             nickname,
             created_at: chrono::Utc::now().into(),
+            oidc_sub,
         }
         .into_active_model()
         .insert(database)
@@ -162,6 +169,35 @@ pub trait UserHelper {
                 Error::with_code(
                     StatusCode::NOT_FOUND,
                     format!("user_id={user_id} not found under application_id={application_id}"),
+                )
+            })
+    }
+
+    #[tracing::instrument(
+        level = "info",
+        name = "db.users.get_user_by_oidc_sub",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
+    async fn get_user_by_oidc_sub(
+        application_id: Uuid,
+        oidc_sub: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<UserModel, Error> {
+        use model::users::Column::*;
+
+        Users::find()
+            .filter(
+                Condition::all()
+                    .add(ApplicationId.eq(application_id))
+                    .add(OidcSub.eq(oidc_sub)),
+            )
+            .one(database)
+            .await?
+            .ok_or_else(|| {
+                Error::with_code(
+                    StatusCode::NOT_FOUND,
+                    format!("oidc_sub={oidc_sub} not found under application_id={application_id}"),
                 )
             })
     }

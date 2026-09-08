@@ -1,4 +1,4 @@
-use sea_orm::TransactionSession as _;
+use sea_orm::{TransactionSession as _, TransactionTrait as _};
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
@@ -560,9 +560,11 @@ impl ApplicationUsers {
         opts: CreateUserOpts,
         password: impl Into<String>,
     ) -> Result<UserModel, Error> {
+        let transaction = self.database.begin().await?;
         let user = self
-            .create_user_in_tx(application_id, opts, password, &self.database)
+            .create_user_in_tx(application_id, opts, password, &transaction)
             .await?;
+        transaction.commit().await?;
 
         Ok(user)
     }

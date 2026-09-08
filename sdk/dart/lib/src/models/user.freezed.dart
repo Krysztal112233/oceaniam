@@ -20,7 +20,10 @@ ApplicationUser _$ApplicationUserFromJson(Map<String, dynamic> json) {
 
 /// @nodoc
 mixin _$ApplicationUser {
-  String get id => throw _privateConstructorUsedError;
+  String get id =>
+      throw _privateConstructorUsedError; // ignore: invalid_annotation_target
+  @JsonKey(name: 'oidc_sub')
+  String get oidcSub => throw _privateConstructorUsedError;
   String? get email => throw _privateConstructorUsedError;
   String? get phone => throw _privateConstructorUsedError;
   String get nickname => throw _privateConstructorUsedError;
@@ -41,7 +44,12 @@ abstract class $ApplicationUserCopyWith<$Res> {
           ApplicationUser value, $Res Function(ApplicationUser) then) =
       _$ApplicationUserCopyWithImpl<$Res, ApplicationUser>;
   @useResult
-  $Res call({String id, String? email, String? phone, String nickname});
+  $Res call(
+      {String id,
+      @JsonKey(name: 'oidc_sub') String oidcSub,
+      String? email,
+      String? phone,
+      String nickname});
 }
 
 /// @nodoc
@@ -60,6 +68,7 @@ class _$ApplicationUserCopyWithImpl<$Res, $Val extends ApplicationUser>
   @override
   $Res call({
     Object? id = null,
+    Object? oidcSub = null,
     Object? email = freezed,
     Object? phone = freezed,
     Object? nickname = null,
@@ -68,6 +77,10 @@ class _$ApplicationUserCopyWithImpl<$Res, $Val extends ApplicationUser>
       id: null == id
           ? _value.id
           : id // ignore: cast_nullable_to_non_nullable
+              as String,
+      oidcSub: null == oidcSub
+          ? _value.oidcSub
+          : oidcSub // ignore: cast_nullable_to_non_nullable
               as String,
       email: freezed == email
           ? _value.email
@@ -93,7 +106,12 @@ abstract class _$$ApplicationUserImplCopyWith<$Res>
       __$$ApplicationUserImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({String id, String? email, String? phone, String nickname});
+  $Res call(
+      {String id,
+      @JsonKey(name: 'oidc_sub') String oidcSub,
+      String? email,
+      String? phone,
+      String nickname});
 }
 
 /// @nodoc
@@ -110,6 +128,7 @@ class __$$ApplicationUserImplCopyWithImpl<$Res>
   @override
   $Res call({
     Object? id = null,
+    Object? oidcSub = null,
     Object? email = freezed,
     Object? phone = freezed,
     Object? nickname = null,
@@ -118,6 +137,10 @@ class __$$ApplicationUserImplCopyWithImpl<$Res>
       id: null == id
           ? _value.id
           : id // ignore: cast_nullable_to_non_nullable
+              as String,
+      oidcSub: null == oidcSub
+          ? _value.oidcSub
+          : oidcSub // ignore: cast_nullable_to_non_nullable
               as String,
       email: freezed == email
           ? _value.email
@@ -139,13 +162,21 @@ class __$$ApplicationUserImplCopyWithImpl<$Res>
 @JsonSerializable()
 class _$ApplicationUserImpl implements _ApplicationUser {
   const _$ApplicationUserImpl(
-      {required this.id, this.email, this.phone, required this.nickname});
+      {required this.id,
+      @JsonKey(name: 'oidc_sub') required this.oidcSub,
+      this.email,
+      this.phone,
+      required this.nickname});
 
   factory _$ApplicationUserImpl.fromJson(Map<String, dynamic> json) =>
       _$$ApplicationUserImplFromJson(json);
 
   @override
   final String id;
+// ignore: invalid_annotation_target
+  @override
+  @JsonKey(name: 'oidc_sub')
+  final String oidcSub;
   @override
   final String? email;
   @override
@@ -155,7 +186,7 @@ class _$ApplicationUserImpl implements _ApplicationUser {
 
   @override
   String toString() {
-    return 'ApplicationUser(id: $id, email: $email, phone: $phone, nickname: $nickname)';
+    return 'ApplicationUser(id: $id, oidcSub: $oidcSub, email: $email, phone: $phone, nickname: $nickname)';
   }
 
   @override
@@ -164,6 +195,7 @@ class _$ApplicationUserImpl implements _ApplicationUser {
         (other.runtimeType == runtimeType &&
             other is _$ApplicationUserImpl &&
             (identical(other.id, id) || other.id == id) &&
+            (identical(other.oidcSub, oidcSub) || other.oidcSub == oidcSub) &&
             (identical(other.email, email) || other.email == email) &&
             (identical(other.phone, phone) || other.phone == phone) &&
             (identical(other.nickname, nickname) ||
@@ -172,7 +204,8 @@ class _$ApplicationUserImpl implements _ApplicationUser {
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, id, email, phone, nickname);
+  int get hashCode =>
+      Object.hash(runtimeType, id, oidcSub, email, phone, nickname);
 
   /// Create a copy of ApplicationUser
   /// with the given fields replaced by the non-null parameter values.
@@ -194,6 +227,7 @@ class _$ApplicationUserImpl implements _ApplicationUser {
 abstract class _ApplicationUser implements ApplicationUser {
   const factory _ApplicationUser(
       {required final String id,
+      @JsonKey(name: 'oidc_sub') required final String oidcSub,
       final String? email,
       final String? phone,
       required final String nickname}) = _$ApplicationUserImpl;
@@ -202,7 +236,10 @@ abstract class _ApplicationUser implements ApplicationUser {
       _$ApplicationUserImpl.fromJson;
 
   @override
-  String get id;
+  String get id; // ignore: invalid_annotation_target
+  @override
+  @JsonKey(name: 'oidc_sub')
+  String get oidcSub;
   @override
   String? get email;
   @override

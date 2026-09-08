@@ -339,7 +339,7 @@ pub async fn search_application_users(
             ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("tenant_id" = String, Path, description = "Tenant ID"),
             ("application_id" = String, Path, description = "Application ID"),
-            ("user_id" = String, Path, description = "User ID"),
+            ("user_id" = String, Path, description = "User resource ID (Sqid; not oidc_sub)"),
         ),
         responses(
             (status = 200, body = ApiResponse<ApplicationUserVO>),
@@ -674,7 +674,7 @@ async fn create_permanent_user(
             ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("tenant_id" = String, Path, description = "Tenant ID"),
             ("application_id" = String, Path, description = "Application ID"),
-            ("user_id" = String, Path, description = "User ID"),
+            ("user_id" = String, Path, description = "User resource ID (Sqid; not oidc_sub)"),
         ),
         request_body = PatchApplicationUserRequest,
         responses(
@@ -764,7 +764,7 @@ pub async fn patch_application_user(
             ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("tenant_id" = String, Path, description = "Tenant ID"),
             ("application_id" = String, Path, description = "Application ID"),
-            ("user_id" = String, Path, description = "User ID"),
+            ("user_id" = String, Path, description = "User resource ID (Sqid; not oidc_sub)"),
         ),
         request_body = PatchApplicationUserCredentialsRequest,
         responses(
@@ -866,7 +866,7 @@ pub async fn patch_application_user_credentials(
             ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
             ("tenant_id" = String, Path, description = "Tenant ID"),
             ("application_id" = String, Path, description = "Application ID"),
-            ("user_id" = String, Path, description = "User ID"),
+            ("user_id" = String, Path, description = "User resource ID (Sqid; not oidc_sub)"),
         ),
         responses(
             (status = 200, body = ApiResponse<Empty>),
@@ -969,7 +969,7 @@ pub async fn delete_application_user(
         ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
         ("tenant_id" = String, Path, description = "Tenant ID"),
         ("application_id" = String, Path, description = "Application ID"),
-        ("user_id" = String, Path, description = "User ID"),
+        ("user_id" = String, Path, description = "User resource ID (Sqid; not oidc_sub)"),
     ),
     responses(
         (status = 200, body = ApiResponse<EnrollTotpResponse>),
@@ -1039,7 +1039,7 @@ pub async fn enroll_totp(
         ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
         ("tenant_id" = String, Path, description = "Tenant ID"),
         ("application_id" = String, Path, description = "Application ID"),
-        ("user_id" = String, Path, description = "User ID"),
+        ("user_id" = String, Path, description = "User resource ID (Sqid; not oidc_sub)"),
     ),
     request_body = VerifyTotpRequest,
     responses(
@@ -1096,7 +1096,7 @@ pub async fn verify_totp_enrollment(
         ("X-OceanIAM-Application-Secret" = String, Header, description = "Application secret"),
         ("tenant_id" = String, Path, description = "Tenant ID"),
         ("application_id" = String, Path, description = "Application ID"),
-        ("user_id" = String, Path, description = "User ID"),
+        ("user_id" = String, Path, description = "User resource ID (Sqid; not oidc_sub)"),
     ),
     responses(
         (status = 200, body = ApiResponse<Empty>),

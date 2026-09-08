@@ -74,7 +74,8 @@ pub async fn refresh_application_token(
     app: ResolvedApplication,
 ) -> AppResult<SigninResponseOrChallenge> {
     let jti = auth.token.claims.jti;
-    let user_id = auth.token.claims.sub;
+    let oidc_sub = auth.token.claims.sub;
+    let user_id = auth.subject_id;
     let application_id = app.id();
 
     Span::current().tap(|it| {
@@ -132,7 +133,7 @@ pub async fn refresh_application_token(
 
     let EncodedJwt { jwt, claim } = keyboxes
         .sign_jwt::<Claim>(
-            user_id,
+            oidc_sub,
             SignJwtOptions {
                 tenant_id: app.tenant_id(),
                 iss: authentication.token.issuer,

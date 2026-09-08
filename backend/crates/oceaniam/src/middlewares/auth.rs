@@ -9,12 +9,12 @@ use oceaniam_auth::{
     jwt::{Claim, SystemClaim},
 };
 use oceaniam_common::sqid::Sqid;
+use oceaniam_database::{helper::users::UserHelper, model::prelude::Users};
 use oceaniam_telemetry::record_request_user;
 use tap::Tap;
 use uuid::Uuid;
 
 use crate::state::AppState;
-use crate::state::applications::UserIdentifier;
 use crate::util::jwt;
 
 #[derive(Debug, Clone)]
@@ -92,6 +92,8 @@ impl FromRequestParts<AppState> for PlatformAuthGuard {
 #[derive(Debug, Clone)]
 pub struct ApplicationAuthGuard {
     pub token: TokenData<Claim>,
+    /// Internal `users.id` / `subjects.id` resolved from the external JWT subject.
+    pub subject_id: Uuid,
     pub tenant_id: Uuid,
     pub application_id: Uuid,
 }
@@ -105,6 +107,7 @@ impl FromRequestParts<AppState> for ApplicationAuthGuard {
             keyboxes,
             applications,
             revoked_jwt,
+            database,
             ..
         }: &AppState,
     ) -> Result<Self, Self::Rejection> {
@@ -119,11 +122,6 @@ impl FromRequestParts<AppState> for ApplicationAuthGuard {
             .and_then(|id| Uuid::try_from(id).ok())
             .ok_or(StatusCode::BAD_REQUEST)?;
 
-        let jwks = keyboxes
-            .get_jwks(tenant_id)
-            .await
-            .map_err(|_| StatusCode::BAD_REQUEST)?;
-
         let application_id = path_segments
             .iter()
             .position(|&segment| segment == "applications")
@@ -132,6 +130,18 @@ impl FromRequestParts<AppState> for ApplicationAuthGuard {
             .and_then(|id| Uuid::try_from(id).ok())
             .ok_or(StatusCode::BAD_REQUEST)?;
 
+        let application = applications
+            .get_model(application_id)
+            .await
+            .map_err(|_| StatusCode::BAD_REQUEST)?;
+        if application.tenant_id != tenant_id {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+
+        let jwks = keyboxes
+            .get_jwks(tenant_id)
+            .await
+            .map_err(|_| StatusCode::BAD_REQUEST)?;
         let config = applications
             .get_configuration(application_id)
             .await
@@ -157,15 +167,16 @@ impl FromRequestParts<AppState> for ApplicationAuthGuard {
 
         jwt::check_jti_not_revoked(revoked_jwt, token.claims.jti).await?;
 
-        // NOTE: Defence-in-depth — confirm the subject belongs to the application.
-        let _ = applications
-            .find_user_by(application_id, UserIdentifier::Id(token.claims.sub))
+        // Resolve the external JWT subject through the application-scoped identity boundary.
+        // There is intentionally no fallback to the internal primary key namespace.
+        let user = Users::get_user_by_oidc_sub(application_id, token.claims.sub, database)
             .await
             .map_err(|_| StatusCode::BAD_REQUEST)?;
-        record_request_user(token.claims.sub, false);
+        record_request_user(user.id, false);
 
         Ok(Self {
             token,
+            subject_id: user.id,
             tenant_id,
             application_id,
         })

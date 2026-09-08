@@ -22,7 +22,7 @@ where
 pub struct Claim {
     /// Subject
     ///
-    /// The subject of the token, typically the user's unique identifier (e.g., UUID)
+    /// The user's stable external subject (`users.oidc_sub`), serialized as a UUID.
     pub sub: Uuid,
 
     /// Expiration Time

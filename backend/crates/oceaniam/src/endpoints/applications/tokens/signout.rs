@@ -50,7 +50,7 @@ pub async fn delete_application_token(
     app: ResolvedApplication,
 ) -> Result<ApiResponse<SignoutResponse>, Error> {
     let jti = auth.token.claims.jti;
-    let user_id = auth.token.claims.sub;
+    let user_id = auth.subject_id;
     let app_id = app.id();
     Span::current().tap(|it| {
         it.record("user_id", field::display(&user_id))

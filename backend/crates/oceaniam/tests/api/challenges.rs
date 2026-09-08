@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use oceaniam_common::sqid::Sqid;
 use uuid::Uuid;
 
@@ -18,6 +19,9 @@ async fn create_email_totp_challenge_then_verify_returns_jwt() {
         .expect("application id should be present");
     let user = app.api_create_user(&token, tenant_id, application_id).await;
     let subject_id = user["id"].as_str().expect("user id should be present");
+    let oidc_sub = user["oidc_sub"]
+        .as_str()
+        .expect("oidc_sub should be present");
     let subject_uuid: Uuid = Sqid::from_str(subject_id)
         .expect("user id should be a Sqid")
         .try_into()
@@ -78,5 +82,14 @@ async fn create_email_totp_challenge_then_verify_returns_jwt() {
     let signin: serde_json::Value =
         serde_json::from_str(&body).expect("verify challenge response parse failed");
     let jwt = signin["jwt"].as_str().expect("jwt should be present");
-    assert!(!jwt.is_empty(), "jwt should not be empty");
+    let payload = jwt
+        .split('.')
+        .nth(1)
+        .expect("jwt payload should be present");
+    let payload = URL_SAFE_NO_PAD
+        .decode(payload)
+        .expect("jwt payload should be base64url");
+    let claim: serde_json::Value =
+        serde_json::from_slice(&payload).expect("jwt payload should be JSON");
+    assert_eq!(claim["sub"].as_str(), Some(oidc_sub));
 }

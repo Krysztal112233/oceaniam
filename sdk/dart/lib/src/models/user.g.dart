@@ -10,6 +10,7 @@ _$ApplicationUserImpl _$$ApplicationUserImplFromJson(
         Map<String, dynamic> json) =>
     _$ApplicationUserImpl(
       id: json['id'] as String,
+      oidcSub: json['oidc_sub'] as String,
       email: json['email'] as String?,
       phone: json['phone'] as String?,
       nickname: json['nickname'] as String,
@@ -19,6 +20,7 @@ Map<String, dynamic> _$$ApplicationUserImplToJson(
         _$ApplicationUserImpl instance) =>
     <String, dynamic>{
       'id': instance.id,
+      'oidc_sub': instance.oidcSub,
       'email': instance.email,
       'phone': instance.phone,
       'nickname': instance.nickname,

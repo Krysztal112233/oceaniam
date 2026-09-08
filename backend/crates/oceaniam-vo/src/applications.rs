@@ -246,6 +246,7 @@ pub struct SearchApplicationUsersQuery {
     pub by_email: Option<String>,
     #[garde(custom(forbid_search_wildcards))]
     pub by_phone: Option<String>,
+    /// Exact management resource Sqid. This is not the external OIDC subject.
     #[garde(skip)]
     pub by_id: Option<String>,
 }
@@ -266,7 +267,10 @@ impl Default for SearchApplicationUsersQuery {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct ApplicationUserVO {
+    /// Management resource ID encoded as a Sqid. Use this value in OceanIAM API paths.
     pub id: String,
+    /// Stable external subject. Treat this canonical UUID text as an opaque string.
+    pub oidc_sub: String,
     pub email: Option<String>,
     pub phone: Option<String>,
     pub nickname: String,

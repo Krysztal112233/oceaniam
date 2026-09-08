@@ -26,8 +26,8 @@ use super::ResolvedApplication;
 use crate::{
     error::{AppResult, Error},
     middlewares::{application::AdminJwtOrApplicationSecretGuard, auth::TokenDispatchMethodGuard},
-    state::AppState,
     state::keybox::{EncodedJwt, SignJwtOptions},
+    state::{AppState, applications::UserIdentifier},
     util::token_response::dispatch_signin_response,
 };
 
@@ -280,6 +280,18 @@ pub async fn create_application_challenge_attempt(
             )
         })?;
 
+    let user = applications
+        .find_user_by(application_id, UserIdentifier::Id(user_id))
+        .await
+        .inspect_err(|e| {
+            error!(
+                %application_id,
+                %user_id,
+                %challenge_id,
+                error = %e,
+                "failed to resolve challenge subject"
+            )
+        })?;
     let ApplicationConfiguration {
         auth: authentication,
         ..
@@ -287,7 +299,7 @@ pub async fn create_application_challenge_attempt(
 
     let EncodedJwt { jwt, claim } = keyboxes
         .sign_jwt::<Claim>(
-            user_id,
+            user.oidc_sub,
             SignJwtOptions {
                 tenant_id: app.tenant_id(),
                 iss: authentication.token.issuer,

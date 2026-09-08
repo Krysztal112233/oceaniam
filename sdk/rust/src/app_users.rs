@@ -151,3 +151,73 @@ impl OceanIamClient {
         self.send_empty(req).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use tokio::{
+        io::{AsyncReadExt, AsyncWriteExt},
+        net::TcpListener,
+    };
+
+    use super::OceanIamClient;
+    use crate::error::Error;
+
+    async fn serve_user_response(
+        body: &'static str,
+    ) -> (OceanIamClient, tokio::task::JoinHandle<String>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = vec![0; 4096];
+            let read = stream.read(&mut request).await.unwrap();
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            stream.write_all(response.as_bytes()).await.unwrap();
+            String::from_utf8(request[..read].to_vec()).unwrap()
+        });
+        let client = OceanIamClient::new(format!("http://{address}"))
+            .with_token_getter(|| Some("test-token".to_owned()));
+        (client, server)
+    }
+
+    // NOTE: AI-generated test
+    #[tokio::test]
+    async fn get_application_user_preserves_resource_id_and_oidc_sub() {
+        let (client, server) = serve_user_response(
+            r#"{"id":"user-sqid","oidc_sub":"018f3f47-7b2f-7000-8000-000000000001","email":"user@example.com","phone":null,"nickname":"user"}"#,
+        )
+        .await;
+
+        let user = client
+            .get_application_user("tenant", "application", "user-sqid")
+            .await
+            .unwrap();
+        assert_eq!(user.id, "user-sqid");
+        assert_eq!(user.oidc_sub, "018f3f47-7b2f-7000-8000-000000000001");
+        let request = server.await.unwrap();
+        assert!(
+            request.starts_with(
+                "GET /tenants/tenant/applications/application/users/user-sqid HTTP/1.1"
+            )
+        );
+    }
+
+    // NOTE: AI-generated test
+    #[tokio::test]
+    async fn get_application_user_rejects_response_without_oidc_sub() {
+        let (client, server) = serve_user_response(
+            r#"{"id":"user-sqid","email":"user@example.com","phone":null,"nickname":"user"}"#,
+        )
+        .await;
+
+        let error = client
+            .get_application_user("tenant", "application", "user-sqid")
+            .await
+            .expect_err("oidc_sub is a required response field");
+        assert!(matches!(error, Error::Json { .. }));
+        server.await.unwrap();
+    }
+}

@@ -86,14 +86,36 @@ void main() {
     test('ApplicationUser fromJson', () {
       final json = {
         'id': 'u1',
+        'oidc_sub': '018f3f47-7b2f-7000-8000-000000000001',
         'email': 'user@example.com',
         'phone': null,
         'nickname': 'testuser',
       };
       final user = ApplicationUser.fromJson(json);
       expect(user.id, 'u1');
+      expect(user.oidcSub, '018f3f47-7b2f-7000-8000-000000000001');
       expect(user.email, 'user@example.com');
       expect(user.nickname, 'testuser');
+      expect(user.toJson()['oidc_sub'], user.oidcSub);
+      expect(
+        () => ApplicationUser.fromJson({
+          'id': 'u1',
+          'email': null,
+          'phone': null,
+          'nickname': 'testuser',
+        }),
+        throwsA(isA<TypeError>()),
+      );
+      expect(
+        () => ApplicationUser.fromJson({
+          'id': 'u1',
+          'oidc_sub': null,
+          'email': null,
+          'phone': null,
+          'nickname': 'testuser',
+        }),
+        throwsA(isA<TypeError>()),
+      );
     });
 
     test('Secret fromJson', () {
@@ -298,6 +320,7 @@ void main() {
               'items': [
                 {
                   'id': 'u1',
+                  'oidc_sub': '018f3f47-7b2f-7000-8000-000000000001',
                   'email': 'alice@example.com',
                   'phone': null,
                   'nickname': 'alice',
@@ -544,6 +567,10 @@ void main() {
       );
       expect(result.items.length, 1);
       expect(result.items[0].nickname, 'alice');
+      expect(
+        result.items[0].oidcSub,
+        '018f3f47-7b2f-7000-8000-000000000001',
+      );
       expect(result.pageInfo.total, 1);
       expect(result.pageInfo.hasNext, false);
     });

@@ -183,7 +183,7 @@ pub async fn create_application_token(
 
     let EncodedJwt { jwt, claim } = keyboxes
         .sign_jwt::<Claim>(
-            user.id,
+            user.oidc_sub,
             SignJwtOptions {
                 tenant_id: app.tenant_id(),
                 iss: authentication.token.issuer,
