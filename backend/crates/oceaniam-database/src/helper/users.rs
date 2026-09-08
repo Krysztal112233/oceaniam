@@ -5,8 +5,8 @@ use sea_orm::TransactionSession as _;
 use sea_orm::{
     ActiveModelTrait,
     ActiveValue::Set,
-    ColumnTrait, Condition, EntityTrait, IntoActiveModel, Iterable, PaginatorTrait, QueryFilter,
-    QueryOrder, QuerySelect,
+    ColumnTrait, Condition, EntityTrait, FromQueryResult, IntoActiveModel, Iterable,
+    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
     sea_query::{Expr, extension::postgres::PgExpr},
 };
 use tap::Pipe;
@@ -46,6 +46,16 @@ pub struct CreateUserResult {
 pub struct UserContactOpts {
     pub email: Option<String>,
     pub phone: Option<String>,
+}
+
+/// Minimal binding between an external OIDC subject and its internal identity.
+///
+/// It deliberately excludes personally identifiable profile fields such as email and phone.
+#[derive(Clone, Copy, Debug, Eq, FromQueryResult, PartialEq)]
+pub struct OidcSubjectBinding {
+    pub subject_id: Uuid,
+    pub application_id: Uuid,
+    pub oidc_sub: Uuid,
 }
 
 #[async_trait::async_trait]
@@ -175,23 +185,28 @@ pub trait UserHelper {
 
     #[tracing::instrument(
         level = "info",
-        name = "db.users.get_user_by_oidc_sub",
+        name = "db.users.get_oidc_subject_binding",
         skip_all,
         fields(otel.kind = "internal")
     )]
-    async fn get_user_by_oidc_sub(
+    async fn get_oidc_subject_binding(
         application_id: Uuid,
         oidc_sub: Uuid,
         database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<UserModel, Error> {
+    ) -> Result<OidcSubjectBinding, Error> {
         use model::users::Column::*;
 
         Users::find()
+            .select_only()
+            .column_as(Id, "subject_id")
+            .column(ApplicationId)
+            .column(OidcSub)
             .filter(
                 Condition::all()
                     .add(ApplicationId.eq(application_id))
                     .add(OidcSub.eq(oidc_sub)),
             )
+            .into_model::<OidcSubjectBinding>()
             .one(database)
             .await?
             .ok_or_else(|| {

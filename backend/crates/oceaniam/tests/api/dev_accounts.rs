@@ -7,6 +7,7 @@ use oceaniam::state::{
 };
 use oceaniam_auth::jwt::Claim;
 use oceaniam_common::sqid::Sqid;
+use oceaniam_database::{helper::users::UserHelper, model::prelude::Users};
 use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
 use serde_json::{Value, json};
 use uuid::Uuid;
@@ -508,13 +509,21 @@ async fn application_token_uses_oidc_sub_without_internal_id_fallback_or_cross_a
     let oidc_sub = Uuid::parse_str(user["oidc_sub"].as_str().unwrap()).unwrap();
     assert_ne!(internal_id, oidc_sub);
 
+    let application_uuid = sqid_to_uuid(&fixture.application_id);
+    let database = app.database().await;
+    let binding = Users::get_oidc_subject_binding(application_uuid, oidc_sub, &database)
+        .await
+        .unwrap();
+    assert_eq!(binding.subject_id, internal_id);
+    assert_eq!(binding.application_id, application_uuid);
+    assert_eq!(binding.oidc_sub, oidc_sub);
+
     let signin = api_sign_in(&app, &fixture, "test@example.com", "TestPassword123!").await;
     assert_eq!(signin.status(), 200);
     let signin_body: Value = signin.json().await.unwrap();
     let jwt = signin_body["jwt"].as_str().unwrap().to_owned();
     assert_eq!(jwt_subject(&jwt), oidc_sub);
 
-    let application_uuid = sqid_to_uuid(&fixture.application_id);
     let tenant_uuid = sqid_to_uuid(&fixture.tenant_id);
     let configuration = app
         .state
