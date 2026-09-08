@@ -169,14 +169,15 @@ impl FromRequestParts<AppState> for ApplicationAuthGuard {
 
         // Resolve the external JWT subject through the application-scoped identity boundary.
         // There is intentionally no fallback to the internal primary key namespace.
-        let binding = Users::get_oidc_subject_binding(application_id, token.claims.sub, database)
-            .await
-            .map_err(|_| StatusCode::BAD_REQUEST)?;
-        record_request_user(binding.subject_id, false);
+        let resolved_subject =
+            Users::resolve_oidc_subject(application_id, token.claims.sub, database)
+                .await
+                .map_err(|_| StatusCode::BAD_REQUEST)?;
+        record_request_user(resolved_subject.subject_id, false);
 
         Ok(Self {
             token,
-            subject_id: binding.subject_id,
+            subject_id: resolved_subject.subject_id,
             tenant_id,
             application_id,
         })

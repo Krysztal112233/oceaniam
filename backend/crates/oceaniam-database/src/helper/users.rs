@@ -48,11 +48,11 @@ pub struct UserContactOpts {
     pub phone: Option<String>,
 }
 
-/// Minimal binding between an external OIDC subject and its internal identity.
+/// Resolved identity for an external OIDC subject.
 ///
 /// It deliberately excludes personally identifiable profile fields such as email and phone.
 #[derive(Clone, Copy, Debug, Eq, FromQueryResult, PartialEq)]
-pub struct OidcSubjectBinding {
+pub struct ResolvedOidcSubject {
     pub subject_id: Uuid,
     pub application_id: Uuid,
     pub oidc_sub: Uuid,
@@ -185,15 +185,15 @@ pub trait UserHelper {
 
     #[tracing::instrument(
         level = "info",
-        name = "db.users.get_oidc_subject_binding",
+        name = "db.users.resolve_oidc_subject",
         skip_all,
         fields(otel.kind = "internal")
     )]
-    async fn get_oidc_subject_binding(
+    async fn resolve_oidc_subject(
         application_id: Uuid,
         oidc_sub: Uuid,
         database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<OidcSubjectBinding, Error> {
+    ) -> Result<ResolvedOidcSubject, Error> {
         use model::users::Column::*;
 
         Users::find()
@@ -206,7 +206,7 @@ pub trait UserHelper {
                     .add(ApplicationId.eq(application_id))
                     .add(OidcSub.eq(oidc_sub)),
             )
-            .into_model::<OidcSubjectBinding>()
+            .into_model::<ResolvedOidcSubject>()
             .one(database)
             .await?
             .ok_or_else(|| {

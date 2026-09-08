@@ -511,12 +511,12 @@ async fn application_token_uses_oidc_sub_without_internal_id_fallback_or_cross_a
 
     let application_uuid = sqid_to_uuid(&fixture.application_id);
     let database = app.database().await;
-    let binding = Users::get_oidc_subject_binding(application_uuid, oidc_sub, &database)
+    let resolved_subject = Users::resolve_oidc_subject(application_uuid, oidc_sub, &database)
         .await
         .unwrap();
-    assert_eq!(binding.subject_id, internal_id);
-    assert_eq!(binding.application_id, application_uuid);
-    assert_eq!(binding.oidc_sub, oidc_sub);
+    assert_eq!(resolved_subject.subject_id, internal_id);
+    assert_eq!(resolved_subject.application_id, application_uuid);
+    assert_eq!(resolved_subject.oidc_sub, oidc_sub);
 
     let signin = api_sign_in(&app, &fixture, "test@example.com", "TestPassword123!").await;
     assert_eq!(signin.status(), 200);
