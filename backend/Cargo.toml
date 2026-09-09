@@ -27,6 +27,7 @@ edition = "2024"
 [workspace.dependencies]
 argon2 = { version = "0.5", features = ["std"] }
 async-trait = "0.1"
+aws-lc-rs = "1.17.1"
 axum = { version = "0.8", features = ["macros"] }
 axum-extra = { version = "0.12", features = ["typed-header", "query"] }
 backon = "1.6"
@@ -91,7 +92,6 @@ zeroize = "1.8"
 # lock the fuck version. sucks.
 crypto-common = "0.1.7"
 garde = { version = "0.22", features = ["derive", "phone-number", "email"] }
-rsa = { version = "0.9.8", features = ["serde", "pem"] }
 
 migration = { path = "./crates/migration/" }
 oceaniam-api = { path = "./crates/oceaniam-api/" }

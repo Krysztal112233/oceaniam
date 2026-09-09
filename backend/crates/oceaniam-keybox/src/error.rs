@@ -16,7 +16,7 @@ pub enum Error {
 
     #[snafu(display("{source} at {location}"))]
     Rsa {
-        source: rsa::Error,
+        source: oceaniam_crypto::RsaError,
         location: Location,
     },
 
@@ -34,18 +34,6 @@ pub enum Error {
 
     #[snafu(display("unimplemented jwt alogrithm: {alg} at {location}"))]
     UnimplementedJwtAlogrithm { alg: String, location: Location },
-
-    #[snafu(display("{source} at {location}"))]
-    Pkcs8 {
-        source: rsa::pkcs8::Error,
-        location: Location,
-    },
-
-    #[snafu(display("{source} at {location}"))]
-    Pkcs1 {
-        source: rsa::pkcs1::Error,
-        location: Location,
-    },
 
     #[snafu(display("key id={id} already exists in keybox at {location}"))]
     KeyAlreadyExists { id: String, location: Location },
@@ -94,8 +82,8 @@ impl From<sea_orm::error::DbErr> for Error {
     }
 }
 
-impl From<rsa::Error> for Error {
-    fn from(source: rsa::Error) -> Self {
+impl From<oceaniam_crypto::RsaError> for Error {
+    fn from(source: oceaniam_crypto::RsaError) -> Self {
         Error::Rsa {
             source,
             location: snafu::location!(),
@@ -115,24 +103,6 @@ impl From<oceaniam_crypto::JwtError> for Error {
 impl From<serde_json::Error> for Error {
     fn from(source: serde_json::Error) -> Self {
         Error::Json {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
-
-impl From<rsa::pkcs8::Error> for Error {
-    fn from(source: rsa::pkcs8::Error) -> Self {
-        Error::Pkcs8 {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
-
-impl From<rsa::pkcs1::Error> for Error {
-    fn from(source: rsa::pkcs1::Error) -> Self {
-        Error::Pkcs1 {
             source,
             location: snafu::location!(),
         }

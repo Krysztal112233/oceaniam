@@ -1,12 +1,13 @@
 use std::{collections::BTreeMap, thread};
 
 use oceaniam_crypto::{
-    Algorithm, Header, ProviderJwk, Validation, decode, decode_header, decode_rsa_der,
-    decoding_key_from_jwk, encode_rsa_der, initialize_jwt_provider,
+    Algorithm, Header, ProviderJwk, RsaPrivateKey, Validation, decode, decode_header,
+    decode_rsa_der, decoding_key_from_jwk, encode_rsa, encode_rsa_der, initialize_jwt_provider,
     rsa_public_jwk_from_private_der,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use zeroize::Zeroizing;
 
 const KEY_ID: &str = "018f47a5-f53c-7bd0-bad8-764ae9bac80b";
 const ISSUER: &str = "https://legacy.oceaniam.test";
@@ -77,6 +78,10 @@ fn initializer_is_idempotent_under_concurrent_calls() {
 #[test]
 fn aws_lc_verifies_legacy_tokens_and_round_trips_all_rsa_algorithms() {
     let private_der = include_bytes!("fixtures/legacy-rust-crypto/private-key.pkcs1.der");
+    let private_key = RsaPrivateKey::from_pkcs8_pem(include_bytes!(
+        "fixtures/legacy-rust-crypto/private-key.pkcs8.pem"
+    ))
+    .expect("load legacy PKCS#8 fixture through AWS-LC material boundary");
     let public_der = include_bytes!("fixtures/legacy-rust-crypto/public-key.pkcs1.der");
     let legacy_tokens: BTreeMap<String, String> =
         serde_json::from_str(include_str!("fixtures/legacy-rust-crypto/tokens.json"))
@@ -114,8 +119,8 @@ fn aws_lc_verifies_legacy_tokens_and_round_trips_all_rsa_algorithms() {
 
         let mut header = Header::new(algorithm);
         header.kid = Some(KEY_ID.to_owned());
-        let token = encode_rsa_der(&header, &claims, private_der)
-            .expect("AWS-LC should sign with the legacy key");
+        let token = encode_rsa(&header, &claims, &private_key)
+            .expect("AWS-LC should sign with the loaded legacy key");
         let legacy_segments = legacy_token.split('.').collect::<Vec<_>>();
         let new_segments = token.split('.').collect::<Vec<_>>();
         assert_eq!(&new_segments[..2], &legacy_segments[..2]);
@@ -226,6 +231,27 @@ fn aws_lc_rejects_tampering_wrong_keys_algorithms_and_malformed_keys() {
             &Header::new(Algorithm::RS256),
             &fixture_claims(),
             b"not DER",
+        )
+        .is_err()
+    );
+
+    let mut trailing_public_der = public_der.to_vec();
+    trailing_public_der.extend_from_slice(b"junk");
+    assert!(
+        decode_rsa_der::<FixtureClaims>(
+            token,
+            &trailing_public_der,
+            &validation(Algorithm::RS256),
+        )
+        .is_err()
+    );
+    let mut trailing_private_der = Zeroizing::new(private_der.to_vec());
+    trailing_private_der.extend_from_slice(b"junk");
+    assert!(
+        encode_rsa_der(
+            &Header::new(Algorithm::RS256),
+            &fixture_claims(),
+            &trailing_private_der,
         )
         .is_err()
     );

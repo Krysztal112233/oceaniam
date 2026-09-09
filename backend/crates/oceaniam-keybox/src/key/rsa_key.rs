@@ -6,18 +6,14 @@ use oceaniam_common::{
     run_cpu_bound,
 };
 use oceaniam_crypto::{
-    Header, TokenData, Validation, decode_rsa_der, encode_rsa_der, rsa_public_jwk_from_private_der,
+    Header, RsaPrivateKey, TokenData, Validation, decode_rsa_der, encode_rsa, rsa_public_jwk,
 };
 use oceaniam_database::model::key_boxes::Model as Key;
-use rsa::{
-    RsaPrivateKey,
-    pkcs1::{EncodeRsaPrivateKey, EncodeRsaPublicKey},
-    pkcs8::{DecodePrivateKey, EncodePrivateKey, der::zeroize::Zeroize},
-};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use tracing::field::Empty;
 use uuid::Uuid;
+use zeroize::Zeroizing;
 
 use crate::{
     error::Error,
@@ -81,8 +77,7 @@ impl RsaKey {
         key_alg: impl Into<KeyAlg>,
         bit_size: usize,
     ) -> Result<Self, Error> {
-        let mut rng = rand::thread_rng();
-        let private = RsaPrivateKey::new(&mut rng, bit_size)?;
+        let private = RsaPrivateKey::generate(bit_size)?;
 
         Ok(Self {
             private,
@@ -108,12 +103,7 @@ impl TryIntoJwk for RsaKey {
         fields(otel.kind = "internal")
     )]
     fn try_into_jwk(self) -> Result<oceaniam_auth::jwks::Jwk, Error> {
-        // NOTE: ONLY SUPPORT PKCS1 DER. WHAT THE FUCK.
-        let mut der = self.private.to_pkcs1_der()?.to_bytes();
-        let jwk = rsa_public_jwk_from_private_der(&der, self.key_alg.into());
-        der.zeroize();
-
-        let mut jwk = jwk?;
+        let mut jwk = rsa_public_jwk(&self.private, self.key_alg.into())?;
         jwk.common.key_id = Some(self.key_id.to_string());
         let jwk = serde_json::to_value(jwk)?;
 
@@ -141,12 +131,8 @@ impl SecretField {
     pub fn from_rsa_private(private: RsaPrivateKey, master_key: &MasterKey) -> Result<Self, Error> {
         use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
 
-        let mut pem = private.to_pkcs8_pem(rsa::pkcs8::LineEnding::LF)?;
-
+        let pem = private.to_pkcs8_pem()?;
         let blob = master_key.encrypt(pem.as_bytes(), consts::KEK_VERSION_CURRENT)?;
-
-        // zeroize the PEM buffer
-        pem.zeroize();
 
         Ok(Self {
             nonce: B64.encode(blob.nonce),
@@ -191,13 +177,8 @@ impl FromSecretField for RsaKey {
             key_version: field.key_version,
         };
 
-        let pem_bytes = master_key.decrypt(&blob)?;
-        let pem_str = String::from_utf8(pem_bytes).map_err(|e| Error::Internal {
-            msg: format!("decrypted PEM is not valid UTF-8: {e}"),
-            location: snafu::location!(),
-        })?;
-
-        Ok(RsaPrivateKey::from_pkcs8_pem(&pem_str)?)
+        let pem_bytes = Zeroizing::new(master_key.decrypt(&blob)?);
+        Ok(RsaPrivateKey::from_pkcs8_pem(&pem_bytes)?)
     }
 }
 
@@ -314,15 +295,7 @@ where
         fields(otel.kind = "internal", key.id = %self.key_id, jwt.algorithm = ?self.key_alg)
     )]
     fn encode(&self, header: Header, claim: T) -> Result<String, oceaniam_auth::error::Error> {
-        let der = self
-            .private
-            .to_pkcs1_der()
-            .map_err(|_| oceaniam_auth::error::Error::Jwt {
-                source: oceaniam_crypto::JwtError::invalid_key_format(),
-                location: snafu::location!(),
-            })?;
-
-        Ok(encode_rsa_der(&header, &claim, der.as_bytes())?)
+        Ok(encode_rsa(&header, &claim, &self.private)?)
     }
 
     #[tracing::instrument(
@@ -336,22 +309,14 @@ where
         jwt: &[u8],
         validation: &Validation,
     ) -> Result<TokenData<T>, oceaniam_auth::error::Error> {
-        let der = self.private.to_public_key().to_pkcs1_der().map_err(|_| {
-            oceaniam_auth::error::Error::Jwt {
-                source: oceaniam_crypto::JwtError::invalid_key_format(),
-                location: snafu::location!(),
-            }
-        })?;
-
-        Ok(decode_rsa_der(jwt, der.as_bytes(), validation)?)
+        let der = self.private.public_key_der();
+        Ok(decode_rsa_der(jwt, &der, validation)?)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
-    use std::io::{self, Write};
-    use std::sync::{Arc, Mutex};
 
     use itertools::Itertools;
     use oceaniam_auth::{
@@ -360,28 +325,9 @@ mod tests {
         jwt::{ClaimHelper, SystemClaim},
     };
     use tap::Tap;
-    use tracing::Instrument as _;
-    use tracing_subscriber::fmt::format::FmtSpan;
     use uuid::Uuid;
 
     use super::*;
-
-    #[derive(Clone)]
-    struct Buffer(Arc<Mutex<Vec<u8>>>);
-
-    impl Write for Buffer {
-        fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-            self.0
-                .lock()
-                .expect("trace buffer lock")
-                .extend_from_slice(bytes);
-            Ok(bytes.len())
-        }
-
-        fn flush(&mut self) -> io::Result<()> {
-            Ok(())
-        }
-    }
 
     const SUPPORTED_ALGORITHM: &[Algorithm] = &[
         Algorithm::PS256,
@@ -458,8 +404,6 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn secret_field_round_trip_preserves_key() {
-        use rsa::traits::PublicKeyParts;
-
         let mk =
             MasterKey::from_hex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
                 .unwrap();
@@ -468,10 +412,7 @@ mod tests {
         let raw = original.clone().into_raw_key(&mk).unwrap();
         let recovered = RsaKey::from_raw_key(raw, &mk).unwrap();
 
-        // Compare by modulus (RsaPrivateKey doesn't impl Eq)
-        let orig_n = original.private.n();
-        let recv_n = recovered.private.n();
-        assert_eq!(orig_n, recv_n);
+        assert_eq!(original.private, recovered.private);
     }
 
     // NOTE: AI-generated test
@@ -553,7 +494,6 @@ mod tests {
     #[test]
     fn legacy_encrypted_pkcs8_fixture_remains_usable_and_tamper_evident() {
         use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
-        use rsa::traits::PublicKeyParts;
 
         let master_key =
             MasterKey::from_hex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
@@ -589,9 +529,24 @@ mod tests {
             RsaKey::from_raw_key(raw.clone(), &master_key).expect("unseal legacy PKCS#8 fixture");
 
         assert_eq!(
-            recovered.private.n(),
-            recovered_from_model.private.n(),
+            recovered.private, recovered_from_model.private,
             "database model and raw-key paths must recover the same legacy key"
+        );
+        assert_eq!(
+            recovered.private.public_key_der(),
+            include_bytes!(
+                "../../../oceaniam-crypto/tests/fixtures/legacy-rust-crypto/public-key.pkcs1.der"
+            )
+        );
+        assert_eq!(
+            recovered
+                .private
+                .to_pkcs8_pem()
+                .expect("export restored fixture PKCS#8 PEM")
+                .as_bytes(),
+            include_bytes!(
+                "../../../oceaniam-crypto/tests/fixtures/legacy-rust-crypto/private-key.pkcs8.pem"
+            )
         );
         assert_eq!(recovered.key_id(), key_id);
         assert_eq!(recovered.key_alg(), raw.key_alg);
@@ -654,6 +609,12 @@ mod tests {
             let token = key
                 .encode(header, legacy_local.claims.clone())
                 .expect("sign through restored RsaKey");
+            if matches!(
+                algorithm,
+                Algorithm::RS256 | Algorithm::RS384 | Algorithm::RS512
+            ) {
+                assert_eq!(&token, legacy_token);
+            }
             let decoded_local: TokenData<SystemClaim> = key
                 .decode(token.as_bytes(), &validation)
                 .expect("verify new token through RsaKey");
@@ -724,7 +685,7 @@ mod tests {
             .expect("reseal restored key");
         let recovered_again =
             RsaKey::from_raw_key(resealed, &master_key).expect("unseal resealed key");
-        assert_eq!(recovered.private.n(), recovered_again.private.n());
+        assert_eq!(recovered.private, recovered_again.private);
 
         let field: SecretField = serde_json::from_value(secret.clone()).expect("secret envelope");
         let nonce: [u8; 24] = B64
@@ -732,18 +693,25 @@ mod tests {
             .expect("decode fixture nonce")
             .try_into()
             .expect("24-byte fixture nonce");
-        let plaintext = master_key
-            .decrypt(&EncryptedBlob {
-                nonce,
-                ciphertext: B64
-                    .decode(field.ciphertext)
-                    .expect("decode fixture ciphertext"),
-                key_version: field.key_version,
-            })
-            .expect("decrypt fixture plaintext");
-        let pem = String::from_utf8(plaintext).expect("fixture PEM is UTF-8");
-        assert!(pem.ends_with('\n'));
-        RsaPrivateKey::from_pkcs8_pem(&pem).expect("fixture plaintext is PKCS#8 PEM");
+        let plaintext = Zeroizing::new(
+            master_key
+                .decrypt(&EncryptedBlob {
+                    nonce,
+                    ciphertext: B64
+                        .decode(field.ciphertext)
+                        .expect("decode fixture ciphertext"),
+                    key_version: field.key_version,
+                })
+                .expect("decrypt fixture plaintext"),
+        );
+        assert!(plaintext.ends_with(b"\n"));
+        assert_eq!(
+            plaintext.as_slice(),
+            include_bytes!(
+                "../../../oceaniam-crypto/tests/fixtures/legacy-rust-crypto/private-key.pkcs8.pem"
+            )
+        );
+        RsaPrivateKey::from_pkcs8_pem(&plaintext).expect("fixture plaintext is PKCS#8 PEM");
 
         let wrong_master_key =
             MasterKey::from_hex("1123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
@@ -774,33 +742,73 @@ mod tests {
     }
 
     // NOTE: AI-generated test
-    #[tokio::test]
-    async fn rsa_generation_span_crosses_blocking_dispatch() {
-        let bytes = Arc::new(Mutex::new(Vec::new()));
-        let writer = bytes.clone();
-        let subscriber = tracing_subscriber::fmt()
-            .with_writer(move || Buffer(writer.clone()))
-            .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
-            .finish();
-        let dispatch = tracing::Dispatch::new(subscriber);
-        let _default = tracing::dispatcher::set_default(&dispatch);
+    #[test]
+    fn aws_lc_generated_default_key_preserves_pem_storage_contract() {
+        use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
 
-        async {
-            RsaKey::generate_with_bit_size(
-                Uuid::now_v7(),
-                KeyAlg::try_from(Algorithm::RS512).expect("supported algorithm"),
-                1024,
-            )
-            .await
-            .expect("generate test key");
+        let master_key =
+            MasterKey::from_hex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .expect("test master key");
+        let original = RsaKey::new(
+            Uuid::now_v7(),
+            KeyAlg::try_from(Algorithm::PS512).expect("supported algorithm"),
+        );
+        assert_eq!(original.private.bit_size(), 4096);
+        let expected_public_der = original.private.public_key_der();
+        let raw = original
+            .into_raw_key(&master_key)
+            .expect("seal generated AWS-LC key");
+        let field: SecretField =
+            serde_json::from_value(raw.secret.clone()).expect("secret envelope");
+        let nonce: [u8; 24] = B64
+            .decode(field.nonce)
+            .expect("decode nonce")
+            .try_into()
+            .expect("24-byte nonce");
+        let plaintext = Zeroizing::new(
+            master_key
+                .decrypt(&EncryptedBlob {
+                    nonce,
+                    ciphertext: B64.decode(field.ciphertext).expect("decode ciphertext"),
+                    key_version: field.key_version,
+                })
+                .expect("decrypt generated key"),
+        );
+        let pem = std::str::from_utf8(&plaintext).expect("generated PEM is UTF-8");
+        assert!(pem.starts_with("-----BEGIN PRIVATE KEY-----\n"));
+        assert!(pem.ends_with("-----END PRIVATE KEY-----\n"));
+        assert!(!pem.contains('\r'));
+        for line in pem
+            .lines()
+            .skip(1)
+            .take_while(|line| !line.starts_with("-----END"))
+        {
+            assert!(!line.is_empty());
+            assert!(line.len() <= 64);
         }
-        .instrument(tracing::info_span!("test.request"))
-        .await;
 
-        let output = String::from_utf8(bytes.lock().expect("trace buffer lock").clone())
-            .expect("utf8 trace output");
-        assert!(output.contains("keybox.rsa.queue"));
-        assert!(output.contains("keybox.rsa.generate"));
-        assert!(output.contains("test.request"));
+        let recovered =
+            RsaKey::from_raw_key(raw, &master_key).expect("reload generated AWS-LC key");
+        assert_eq!(recovered.private.public_key_der(), expected_public_der);
+    }
+
+    // NOTE: AI-generated test
+    #[tokio::test]
+    async fn unsupported_rsa_generation_size_fails_without_fallback() {
+        let algorithm = KeyAlg::try_from(Algorithm::RS256).expect("supported algorithm");
+        let synchronous = RsaKey::with_bit_size(Uuid::now_v7(), algorithm.clone(), 1024)
+            .expect_err("1024-bit generation must be rejected");
+        assert!(matches!(
+            synchronous,
+            Error::Rsa { source, .. } if source.is_unsupported_key_size()
+        ));
+
+        let asynchronous = RsaKey::generate_with_bit_size(Uuid::now_v7(), algorithm, 2056)
+            .await
+            .expect_err("non-AWS-LC generation size must be rejected");
+        assert!(matches!(
+            asynchronous,
+            Error::Rsa { source, .. } if source.is_unsupported_key_size()
+        ));
     }
 }

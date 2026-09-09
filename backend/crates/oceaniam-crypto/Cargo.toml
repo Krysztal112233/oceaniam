@@ -4,8 +4,10 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+aws-lc-rs.workspace = true
+base64 = "0.22"
 jsonwebtoken.workspace = true
 serde.workspace = true
-
-[dev-dependencies]
 serde_json.workspace = true
+snafu.workspace = true
+zeroize.workspace = true

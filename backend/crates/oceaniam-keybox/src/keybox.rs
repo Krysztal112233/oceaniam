@@ -2,6 +2,7 @@ use crate::error::Error;
 use chrono::{DateTime, FixedOffset, Utc};
 use itertools::Itertools;
 use oceaniam_common::crypto::MasterKey;
+use oceaniam_crypto::initialize_jwt_provider;
 use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, key_boxes::KeyBoxesHelper},
     model::{
@@ -409,6 +410,7 @@ impl TryFrom<KeyBox> for oceaniam_auth::jwks::JwkSet {
     /// masquerade as an empty set. Individual unreadable stored keys retain the legacy
     /// availability behavior: they are logged and skipped without suppressing healthy keys.
     fn try_from(value: KeyBox) -> Result<Self, Self::Error> {
+        initialize_jwt_provider()?;
         let master_key = value.master_key.clone();
         let mut keys = Vec::new();
 

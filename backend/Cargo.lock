@@ -2861,7 +2861,6 @@ dependencies = [
  "num-iter",
  "num-traits",
  "rand 0.8.6",
- "serde",
  "smallvec",
  "zeroize",
 ]
@@ -3115,9 +3114,13 @@ dependencies = [
 name = "oceaniam-crypto"
 version = "0.1.0"
 dependencies = [
+ "aws-lc-rs",
+ "base64 0.22.1",
  "jsonwebtoken",
  "serde",
  "serde_json",
+ "snafu",
+ "zeroize",
 ]
 
 [[package]]
@@ -3132,7 +3135,6 @@ dependencies = [
  "oceaniam-common",
  "oceaniam-vo",
  "rand 0.8.6",
- "rsa",
  "sea-orm",
  "serde",
  "serde_json",
@@ -3155,8 +3157,6 @@ dependencies = [
  "oceaniam-common",
  "oceaniam-crypto",
  "oceaniam-database",
- "rand 0.8.6",
- "rsa",
  "sea-orm",
  "serde",
  "serde_json",
@@ -4242,7 +4242,6 @@ dependencies = [
  "pkcs1",
  "pkcs8",
  "rand_core 0.6.4",
- "serde",
  "signature",
  "spki",
  "subtle",
