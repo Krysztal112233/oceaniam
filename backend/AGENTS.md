@@ -119,6 +119,11 @@ Before claiming work is complete, run these commands:
 
 - Migrations are always linear and append-only.  Never delete, rename, or modify a migration
   file that has already been committed — future migrations must compensate instead.
+  Sole exception: a committed migration's `down` side may be repaired to correct development
+  rollback behavior. A down-only change does not affect normal `up` execution or SeaORM migration
+  validation because SeaORM records no checksum, but it does change how databases that already
+  applied the migration behave during `down`, `reset`, or `refresh`. Document the reason and impact
+  in the migration file itself and in `crates/migration/README.md`.
 - Every migration must be idempotent (usable in both fresh installs and incremental rollouts).
 - After writing a migration and running `up`, run `just gen-entities` from the workspace root to
   regenerate the SeaORM entity models so they reflect the current database schema.
