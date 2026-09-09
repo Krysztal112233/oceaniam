@@ -40,6 +40,7 @@ async fn main() -> Result<(), Error> {
     }
 }
 
+#[allow(clippy::result_large_err)]
 async fn run_server() -> Result<(), Error> {
     let _ = dotenvy::dotenv();
 
@@ -105,6 +106,7 @@ async fn run_server() -> Result<(), Error> {
     Ok(())
 }
 
+#[allow(clippy::result_large_err)]
 async fn generate_openapi(output: impl AsRef<Path>) -> Result<(), Error> {
     let env_filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("debug"));

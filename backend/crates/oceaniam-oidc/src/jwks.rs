@@ -121,7 +121,6 @@ fn core_jwk(index: usize, jwk: &oceaniam_auth::jwks::Jwk) -> Result<CoreJsonWebK
 
 #[cfg(test)]
 mod tests {
-    use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
     use im::vector;
 
     use super::*;
