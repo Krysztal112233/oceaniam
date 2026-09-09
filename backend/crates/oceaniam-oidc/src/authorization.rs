@@ -7,10 +7,10 @@
 //! parameters before this type becomes reachable over HTTP.
 
 use serde::Deserialize;
-use snafu::Snafu;
 use url::Url;
 
 use super::pkce::decode_s256_code_challenge;
+use crate::error::AuthorizationRequestError;
 
 const RESPONSE_TYPE_CODE: &str = "code";
 const SCOPE_OPENID: &str = "openid";
@@ -82,59 +82,6 @@ impl AuthorizationRequest {
     pub const fn code_challenge_method(&self) -> &'static str {
         CODE_CHALLENGE_METHOD_S256
     }
-}
-
-/// Deterministic request-local validation failures, without HTTP or redirect semantics.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Snafu)]
-#[non_exhaustive]
-pub enum AuthorizationRequestError {
-    #[snafu(display("response_type is required"))]
-    MissingResponseType,
-
-    #[snafu(display("response_type is not supported"))]
-    UnsupportedResponseType,
-
-    #[snafu(display("client_id is required"))]
-    MissingClientId,
-
-    #[snafu(display("client_id must not be empty"))]
-    EmptyClientId,
-
-    #[snafu(display("redirect_uri is required"))]
-    MissingRedirectUri,
-
-    #[snafu(display("redirect_uri must be an absolute URI"))]
-    InvalidRedirectUri,
-
-    #[snafu(display("redirect_uri must not include a fragment"))]
-    RedirectUriFragmentNotAllowed,
-
-    #[snafu(display("scope is required"))]
-    MissingScope,
-
-    #[snafu(display("scope is not supported"))]
-    UnsupportedScope,
-
-    #[snafu(display("state is required by OceanIAM policy"))]
-    MissingState,
-
-    #[snafu(display("state must not be empty"))]
-    EmptyState,
-
-    #[snafu(display("code_challenge_method is required by OceanIAM policy"))]
-    MissingCodeChallengeMethod,
-
-    #[snafu(display("code_challenge_method is not supported"))]
-    UnsupportedCodeChallengeMethod,
-
-    #[snafu(display("code_challenge is required by OceanIAM policy"))]
-    MissingCodeChallenge,
-
-    #[snafu(display("code_challenge is not a canonical S256 challenge"))]
-    InvalidCodeChallenge,
-
-    #[snafu(display("nonce must not be empty when present"))]
-    EmptyNonce,
 }
 
 impl TryFrom<RawAuthorizationRequest> for AuthorizationRequest {

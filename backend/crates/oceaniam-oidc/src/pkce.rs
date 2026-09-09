@@ -8,25 +8,13 @@
 
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use sha2::{Digest, Sha256};
-use snafu::Snafu;
 use subtle::ConstantTimeEq;
+
+use crate::error::PkceS256Error;
 
 const CODE_VERIFIER_MIN_LENGTH: usize = 43;
 const CODE_VERIFIER_MAX_LENGTH: usize = 128;
 const S256_DIGEST_LENGTH: usize = 32;
-
-/// Deterministic PKCE S256 verification failures, without HTTP semantics or sensitive values.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Snafu)]
-#[non_exhaustive]
-pub enum PkceS256Error {
-    /// The verifier does not satisfy the RFC 7636 verifier grammar.
-    #[snafu(display("code_verifier is not a valid PKCE verifier"))]
-    InvalidCodeVerifier,
-
-    /// The verifier does not match, or the stored challenge is not a canonical S256 challenge.
-    #[snafu(display("PKCE verification failed"))]
-    ChallengeMismatch,
-}
 
 /// Verifies an RFC 7636 S256 code verifier against an expected code challenge.
 pub fn verify_code_verifier_s256(

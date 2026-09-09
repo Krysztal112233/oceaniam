@@ -7,46 +7,10 @@
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use openidconnect::core::{CoreJsonWebKey, CoreJsonWebKeySet};
 use serde_json::json;
-use snafu::{Location, Snafu};
 
 use oceaniam_auth::jwks::JwkSet;
 
-/// Deterministic failures while converting an internal JWK Set into the OIDC core type.
-///
-/// The conversion is deliberately strict: `openidconnect`'s `JsonWebKeySet` deserialization
-/// silently skips keys it cannot parse, so the set is never deserialized wholesale. Each key is
-/// validated and converted individually, and any invalid key fails the whole conversion.
-#[derive(Debug, Snafu)]
-#[non_exhaustive]
-pub enum OidcJwksError {
-    #[snafu(display("JWK #{index} has unsupported key type `{kty}` at {location}"))]
-    UnsupportedKeyType {
-        index: usize,
-        kty: String,
-        location: Location,
-    },
-
-    #[snafu(display("JWK #{index} is missing the `{field}` parameter at {location}"))]
-    MissingField {
-        index: usize,
-        field: &'static str,
-        location: Location,
-    },
-
-    #[snafu(display("JWK #{index} has an invalid base64url `{field}` value at {location}"))]
-    InvalidBase64Url {
-        index: usize,
-        field: &'static str,
-        location: Location,
-    },
-
-    #[snafu(display("JWK #{index} is not a valid core JWK at {location}"))]
-    InvalidJwk {
-        index: usize,
-        source: serde_json::Error,
-        location: Location,
-    },
-}
+use crate::error::OidcJwksError;
 
 /// Converts an internal tenant [`JwkSet`](oceaniam_auth::jwks::JwkSet) into the official
 /// [`CoreJsonWebKeySet`], preserving the `kty`/`kid`/`use`/`alg`/`n`/`e` wire values of every
@@ -121,6 +85,8 @@ fn core_jwk(index: usize, jwk: &oceaniam_auth::jwks::Jwk) -> Result<CoreJsonWebK
 
 #[cfg(test)]
 mod tests {
+    use std::error::Error as _;
+
     use im::vector;
 
     use super::*;
@@ -251,7 +217,9 @@ mod tests {
 
         let error = core_jwk_set(&internal).expect_err("unknown alg must be rejected");
 
-        assert!(matches!(error, OidcJwksError::InvalidJwk { index: 0, .. }));
+        assert!(matches!(&error, OidcJwksError::InvalidJwk { index: 0, .. }));
+        assert!(error.source().is_some());
+        assert!(error.to_string().contains("src/jwks.rs"));
     }
 
     // NOTE: AI-generated test

@@ -1,5 +1,6 @@
-use snafu::Snafu;
 use url::Url;
+
+use crate::error::RedirectUriError;
 
 /// Maximum byte length accepted for a registered redirect URI.
 pub const MAX_REDIRECT_URI_LENGTH: usize = 2048;
@@ -22,32 +23,6 @@ impl RedirectUriPolicy {
             allow_insecure_loopback_redirect_uris: true,
         }
     }
-}
-
-/// Registration-time redirect URI validation failures.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Snafu)]
-#[non_exhaustive]
-pub enum RedirectUriError {
-    #[snafu(display("redirect URI must be a non-empty absolute ASCII URI"))]
-    Invalid,
-
-    #[snafu(display("redirect URI must not exceed {MAX_REDIRECT_URI_LENGTH} ASCII characters"))]
-    TooLong,
-
-    #[snafu(display("redirect URI must not include credentials"))]
-    CredentialsNotAllowed,
-
-    #[snafu(display("redirect URI must not include a query"))]
-    QueryNotAllowed,
-
-    #[snafu(display("redirect URI must not include a fragment"))]
-    FragmentNotAllowed,
-
-    #[snafu(display("web-client redirect URI must use the `https` scheme"))]
-    HttpsRequired,
-
-    #[snafu(display("insecure development redirect URI must use a loopback host"))]
-    LoopbackHostRequired,
 }
 
 /// Validates a redirect URI for registration without normalizing the supplied string.
