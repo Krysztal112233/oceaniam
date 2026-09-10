@@ -16,6 +16,7 @@ pub mod challenges;
 pub mod credentials;
 pub mod key_boxes;
 pub mod macros;
+pub mod oidc_authorization_transactions;
 pub mod oidc_clients;
 pub mod revoked_jwts;
 pub mod role_permissions;

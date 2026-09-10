@@ -222,10 +222,50 @@ pub enum OidcApplicationType {
     Hash,
     strum :: Display,
 )]
+#[sea_orm(
+    rs_type = "Enum",
+    db_type = "Enum",
+    enum_name = "oidc_authorization_transaction_status"
+)]
+pub enum OidcAuthorizationTransactionStatus {
+    #[sea_orm(string_value = "pending")]
+    Pending,
+    #[sea_orm(string_value = "cancelled")]
+    Cancelled,
+}
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Serialize,
+    Deserialize,
+    Hash,
+    strum :: Display,
+)]
 #[sea_orm(rs_type = "Enum", db_type = "Enum", enum_name = "oidc_client_type")]
 pub enum OidcClientType {
     #[sea_orm(string_value = "public")]
     Public,
+}
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    EnumIter,
+    DeriveActiveEnum,
+    Serialize,
+    Deserialize,
+    Hash,
+    strum :: Display,
+)]
+#[sea_orm(rs_type = "Enum", db_type = "Enum", enum_name = "oidc_pkce_method")]
+pub enum OidcPkceMethod {
+    #[sea_orm(string_value = "s256")]
+    S256,
 }
 #[derive(
     Debug,

@@ -12,6 +12,7 @@ pub use super::audits::Entity as Audits;
 pub use super::challenges::Entity as Challenges;
 pub use super::credentials::Entity as Credentials;
 pub use super::key_boxes::Entity as KeyBoxes;
+pub use super::oidc_authorization_transactions::Entity as OidcAuthorizationTransactions;
 pub use super::oidc_client_redirect_uris::Entity as OidcClientRedirectUris;
 pub use super::oidc_clients::Entity as OidcClients;
 pub use super::platform_summary::Entity as PlatformSummary;

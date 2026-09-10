@@ -8,8 +8,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "oidc_clients")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
+    #[sea_orm(
+        primary_key,
+        auto_increment = false,
+        unique_key = "uq_oidc_clients_application_id_id_auth_tx"
+    )]
     pub id: Uuid,
+    #[sea_orm(unique_key = "uq_oidc_clients_application_id_id_auth_tx")]
     pub application_id: Uuid,
     #[sea_orm(unique)]
     pub client_id: String,
@@ -29,6 +34,8 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Applications,
+    #[sea_orm(has_many = "super::oidc_authorization_transactions::Entity")]
+    OidcAuthorizationTransactions,
     #[sea_orm(has_many = "super::oidc_client_redirect_uris::Entity")]
     OidcClientRedirectUris,
 }
@@ -36,6 +43,12 @@ pub enum Relation {
 impl Related<super::applications::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Applications.def()
+    }
+}
+
+impl Related<super::oidc_authorization_transactions::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::OidcAuthorizationTransactions.def()
     }
 }
 

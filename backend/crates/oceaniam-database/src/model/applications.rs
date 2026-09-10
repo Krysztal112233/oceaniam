@@ -6,9 +6,14 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "applications")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false)]
+    #[sea_orm(
+        primary_key,
+        auto_increment = false,
+        unique_key = "uq_applications_tenant_id_id_oidc_auth_tx"
+    )]
     pub id: Uuid,
     pub comment: Option<String>,
+    #[sea_orm(unique_key = "uq_applications_tenant_id_id_oidc_auth_tx")]
     pub tenant_id: Uuid,
     #[sea_orm(column_type = "JsonBinary")]
     pub configuration: Json,
@@ -21,6 +26,8 @@ pub enum Relation {
     ApplicationRoles,
     #[sea_orm(has_many = "super::application_secret_bindings::Entity")]
     ApplicationSecretBindings,
+    #[sea_orm(has_many = "super::oidc_authorization_transactions::Entity")]
+    OidcAuthorizationTransactions,
     #[sea_orm(has_many = "super::oidc_clients::Entity")]
     OidcClients,
     #[sea_orm(has_many = "super::subjects::Entity")]
@@ -46,6 +53,12 @@ impl Related<super::application_roles::Entity> for Entity {
 impl Related<super::application_secret_bindings::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::ApplicationSecretBindings.def()
+    }
+}
+
+impl Related<super::oidc_authorization_transactions::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::OidcAuthorizationTransactions.def()
     }
 }
 

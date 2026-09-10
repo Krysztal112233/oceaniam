@@ -20,6 +20,8 @@ pub enum Relation {
     Applications,
     #[sea_orm(has_many = "super::key_boxes::Entity")]
     KeyBoxes,
+    #[sea_orm(has_many = "super::oidc_authorization_transactions::Entity")]
+    OidcAuthorizationTransactions,
 }
 
 impl Related<super::administrator_tenants::Entity> for Entity {
@@ -37,6 +39,12 @@ impl Related<super::applications::Entity> for Entity {
 impl Related<super::key_boxes::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::KeyBoxes.def()
+    }
+}
+
+impl Related<super::oidc_authorization_transactions::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::OidcAuthorizationTransactions.def()
     }
 }
 

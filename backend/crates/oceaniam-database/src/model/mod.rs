@@ -14,6 +14,7 @@ pub mod audits;
 pub mod challenges;
 pub mod credentials;
 pub mod key_boxes;
+pub mod oidc_authorization_transactions;
 pub mod oidc_client_redirect_uris;
 pub mod oidc_clients;
 pub mod platform_summary;
