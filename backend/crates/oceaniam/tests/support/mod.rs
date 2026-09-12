@@ -4,7 +4,7 @@ use migration::{Migrator, MigratorTrait};
 use oceaniam::app::{app, build_state};
 use oceaniam::state::AppState;
 use oceaniam_application_secret::{ApplicationSecretHmacKey, ApplicationSecretKeyring};
-use oceaniam_common::config::{BackendConfig, CookieConfig};
+use oceaniam_common::config::{BackendConfig, CookieConfig, OidcConfig};
 use oceaniam_database::{
     helper::{applications::ApplicationHelper, tenants::TenantsHelper},
     model::prelude::{Applications, Tenants},
@@ -290,6 +290,7 @@ fn test_config() -> BackendConfig {
     BackendConfig {
         addr: "0.0.0.0:0".to_owned(),
         cookie: CookieConfig::default(),
+        oidc: OidcConfig::default(),
         master_key: TEST_MASTER_KEY_HEX.to_owned(),
         application_secret_hmac: Some(test_application_secret_keyring()),
         ..BackendConfig::new().unwrap()
@@ -307,9 +308,20 @@ fn test_config() -> BackendConfig {
 /// # Returns
 /// A `TestApp` instance that automatically cleans up its schema when dropped.
 pub async fn spawn_app_with_isolated_schema() -> TestApp {
+    spawn_app_with_isolated_schema_configured(|_| {}).await
+}
+
+/// Creates an isolated test app after applying a per-instance configuration override.
+///
+/// This avoids process-environment mutation when tests need endpoint-specific feature gates or
+/// trusted origins.
+pub async fn spawn_app_with_isolated_schema_configured(
+    configure: impl FnOnce(&mut BackendConfig),
+) -> TestApp {
     dotenvy::dotenv().ok();
 
     let mut test_config = test_config();
+    configure(&mut test_config);
     let base_dsn = test_config.database.dsn.clone();
 
     // Build the DSN with schema

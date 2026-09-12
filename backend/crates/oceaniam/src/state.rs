@@ -13,7 +13,7 @@ use oceaniam_auth::{
     jwks::{JwkSet, ManagedJwkSet},
     jwt::JwtValidator,
 };
-use oceaniam_common::config::CookieConfig;
+use oceaniam_common::config::{CookieConfig, PublicBaseUrl};
 use oceaniam_common::consts;
 use oceaniam_common::crypto::MasterKey;
 use oceaniam_database::{
@@ -66,6 +66,12 @@ pub struct AppState {
 
     pub cookie: CookieConfig,
 
+    /// Trusted canonical origin used to derive tenant OIDC issuer URLs.
+    pub public_base_url: PublicBaseUrl,
+
+    /// Default-disabled browser authorization-entry preview gate.
+    pub oidc_authorization_entry_preview_enabled: bool,
+
     pub _unit: (),
 }
 
@@ -81,6 +87,8 @@ impl AppState {
         master_key: Arc<MasterKey>,
         application_secret_keyring: Arc<ApplicationSecretKeyring>,
         cookie: CookieConfig,
+        public_base_url: PublicBaseUrl,
+        oidc_authorization_entry_preview_enabled: bool,
     ) -> Result<Self, Error> {
         oceaniam_crypto::initialize_jwt_provider()?;
 
@@ -125,6 +133,8 @@ impl AppState {
             auditing,
 
             cookie,
+            public_base_url,
+            oidc_authorization_entry_preview_enabled,
 
             _unit: (),
         })

@@ -2,7 +2,13 @@ use std::{sync::Arc, time::Duration};
 
 use oceaniam_database::{
     Error,
+    config::application::ApplicationConfiguration,
     helper::{
+        applications::ApplicationHelper,
+        oidc_authorization_entry::{
+            AuthorizationEntryLockResult, AuthorizationEntryResolution,
+            OidcAuthorizationEntryHelper,
+        },
         oidc_authorization_transactions::{
             CreateAuthorizationTransactionInput, OidcAuthorizationTransactionsHelper,
         },
@@ -10,10 +16,11 @@ use oceaniam_database::{
     },
     model::{
         applications, oidc_authorization_transactions, oidc_clients,
-        prelude::OidcAuthorizationTransactions,
+        prelude::{Applications, OidcAuthorizationTransactions, OidcClients},
         sea_orm_active_enums::{OidcAuthorizationTransactionStatus, OidcPkceMethod},
     },
 };
+use oceaniam_oidc::{RedirectUriPolicy, validate_redirect_uri};
 use sea_orm::{
     ConnectionTrait, Database, DatabaseBackend, DatabaseConnection, EntityTrait, ModelTrait,
     Statement, TransactionTrait,
@@ -120,6 +127,34 @@ async fn assert_update_rejected(
         error.to_string().contains(expected_error_fragment),
         "expected error containing {expected_error_fragment:?}, got: {error}"
     );
+}
+
+async fn wait_until_connection_is_lock_blocked(
+    observer: &DatabaseConnection,
+    application_name: &str,
+) {
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let waiting = observer
+                .query_one_raw(Statement::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    "SELECT wait_event_type = 'Lock' AS waiting \
+                     FROM pg_stat_activity \
+                     WHERE application_name = $1 AND state = 'active' \
+                     ORDER BY query_start DESC LIMIT 1",
+                    [application_name.to_owned().into()],
+                ))
+                .await
+                .expect("observe lock-waiting connection")
+                .is_some_and(|row| row.try_get::<bool>("", "waiting").unwrap_or(false));
+            if waiting {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("database operation must wait for the authorization shared lock");
 }
 
 // NOTE: AI-generated test
@@ -722,4 +757,371 @@ async fn concurrent_cancellations_have_exactly_one_winner() {
     assert!(stored.terminal_at.is_some());
     assert_eq!(stored.created_at, transaction.created_at);
     assert_eq!(stored.expires_at, transaction.expires_at);
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn authorization_entry_locks_serialize_redirect_patch_before_snapshot_creation() {
+    let app = spawn_app_with_isolated_schema().await;
+    let database = app.database().await;
+    let owner = seed_owner(&app, "entry-redirect-lock").await;
+    let original_redirect = "https://client.example/original-callback";
+    let replacement_redirect = "https://client.example/replacement-callback";
+    OidcClients::create_redirect_uris(
+        owner.oidc_client_id,
+        vec![original_redirect.to_owned()],
+        &database,
+    )
+    .await
+    .expect("register original redirect");
+
+    let authorization = database
+        .begin()
+        .await
+        .expect("begin authorization transaction");
+    let candidate = match OidcClients::resolve_authorization_entry_candidate(
+        owner.tenant_id,
+        &owner.client_id,
+        &authorization,
+    )
+    .await
+    .expect("resolve authorization candidate")
+    {
+        AuthorizationEntryResolution::Candidate(candidate) => candidate,
+        AuthorizationEntryResolution::TenantUnavailable
+        | AuthorizationEntryResolution::ClientUnavailable => {
+            panic!("seeded authorization owner must resolve")
+        }
+    };
+    let locked = match OidcClients::lock_authorization_entry_registration(
+        owner.tenant_id,
+        candidate,
+        &owner.client_id,
+        original_redirect,
+        &authorization,
+    )
+    .await
+    .expect("lock live authorization registration")
+    {
+        AuthorizationEntryLockResult::Locked(locked) => locked,
+        AuthorizationEntryLockResult::TenantUnavailable
+        | AuthorizationEntryLockResult::RelationshipUnavailable => {
+            panic!("seeded authorization registration must lock")
+        }
+    };
+
+    let application_name = format!("oidc_entry_patch_{}", Uuid::now_v7().simple());
+    let patch_database = Database::connect(format!(
+        "{}&application_name={application_name}",
+        app.dsn_with_schema()
+    ))
+    .await
+    .expect("connect dedicated redirect patch database");
+    let patch_application_id = owner.application_id;
+    let patch_client_id = owner.client_id.clone();
+    let patch = tokio::spawn(async move {
+        let patch_transaction = patch_database.begin().await.expect("begin redirect patch");
+        let client = OidcClients::get_client_for_update(
+            patch_application_id,
+            &patch_client_id,
+            &patch_transaction,
+        )
+        .await
+        .expect("lock client for redirect patch");
+        OidcClients::replace_redirect_uris(
+            client.id,
+            vec![replacement_redirect.to_owned()],
+            &patch_transaction,
+        )
+        .await
+        .expect("replace redirect registration");
+        patch_transaction
+            .commit()
+            .await
+            .expect("commit redirect patch");
+    });
+
+    wait_until_connection_is_lock_blocked(&database, &application_name).await;
+    assert!(
+        !patch.is_finished(),
+        "redirect patch must remain blocked while authorization holds shared locks"
+    );
+
+    let mut input = create_input(&owner, "entry-redirect-lock", BROWSER_DIGEST, CSRF_DIGEST);
+    input.application_id = locked.application_id;
+    input.oidc_client_id = locked.oidc_client_id;
+    input.redirect_uri = original_redirect.to_owned();
+    let snapshot =
+        OidcAuthorizationTransactions::create_authorization_transaction(input, &authorization)
+            .await
+            .expect("insert snapshot under registration locks");
+    authorization
+        .commit()
+        .await
+        .expect("commit authorization snapshot");
+    patch.await.expect("redirect patch task must complete");
+
+    let stored = OidcAuthorizationTransactions::find_by_id(snapshot.id)
+        .one(&database)
+        .await
+        .expect("read snapshot after redirect patch")
+        .expect("snapshot remains independently stored");
+    assert_eq!(stored.redirect_uri, original_redirect);
+
+    let recheck = database.begin().await.expect("begin registration recheck");
+    let candidate = match OidcClients::resolve_authorization_entry_candidate(
+        owner.tenant_id,
+        &owner.client_id,
+        &recheck,
+    )
+    .await
+    .expect("resolve candidate after patch")
+    {
+        AuthorizationEntryResolution::Candidate(candidate) => candidate,
+        AuthorizationEntryResolution::TenantUnavailable
+        | AuthorizationEntryResolution::ClientUnavailable => {
+            panic!("client should remain after redirect patch")
+        }
+    };
+    assert!(matches!(
+        OidcClients::lock_authorization_entry_registration(
+            owner.tenant_id,
+            candidate,
+            &owner.client_id,
+            original_redirect,
+            &recheck,
+        )
+        .await
+        .expect("recheck old redirect"),
+        AuthorizationEntryLockResult::RelationshipUnavailable
+    ));
+    recheck.rollback().await.expect("roll back recheck");
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn authorization_entry_locks_serialize_client_delete_and_owner_cascade() {
+    let app = spawn_app_with_isolated_schema().await;
+    let database = app.database().await;
+    let owner = seed_owner(&app, "entry-client-delete-lock").await;
+    let redirect = "https://client.example/delete-callback";
+    OidcClients::create_redirect_uris(owner.oidc_client_id, vec![redirect.to_owned()], &database)
+        .await
+        .expect("register redirect before delete race");
+
+    let authorization = database
+        .begin()
+        .await
+        .expect("begin authorization transaction");
+    let candidate = match OidcClients::resolve_authorization_entry_candidate(
+        owner.tenant_id,
+        &owner.client_id,
+        &authorization,
+    )
+    .await
+    .expect("resolve authorization candidate")
+    {
+        AuthorizationEntryResolution::Candidate(candidate) => candidate,
+        AuthorizationEntryResolution::TenantUnavailable
+        | AuthorizationEntryResolution::ClientUnavailable => {
+            panic!("seeded authorization owner must resolve")
+        }
+    };
+    let locked = match OidcClients::lock_authorization_entry_registration(
+        owner.tenant_id,
+        candidate,
+        &owner.client_id,
+        redirect,
+        &authorization,
+    )
+    .await
+    .expect("lock live authorization registration")
+    {
+        AuthorizationEntryLockResult::Locked(locked) => locked,
+        AuthorizationEntryLockResult::TenantUnavailable
+        | AuthorizationEntryLockResult::RelationshipUnavailable => {
+            panic!("seeded authorization registration must lock")
+        }
+    };
+
+    let application_name = format!("oidc_entry_delete_{}", Uuid::now_v7().simple());
+    let delete_database = Database::connect(format!(
+        "{}&application_name={application_name}",
+        app.dsn_with_schema()
+    ))
+    .await
+    .expect("connect dedicated client delete database");
+    let delete_application_id = owner.application_id;
+    let delete_client_id = owner.client_id.clone();
+    let deletion = tokio::spawn(async move {
+        let delete_transaction = delete_database.begin().await.expect("begin client delete");
+        let client = OidcClients::get_client_for_update(
+            delete_application_id,
+            &delete_client_id,
+            &delete_transaction,
+        )
+        .await
+        .expect("lock client for deletion");
+        OidcClients::delete_locked_client(client.id, &delete_transaction)
+            .await
+            .expect("delete locked client");
+        delete_transaction
+            .commit()
+            .await
+            .expect("commit client deletion");
+    });
+
+    wait_until_connection_is_lock_blocked(&database, &application_name).await;
+    assert!(
+        !deletion.is_finished(),
+        "client deletion must remain blocked while authorization holds shared locks"
+    );
+
+    let mut input = create_input(
+        &owner,
+        "entry-client-delete-lock",
+        BROWSER_DIGEST,
+        CSRF_DIGEST,
+    );
+    input.application_id = locked.application_id;
+    input.oidc_client_id = locked.oidc_client_id;
+    input.redirect_uri = redirect.to_owned();
+    let snapshot =
+        OidcAuthorizationTransactions::create_authorization_transaction(input, &authorization)
+            .await
+            .expect("insert snapshot before serialized client deletion");
+    authorization
+        .commit()
+        .await
+        .expect("commit authorization snapshot");
+    deletion.await.expect("client deletion task must complete");
+
+    assert!(
+        OidcAuthorizationTransactions::find_by_id(snapshot.id)
+            .one(&database)
+            .await
+            .expect("query snapshot after client deletion")
+            .is_none(),
+        "the serialized owner delete must cascade the previously committed snapshot"
+    );
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn authorization_entry_locks_serialize_application_redirect_policy_changes() {
+    let app = spawn_app_with_isolated_schema().await;
+    let database = app.database().await;
+    let owner = seed_owner(&app, "entry-policy-lock").await;
+    let redirect = "http://localhost:3000/callback";
+    OidcClients::create_redirect_uris(owner.oidc_client_id, vec![redirect.to_owned()], &database)
+        .await
+        .expect("register loopback redirect");
+    let mut allowed_configuration = ApplicationConfiguration::default();
+    allowed_configuration
+        .oidc
+        .allow_insecure_loopback_redirect_uris = true;
+    Applications::replace_configuration(owner.application_id, allowed_configuration, &database)
+        .await
+        .expect("enable loopback redirect policy");
+
+    let authorization = database
+        .begin()
+        .await
+        .expect("begin authorization transaction");
+    let candidate = match OidcClients::resolve_authorization_entry_candidate(
+        owner.tenant_id,
+        &owner.client_id,
+        &authorization,
+    )
+    .await
+    .expect("resolve authorization candidate")
+    {
+        AuthorizationEntryResolution::Candidate(candidate) => candidate,
+        AuthorizationEntryResolution::TenantUnavailable
+        | AuthorizationEntryResolution::ClientUnavailable => {
+            panic!("seeded authorization owner must resolve")
+        }
+    };
+    let locked = match OidcClients::lock_authorization_entry_registration(
+        owner.tenant_id,
+        candidate,
+        &owner.client_id,
+        redirect,
+        &authorization,
+    )
+    .await
+    .expect("lock live loopback registration")
+    {
+        AuthorizationEntryLockResult::Locked(locked) => locked,
+        AuthorizationEntryLockResult::TenantUnavailable
+        | AuthorizationEntryLockResult::RelationshipUnavailable => {
+            panic!("seeded loopback registration must lock")
+        }
+    };
+    let locked_configuration: ApplicationConfiguration =
+        serde_json::from_value(locked.application_configuration.clone())
+            .expect("locked Application configuration should deserialize");
+    assert!(
+        locked_configuration
+            .oidc
+            .allow_insecure_loopback_redirect_uris
+    );
+    validate_redirect_uri(redirect, RedirectUriPolicy::web_with_insecure_loopback())
+        .expect("locked policy should allow loopback redirect");
+
+    let application_name = format!("oidc_entry_policy_{}", Uuid::now_v7().simple());
+    let update_database = Database::connect(format!(
+        "{}&application_name={application_name}",
+        app.dsn_with_schema()
+    ))
+    .await
+    .expect("connect dedicated policy update database");
+    let update_application_id = owner.application_id;
+    let update = tokio::spawn(async move {
+        Applications::replace_configuration(
+            update_application_id,
+            ApplicationConfiguration::default(),
+            &update_database,
+        )
+        .await
+        .expect("disable loopback redirect policy");
+    });
+
+    wait_until_connection_is_lock_blocked(&database, &application_name).await;
+    assert!(
+        !update.is_finished(),
+        "policy update must remain blocked while authorization holds the Application lock"
+    );
+
+    let mut input = create_input(&owner, "entry-policy-lock", BROWSER_DIGEST, CSRF_DIGEST);
+    input.application_id = locked.application_id;
+    input.oidc_client_id = locked.oidc_client_id;
+    input.redirect_uri = redirect.to_owned();
+    let snapshot =
+        OidcAuthorizationTransactions::create_authorization_transaction(input, &authorization)
+            .await
+            .expect("insert snapshot under the locked allow policy");
+    authorization
+        .commit()
+        .await
+        .expect("commit authorization snapshot");
+    update.await.expect("policy update task must complete");
+
+    let stored = OidcAuthorizationTransactions::find_by_id(snapshot.id)
+        .one(&database)
+        .await
+        .expect("query policy-race snapshot")
+        .expect("snapshot committed before policy update");
+    assert_eq!(stored.redirect_uri, redirect);
+    let current = Applications::get_application(owner.application_id, &database)
+        .await
+        .expect("read current Application after policy update");
+    let current: ApplicationConfiguration = serde_json::from_value(current.configuration)
+        .expect("current Application configuration should deserialize");
+    assert!(!current.oidc.allow_insecure_loopback_redirect_uris);
+    assert_eq!(
+        validate_redirect_uri(redirect, RedirectUriPolicy::web()),
+        Err(oceaniam_oidc::RedirectUriError::HttpsRequired),
+        "a later authorization attempt must reject the now-disabled loopback policy"
+    );
 }

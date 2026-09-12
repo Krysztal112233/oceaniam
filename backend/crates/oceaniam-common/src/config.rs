@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use config::Config;
 use serde::{Deserialize, Deserializer, Serialize};
 use snafu::Snafu;
-use url::Url;
+use url::{Host, Url};
 
 use oceaniam_application_secret::ApplicationSecretKeyring;
 
@@ -36,6 +36,27 @@ pub enum PublicBaseUrlError {
 impl PublicBaseUrl {
     pub fn as_url(&self) -> &Url {
         &self.0
+    }
+
+    /// Whether this trusted, canonical origin is safe for the authorization-entry preview.
+    ///
+    /// HTTP is intentionally limited to the three fixed loopback hosts. This operates on the
+    /// canonical `Url` representation used by configuration; registered redirect URIs retain
+    /// their separate raw-string policy.
+    pub fn allows_oidc_authorization_entry_preview(&self) -> bool {
+        if self.0.scheme() == "https" {
+            return true;
+        }
+        if self.0.scheme() != "http" {
+            return false;
+        }
+
+        match self.0.host() {
+            Some(Host::Domain("localhost")) => true,
+            Some(Host::Ipv4(address)) => address == std::net::Ipv4Addr::LOCALHOST,
+            Some(Host::Ipv6(address)) => address == std::net::Ipv6Addr::LOCALHOST,
+            _ => false,
+        }
     }
 }
 
@@ -116,6 +137,13 @@ pub struct CookieConfig {
     pub secure: bool,
 }
 
+/// Default-disabled OIDC protocol previews.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct OidcConfig {
+    #[serde(default)]
+    pub authorization_entry_preview_enabled: bool,
+}
+
 pub const DEFAULT_ADDR: &str = "0.0.0.0:8000";
 
 fn default_addr() -> String {
@@ -183,6 +211,9 @@ pub struct BackendConfig {
     pub cookie: CookieConfig,
 
     #[serde(default)]
+    pub oidc: OidcConfig,
+
+    #[serde(default)]
     pub telemetry: TelemetryConfig,
 
     pub master_key: String,
@@ -244,6 +275,49 @@ mod tests {
         }
     }
 
+    // NOTE: AI-generated test
+    #[test]
+    fn authorization_preview_accepts_only_https_or_canonical_fixed_loopback_origins() {
+        for value in [
+            "https://iam.example.com",
+            "http://localhost:8000",
+            "http://127.0.0.1:8000",
+            "http://[::1]:8000",
+            // `url` intentionally canonicalizes this trusted configuration alias.
+            "http://127.1:8000",
+        ] {
+            let base_url = serde_json::from_str::<PublicBaseUrl>(&format!("\"{value}\""))
+                .expect("valid public base URL");
+            assert!(
+                base_url.allows_oidc_authorization_entry_preview(),
+                "unexpectedly rejected {value}"
+            );
+        }
+
+        for value in [
+            "http://iam.example.com",
+            "http://sub.localhost",
+            "http://localhost.example",
+            "http://127.0.0.2",
+            "http://[::2]",
+            "http://[::ffff:127.0.0.1]",
+        ] {
+            let base_url = serde_json::from_str::<PublicBaseUrl>(&format!("\"{value}\""))
+                .expect("valid public base URL");
+            assert!(
+                !base_url.allows_oidc_authorization_entry_preview(),
+                "unexpectedly accepted {value}"
+            );
+        }
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn oidc_authorization_entry_preview_defaults_to_disabled() {
+        let config: OidcConfig = serde_json::from_str("{}").expect("OIDC config should parse");
+        assert!(!config.authorization_entry_preview_enabled);
+    }
+
     // Drift guards: keep the repository-root `.env.example` in sync with the
     // configuration schema in this module. When you add, rename, or remove a
     // configuration field, update `.env.example` and these lists in the same
@@ -260,6 +334,7 @@ mod tests {
         "OCEANIAM_DATABASE__MIN_CONNECTIONS",
         "OCEANIAM_DATABASE__SLOW_STATEMENTS_LOGGING_THRESHOLD",
         "OCEANIAM_MASTER_KEY",
+        "OCEANIAM_OIDC__AUTHORIZATION_ENTRY_PREVIEW_ENABLED",
         "OCEANIAM_PUBLIC_BASE_URL",
         "OCEANIAM_TELEMETRY__ENABLED",
         "OCEANIAM_TELEMETRY__OTLP_ENDPOINT",

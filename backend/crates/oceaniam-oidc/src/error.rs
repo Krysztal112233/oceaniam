@@ -4,6 +4,53 @@ use snafu::{Location, Snafu};
 
 use crate::redirect_uri::MAX_REDIRECT_URI_LENGTH;
 
+/// Strict form-transport failures detected before any client or redirect URI is trusted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Snafu)]
+#[non_exhaustive]
+pub enum AuthorizationFormError {
+    #[snafu(display("authorization parameters exceed the transport limit"))]
+    FormTooLong,
+
+    #[snafu(display("authorization parameters contain malformed percent encoding"))]
+    InvalidPercentEncoding,
+
+    #[snafu(display("authorization parameters are not valid UTF-8"))]
+    InvalidUtf8,
+
+    #[snafu(display("authorization parameters contain a NUL character"))]
+    NulNotAllowed,
+
+    #[snafu(display("an authorization parameter appears more than once"))]
+    DuplicateParameter,
+}
+
+/// OAuth/OIDC error codes that are safe to return only after callback trust is established.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum AuthorizationProtocolError {
+    InvalidRequest,
+    UnsupportedResponseType,
+    InvalidScope,
+    RequestNotSupported,
+    RequestUriNotSupported,
+    RegistrationNotSupported,
+    ServerError,
+}
+
+impl AuthorizationProtocolError {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::InvalidRequest => "invalid_request",
+            Self::UnsupportedResponseType => "unsupported_response_type",
+            Self::InvalidScope => "invalid_scope",
+            Self::RequestNotSupported => "request_not_supported",
+            Self::RequestUriNotSupported => "request_uri_not_supported",
+            Self::RegistrationNotSupported => "registration_not_supported",
+            Self::ServerError => "server_error",
+        }
+    }
+}
+
 /// Deterministic request-local validation failures, without HTTP or redirect semantics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Snafu)]
 #[non_exhaustive]
@@ -55,6 +102,16 @@ pub enum AuthorizationRequestError {
 
     #[snafu(display("nonce must not be empty when present"))]
     EmptyNonce,
+}
+
+impl From<AuthorizationRequestError> for AuthorizationProtocolError {
+    fn from(error: AuthorizationRequestError) -> Self {
+        match error {
+            AuthorizationRequestError::UnsupportedResponseType => Self::UnsupportedResponseType,
+            AuthorizationRequestError::UnsupportedScope => Self::InvalidScope,
+            _ => Self::InvalidRequest,
+        }
+    }
 }
 
 /// Deterministic failures while converting an internal JWK Set into the OIDC core type.

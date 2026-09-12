@@ -6,7 +6,7 @@ use axum::{
     middleware::{self, Next},
     response::Response,
 };
-use oceaniam_common::config::{BackendConfig, CorsConfig};
+use oceaniam_common::config::{BackendConfig, CorsConfig, PublicBaseUrl};
 use oceaniam_telemetry::{record_http_route, trace_layer};
 use tap::Pipe;
 use tower_http::cors::{Any, CorsLayer};
@@ -47,14 +47,36 @@ pub fn build_openapi_spec() -> utoipa::openapi::OpenApi {
     openapi
 }
 
+fn validate_authorization_entry_preview_origin(
+    public_base_url: &PublicBaseUrl,
+    enabled: bool,
+) -> Result<(), Error> {
+    if enabled && !public_base_url.allows_oidc_authorization_entry_preview() {
+        return Err(Error::Internal {
+            msg: "OIDC authorization-entry preview requires HTTPS or a fixed loopback HTTP public base URL"
+                .to_owned(),
+            location: snafu::location!(),
+        });
+    }
+
+    Ok(())
+}
+
 pub async fn build_state(config: BackendConfig) -> Result<AppState, Error> {
     let BackendConfig {
         database: database_config,
         cookie,
+        oidc,
+        public_base_url,
         master_key: master_key_hex,
         application_secret_hmac,
         ..
     } = config;
+
+    validate_authorization_entry_preview_origin(
+        &public_base_url,
+        oidc.authorization_entry_preview_enabled,
+    )?;
 
     let application_secret_keyring =
         std::sync::Arc::new(application_secret_hmac.ok_or_else(|| Error::Internal {
@@ -79,6 +101,8 @@ pub async fn build_state(config: BackendConfig) -> Result<AppState, Error> {
         master_key.clone(),
         application_secret_keyring,
         cookie,
+        public_base_url,
+        oidc.authorization_entry_preview_enabled,
     )
     .await?;
 
@@ -224,4 +248,22 @@ fn to_cors_layer(CorsConfig { allow_origin }: CorsConfig) -> CorsLayer {
         ])
         .allow_methods(Any)
         .allow_origin(allow_origin.parse::<HeaderValue>().unwrap())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // NOTE: AI-generated test
+    #[test]
+    fn authorization_entry_preview_fails_closed_on_an_insecure_public_origin() {
+        let insecure_public: PublicBaseUrl = serde_json::from_str("\"http://iam.example.com\"")
+            .expect("HTTP public origin should parse");
+        let https_public: PublicBaseUrl = serde_json::from_str("\"https://iam.example.com\"")
+            .expect("HTTPS public origin should parse");
+
+        assert!(validate_authorization_entry_preview_origin(&insecure_public, false).is_ok());
+        assert!(validate_authorization_entry_preview_origin(&insecure_public, true).is_err());
+        assert!(validate_authorization_entry_preview_origin(&https_public, true).is_ok());
+    }
 }

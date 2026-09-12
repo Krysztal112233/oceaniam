@@ -53,7 +53,9 @@ impl<B> tower_http::trace::MakeSpan<B> for OtelMakeSpan {
             "user.is_admin" = Empty,
         );
 
-        if let Some(query) = request.uri().query() {
+        if !is_oidc_namespace(path)
+            && let Some(query) = request.uri().query()
+        {
             span.record("url.query", query);
         }
         if let Some(user_agent) = request
@@ -66,6 +68,10 @@ impl<B> tower_http::trace::MakeSpan<B> for OtelMakeSpan {
 
         span
     }
+}
+
+fn is_oidc_namespace(path: &str) -> bool {
+    path == "/oidc" || path.starts_with("/oidc/")
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -104,10 +110,67 @@ pub fn record_request_user(user_id: impl std::fmt::Display, is_admin: bool) {
 mod tests {
     use super::*;
 
-    use opentelemetry::trace::TracerProvider as _;
+    use opentelemetry::{Value, trace::TracerProvider as _};
     use opentelemetry_sdk::trace::{InMemorySpanExporter, SdkTracerProvider};
+    use tower_http::trace::MakeSpan as _;
     use tracing_subscriber::layer::SubscriberExt;
     use tracing_subscriber::util::SubscriberInitExt;
+
+    // NOTE: AI-generated test
+    #[test]
+    fn oidc_namespace_redacts_query_while_ordinary_routes_retain_it() {
+        let exporter = InMemorySpanExporter::default();
+        let provider = SdkTracerProvider::builder()
+            .with_simple_exporter(exporter.clone())
+            .build();
+        let tracer = provider.tracer("oceaniam-telemetry-query-test");
+        let _guard = tracing_subscriber::registry()
+            .with(tracing_opentelemetry::layer().with_tracer(tracer))
+            .set_default();
+
+        let mut make_span = OtelMakeSpan;
+        let oidc_request = Request::builder()
+            .uri("/oidc/tenant/authorize?state=oidc-query-sentinel")
+            .body(())
+            .expect("OIDC request");
+        let ordinary_request = Request::builder()
+            .uri("/tenants?marker=ordinary-query-sentinel")
+            .body(())
+            .expect("ordinary request");
+        drop(make_span.make_span(&oidc_request));
+        drop(make_span.make_span(&ordinary_request));
+
+        provider.force_flush().expect("flush spans");
+        let spans = exporter.get_finished_spans().expect("finished spans");
+        assert_eq!(spans.len(), 2);
+
+        let attribute = |path: &str, name: &str| {
+            spans
+                .iter()
+                .find(|span| {
+                    span.attributes.iter().any(|attribute| {
+                        attribute.key.as_str() == "url.path"
+                            && matches!(&attribute.value, Value::String(value) if value.as_str() == path)
+                    })
+                })
+                .and_then(|span| {
+                    span.attributes
+                        .iter()
+                        .find(|attribute| attribute.key.as_str() == name)
+                })
+                .map(|attribute| attribute.value.clone())
+        };
+        assert!(
+            attribute("/oidc/tenant/authorize", "url.query").is_none(),
+            "OIDC requests must never export their query"
+        );
+        assert!(matches!(
+            attribute("/tenants", "url.query"),
+            Some(Value::String(value)) if value.as_str() == "marker=ordinary-query-sentinel"
+        ));
+
+        provider.shutdown().expect("shutdown provider");
+    }
 
     // NOTE: AI-generated test
     #[test]

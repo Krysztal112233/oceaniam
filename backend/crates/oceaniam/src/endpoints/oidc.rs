@@ -1,8 +1,9 @@
 //! OIDC protocol endpoints.
 //!
-//! Version one exposes only the tenant JWKS under the OIDC namespace. The Discovery document,
-//! Authorization/Token/UserInfo endpoints, and issuer metadata are deliberately out of scope
-//! until their full slices are implemented.
+//! The tenant JWKS remains public. Authorization is limited to a default-disabled request-entry
+//! preview; login, codes, Token/UserInfo, and Discovery remain deliberately out of scope.
+
+mod authorize;
 
 use crate::error::AppResult;
 use axum::{
@@ -92,5 +93,7 @@ pub async fn get_oidc_jwks(
 }
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
-    router.routes(routes!(get_oidc_jwks))
+    router
+        .routes(routes!(get_oidc_jwks))
+        .routes(authorize::routes())
 }

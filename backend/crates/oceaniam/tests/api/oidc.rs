@@ -5,6 +5,8 @@ use uuid::Uuid;
 
 use crate::support::spawn_app_with_isolated_schema;
 
+mod authorization;
+
 fn public_jwk_object_is_clean(key: &serde_json::Value) {
     let object = key.as_object().expect("each JWK should be an object");
     let public_fields = ["kty", "kid", "use", "alg", "n", "e"];
