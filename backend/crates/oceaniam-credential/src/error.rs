@@ -57,68 +57,19 @@ pub enum Error {
     },
 }
 
-impl From<sea_orm::error::DbErr> for Error {
-    fn from(source: sea_orm::error::DbErr) -> Self {
-        Error::Db {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(sea_orm::error::DbErr => Error::Db);
 
-impl From<password_hash::Error> for Error {
-    fn from(source: password_hash::Error) -> Self {
-        Error::Password {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(password_hash::Error => Error::Password);
 
-impl From<tokio::task::JoinError> for Error {
-    fn from(source: tokio::task::JoinError) -> Self {
-        Error::Join {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(tokio::task::JoinError => Error::Join);
 
-impl From<base64::DecodeError> for Error {
-    fn from(source: base64::DecodeError) -> Self {
-        Error::Base64 {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(base64::DecodeError => Error::Base64);
 
-impl From<serde_json::Error> for Error {
-    fn from(source: serde_json::Error) -> Self {
-        Error::SerdeJson {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(serde_json::Error => Error::SerdeJson);
 
-impl From<totp_rs::TotpUrlError> for Error {
-    fn from(source: totp_rs::TotpUrlError) -> Self {
-        Error::Totp {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(totp_rs::TotpUrlError => Error::Totp);
 
-impl From<SystemTimeError> for Error {
-    fn from(source: SystemTimeError) -> Self {
-        Error::SystemTime {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(SystemTimeError => Error::SystemTime);
 
 impl From<crypto_common::InvalidLength> for Error {
     fn from(_: crypto_common::InvalidLength) -> Self {

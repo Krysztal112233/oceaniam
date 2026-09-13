@@ -1,4 +1,3 @@
-use axum::http::StatusCode;
 use oceaniam_vo::pagination::{PageParam, PagedResponse};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait,
@@ -221,10 +220,7 @@ pub trait OidcClientsHelper {
 }
 
 fn oidc_client_not_found() -> Error {
-    Error::with_code(
-        StatusCode::NOT_FOUND,
-        "OIDC client not found in this application",
-    )
+    Error::not_found("OIDC client not found in this application")
 }
 
 impl OidcClientsHelper for OidcClients {}

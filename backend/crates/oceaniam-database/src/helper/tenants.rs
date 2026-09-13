@@ -1,5 +1,4 @@
 use crate::error::Error;
-use axum::http::StatusCode;
 use oceaniam_common::consts;
 use oceaniam_vo::pagination::{PageParam, PagedResponse};
 use sea_orm::{
@@ -185,8 +184,5 @@ pub trait TenantsHelper {
 impl TenantsHelper for Tenants {}
 
 fn tenant_not_found(tenant_id: Uuid) -> Error {
-    Error::with_code(
-        StatusCode::NOT_FOUND,
-        format!("tenants id={tenant_id} not found"),
-    )
+    Error::not_found(format!("tenants id={tenant_id} not found"))
 }

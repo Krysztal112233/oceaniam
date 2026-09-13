@@ -24,29 +24,8 @@ pub enum Error {
     Internal { msg: String, location: Location },
 }
 
-impl From<config::ConfigError> for Error {
-    fn from(source: config::ConfigError) -> Self {
-        Error::Conf {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+crate::located_from!(config::ConfigError => Error::Conf);
 
-impl From<std::io::Error> for Error {
-    fn from(source: std::io::Error) -> Self {
-        Error::Io {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+crate::located_from!(std::io::Error => Error::Io);
 
-impl From<serde_json::Error> for Error {
-    fn from(source: serde_json::Error) -> Self {
-        Error::Json {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+crate::located_from!(serde_json::Error => Error::Json);

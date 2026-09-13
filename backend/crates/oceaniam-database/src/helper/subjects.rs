@@ -30,9 +30,7 @@ pub trait SubjectsHelper {
         Subjects::find_by_id(id)
             .one(database)
             .await?
-            .ok_or_else(|| {
-                Error::with_code(StatusCode::NOT_FOUND, format!("subject {id} not found"))
-            })
+            .ok_or_else(|| Error::not_found(format!("subject {id} not found")))
     }
 
     #[tracing::instrument(
@@ -140,9 +138,7 @@ pub trait SubjectsHelper {
         let subject = Subjects::find_by_id(id)
             .one(database)
             .await?
-            .ok_or_else(|| {
-                Error::with_code(StatusCode::NOT_FOUND, format!("subject {id} not found"))
-            })?;
+            .ok_or_else(|| Error::not_found(format!("subject {id} not found")))?;
 
         if subject.application_id != application_id {
             return Err(Error::with_code(

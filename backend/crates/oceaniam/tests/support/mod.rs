@@ -4,7 +4,10 @@ use migration::{Migrator, MigratorTrait};
 use oceaniam::app::{app, build_state};
 use oceaniam::state::AppState;
 use oceaniam_application_secret::{ApplicationSecretHmacKey, ApplicationSecretKeyring};
-use oceaniam_common::config::{BackendConfig, CookieConfig, OidcConfig};
+use oceaniam_common::{
+    config::{BackendConfig, CookieConfig, OidcConfig},
+    sqid::Sqid,
+};
 use oceaniam_database::{
     helper::{applications::ApplicationHelper, tenants::TenantsHelper},
     model::prelude::{Applications, Tenants},
@@ -20,6 +23,17 @@ use uuid::Uuid;
 const DEFAULT_ROOT_PASSWORD_ENV: &str = "MIGRATION_DEFAULT_ROOT_PASSWORD";
 static TEST_ROOT_PASSWORD: OnceLock<String> = OnceLock::new();
 static TEST_CONFIG_ENV: OnceLock<()> = OnceLock::new();
+
+#[allow(dead_code)]
+pub fn sqid_to_uuid(value: &str) -> Uuid {
+    Uuid::try_from(value.parse::<Sqid>().expect("value should be a Sqid"))
+        .expect("Sqid should decode to UUID")
+}
+
+#[allow(dead_code)]
+pub fn uuid_to_sqid(value: Uuid) -> String {
+    Sqid::from(value).into_inner()
+}
 
 #[allow(unused)]
 pub struct TestApp {

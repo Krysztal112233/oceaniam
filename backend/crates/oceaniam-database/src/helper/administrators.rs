@@ -150,8 +150,5 @@ pub trait AdministratorsHelper {
 impl AdministratorsHelper for Administrators {}
 
 fn administrator_not_found(id: Uuid) -> Error {
-    Error::with_code(
-        StatusCode::NOT_FOUND,
-        format!("administrator id={id} not found"),
-    )
+    Error::not_found(format!("administrator id={id} not found"))
 }

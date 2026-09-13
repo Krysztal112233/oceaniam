@@ -15,11 +15,4 @@ pub enum Error {
     Internal { msg: String, location: Location },
 }
 
-impl From<oceaniam_crypto::JwtError> for Error {
-    fn from(source: oceaniam_crypto::JwtError) -> Self {
-        Error::Jwt {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(oceaniam_crypto::JwtError => Error::Jwt);

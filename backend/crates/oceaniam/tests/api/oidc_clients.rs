@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use oceaniam::app::build_openapi_spec;
-use oceaniam_common::{consts::SYSTEM_TENANT_UUID, sqid::Sqid};
+use oceaniam_common::consts::SYSTEM_TENANT_UUID;
 use oceaniam_database::{
     helper::{applications::ApplicationHelper, oidc_clients::OidcClientsHelper},
     model::{administrator_tenants, prelude::*, sea_orm_active_enums::AuditType},
@@ -16,7 +16,7 @@ use serde_json::{Value, json};
 use tokio::time::{sleep, timeout};
 use uuid::Uuid;
 
-use crate::support::{TestApp, spawn_app_with_isolated_schema};
+use crate::support::{TestApp, spawn_app_with_isolated_schema, sqid_to_uuid, uuid_to_sqid};
 
 fn oidc_clients_path(tenant_id: &str, application_id: &str) -> String {
     format!("/tenants/{tenant_id}/applications/{application_id}/oidc-clients")
@@ -79,11 +79,6 @@ async fn delete_oidc_client(
         .send()
         .await
         .expect("OIDC client deletion request failed")
-}
-
-fn sqid_to_uuid(value: &str) -> Uuid {
-    Uuid::try_from(value.parse::<Sqid>().expect("value should be a Sqid"))
-        .expect("Sqid should decode to UUID")
 }
 
 async fn create_platform_administrator_token(
@@ -1209,8 +1204,8 @@ async fn system_tenant_is_excluded_from_oidc_client_management() {
     Applications::create_application(application_id, SYSTEM_TENANT_UUID, &database)
         .await
         .expect("system-tenant test application should insert");
-    let tenant_id = Sqid::from(SYSTEM_TENANT_UUID).to_string();
-    let application_id = Sqid::from(application_id).to_string();
+    let tenant_id = uuid_to_sqid(SYSTEM_TENANT_UUID);
+    let application_id = uuid_to_sqid(application_id);
 
     let response = app
         .client

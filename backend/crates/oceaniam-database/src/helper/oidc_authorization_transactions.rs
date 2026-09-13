@@ -175,11 +175,13 @@ pub trait OidcAuthorizationTransactionsHelper {
                 .await
                 .map_err(|_| authorization_transaction_storage_error())?;
 
-            match updated.len() {
-                1 => Ok(updated.swap_remove(0)),
-                0 => Err(authorization_transaction_unavailable()),
-                _ => Err(authorization_transaction_storage_error()),
-            }
+            debug_assert!(
+                updated.len() <= 1,
+                "a primary-key-filtered update returned multiple OIDC authorization transactions"
+            );
+            updated
+                .pop()
+                .ok_or_else(authorization_transaction_unavailable)
         }
         .await;
 

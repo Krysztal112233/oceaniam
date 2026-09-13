@@ -1,5 +1,4 @@
 use crate::error::Error;
-use axum::http::StatusCode;
 use oceaniam_common::consts;
 use oceaniam_vo::pagination::{PageParam, PagedResponse};
 use sea_orm::{
@@ -264,10 +263,7 @@ fn is_system_tenant(tenant_id: Uuid) -> bool {
 }
 
 fn application_not_found(application_id: Uuid) -> Error {
-    Error::with_code(
-        StatusCode::NOT_FOUND,
-        format!("application_id={application_id} not found"),
-    )
+    Error::not_found(format!("application_id={application_id} not found"))
 }
 
 impl From<model::applications::Model> for ApplicationConfiguration {

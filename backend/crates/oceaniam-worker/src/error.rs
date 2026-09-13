@@ -12,14 +12,7 @@ pub enum Error {
     Db { source: DbErr, location: Location },
 }
 
-impl From<DbErr> for Error {
-    fn from(source: DbErr) -> Self {
-        Error::Db {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(DbErr => Error::Db);
 
 impl From<oceaniam_common::error::Error> for Error {
     fn from(e: oceaniam_common::error::Error) -> Self {

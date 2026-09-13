@@ -73,41 +73,13 @@ impl Error {
     }
 }
 
-impl From<sea_orm::error::DbErr> for Error {
-    fn from(source: sea_orm::error::DbErr) -> Self {
-        Error::Db {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(sea_orm::error::DbErr => Error::Db);
 
-impl From<oceaniam_crypto::RsaError> for Error {
-    fn from(source: oceaniam_crypto::RsaError) -> Self {
-        Error::Rsa {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(oceaniam_crypto::RsaError => Error::Rsa);
 
-impl From<oceaniam_crypto::JwtError> for Error {
-    fn from(source: oceaniam_crypto::JwtError) -> Self {
-        Error::Jwt {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(oceaniam_crypto::JwtError => Error::Jwt);
 
-impl From<serde_json::Error> for Error {
-    fn from(source: serde_json::Error) -> Self {
-        Error::Json {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(serde_json::Error => Error::Json);
 
 impl From<oceaniam_database::Error> for Error {
     fn from(e: oceaniam_database::Error) -> Self {
@@ -128,20 +100,6 @@ impl From<oceaniam_database::Error> for Error {
     }
 }
 
-impl From<tokio::task::JoinError> for Error {
-    fn from(source: tokio::task::JoinError) -> Self {
-        Self::Join {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(tokio::task::JoinError => Error::Join);
 
-impl From<oceaniam_common::crypto::CryptoError> for Error {
-    fn from(source: oceaniam_common::crypto::CryptoError) -> Self {
-        Error::Crypto {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(oceaniam_common::crypto::CryptoError => Error::Crypto);

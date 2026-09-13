@@ -19,20 +19,6 @@ pub enum Error {
     Internal { msg: String, location: Location },
 }
 
-impl From<oceaniam_database::error::Error> for Error {
-    fn from(source: oceaniam_database::error::Error) -> Self {
-        Error::Database {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(oceaniam_database::error::Error => Error::Database);
 
-impl From<sea_orm::DbErr> for Error {
-    fn from(source: sea_orm::DbErr) -> Self {
-        Error::DatabaseRaw {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(sea_orm::DbErr => Error::DatabaseRaw);

@@ -6,13 +6,12 @@ use oceaniam::state::{
     keybox::{EncodedJwt, SignJwtOptions},
 };
 use oceaniam_auth::jwt::Claim;
-use oceaniam_common::sqid::Sqid;
 use oceaniam_database::{helper::users::UserHelper, model::prelude::Users};
 use sea_orm::{ConnectionTrait, DatabaseBackend, Statement};
 use serde_json::{Value, json};
 use uuid::Uuid;
 
-use crate::support::{TestApp, spawn_app_with_isolated_schema};
+use crate::support::{TestApp, spawn_app_with_isolated_schema, sqid_to_uuid};
 
 struct DevAccountFixture {
     tenant_id: String,
@@ -104,10 +103,6 @@ async fn api_sign_in(
         .send()
         .await
         .expect("application signin request failed")
-}
-
-fn sqid_to_uuid(sqid: &str) -> Uuid {
-    Uuid::try_from(sqid.parse::<Sqid>().expect("invalid sqid")).expect("invalid uuid")
 }
 
 fn jwt_subject(jwt: &str) -> Uuid {

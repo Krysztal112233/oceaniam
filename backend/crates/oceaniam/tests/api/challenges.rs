@@ -1,10 +1,6 @@
-use std::str::FromStr;
-
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
-use oceaniam_common::sqid::Sqid;
-use uuid::Uuid;
 
-use crate::support::spawn_app_with_isolated_schema;
+use crate::support::{spawn_app_with_isolated_schema, sqid_to_uuid};
 
 // NOTE: AI-generated test
 #[tokio::test]
@@ -22,10 +18,7 @@ async fn create_email_totp_challenge_then_verify_returns_jwt() {
     let oidc_sub = user["oidc_sub"]
         .as_str()
         .expect("oidc_sub should be present");
-    let subject_uuid: Uuid = Sqid::from_str(subject_id)
-        .expect("user id should be a Sqid")
-        .try_into()
-        .expect("user id should decode to a UUID");
+    let subject_uuid = sqid_to_uuid(subject_id);
     let body = serde_json::json!({
         "subject_id": subject_uuid,
         "factor_type": "email_totp",
