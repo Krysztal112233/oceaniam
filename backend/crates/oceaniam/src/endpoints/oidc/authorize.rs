@@ -1,12 +1,9 @@
 use std::convert::Infallible;
 
 use axum::{
-    extract::{
-        DefaultBodyLimit, FromRequest, FromRequestParts, OriginalUri, Path, RawForm, State,
-        rejection::RawFormRejection,
-    },
+    extract::{DefaultBodyLimit, FromRequestParts, OriginalUri, Path, State},
     http::{
-        HeaderValue, Method, Request, StatusCode,
+        HeaderValue, Method, StatusCode,
         header::{
             self, ALLOW, CACHE_CONTROL, CONTENT_SECURITY_POLICY, CONTENT_TYPE, InvalidHeaderValue,
             LOCATION, PRAGMA, REFERRER_POLICY, SET_COOKIE,
@@ -15,7 +12,10 @@ use axum::{
     },
     response::{Html, IntoResponse, Response},
 };
-use axum_extra::extract::cookie::{Cookie, SameSite};
+use axum_extra::extract::{
+    Form, FormRejection, Query, QueryRejection,
+    cookie::{Cookie, SameSite},
+};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use oceaniam_common::{config::PublicBaseUrl, sqid::Sqid};
 use oceaniam_database::{
@@ -35,9 +35,9 @@ use oceaniam_database::{
     },
 };
 use oceaniam_oidc::{
-    AUTHORIZATION_FORM_MAX_BYTES, AuthorizationFormError, AuthorizationProtocolError,
-    ParsedAuthorizationRequest, RedirectUriPolicy, authorization_browser_binding_digest,
-    authorization_csrf_digest, parse_authorization_form, validate_redirect_uri,
+    AUTHORIZATION_FORM_MAX_BYTES, AuthorizationProtocolError, ParsedAuthorizationRequest,
+    RawAuthorizationRequest, RedirectUriPolicy, authorization_browser_binding_digest,
+    authorization_csrf_digest, validate_redirect_uri,
 };
 use rand::{RngCore, rngs::OsRng};
 use sea_orm::{DatabaseTransaction, TransactionTrait};
@@ -52,14 +52,16 @@ use uuid::Uuid;
 
 use crate::state::AppState;
 
-const REQUEST_TARGET_MAX_BYTES: usize = 8 * 1024;
+pub(super) const REQUEST_TARGET_MAX_BYTES: usize = 8 * 1024;
 const CACHE_CONTROL_VALUE: &str = "no-store";
 const PRAGMA_VALUE: &str = "no-cache";
 const REFERRER_POLICY_VALUE: &str = "no-referrer";
-const CONTENT_SECURITY_POLICY_VALUE: &str = "default-src 'none'; base-uri 'none'; connect-src 'none'; font-src 'none'; form-action 'none'; frame-ancestors 'none'; img-src 'none'; media-src 'none'; object-src 'none'; script-src 'none'; style-src 'none'";
-const COOKIE_PREFIX: &str = "oceaniam_oidc_binding_";
+/// HTML pages that carry the transaction-bound login form (and its outcome pages) may post
+/// back to their own origin only; scripts, frames, and external resources remain forbidden.
+pub(super) const AUTHORIZATION_FORM_CONTENT_SECURITY_POLICY_VALUE: &str = "default-src 'none'; base-uri 'none'; connect-src 'none'; font-src 'none'; form-action 'self'; frame-ancestors 'none'; img-src 'none'; media-src 'none'; object-src 'none'; script-src 'none'; style-src 'none'";
+pub(super) const COOKIE_PREFIX: &str = "oceaniam_oidc_binding_";
 
-struct PreviewEnabled;
+pub(super) struct PreviewEnabled;
 
 impl FromRequestParts<AppState> for PreviewEnabled {
     type Rejection = Response;
@@ -76,16 +78,7 @@ impl FromRequestParts<AppState> for PreviewEnabled {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum AuthorizationTransport {
-    Get,
-    Post,
-    Head,
-}
-
-struct AuthorizationTarget {
-    transport: AuthorizationTransport,
-}
+pub(super) struct AuthorizationTarget;
 
 impl FromRequestParts<AppState> for AuthorizationTarget {
     type Rejection = Response;
@@ -105,25 +98,23 @@ impl FromRequestParts<AppState> for AuthorizationTarget {
             ));
         }
 
-        let transport = match parts.method {
-            Method::GET => AuthorizationTransport::Get,
-            Method::POST => AuthorizationTransport::Post,
-            Method::HEAD => AuthorizationTransport::Head,
+        match parts.method {
+            Method::GET | Method::POST | Method::HEAD => {}
             _ => {
                 return Err(local_response(
                     StatusCode::METHOD_NOT_ALLOWED,
                     "method not allowed",
                 ));
             }
-        };
-        if transport == AuthorizationTransport::Post && uri.query().is_some() {
+        }
+        if parts.method == Method::POST && uri.query().is_some() {
             return Err(local_response(
                 StatusCode::BAD_REQUEST,
                 "POST authorization requests must not include query parameters",
             ));
         }
 
-        Ok(Self { transport })
+        Ok(Self)
     }
 }
 
@@ -143,23 +134,7 @@ impl FromRequestParts<AppState> for AuthorizationTenantPath {
     }
 }
 
-struct AuthorizationFormBytes(Vec<u8>);
-
-impl FromRequest<AppState> for AuthorizationFormBytes {
-    type Rejection = Response;
-
-    async fn from_request(
-        request: Request<axum::body::Body>,
-        state: &AppState,
-    ) -> Result<Self, Self::Rejection> {
-        RawForm::from_request(request, state)
-            .await
-            .map(|RawForm(bytes)| Self(bytes.to_vec()))
-            .map_err(raw_form_rejection)
-    }
-}
-
-fn raw_form_rejection(rejection: RawFormRejection) -> Response {
+pub(super) fn form_rejection(rejection: FormRejection) -> Response {
     let status = match rejection.status() {
         StatusCode::PAYLOAD_TOO_LARGE => StatusCode::PAYLOAD_TOO_LARGE,
         StatusCode::UNSUPPORTED_MEDIA_TYPE => StatusCode::UNSUPPORTED_MEDIA_TYPE,
@@ -197,12 +172,18 @@ fn raw_form_rejection(rejection: RawFormRejection) -> Response {
 #[tracing::instrument(level = "info", name = "oidc.authorization_entry.get", skip_all)]
 async fn get_authorization_entry(
     _enabled: PreviewEnabled,
-    target: AuthorizationTarget,
+    _target: AuthorizationTarget,
     AuthorizationTenantPath(tenant_sqid): AuthorizationTenantPath,
     State(state): State<AppState>,
-    AuthorizationFormBytes(encoded): AuthorizationFormBytes,
+    query: Result<Query<RawAuthorizationRequest>, QueryRejection>,
 ) -> Response {
-    handle_authorization_entry(state, target.transport, tenant_sqid, encoded).await
+    let raw = match query {
+        Ok(Query(raw)) => raw,
+        Err(_) => {
+            return local_response(StatusCode::BAD_REQUEST, "malformed authorization request");
+        }
+    };
+    handle_authorization_entry(state, tenant_sqid, ParsedAuthorizationRequest::from(raw)).await
 }
 
 /// Default-disabled OIDC Authorization Endpoint preview using a form body.
@@ -232,12 +213,16 @@ async fn get_authorization_entry(
 #[tracing::instrument(level = "info", name = "oidc.authorization_entry.post", skip_all)]
 async fn post_authorization_entry(
     _enabled: PreviewEnabled,
-    target: AuthorizationTarget,
+    _target: AuthorizationTarget,
     AuthorizationTenantPath(tenant_sqid): AuthorizationTenantPath,
     State(state): State<AppState>,
-    AuthorizationFormBytes(encoded): AuthorizationFormBytes,
+    form: Result<Form<RawAuthorizationRequest>, FormRejection>,
 ) -> Response {
-    handle_authorization_entry(state, target.transport, tenant_sqid, encoded).await
+    let raw = match form {
+        Ok(Form(raw)) => raw,
+        Err(rejection) => return form_rejection(rejection),
+    };
+    handle_authorization_entry(state, tenant_sqid, ParsedAuthorizationRequest::from(raw)).await
 }
 
 #[tracing::instrument(level = "info", name = "oidc.authorization_entry.head", skip_all)]
@@ -262,24 +247,15 @@ pub(super) fn routes() -> UtoipaMethodRouter<AppState, Infallible> {
 
 async fn handle_authorization_entry(
     state: AppState,
-    transport: AuthorizationTransport,
     tenant_sqid: String,
-    encoded: Vec<u8>,
+    parsed: ParsedAuthorizationRequest,
 ) -> Response {
-    let parsed = match parse_authorization_form(&encoded) {
-        Ok(parsed) => parsed,
-        Err(AuthorizationFormError::FormTooLong) => {
-            let status = if transport == AuthorizationTransport::Get {
-                StatusCode::URI_TOO_LONG
-            } else {
-                StatusCode::PAYLOAD_TOO_LARGE
-            };
-            return local_response(status, "authorization request is too long");
-        }
-        Err(_) => {
-            return local_response(StatusCode::BAD_REQUEST, "malformed authorization request");
-        }
-    };
+    // OIDC Core 1.0 §5: an unsupported Response Mode gets a bare HTTP 400 without Error
+    // Response parameters (the mode would encode them), so it is rejected before any
+    // callback-trust work and never becomes a redirect.
+    if parsed.has_unsupported_response_mode() {
+        return local_response(StatusCode::BAD_REQUEST, "unsupported response mode");
+    }
 
     let supplied_sqid = match tenant_sqid.parse::<Sqid>() {
         Ok(sqid) => sqid,
@@ -295,8 +271,9 @@ async fn handle_authorization_entry(
     };
     let canonical_tenant_sqid = Sqid::from(tenant_id);
 
-    // Empty values were normalized to omission by the parser. Retain empty lookup sentinels so
-    // the transaction can resolve tenant availability before rejecting client/callback fields.
+    // Empty values were normalized to omission during deserialization. Retain empty lookup
+    // sentinels so the transaction can resolve tenant availability before rejecting
+    // client/callback fields.
     let client_id = parsed.client_id().unwrap_or_default().to_owned();
     let redirect_uri = parsed.redirect_uri().unwrap_or_default().to_owned();
     let state_parameter = parsed.state().map(ToOwned::to_owned);
@@ -576,21 +553,25 @@ fn success_response(prepared: &PreparedSuccess) -> Result<Response, InvalidHeade
         .build();
     let cookie = HeaderValue::from_str(&cookie.encoded().to_string())?;
 
+    let login_action = format!(
+        "/oidc/{}/authorize/{transaction_sqid}/login",
+        prepared.canonical_tenant_sqid,
+    );
     let html = format!(
-        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Sign-in unavailable</title></head><body><main><h1>Sign-in is not available</h1><p>This authorization preview saved the request, but login has not been opened.</p><div id=\"oidc-authorization-context\" hidden data-transaction-sqid=\"{transaction_sqid}\" data-csrf=\"{csrf}\" data-revision=\"{}\"></div></main></body></html>",
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Sign in</title></head><body><main><h1>Sign in</h1><form method=\"post\" action=\"{login_action}\"><input type=\"hidden\" name=\"csrf\" value=\"{csrf}\"><p><label>Email or phone <input type=\"text\" name=\"identifier\" autocomplete=\"username\" required></label></p><p><label>Password <input type=\"password\" name=\"password\" autocomplete=\"current-password\" required></label></p><p><button type=\"submit\">Sign in</button></p></form><div id=\"oidc-authorization-context\" hidden data-transaction-sqid=\"{transaction_sqid}\" data-csrf=\"{csrf}\" data-revision=\"{}\"></div></main></body></html>",
         prepared.snapshot.revision,
     );
     let mut response = Html(html).into_response();
     response.headers_mut().insert(SET_COOKIE, cookie);
     response.headers_mut().insert(
         CONTENT_SECURITY_POLICY,
-        HeaderValue::from_static(CONTENT_SECURITY_POLICY_VALUE),
+        HeaderValue::from_static(AUTHORIZATION_FORM_CONTENT_SECURITY_POLICY_VALUE),
     );
     apply_common_headers(&mut response);
     Ok(response)
 }
 
-fn local_response(status: StatusCode, message: &'static str) -> Response {
+pub(super) fn local_response(status: StatusCode, message: &'static str) -> Response {
     let mut response = (status, message).into_response();
     response.headers_mut().insert(
         CONTENT_TYPE,
@@ -600,7 +581,7 @@ fn local_response(status: StatusCode, message: &'static str) -> Response {
     response
 }
 
-fn apply_common_headers(response: &mut Response) {
+pub(super) fn apply_common_headers(response: &mut Response) {
     response
         .headers_mut()
         .insert(CACHE_CONTROL, HeaderValue::from_static(CACHE_CONTROL_VALUE));
