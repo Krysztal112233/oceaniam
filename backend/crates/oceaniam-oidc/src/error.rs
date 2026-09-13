@@ -4,26 +4,6 @@ use snafu::{Location, Snafu};
 
 use crate::redirect_uri::MAX_REDIRECT_URI_LENGTH;
 
-/// Strict form-transport failures detected before any client or redirect URI is trusted.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Snafu)]
-#[non_exhaustive]
-pub enum AuthorizationFormError {
-    #[snafu(display("authorization parameters exceed the transport limit"))]
-    FormTooLong,
-
-    #[snafu(display("authorization parameters contain malformed percent encoding"))]
-    InvalidPercentEncoding,
-
-    #[snafu(display("authorization parameters are not valid UTF-8"))]
-    InvalidUtf8,
-
-    #[snafu(display("authorization parameters contain a NUL character"))]
-    NulNotAllowed,
-
-    #[snafu(display("an authorization parameter appears more than once"))]
-    DuplicateParameter,
-}
-
 /// OAuth/OIDC error codes that are safe to return only after callback trust is established.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]

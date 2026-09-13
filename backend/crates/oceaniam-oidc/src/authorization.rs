@@ -1,16 +1,15 @@
-//! Strict transport parsing and request-local validation for the OIDC Authorization Endpoint.
+//! Transport types and request-local validation for the OIDC Authorization Endpoint.
 //!
 //! This module deliberately does not validate client registration, tenant ownership, or exact
 //! redirect URI registration, and it does not decide whether an error may be returned by redirect.
 //! HTTP callers must establish those trust properties before converting a parsed request into the
 //! validated request-local profile.
 
-use std::collections::HashSet;
-
+use serde::Deserialize;
 use url::Url;
 
 use super::pkce::decode_s256_code_challenge;
-use crate::error::{AuthorizationFormError, AuthorizationProtocolError, AuthorizationRequestError};
+use crate::error::{AuthorizationProtocolError, AuthorizationRequestError};
 
 /// Maximum encoded query/form payload accepted by the Authorization Endpoint.
 pub const AUTHORIZATION_FORM_MAX_BYTES: usize = 8 * 1024;
@@ -19,12 +18,21 @@ const RESPONSE_TYPE_CODE: &str = "code";
 const SCOPE_OPENID: &str = "openid";
 const CODE_CHALLENGE_METHOD_S256: &str = "S256";
 
-/// Authorization Endpoint parameters before protocol validation.
+/// Authorization Endpoint parameters as deserialized from the request transport.
 ///
 /// Fields are optional so request-local validation can report deterministic missing-parameter
-/// errors. Values can only be constructed by [`parse_authorization_form`], which supplies the
-/// strict duplicate, encoding, empty-value, and extension handling boundary.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// errors; empty values deserialize as omission. Deserialization is lossy (WHATWG form URL
+/// decoding): malformed percent sequences or UTF-8 are carried verbatim, with downstream
+/// exact-match validation as the security backstop.
+///
+/// Controls this profile cannot honor are handled per the base specification:
+/// `request`/`request_uri`/`registration` are retained for the deferred protocol error
+/// surfaced by [`ParsedAuthorizationRequest`]; a non-default `response_mode` is flagged early
+/// for a bare HTTP 400 (OIDC Core 1.0 §5: the encoding mode needed to carry an Error Response
+/// is unknown); unsupported optional parameters without a mandated behavior (`max_age`,
+/// `claims`, `id_token_hint`, `acr_values`) are ignored like unknown extensions (OIDC Core
+/// 1.0 §5.5 ignores an unsupported `claims` parameter rather than erroring).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 pub struct RawAuthorizationRequest {
     response_type: Option<String>,
     client_id: Option<String>,
@@ -34,16 +42,46 @@ pub struct RawAuthorizationRequest {
     nonce: Option<String>,
     code_challenge: Option<String>,
     code_challenge_method: Option<String>,
+    response_mode: Option<String>,
+    request: Option<String>,
+    request_uri: Option<String>,
+    registration: Option<String>,
+    prompt: Option<String>,
 }
 
-/// Strictly once-decoded authorization parameters awaiting callback trust and protocol checks.
+/// Deserialized authorization parameters awaiting callback trust and protocol checks.
 ///
-/// This type deliberately omits `Debug`: it can contain opaque state and nonce values. Empty
-/// values have already been normalized to omission, unknown extensions ignored, and recognized
-/// unsupported controls retained as a deferred protocol error.
+/// This type deliberately omits `Debug`: it can contain opaque state and nonce values.
+/// Recognized unsupported controls are retained as a deferred protocol error.
 pub struct ParsedAuthorizationRequest {
     raw: RawAuthorizationRequest,
     deferred_error: Option<AuthorizationProtocolError>,
+}
+
+impl From<RawAuthorizationRequest> for ParsedAuthorizationRequest {
+    /// Captures recognized controls this profile cannot honor honestly as a deferred protocol
+    /// error. The error is surfaced only after client and callback trust is established, so the
+    /// trust ordering of protocol-error redirects never changes.
+    fn from(raw: RawAuthorizationRequest) -> Self {
+        let deferred_error = if raw.request.is_some() {
+            Some(AuthorizationProtocolError::RequestNotSupported)
+        } else if raw.request_uri.is_some() {
+            Some(AuthorizationProtocolError::RequestUriNotSupported)
+        } else if raw.registration.is_some() {
+            Some(AuthorizationProtocolError::RegistrationNotSupported)
+        } else if raw.prompt.is_some() {
+            // OIDC Core 1.0 §3.1.2.1 permits an error for a `prompt` this OP cannot honor
+            // (MAY return an error); silently ignoring it would misrepresent `prompt=none`.
+            Some(AuthorizationProtocolError::InvalidRequest)
+        } else {
+            None
+        };
+
+        Self {
+            raw,
+            deferred_error,
+        }
+    }
 }
 
 impl ParsedAuthorizationRequest {
@@ -59,6 +97,17 @@ impl ParsedAuthorizationRequest {
         self.raw.state.as_deref()
     }
 
+    /// Whether the request asks for a Response Mode other than the supported default `query`.
+    /// OIDC Core 1.0 §5 requires this to be a bare HTTP 400 without Error Response parameters
+    /// — the unsupported mode is exactly what would encode them — so callers must reject it
+    /// before any callback-trust work instead of deferring a protocol error.
+    pub fn has_unsupported_response_mode(&self) -> bool {
+        self.raw
+            .response_mode
+            .as_deref()
+            .is_some_and(|mode| mode != "query")
+    }
+
     /// Applies request-local protocol validation. Callers must first establish tenant ownership
     /// and exact callback trust under the live, locked registration policy.
     pub fn into_authorization_request(
@@ -69,140 +118,6 @@ impl ParsedAuthorizationRequest {
         }
 
         AuthorizationRequest::try_from(self.raw).map_err(Into::into)
-    }
-}
-
-/// Parses an encoded authorization query or form body without lossy or repeated decoding.
-///
-/// Duplicate names are detected after decoding and before empty/unknown fields are discarded.
-/// Every name and value, including ignored extensions, receives strict percent, UTF-8, and NUL
-/// validation.
-pub fn parse_authorization_form(
-    encoded: &[u8],
-) -> Result<ParsedAuthorizationRequest, AuthorizationFormError> {
-    if encoded.len() > AUTHORIZATION_FORM_MAX_BYTES {
-        return Err(AuthorizationFormError::FormTooLong);
-    }
-
-    let mut names = HashSet::new();
-    let mut response_type = None;
-    let mut client_id = None;
-    let mut redirect_uri = None;
-    let mut scope = None;
-    let mut state = None;
-    let mut nonce = None;
-    let mut code_challenge = None;
-    let mut code_challenge_method = None;
-    let mut deferred_error = None;
-
-    for pair in encoded.split(|byte| *byte == b'&') {
-        if pair.is_empty() {
-            continue;
-        }
-
-        let separator = pair.iter().position(|byte| *byte == b'=');
-        let (encoded_name, encoded_value) = match separator {
-            Some(index) => (&pair[..index], &pair[index + 1..]),
-            None => (pair, &[][..]),
-        };
-        let name = decode_form_component(encoded_name)?;
-        let value = decode_form_component(encoded_value)?;
-
-        if !names.insert(name.clone()) {
-            return Err(AuthorizationFormError::DuplicateParameter);
-        }
-
-        // RFC 6749 treats empty values as omitted. Duplicate detection intentionally happens
-        // first so empty or unknown fields cannot conceal a duplicate decoded name.
-        if value.is_empty() {
-            continue;
-        }
-
-        match name.as_str() {
-            "response_type" => response_type = Some(value),
-            "client_id" => client_id = Some(value),
-            "redirect_uri" => redirect_uri = Some(value),
-            "scope" => scope = Some(value),
-            "state" => state = Some(value),
-            "nonce" => nonce = Some(value),
-            "code_challenge" => code_challenge = Some(value),
-            "code_challenge_method" => code_challenge_method = Some(value),
-            "response_mode" if value == "query" => {}
-            "request" => {
-                deferred_error.get_or_insert(AuthorizationProtocolError::RequestNotSupported);
-            }
-            "request_uri" => {
-                deferred_error.get_or_insert(AuthorizationProtocolError::RequestUriNotSupported);
-            }
-            "registration" => {
-                deferred_error.get_or_insert(AuthorizationProtocolError::RegistrationNotSupported);
-            }
-            "response_mode" | "prompt" | "max_age" | "claims" | "id_token_hint" | "acr_values" => {
-                deferred_error.get_or_insert(AuthorizationProtocolError::InvalidRequest);
-            }
-            // Display and login hints, plus genuinely unknown extensions, have no persisted
-            // semantics in this preview and are intentionally ignored after strict decoding.
-            _ => continue,
-        };
-    }
-
-    Ok(ParsedAuthorizationRequest {
-        raw: RawAuthorizationRequest {
-            response_type,
-            client_id,
-            redirect_uri,
-            scope,
-            state,
-            nonce,
-            code_challenge,
-            code_challenge_method,
-        },
-        deferred_error,
-    })
-}
-
-fn decode_form_component(encoded: &[u8]) -> Result<String, AuthorizationFormError> {
-    let mut decoded = Vec::with_capacity(encoded.len());
-    let mut index = 0;
-
-    while index < encoded.len() {
-        match encoded[index] {
-            b'+' => {
-                decoded.push(b' ');
-                index += 1;
-            }
-            b'%' => {
-                let high = encoded
-                    .get(index + 1)
-                    .and_then(|byte| decode_hex(*byte))
-                    .ok_or(AuthorizationFormError::InvalidPercentEncoding)?;
-                let low = encoded
-                    .get(index + 2)
-                    .and_then(|byte| decode_hex(*byte))
-                    .ok_or(AuthorizationFormError::InvalidPercentEncoding)?;
-                decoded.push((high << 4) | low);
-                index += 3;
-            }
-            byte => {
-                decoded.push(byte);
-                index += 1;
-            }
-        }
-    }
-
-    if decoded.contains(&0) {
-        return Err(AuthorizationFormError::NulNotAllowed);
-    }
-
-    String::from_utf8(decoded).map_err(|_| AuthorizationFormError::InvalidUtf8)
-}
-
-const fn decode_hex(byte: u8) -> Option<u8> {
-    match byte {
-        b'0'..=b'9' => Some(byte - b'0'),
-        b'a'..=b'f' => Some(byte - b'a' + 10),
-        b'A'..=b'F' => Some(byte - b'A' + 10),
-        _ => None,
     }
 }
 
@@ -270,6 +185,7 @@ impl TryFrom<RawAuthorizationRequest> for AuthorizationRequest {
             nonce,
             code_challenge,
             code_challenge_method,
+            ..
         } = raw;
 
         let response_type = response_type.ok_or(AuthorizationRequestError::MissingResponseType)?;
@@ -334,6 +250,7 @@ mod tests {
             nonce: Some("nonce-with-exact-value".to_owned()),
             code_challenge: Some("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned()),
             code_challenge_method: Some("S256".to_owned()),
+            ..Default::default()
         }
     }
 
@@ -493,7 +410,7 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn missing_fields_remain_available_to_typed_validation() {
-        let parsed = parse_authorization_form(b"").expect("empty form should parse");
+        let parsed = ParsedAuthorizationRequest::from(RawAuthorizationRequest::default());
 
         assert_eq!(
             parsed.into_authorization_request(),
@@ -501,174 +418,76 @@ mod tests {
         );
     }
 
-    fn valid_encoded_request() -> &'static [u8] {
-        b"response_type=code&client_id=public-client-id&redirect_uri=https%3A%2F%2Fclient.example%2Fcallback&scope=openid&state=opaque%252Fstate%2Bvalue&nonce=nonce&code_challenge=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&code_challenge_method=S256"
-    }
-
-    // NOTE: AI-generated test
-    #[test]
-    fn strict_form_parser_is_transport_agnostic_and_decodes_opaque_values_once() {
-        let get =
-            parse_authorization_form(valid_encoded_request()).expect("GET query should parse");
-        let post =
-            parse_authorization_form(valid_encoded_request()).expect("POST form should parse");
-
-        assert_eq!(get.client_id(), post.client_id());
-        assert_eq!(get.redirect_uri(), post.redirect_uri());
-        assert_eq!(get.state(), Some("opaque%2Fstate+value"));
-        assert_eq!(post.state(), Some("opaque%2Fstate+value"));
-
-        let request = get
-            .into_authorization_request()
-            .expect("request-local profile should validate after trust");
-        assert_eq!(request.state(), "opaque%2Fstate+value");
-    }
-
-    // NOTE: AI-generated test
-    #[test]
-    fn strict_form_parser_rejects_decoded_duplicates_before_discarding_fields() {
-        for encoded in [
-            b"client_id=one&%63lient_id=two".as_slice(),
-            b"unknown=&unknown=value".as_slice(),
-            b"ignored=one&%69gnored=two".as_slice(),
-        ] {
-            assert!(matches!(
-                parse_authorization_form(encoded),
-                Err(AuthorizationFormError::DuplicateParameter)
-            ));
-        }
-    }
-
-    // NOTE: AI-generated test
-    #[test]
-    fn strict_form_parser_validates_every_name_and_value() {
-        for (encoded, expected) in [
-            (
-                b"unknown=%".as_slice(),
-                AuthorizationFormError::InvalidPercentEncoding,
-            ),
-            (
-                b"unknown=%GG".as_slice(),
-                AuthorizationFormError::InvalidPercentEncoding,
-            ),
-            (
-                b"unknown=%ff".as_slice(),
-                AuthorizationFormError::InvalidUtf8,
-            ),
-            (
-                b"unk%00nown=value".as_slice(),
-                AuthorizationFormError::NulNotAllowed,
-            ),
-            (
-                b"unknown=value%00".as_slice(),
-                AuthorizationFormError::NulNotAllowed,
-            ),
-        ] {
-            assert_eq!(parse_authorization_form(encoded).err(), Some(expected));
-        }
-    }
-
-    // NOTE: AI-generated test
-    #[test]
-    fn empty_and_unknown_values_do_not_change_the_request_profile() {
-        let mut encoded = valid_encoded_request().to_vec();
-        encoded.extend_from_slice(
-            b"&display=popup&login_hint=user%40example.com&ui_locales=en&unknown=value&another=",
-        );
-
-        let request = parse_authorization_form(&encoded)
-            .expect("ignorable extensions should parse")
-            .into_authorization_request()
-            .expect("ignorable extensions should not alter validation");
-
-        assert_eq!(request.client_id(), "public-client-id");
-        assert_eq!(request.nonce(), Some("nonce"));
-
-        for empty_required_parameter in ["client_id", "state"] {
-            let encoded = valid_encoded_request()
-                .split(|byte| *byte == b'&')
-                .map(|pair| {
-                    if pair.starts_with(empty_required_parameter.as_bytes()) {
-                        format!("{empty_required_parameter}=").into_bytes()
-                    } else {
-                        pair.to_vec()
-                    }
-                })
-                .collect::<Vec<_>>()
-                .join(&b'&');
-            assert_eq!(
-                parse_authorization_form(&encoded)
-                    .expect("empty required value should parse as omitted")
-                    .into_authorization_request(),
-                Err(AuthorizationProtocolError::InvalidRequest),
-                "empty {empty_required_parameter} should be treated as missing",
-            );
-        }
-
-        let without_nonce = valid_encoded_request()
-            .strip_suffix(b"&nonce=nonce&code_challenge=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&code_challenge_method=S256")
-            .expect("fixture suffix");
-        let mut empty_nonce = without_nonce.to_vec();
-        empty_nonce.extend_from_slice(b"&nonce=&code_challenge=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&code_challenge_method=S256");
-        assert_eq!(
-            parse_authorization_form(&empty_nonce)
-                .expect("empty nonce should parse as omitted")
-                .into_authorization_request()
-                .expect("empty HTTP nonce should be omitted")
-                .nonce(),
-            None
-        );
-    }
-
     // NOTE: AI-generated test
     #[test]
     fn recognized_unsupported_parameters_are_deferred_protocol_errors() {
-        let cases = [
+        type Case = (
+            &'static str,
+            fn(&mut RawAuthorizationRequest),
+            AuthorizationProtocolError,
+        );
+
+        let cases: Vec<Case> = vec![
             (
-                "request=jwt",
+                "request object",
+                |raw| raw.request = Some("jwt".to_owned()),
                 AuthorizationProtocolError::RequestNotSupported,
             ),
             (
-                "request_uri=https%3A%2F%2Fclient.example%2Frequest.jwt",
+                "request uri",
+                |raw| raw.request_uri = Some("https://client.example/request.jwt".to_owned()),
                 AuthorizationProtocolError::RequestUriNotSupported,
             ),
             (
-                "registration=eyJmb28iOiJiYXIifQ",
+                "registration",
+                |raw| raw.registration = Some("eyJmb28iOiJiYXIifQ".to_owned()),
                 AuthorizationProtocolError::RegistrationNotSupported,
             ),
-            ("prompt=login", AuthorizationProtocolError::InvalidRequest),
-            ("max_age=0", AuthorizationProtocolError::InvalidRequest),
-            ("claims=%7B%7D", AuthorizationProtocolError::InvalidRequest),
             (
-                "id_token_hint=token",
-                AuthorizationProtocolError::InvalidRequest,
-            ),
-            (
-                "acr_values=loa1",
-                AuthorizationProtocolError::InvalidRequest,
-            ),
-            (
-                "response_mode=fragment",
+                "prompt",
+                |raw| raw.prompt = Some("login".to_owned()),
                 AuthorizationProtocolError::InvalidRequest,
             ),
         ];
 
-        for (parameter, expected) in cases {
-            let mut encoded = valid_encoded_request().to_vec();
-            encoded.extend_from_slice(b"&");
-            encoded.extend_from_slice(parameter.as_bytes());
-            let parsed = parse_authorization_form(&encoded).expect("transport should parse");
-            assert_eq!(parsed.into_authorization_request(), Err(expected));
+        for (name, mutate, expected) in cases {
+            let mut raw = valid_raw_request();
+            mutate(&mut raw);
+
+            assert_eq!(
+                ParsedAuthorizationRequest::from(raw).into_authorization_request(),
+                Err(expected),
+                "case: {name}"
+            );
         }
 
-        let mut query_mode = valid_encoded_request().to_vec();
-        query_mode.extend_from_slice(b"&response_mode=query");
-        assert!(
-            parse_authorization_form(&query_mode)
-                .expect("query response mode should parse")
-                .into_authorization_request()
-                .is_ok()
-        );
+        let query_mode = ParsedAuthorizationRequest::from(RawAuthorizationRequest {
+            response_mode: Some("query".to_owned()),
+            ..valid_raw_request()
+        });
+        assert!(query_mode.into_authorization_request().is_ok());
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn unsupported_response_modes_are_flagged_for_a_bare_local_400() {
+        for mode in ["fragment", "form_post"] {
+            let parsed = ParsedAuthorizationRequest::from(RawAuthorizationRequest {
+                response_mode: Some(mode.to_owned()),
+                ..valid_raw_request()
+            });
+            assert!(parsed.has_unsupported_response_mode(), "mode: {mode}");
+        }
+
+        // An empty value is normalized to omission by the form deserializer before a
+        // `RawAuthorizationRequest` exists, so only the present-nonempty case is flagged.
+        for mode in [None, Some("query")] {
+            let parsed = ParsedAuthorizationRequest::from(RawAuthorizationRequest {
+                response_mode: mode.map(ToOwned::to_owned),
+                ..valid_raw_request()
+            });
+            assert!(!parsed.has_unsupported_response_mode(), "mode: {mode:?}");
+        }
     }
 
     // NOTE: AI-generated test
@@ -700,18 +519,5 @@ mod tests {
         ] {
             assert_eq!(error.as_str(), expected);
         }
-    }
-
-    // NOTE: AI-generated test
-    #[test]
-    fn strict_form_parser_enforces_the_encoded_byte_boundary() {
-        let exact = vec![b'x'; AUTHORIZATION_FORM_MAX_BYTES];
-        let over = vec![b'x'; AUTHORIZATION_FORM_MAX_BYTES + 1];
-
-        assert!(parse_authorization_form(&exact).is_ok());
-        assert!(matches!(
-            parse_authorization_form(&over),
-            Err(AuthorizationFormError::FormTooLong)
-        ));
     }
 }
