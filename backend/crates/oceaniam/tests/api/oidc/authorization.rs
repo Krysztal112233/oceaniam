@@ -205,7 +205,7 @@ async fn assert_success_snapshot(
             .and_then(|value| value.to_str().ok())
             .is_some_and(|value| {
                 value.contains("script-src 'none'")
-                    && value.contains("form-action 'none'")
+                    && value.contains("form-action 'self'")
                     && value.contains("frame-ancestors 'none'")
             })
     );
@@ -218,10 +218,20 @@ async fn assert_success_snapshot(
         .to_owned();
     let body = response.text().await.expect("read static HTML");
 
-    assert!(body.contains("Sign-in is not available"));
+    assert!(body.contains("<h1>Sign in</h1>"));
     assert!(body.contains("hidden"));
-    assert!(!body.contains("<form"));
-    assert!(!body.contains("password"));
+    assert!(body.contains("<form method=\"post\""));
+    assert!(body.contains("name=\"identifier\""));
+    assert!(body.contains("type=\"password\" name=\"password\""));
+    assert!(body.contains(&format!(
+        "<form method=\"post\" action=\"/oidc/{}/authorize/{}/login\"",
+        fixture.tenant_sqid,
+        html_attribute(&body, "data-transaction-sqid"),
+    )));
+    assert!(body.contains(&format!(
+        "<input type=\"hidden\" name=\"csrf\" value=\"{}\"",
+        html_attribute(&body, "data-csrf"),
+    )));
     assert!(!body.contains(expected_state));
     assert!(!body.contains("private-nonce-sentinel"));
     assert!(!body.contains(&fixture.redirect_uri));
@@ -516,22 +526,17 @@ async fn transport_rejections_are_bounded_strict_and_never_persist() {
         .expect("mixed query request");
     assert_rejected_without_success_context(&app, mixed_query, 400).await;
 
-    for malformed in [
-        "unknown=%GG",
-        "unknown=%ff",
-        "unknown=%00",
-        "client_id=first&%63lient_id=second",
-    ] {
-        let response = app
-            .client
-            .post(app.url(&path))
-            .header("content-type", "application/x-www-form-urlencoded")
-            .body(malformed)
-            .send()
-            .await
-            .expect("strict parser rejection");
-        assert_rejected_without_success_context(&app, response, 400).await;
-    }
+    // serde_html_form rejects a duplicated scalar field after lossy decoding, so a duplicate
+    // `client_id` is still a parse-layer 400.
+    let duplicate = app
+        .client
+        .post(app.url(&path))
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body("client_id=first&%63lient_id=second")
+        .send()
+        .await
+        .expect("duplicate field request");
+    assert_rejected_without_success_context(&app, duplicate, 400).await;
 
     let database = app.database().await;
     assert_eq!(
@@ -541,6 +546,120 @@ async fn transport_rejections_are_bounded_strict_and_never_persist() {
             .expect("count transport-rejected snapshots"),
         0
     );
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn lossy_form_encoding_is_accepted_and_validated_downstream() {
+    let app = spawn_preview("http://localhost:8000").await;
+    let fixture = seed_authorization_client(&app, "https://client.example/callback", false).await;
+
+    // Malformed percent sequences pass the parse layer verbatim (WHATWG lossy decoding) and
+    // malformed UTF-8 becomes U+FFFD, so downstream exact-match validation is the backstop.
+    // `state` is opaque to the provider: a lossy state must be accepted, stored exactly as
+    // decoded, and must not be rejected at the parse layer.
+    let form = authorization_form(&fixture, "placeholder", "code", &[])
+        .replace("state=placeholder", "state=opaque%zzstate%ff");
+    let response = app
+        .client
+        .post(app.url(&authorize_path(&fixture)))
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(form)
+        .send()
+        .await
+        .expect("lossy authorization request");
+    assert_success_snapshot(&app, &fixture, response, "opaque%zzstate\u{fffd}", false).await;
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn unsupported_response_mode_gets_a_bare_local_400_without_a_snapshot() {
+    let app = spawn_preview("http://localhost:8000").await;
+    let fixture = seed_authorization_client(&app, "https://client.example/callback", false).await;
+
+    for mode in ["fragment", "form_post"] {
+        let form = authorization_form(
+            &fixture,
+            "response-mode-state",
+            "code",
+            &[("response_mode", mode)],
+        );
+        let response = app
+            .client
+            .post(app.url(&authorize_path(&fixture)))
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(form)
+            .send()
+            .await
+            .expect("unsupported response mode request");
+        // OIDC Core 1.0 §5: bare 400 without Error Response parameters — no redirect, no
+        // binding cookie, no persisted snapshot.
+        assert_rejected_without_success_context(&app, response, 400).await;
+    }
+
+    let database = app.database().await;
+    assert_eq!(
+        OidcAuthorizationTransactions::find()
+            .count(&database)
+            .await
+            .expect("count response-mode snapshots"),
+        0
+    );
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn ignorable_oidc_parameters_are_accepted_without_changing_the_profile() {
+    let app = spawn_preview("http://localhost:8000").await;
+    let fixture = seed_authorization_client(&app, "https://client.example/callback", false).await;
+
+    // OIDC Core 1.0 §5.5: an OP that does not support `claims` ignores it rather than
+    // erroring; `max_age`, `id_token_hint`, and `acr_values` carry no mandated
+    // unsupported-behavior either, so they are ignored like unknown extensions.
+    let form = authorization_form(
+        &fixture,
+        "ignorable-state",
+        "code",
+        &[
+            ("claims", r#"{"userinfo":{"email":null}}"#),
+            ("max_age", "0"),
+            ("id_token_hint", "opaque-hint"),
+            ("acr_values", "loa1"),
+        ],
+    );
+    let response = app
+        .client
+        .post(app.url(&authorize_path(&fixture)))
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(form)
+        .send()
+        .await
+        .expect("authorization request with ignorable OIDC parameters");
+    assert_success_snapshot(&app, &fixture, response, "ignorable-state", false).await;
+
+    // An explicit default `response_mode=query` is the supported encoding and must pass.
+    let explicit_query = authorization_form(
+        &fixture,
+        "explicit-query-state",
+        "code",
+        &[("response_mode", "query")],
+    );
+    let query_response = app
+        .client
+        .post(app.url(&authorize_path(&fixture)))
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(explicit_query)
+        .send()
+        .await
+        .expect("authorization request with explicit query response mode");
+    assert_success_snapshot(
+        &app,
+        &fixture,
+        query_response,
+        "explicit-query-state",
+        false,
+    )
+    .await;
 }
 
 // NOTE: AI-generated test

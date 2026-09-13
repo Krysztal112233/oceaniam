@@ -5,19 +5,26 @@ use oceaniam_database::{
     config::application::ApplicationConfiguration,
     helper::{
         applications::ApplicationHelper,
+        credentials::CredentialsHelper,
         oidc_authorization_entry::{
             AuthorizationEntryLockResult, AuthorizationEntryResolution,
             OidcAuthorizationEntryHelper,
         },
         oidc_authorization_transactions::{
-            CreateAuthorizationTransactionInput, OidcAuthorizationTransactionsHelper,
+            AuthenticateAuthorizationTransactionInput, CreateAuthorizationTransactionInput,
+            OidcAuthorizationTransactionsHelper,
         },
         oidc_clients::OidcClientsHelper,
+        subjects::SubjectsHelper,
     },
     model::{
         applications, oidc_authorization_transactions, oidc_clients,
-        prelude::{Applications, OidcAuthorizationTransactions, OidcClients},
-        sea_orm_active_enums::{OidcAuthorizationTransactionStatus, OidcPkceMethod},
+        prelude::{
+            Applications, Credentials, OidcAuthorizationTransactions, OidcClients, Subjects,
+        },
+        sea_orm_active_enums::{
+            OidcAuthorizationTransactionStatus, OidcPkceMethod, SubjectTypeEnum,
+        },
     },
 };
 use oceaniam_oidc::{RedirectUriPolicy, validate_redirect_uri};
@@ -263,6 +270,10 @@ async fn authorization_transaction_schema_enforces_the_storage_contract() {
                 "oidc_authorization_transaction_status".to_owned(),
                 "cancelled".to_owned(),
             ),
+            (
+                "oidc_authorization_transaction_status".to_owned(),
+                "authenticated".to_owned(),
+            ),
             ("oidc_pkce_method".to_owned(), "s256".to_owned()),
         ]
     );
@@ -325,6 +336,7 @@ async fn authorization_transaction_schema_enforces_the_storage_contract() {
                 "fk_oidc_auth_tx_client_owner".to_owned(),
                 "oidc_clients".to_owned(),
             ),
+            ("fk_oidc_auth_tx_subject".to_owned(), "subjects".to_owned(),),
             ("fk_oidc_auth_tx_tenant".to_owned(), "tenants".to_owned(),),
         ],
         "only immutable owners, never redirect rows, are cascading FK targets"
@@ -1124,4 +1136,616 @@ async fn authorization_entry_locks_serialize_application_redirect_policy_changes
         Err(oceaniam_oidc::RedirectUriError::HttpsRequired),
         "a later authorization attempt must reject the now-disabled loopback policy"
     );
+}
+
+const SUBJECT_ID: Uuid = Uuid::from_u128(0x018fc2ab_bd4e_7c2b_8f3a_2a1c4d5e6f70);
+
+/// Every isolated schema enforces the subject FK, so a successful authentication needs a real
+/// subject row for the hardcoded test subject. `subjects.id` references `credentials.id`, so
+/// the credential row is created first (the same ordering `create_user` documents).
+async fn seed_subject(database: &DatabaseConnection, owner: &Owner) {
+    Credentials::upsert_credential(SUBJECT_ID, "test-phc".to_owned(), None, database)
+        .await
+        .expect("seed the authenticated subject's credential");
+    Subjects::create_subjects(
+        SUBJECT_ID,
+        owner.application_id,
+        SubjectTypeEnum::User,
+        database,
+    )
+    .await
+    .expect("seed the authenticated subject");
+}
+
+fn authenticate_input(
+    transaction: &oidc_authorization_transactions::Model,
+) -> AuthenticateAuthorizationTransactionInput {
+    AuthenticateAuthorizationTransactionInput {
+        id: transaction.id,
+        browser_binding_digest: BROWSER_DIGEST,
+        csrf_digest: CSRF_DIGEST,
+        expected_revision: transaction.revision,
+        subject_id: SUBJECT_ID,
+    }
+}
+
+async fn authenticate_in_owned_transaction(
+    database: &DatabaseConnection,
+    input: AuthenticateAuthorizationTransactionInput,
+) -> Result<oidc_authorization_transactions::Model, Error> {
+    let transaction = database.begin().await.expect("begin login transaction");
+    let result =
+        OidcAuthorizationTransactions::authenticate_authorization_transaction(input, &transaction)
+            .await;
+    match result {
+        Ok(model) => {
+            transaction
+                .commit()
+                .await
+                .expect("commit login transaction");
+            Ok(model)
+        }
+        Err(error) => {
+            transaction
+                .rollback()
+                .await
+                .expect("roll back login transaction");
+            Err(error)
+        }
+    }
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn authorization_login_locks_serialize_redirect_patch_before_authentication() {
+    let app = spawn_app_with_isolated_schema().await;
+    let database = app.database().await;
+    let owner = seed_owner(&app, "login-redirect-lock").await;
+    seed_subject(&database, &owner).await;
+    let original_redirect = "https://client.example/login-original-callback";
+    let replacement_redirect = "https://client.example/login-replacement-callback";
+    OidcClients::create_redirect_uris(
+        owner.oidc_client_id,
+        vec![original_redirect.to_owned()],
+        &database,
+    )
+    .await
+    .expect("register original redirect");
+    let mut input = create_input(&owner, "login-redirect-lock", BROWSER_DIGEST, CSRF_DIGEST);
+    input.redirect_uri = original_redirect.to_owned();
+    let transaction =
+        OidcAuthorizationTransactions::create_authorization_transaction(input, &database)
+            .await
+            .expect("create pending transaction for the login lock race");
+
+    let login = database.begin().await.expect("begin login transaction");
+    let locked = match OidcClients::lock_authorization_login_registration(
+        owner.tenant_id,
+        owner.application_id,
+        owner.oidc_client_id,
+        original_redirect,
+        &login,
+    )
+    .await
+    .expect("lock live login registration")
+    {
+        AuthorizationEntryLockResult::Locked(locked) => locked,
+        AuthorizationEntryLockResult::TenantUnavailable
+        | AuthorizationEntryLockResult::RelationshipUnavailable => {
+            panic!("seeded login registration must lock")
+        }
+    };
+    assert_eq!(locked.application_id, owner.application_id);
+    assert_eq!(locked.oidc_client_id, owner.oidc_client_id);
+    let locked_configuration: ApplicationConfiguration =
+        serde_json::from_value(locked.application_configuration.clone())
+            .expect("locked Application configuration should deserialize");
+    let locked_policy = if locked_configuration
+        .oidc
+        .allow_insecure_loopback_redirect_uris
+    {
+        RedirectUriPolicy::web_with_insecure_loopback()
+    } else {
+        RedirectUriPolicy::web()
+    };
+    validate_redirect_uri(original_redirect, locked_policy)
+        .expect("locked registration should allow the snapshot redirect");
+
+    let application_name = format!("oidc_login_patch_{}", Uuid::now_v7().simple());
+    let patch_database = Database::connect(format!(
+        "{}&application_name={application_name}",
+        app.dsn_with_schema()
+    ))
+    .await
+    .expect("connect dedicated redirect patch database");
+    let patch_application_id = owner.application_id;
+    let patch_client_id = owner.client_id.clone();
+    let patch = tokio::spawn(async move {
+        let patch_transaction = patch_database.begin().await.expect("begin redirect patch");
+        let client = OidcClients::get_client_for_update(
+            patch_application_id,
+            &patch_client_id,
+            &patch_transaction,
+        )
+        .await
+        .expect("lock client for redirect patch");
+        OidcClients::replace_redirect_uris(
+            client.id,
+            vec![replacement_redirect.to_owned()],
+            &patch_transaction,
+        )
+        .await
+        .expect("replace redirect registration");
+        patch_transaction
+            .commit()
+            .await
+            .expect("commit redirect patch");
+    });
+
+    wait_until_connection_is_lock_blocked(&database, &application_name).await;
+    assert!(
+        !patch.is_finished(),
+        "redirect patch must remain blocked while the login holds the registration shared locks"
+    );
+
+    let authenticated = OidcAuthorizationTransactions::authenticate_authorization_transaction(
+        authenticate_input(&transaction),
+        &login,
+    )
+    .await
+    .expect("authenticate under the login registration locks");
+    assert_eq!(
+        authenticated.status,
+        OidcAuthorizationTransactionStatus::Authenticated
+    );
+    assert_eq!(authenticated.revision, transaction.revision + 1);
+    assert_eq!(authenticated.subject_id, Some(SUBJECT_ID));
+    assert!(authenticated.authenticated_at.is_some());
+    login.commit().await.expect("commit the serialized login");
+    patch.await.expect("redirect patch task must complete");
+
+    let stored = OidcAuthorizationTransactions::find_by_id(transaction.id)
+        .one(&database)
+        .await
+        .expect("read transaction after the serialized redirect patch")
+        .expect("authentication must remain committed");
+    assert_eq!(
+        stored.status,
+        OidcAuthorizationTransactionStatus::Authenticated
+    );
+    assert_eq!(stored.revision, 1);
+    assert_eq!(stored.subject_id, Some(SUBJECT_ID));
+    assert_eq!(stored.redirect_uri, original_redirect);
+
+    let recheck = database.begin().await.expect("begin login recheck");
+    assert!(
+        matches!(
+            OidcClients::lock_authorization_login_registration(
+                owner.tenant_id,
+                owner.application_id,
+                owner.oidc_client_id,
+                original_redirect,
+                &recheck,
+            )
+            .await
+            .expect("recheck patched-away redirect"),
+            AuthorizationEntryLockResult::RelationshipUnavailable
+        ),
+        "a later login must reject the redirect the serialized patch removed"
+    );
+    assert!(
+        matches!(
+            OidcClients::lock_authorization_login_registration(
+                owner.tenant_id,
+                owner.application_id,
+                owner.oidc_client_id,
+                replacement_redirect,
+                &recheck,
+            )
+            .await
+            .expect("recheck replacement redirect"),
+            AuthorizationEntryLockResult::Locked(_)
+        ),
+        "a later login must see the replacement redirect"
+    );
+    recheck.rollback().await.expect("roll back login recheck");
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn authenticate_transitions_pending_to_authenticated_and_records_subject() {
+    let app = spawn_app_with_isolated_schema().await;
+    let database = app.database().await;
+    let owner = seed_owner(&app, "authenticate").await;
+    seed_subject(&database, &owner).await;
+    let original = create_transaction(&database, &owner, "authenticate").await;
+
+    let login_read = OidcAuthorizationTransactions::get_login_authorization_transaction(
+        original.id,
+        owner.tenant_id,
+        BROWSER_DIGEST,
+        CSRF_DIGEST,
+        &database,
+    )
+    .await
+    .expect("fully bound pending transaction should be readable for login");
+    assert_eq!(login_read, original);
+
+    let authenticated = authenticate_in_owned_transaction(&database, authenticate_input(&original))
+        .await
+        .expect("matching bindings and revision should authenticate");
+    assert_eq!(
+        authenticated.status,
+        OidcAuthorizationTransactionStatus::Authenticated
+    );
+    assert_eq!(authenticated.revision, original.revision + 1);
+    assert_eq!(authenticated.subject_id, Some(SUBJECT_ID));
+    let authenticated_at = authenticated
+        .authenticated_at
+        .expect("authenticated transaction must record the database clock");
+    assert!(authenticated_at >= authenticated.created_at);
+    assert!(authenticated_at < authenticated.expires_at);
+    assert!(authenticated.terminal_at.is_none());
+    assert_eq!(authenticated.created_at, original.created_at);
+    assert_eq!(authenticated.expires_at, original.expires_at);
+    assert_eq!(authenticated.tenant_id, original.tenant_id);
+    assert_eq!(authenticated.application_id, original.application_id);
+    assert_eq!(authenticated.oidc_client_id, original.oidc_client_id);
+    assert_eq!(authenticated.issuer, original.issuer);
+    assert_eq!(authenticated.redirect_uri, original.redirect_uri);
+    assert_eq!(authenticated.state, original.state);
+    assert_eq!(authenticated.nonce, original.nonce);
+    assert_eq!(
+        authenticated.browser_binding_digest,
+        original.browser_binding_digest
+    );
+    assert_eq!(authenticated.csrf_digest, original.csrf_digest);
+
+    let generic_error = assert_unavailable(
+        &OidcAuthorizationTransactions::get_active_authorization_transaction(
+            original.id,
+            BROWSER_DIGEST,
+            &database,
+        )
+        .await
+        .expect_err("authenticated transaction must no longer be active"),
+    );
+    let login_read_error = assert_unavailable(
+        &OidcAuthorizationTransactions::get_login_authorization_transaction(
+            original.id,
+            owner.tenant_id,
+            BROWSER_DIGEST,
+            CSRF_DIGEST,
+            &database,
+        )
+        .await
+        .expect_err("authenticated transaction must not be readable for login"),
+    );
+    assert_eq!(login_read_error, generic_error);
+    let repeat_error = assert_unavailable(
+        &authenticate_in_owned_transaction(&database, authenticate_input(&authenticated))
+            .await
+            .expect_err("authentication is terminal and cannot be repeated"),
+    );
+    assert_eq!(repeat_error, generic_error);
+
+    let stored = OidcAuthorizationTransactions::find_by_id(original.id)
+        .one(&database)
+        .await
+        .expect("read authenticated transaction directly")
+        .expect("authentication must not delete the row");
+    assert_eq!(stored, authenticated);
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn authenticate_requires_fresh_pending_state_and_matching_bindings() {
+    let app = spawn_app_with_isolated_schema().await;
+    let database = app.database().await;
+    let owner = seed_owner(&app, "authenticate-reject").await;
+    let other_owner = seed_owner(&app, "authenticate-reject-other").await;
+    let original = create_transaction(&database, &owner, "authenticate-reject").await;
+
+    let wrong_browser = assert_unavailable(
+        &OidcAuthorizationTransactions::get_login_authorization_transaction(
+            original.id,
+            owner.tenant_id,
+            [0x99; 32],
+            CSRF_DIGEST,
+            &database,
+        )
+        .await
+        .expect_err("wrong browser binding must be rejected before login"),
+    );
+    let wrong_csrf = assert_unavailable(
+        &OidcAuthorizationTransactions::get_login_authorization_transaction(
+            original.id,
+            owner.tenant_id,
+            BROWSER_DIGEST,
+            [0x88; 32],
+            &database,
+        )
+        .await
+        .expect_err("wrong CSRF binding must be rejected before login"),
+    );
+    assert_eq!(wrong_csrf, wrong_browser);
+    let wrong_tenant = assert_unavailable(
+        &OidcAuthorizationTransactions::get_login_authorization_transaction(
+            original.id,
+            other_owner.tenant_id,
+            BROWSER_DIGEST,
+            CSRF_DIGEST,
+            &database,
+        )
+        .await
+        .expect_err("a cross-tenant read must be indistinguishable from absence"),
+    );
+    assert_eq!(wrong_tenant, wrong_browser);
+
+    let mut wrong_browser_input = authenticate_input(&original);
+    wrong_browser_input.browser_binding_digest = [0x99; 32];
+    let wrong_browser_error = assert_unavailable(
+        &authenticate_in_owned_transaction(&database, wrong_browser_input)
+            .await
+            .expect_err("wrong browser binding must not authenticate"),
+    );
+    assert_eq!(wrong_browser_error, wrong_browser);
+
+    let mut wrong_csrf_input = authenticate_input(&original);
+    wrong_csrf_input.csrf_digest = [0x88; 32];
+    let wrong_csrf_error = assert_unavailable(
+        &authenticate_in_owned_transaction(&database, wrong_csrf_input)
+            .await
+            .expect_err("wrong CSRF binding must not authenticate"),
+    );
+    assert_eq!(wrong_csrf_error, wrong_browser);
+
+    let mut stale_revision_input = authenticate_input(&original);
+    stale_revision_input.expected_revision = original.revision + 1;
+    let stale_revision_error = assert_unavailable(
+        &authenticate_in_owned_transaction(&database, stale_revision_input)
+            .await
+            .expect_err("a stale revision must not authenticate"),
+    );
+    assert_eq!(stale_revision_error, wrong_browser);
+
+    let still_pending = OidcAuthorizationTransactions::find_by_id(original.id)
+        .one(&database)
+        .await
+        .expect("read transaction after rejected authentication attempts")
+        .expect("transaction should remain stored");
+    assert_eq!(
+        still_pending.status,
+        OidcAuthorizationTransactionStatus::Pending
+    );
+    assert_eq!(still_pending.revision, original.revision);
+    assert_eq!(still_pending.subject_id, None);
+    assert_eq!(still_pending.authenticated_at, None);
+
+    let expiring = create_transaction(&database, &owner, "authenticate-expired").await;
+    database
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE oidc_authorization_transactions \
+             SET created_at = created_at - interval '11 minutes', \
+                 expires_at = expires_at - interval '11 minutes' \
+             WHERE id = $1",
+            [expiring.id.into()],
+        ))
+        .await
+        .expect("expire transaction while preserving its fixed lifetime");
+    let expired_read_error = assert_unavailable(
+        &OidcAuthorizationTransactions::get_login_authorization_transaction(
+            expiring.id,
+            owner.tenant_id,
+            BROWSER_DIGEST,
+            CSRF_DIGEST,
+            &database,
+        )
+        .await
+        .expect_err("database-expired transaction must not be readable for login"),
+    );
+    assert_eq!(expired_read_error, wrong_browser);
+    let expired_authenticate_error = assert_unavailable(
+        &authenticate_in_owned_transaction(&database, authenticate_input(&expiring))
+            .await
+            .expect_err("database-expired transaction must not authenticate"),
+    );
+    assert_eq!(expired_authenticate_error, wrong_browser);
+
+    let cancelled = OidcAuthorizationTransactions::cancel_authorization_transaction(
+        original.id,
+        BROWSER_DIGEST,
+        CSRF_DIGEST,
+        original.revision,
+        &database,
+    )
+    .await
+    .expect("cancel the original transaction");
+    let cancelled_read_error = assert_unavailable(
+        &OidcAuthorizationTransactions::get_login_authorization_transaction(
+            original.id,
+            owner.tenant_id,
+            BROWSER_DIGEST,
+            CSRF_DIGEST,
+            &database,
+        )
+        .await
+        .expect_err("cancelled transaction must not be readable for login"),
+    );
+    assert_eq!(cancelled_read_error, wrong_browser);
+    let cancelled_authenticate_error = assert_unavailable(
+        &authenticate_in_owned_transaction(&database, authenticate_input(&cancelled))
+            .await
+            .expect_err("a non-pending start state must not authenticate"),
+    );
+    assert_eq!(cancelled_authenticate_error, wrong_browser);
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn authenticate_rechecks_expiry_after_waiting_for_the_row_lock() {
+    let app = spawn_app_with_isolated_schema().await;
+    let database = app.database().await;
+    let owner = seed_owner(&app, "authenticate-expiry-lock").await;
+    let transaction = create_transaction(&database, &owner, "authenticate-expiry-lock").await;
+
+    let blocker = database
+        .begin()
+        .await
+        .expect("begin transaction that holds the authorization row lock");
+    blocker
+        .query_one_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT id FROM oidc_authorization_transactions WHERE id = $1 FOR UPDATE",
+            [transaction.id.into()],
+        ))
+        .await
+        .expect("lock authorization transaction")
+        .expect("authorization transaction should exist");
+
+    let application_name = format!("oidc_auth_tx_auth_{}", Uuid::now_v7().simple());
+    let authentication_database = Database::connect(format!(
+        "{}&application_name={application_name}",
+        app.dsn_with_schema()
+    ))
+    .await
+    .expect("connect dedicated authentication database");
+    let input = authenticate_input(&transaction);
+    let authentication = tokio::spawn(async move {
+        let transaction = authentication_database
+            .begin()
+            .await
+            .expect("begin blocked login transaction");
+        let result = OidcAuthorizationTransactions::authenticate_authorization_transaction(
+            input,
+            &transaction,
+        )
+        .await;
+        transaction
+            .rollback()
+            .await
+            .expect("roll back blocked login transaction");
+        result
+    });
+
+    timeout(Duration::from_secs(2), async {
+        loop {
+            let waiting = database
+                .query_one_raw(Statement::from_sql_and_values(
+                    DatabaseBackend::Postgres,
+                    "SELECT wait_event_type = 'Lock' AS waiting \
+                     FROM pg_stat_activity \
+                     WHERE application_name = $1 AND state = 'active' \
+                     ORDER BY query_start DESC LIMIT 1",
+                    [application_name.clone().into()],
+                ))
+                .await
+                .expect("observe authentication connection")
+                .is_some_and(|row| row.try_get::<bool>("", "waiting").unwrap_or(false));
+            if waiting {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("authentication must wait for the authorization row lock");
+
+    blocker
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "WITH sampled AS (SELECT clock_timestamp() AS now) \
+             UPDATE oidc_authorization_transactions \
+             SET created_at = sampled.now - interval '9 minutes 59.8 seconds', \
+                 expires_at = sampled.now + interval '0.2 seconds' \
+             FROM sampled WHERE id = $1",
+            [transaction.id.into()],
+        ))
+        .await
+        .expect("shorten the lifetime while preserving the exact ten-minute interval");
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    blocker
+        .commit()
+        .await
+        .expect("release the row only after the transaction expires");
+
+    let error = authentication
+        .await
+        .expect("authentication task must not panic")
+        .expect_err("time spent waiting for a row lock must not revive an expired transaction");
+    assert_unavailable(&error);
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn concurrent_authentications_have_exactly_one_winner() {
+    let app = spawn_app_with_isolated_schema().await;
+    let database = app.database().await;
+    let owner = seed_owner(&app, "concurrent-authenticate").await;
+    seed_subject(&database, &owner).await;
+    let transaction = create_transaction(&database, &owner, "concurrent-authenticate").await;
+    let barrier = Arc::new(Barrier::new(3));
+
+    let authenticate = |database: DatabaseConnection, barrier: Arc<Barrier>| {
+        let input = authenticate_input(&transaction);
+        tokio::spawn(async move {
+            barrier.wait().await;
+            let owned = database.begin().await.expect("begin concurrent login");
+            let result = OidcAuthorizationTransactions::authenticate_authorization_transaction(
+                input, &owned,
+            )
+            .await;
+            match result {
+                Ok(model) => {
+                    owned.commit().await.expect("commit concurrent login");
+                    Ok(model)
+                }
+                Err(error) => {
+                    owned.rollback().await.expect("roll back concurrent login");
+                    Err(error)
+                }
+            }
+        })
+    };
+    let first = authenticate(database.clone(), Arc::clone(&barrier));
+    let second = authenticate(database.clone(), Arc::clone(&barrier));
+    barrier.wait().await;
+
+    let first = first
+        .await
+        .expect("first authentication task must not panic");
+    let second = second
+        .await
+        .expect("second authentication task must not panic");
+    assert_eq!(
+        usize::from(first.is_ok()) + usize::from(second.is_ok()),
+        1,
+        "the conditional UPDATE must return exactly one concurrent winner"
+    );
+
+    let winner = first.or(second).expect("one authentication must win");
+    assert_eq!(
+        winner.status,
+        OidcAuthorizationTransactionStatus::Authenticated
+    );
+    assert_eq!(winner.revision, transaction.revision + 1);
+    assert_eq!(winner.subject_id, Some(SUBJECT_ID));
+    assert!(winner.authenticated_at.is_some());
+    assert!(winner.terminal_at.is_none());
+
+    let stored = OidcAuthorizationTransactions::find_by_id(transaction.id)
+        .one(&database)
+        .await
+        .expect("read concurrently authenticated transaction")
+        .expect("authenticated transaction remains stored");
+    assert_eq!(
+        stored.status,
+        OidcAuthorizationTransactionStatus::Authenticated
+    );
+    assert_eq!(stored.revision, 1);
+    assert_eq!(stored.subject_id, Some(SUBJECT_ID));
+    assert!(stored.authenticated_at.is_some());
+    assert_eq!(stored.created_at, transaction.created_at);
+    assert_eq!(stored.expires_at, transaction.expires_at);
 }
