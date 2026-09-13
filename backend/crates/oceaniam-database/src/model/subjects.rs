@@ -33,6 +33,8 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Credentials,
+    #[sea_orm(has_many = "super::oidc_authorization_transactions::Entity")]
+    OidcAuthorizationTransactions,
     #[sea_orm(has_many = "super::subject_roles::Entity")]
     SubjectRoles,
     #[sea_orm(has_one = "super::users::Entity")]
@@ -48,6 +50,12 @@ impl Related<super::applications::Entity> for Entity {
 impl Related<super::credentials::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Credentials.def()
+    }
+}
+
+impl Related<super::oidc_authorization_transactions::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::OidcAuthorizationTransactions.def()
     }
 }
 

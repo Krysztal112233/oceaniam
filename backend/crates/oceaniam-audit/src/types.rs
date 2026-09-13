@@ -50,6 +50,8 @@ pub enum AuditPayload {
 
     RotateKey(RotateKeyPayload),
     RevokeKey(RevokeKeyPayload),
+
+    OidcAuthenticate(OidcAuthenticatePayload),
 }
 
 impl AuditPayload {
@@ -80,6 +82,7 @@ impl AuditPayload {
             Self::VerifyChallenge(_) => AuditType::VerifyChallenge,
             Self::RotateKey(_) => AuditType::RotateKey,
             Self::RevokeKey(_) => AuditType::RevokeKey,
+            Self::OidcAuthenticate(_) => AuditType::OidcAuthenticate,
             Self::BindApplicationSecret(_) => AuditType::BindApplicationSecret,
             Self::UnbindApplicationSecret(_) => AuditType::UnbindApplicationSecret,
         }
@@ -252,6 +255,12 @@ impl From<RevokeKeyPayload> for AuditPayload {
     }
 }
 
+impl From<OidcAuthenticatePayload> for AuditPayload {
+    fn from(value: OidcAuthenticatePayload) -> Self {
+        Self::OidcAuthenticate(value)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignJwtPayload {
     pub application_id: Uuid,
@@ -326,6 +335,15 @@ pub struct DeleteOidcClientPayload {
     pub oidc_client_id: Uuid,
     pub client_id: String,
     pub name: String,
+}
+
+/// Success-only OIDC password-authentication audit. Carries no redirect, state, nonce, or
+/// credential material; jti semantics do not apply because no token is issued.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OidcAuthenticatePayload {
+    pub application_id: Uuid,
+    pub transaction_id: Uuid,
+    pub subject_id: Uuid,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

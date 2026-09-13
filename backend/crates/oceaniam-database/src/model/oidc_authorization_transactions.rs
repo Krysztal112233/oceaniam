@@ -32,6 +32,8 @@ pub struct Model {
     pub terminal_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
     pub expires_at: DateTimeWithTimeZone,
+    pub subject_id: Option<Uuid>,
+    pub authenticated_at: Option<DateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -53,6 +55,14 @@ pub enum Relation {
     )]
     OidcClients,
     #[sea_orm(
+        belongs_to = "super::subjects::Entity",
+        from = "Column::SubjectId",
+        to = "super::subjects::Column::Id",
+        on_update = "NoAction",
+        on_delete = "Cascade"
+    )]
+    Subjects,
+    #[sea_orm(
         belongs_to = "super::tenants::Entity",
         from = "Column::TenantId",
         to = "super::tenants::Column::Id",
@@ -71,6 +81,12 @@ impl Related<super::applications::Entity> for Entity {
 impl Related<super::oidc_clients::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::OidcClients.def()
+    }
+}
+
+impl Related<super::subjects::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Subjects.def()
     }
 }
 

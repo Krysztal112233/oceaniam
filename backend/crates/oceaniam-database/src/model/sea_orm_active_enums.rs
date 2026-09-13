@@ -71,6 +71,8 @@ pub enum AuditType {
     PatchOidcClient,
     #[sea_orm(string_value = "delete_oidc_client")]
     DeleteOidcClient,
+    #[sea_orm(string_value = "oidc_authenticate")]
+    OidcAuthenticate,
 }
 #[derive(
     Debug,
@@ -232,6 +234,8 @@ pub enum OidcAuthorizationTransactionStatus {
     Pending,
     #[sea_orm(string_value = "cancelled")]
     Cancelled,
+    #[sea_orm(string_value = "authenticated")]
+    Authenticated,
 }
 #[derive(
     Debug,
