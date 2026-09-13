@@ -8,8 +8,8 @@ use axum::{
     http::{
         HeaderValue, Method, Request, StatusCode,
         header::{
-            self, ALLOW, CACHE_CONTROL, CONTENT_SECURITY_POLICY, CONTENT_TYPE, LOCATION, PRAGMA,
-            REFERRER_POLICY, SET_COOKIE,
+            self, ALLOW, CACHE_CONTROL, CONTENT_SECURITY_POLICY, CONTENT_TYPE, InvalidHeaderValue,
+            LOCATION, PRAGMA, REFERRER_POLICY, SET_COOKIE,
         },
         request::Parts,
     },
@@ -333,7 +333,11 @@ async fn handle_authorization_entry(
 
     let response = match success_response(&prepared) {
         Ok(response) => response,
-        Err(()) => {
+        Err(error) => {
+            error!(
+                ?error,
+                "failed to construct an OIDC authorization-entry response header"
+            );
             let trusted_callback = prepared.trusted_callback.clone();
             if transaction.rollback().await.is_err() {
                 error!("failed to roll back OIDC authorization-entry response preparation");
@@ -444,10 +448,8 @@ async fn create_snapshot_in_transaction(
     let mut browser_binding = [0_u8; 32];
     let mut csrf = [0_u8; 32];
     let mut rng = OsRng;
-    rng.try_fill_bytes(&mut browser_binding)
-        .map_err(|_| EntryFailure::Internal(Some(trusted_callback.clone())))?;
-    rng.try_fill_bytes(&mut csrf)
-        .map_err(|_| EntryFailure::Internal(Some(trusted_callback.clone())))?;
+    rng.fill_bytes(&mut browser_binding);
+    rng.fill_bytes(&mut csrf);
 
     let snapshot = OidcAuthorizationTransactions::create_authorization_transaction(
         CreateAuthorizationTransactionInput {
@@ -504,9 +506,7 @@ impl EntryFailure {
         match self {
             Self::Local(status, message) => local_response(status, message),
             Self::Protocol { error, callback } => trusted_error_response(&callback, error)
-                .unwrap_or_else(|()| {
-                    local_response(StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
-                }),
+                .unwrap_or_else(invalid_trusted_callback_response),
             Self::Internal(callback) => internal_response(callback),
         }
     }
@@ -515,8 +515,11 @@ impl EntryFailure {
 fn internal_response(callback: Option<TrustedCallback>) -> Response {
     callback
         .as_ref()
-        .and_then(|callback| {
-            trusted_error_response(callback, AuthorizationProtocolError::ServerError).ok()
+        .map(|callback| {
+            match trusted_error_response(callback, AuthorizationProtocolError::ServerError) {
+                Ok(response) => response,
+                Err(error) => invalid_trusted_callback_response(error),
+            }
         })
         .unwrap_or_else(|| {
             local_response(StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
@@ -532,7 +535,7 @@ fn tenant_issuer(public_base_url: &PublicBaseUrl, tenant_sqid: &Sqid) -> String 
 fn trusted_error_response(
     callback: &TrustedCallback,
     error: AuthorizationProtocolError,
-) -> Result<Response, ()> {
+) -> Result<Response, InvalidHeaderValue> {
     let mut query = form_urlencoded::Serializer::new(String::new());
     query.append_pair("error", error.as_str());
     if let Some(state) = callback.state.as_deref() {
@@ -542,7 +545,7 @@ fn trusted_error_response(
     let mut location = callback.redirect_uri.clone();
     location.push(if location.contains('?') { '&' } else { '?' });
     location.push_str(&query.finish());
-    let location = HeaderValue::from_str(&location).map_err(|_| ())?;
+    let location = HeaderValue::from_str(&location)?;
 
     let mut response = StatusCode::SEE_OTHER.into_response();
     response.headers_mut().insert(LOCATION, location);
@@ -550,7 +553,15 @@ fn trusted_error_response(
     Ok(response)
 }
 
-fn success_response(prepared: &PreparedSuccess) -> Result<Response, ()> {
+fn invalid_trusted_callback_response(error: InvalidHeaderValue) -> Response {
+    error!(
+        ?error,
+        "trusted OIDC callback produced an invalid Location header"
+    );
+    local_response(StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
+}
+
+fn success_response(prepared: &PreparedSuccess) -> Result<Response, InvalidHeaderValue> {
     let transaction_sqid = Sqid::from(prepared.snapshot.id).to_string();
     let browser_binding = URL_SAFE_NO_PAD.encode(prepared.browser_binding);
     let csrf = URL_SAFE_NO_PAD.encode(prepared.csrf);
@@ -563,7 +574,7 @@ fn success_response(prepared: &PreparedSuccess) -> Result<Response, ()> {
         .path(cookie_path)
         .max_age(Duration::seconds(600))
         .build();
-    let cookie = HeaderValue::from_str(&cookie.encoded().to_string()).map_err(|_| ())?;
+    let cookie = HeaderValue::from_str(&cookie.encoded().to_string())?;
 
     let html = format!(
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Sign-in unavailable</title></head><body><main><h1>Sign-in is not available</h1><p>This authorization preview saved the request, but login has not been opened.</p><div id=\"oidc-authorization-context\" hidden data-transaction-sqid=\"{transaction_sqid}\" data-csrf=\"{csrf}\" data-revision=\"{}\"></div></main></body></html>",

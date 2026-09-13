@@ -64,9 +64,6 @@ pub enum AuthorizationRequestError {
     #[snafu(display("client_id is required"))]
     MissingClientId,
 
-    #[snafu(display("client_id must not be empty"))]
-    EmptyClientId,
-
     #[snafu(display("redirect_uri is required"))]
     MissingRedirectUri,
 
@@ -85,9 +82,6 @@ pub enum AuthorizationRequestError {
     #[snafu(display("state is required by OceanIAM policy"))]
     MissingState,
 
-    #[snafu(display("state must not be empty"))]
-    EmptyState,
-
     #[snafu(display("code_challenge_method is required by OceanIAM policy"))]
     MissingCodeChallengeMethod,
 
@@ -99,9 +93,6 @@ pub enum AuthorizationRequestError {
 
     #[snafu(display("code_challenge is not a canonical S256 challenge"))]
     InvalidCodeChallenge,
-
-    #[snafu(display("nonce must not be empty when present"))]
-    EmptyNonce,
 }
 
 impl From<AuthorizationRequestError> for AuthorizationProtocolError {

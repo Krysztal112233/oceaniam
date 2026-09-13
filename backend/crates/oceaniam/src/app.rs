@@ -94,7 +94,7 @@ pub async fn build_state(config: BackendConfig) -> Result<AppState, Error> {
         })?,
     );
 
-    let database = crate::setup_database(&database_config).await?;
+    let database = crate::setup::setup_database(&database_config).await?;
     health_check_application_secret_keyring(&database, &application_secret_keyring).await?;
     let state = AppState::new(
         database.clone(),

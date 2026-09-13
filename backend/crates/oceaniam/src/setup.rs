@@ -7,7 +7,7 @@ use sea_orm::DatabaseConnection;
     skip_all,
     fields(otel.kind = "internal")
 )]
-pub async fn setup_database(
+pub(crate) async fn setup_database(
     config: &DatabaseConfig,
 ) -> Result<DatabaseConnection, crate::error::Error> {
     let db = oceaniam_database::setup::connect(config).await?;

@@ -7,7 +7,6 @@
 
 use std::collections::HashSet;
 
-use serde::Deserialize;
 use url::Url;
 
 use super::pkce::decode_s256_code_challenge;
@@ -20,12 +19,12 @@ const RESPONSE_TYPE_CODE: &str = "code";
 const SCOPE_OPENID: &str = "openid";
 const CODE_CHALLENGE_METHOD_S256: &str = "S256";
 
-/// Deserializable Authorization Endpoint parameters before protocol validation.
+/// Authorization Endpoint parameters before protocol validation.
 ///
 /// Fields are optional so request-local validation can report deterministic missing-parameter
-/// errors. Public HTTP input reaches this type only through [`parse_authorization_form`], which
-/// supplies the strict duplicate, encoding, empty-value, and extension handling boundary.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+/// errors. Values can only be constructed by [`parse_authorization_form`], which supplies the
+/// strict duplicate, encoding, empty-value, and extension handling boundary.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RawAuthorizationRequest {
     response_type: Option<String>,
     client_id: Option<String>,
@@ -279,10 +278,6 @@ impl TryFrom<RawAuthorizationRequest> for AuthorizationRequest {
         }
 
         let client_id = client_id.ok_or(AuthorizationRequestError::MissingClientId)?;
-        if client_id.is_empty() {
-            return Err(AuthorizationRequestError::EmptyClientId);
-        }
-
         let redirect_uri = redirect_uri.ok_or(AuthorizationRequestError::MissingRedirectUri)?;
         if redirect_uri
             .bytes()
@@ -302,9 +297,6 @@ impl TryFrom<RawAuthorizationRequest> for AuthorizationRequest {
         }
 
         let state = state.ok_or(AuthorizationRequestError::MissingState)?;
-        if state.is_empty() {
-            return Err(AuthorizationRequestError::EmptyState);
-        }
 
         let code_challenge_method =
             code_challenge_method.ok_or(AuthorizationRequestError::MissingCodeChallengeMethod)?;
@@ -316,10 +308,6 @@ impl TryFrom<RawAuthorizationRequest> for AuthorizationRequest {
             code_challenge.ok_or(AuthorizationRequestError::MissingCodeChallenge)?;
         if decode_s256_code_challenge(&code_challenge).is_none() {
             return Err(AuthorizationRequestError::InvalidCodeChallenge);
-        }
-
-        if nonce.as_deref().is_some_and(str::is_empty) {
-            return Err(AuthorizationRequestError::EmptyNonce);
         }
 
         Ok(Self {
@@ -334,22 +322,19 @@ impl TryFrom<RawAuthorizationRequest> for AuthorizationRequest {
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
-
     use super::*;
 
     fn valid_raw_request() -> RawAuthorizationRequest {
-        serde_json::from_value(json!({
-            "response_type": "code",
-            "client_id": "public-client-id",
-            "redirect_uri": "https://client.example/callback?next=%2Fhome",
-            "scope": "openid",
-            "state": "state-with-exact-value",
-            "nonce": "nonce-with-exact-value",
-            "code_challenge": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-            "code_challenge_method": "S256"
-        }))
-        .expect("raw request should deserialize")
+        RawAuthorizationRequest {
+            response_type: Some("code".to_owned()),
+            client_id: Some("public-client-id".to_owned()),
+            redirect_uri: Some("https://client.example/callback?next=%2Fhome".to_owned()),
+            scope: Some("openid".to_owned()),
+            state: Some("state-with-exact-value".to_owned()),
+            nonce: Some("nonce-with-exact-value".to_owned()),
+            code_challenge: Some("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_owned()),
+            code_challenge_method: Some("S256".to_owned()),
+        }
     }
 
     // NOTE: AI-generated test
@@ -412,11 +397,6 @@ mod tests {
                 AuthorizationRequestError::MissingClientId,
             ),
             (
-                "empty client id",
-                |raw| raw.client_id = Some(String::new()),
-                AuthorizationRequestError::EmptyClientId,
-            ),
-            (
                 "missing redirect uri",
                 |raw| raw.redirect_uri = None,
                 AuthorizationRequestError::MissingRedirectUri,
@@ -455,11 +435,6 @@ mod tests {
                 "missing state",
                 |raw| raw.state = None,
                 AuthorizationRequestError::MissingState,
-            ),
-            (
-                "empty state",
-                |raw| raw.state = Some(String::new()),
-                AuthorizationRequestError::EmptyState,
             ),
             (
                 "missing code challenge method",
@@ -501,11 +476,6 @@ mod tests {
                 |raw| raw.code_challenge = Some(format!("{}B", "A".repeat(42))),
                 AuthorizationRequestError::InvalidCodeChallenge,
             ),
-            (
-                "empty nonce",
-                |raw| raw.nonce = Some(String::new()),
-                AuthorizationRequestError::EmptyNonce,
-            ),
         ];
 
         for (name, mutate, expected) in cases {
@@ -523,12 +493,11 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn missing_fields_remain_available_to_typed_validation() {
-        let raw: RawAuthorizationRequest =
-            serde_json::from_value(json!({})).expect("missing fields should deserialize");
+        let parsed = parse_authorization_form(b"").expect("empty form should parse");
 
         assert_eq!(
-            AuthorizationRequest::try_from(raw),
-            Err(AuthorizationRequestError::MissingResponseType)
+            parsed.into_authorization_request(),
+            Err(AuthorizationProtocolError::InvalidRequest)
         );
     }
 
@@ -614,6 +583,27 @@ mod tests {
 
         assert_eq!(request.client_id(), "public-client-id");
         assert_eq!(request.nonce(), Some("nonce"));
+
+        for empty_required_parameter in ["client_id", "state"] {
+            let encoded = valid_encoded_request()
+                .split(|byte| *byte == b'&')
+                .map(|pair| {
+                    if pair.starts_with(empty_required_parameter.as_bytes()) {
+                        format!("{empty_required_parameter}=").into_bytes()
+                    } else {
+                        pair.to_vec()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(&b'&');
+            assert_eq!(
+                parse_authorization_form(&encoded)
+                    .expect("empty required value should parse as omitted")
+                    .into_authorization_request(),
+                Err(AuthorizationProtocolError::InvalidRequest),
+                "empty {empty_required_parameter} should be treated as missing",
+            );
+        }
 
         let without_nonce = valid_encoded_request()
             .strip_suffix(b"&nonce=nonce&code_challenge=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&code_challenge_method=S256")

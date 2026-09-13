@@ -1,10 +1,9 @@
 pub mod app;
-pub mod conversion;
+pub(crate) mod conversion;
 pub mod endpoints;
 pub mod error;
-pub mod middlewares;
-pub mod setup;
+#[allow(unused)]
+pub(crate) mod middlewares;
+pub(crate) mod setup;
 pub mod state;
-pub mod util;
-
-pub use setup::setup_database;
+pub(crate) mod util;

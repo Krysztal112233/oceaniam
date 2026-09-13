@@ -85,7 +85,7 @@ Before claiming work is complete, run these commands:
 - **`sqids`**: All resource IDs in URLs are Sqid-encoded. Convert to/from `Uuid` via `oceaniam_common::sqid::Sqid`.
 - **`garde` + `axum-valid`**: Use `#[derive(Validate)]` with `garde` annotations for request body validation. Apply via `Garde` extractor.
 - **`thiserror` + `oceaniam_common::error::Error`**: Use `Error::with_code(StatusCode, msg)` for typed HTTP errors. Avoid raw `StatusCode` returns.
-- **Response types**: Use `oceaniam_api::ApiResponse<T>` for success, `ApiResponseWithHeader<T>` for responses with custom headers (cookies), and `RestResult<T>` / `WithHeaderRestResult<T>` as return type aliases.
+- **Response types**: Use `oceaniam_api::ApiResponse<T>` for success, `StatusCodeOnlyResponse` for status-only responses, and `RestResult<T, E>` as the result alias. Add custom headers with `ApiResponse::with_header`; add cookies with `set_cookie` / `with_cookie` (or their string variants).
   Array-typed responses (`Vec<T>`) must always be wrapped in `PagedResponse<T>` — even when
   the endpoint returns all items without pagination. Use `PagedResponse::with_entire(...)` for
   unpaginated lists.

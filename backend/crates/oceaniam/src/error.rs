@@ -51,44 +51,13 @@ pub enum Error {
     },
 }
 
-impl From<config::ConfigError> for Error {
-    fn from(source: config::ConfigError) -> Self {
-        Error::Conf {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(config::ConfigError => Error::Conf);
 
-impl From<std::io::Error> for Error {
-    fn from(source: std::io::Error) -> Self {
-        Error::Io {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(std::io::Error => Error::Io);
 
-impl From<serde_json::Error> for Error {
-    fn from(source: serde_json::Error) -> Self {
-        Error::Json {
-            source,
-            location: snafu::location!(),
-        }
-    }
-}
+oceaniam_common::located_from!(serde_json::Error => Error::Json);
 
-impl Error {
-    #[track_caller]
-    pub fn with_code(code: impl Into<u16>, msg: impl Into<String>) -> Self {
-        let loc = std::panic::Location::caller();
-        Self::CustomMessage {
-            code: code.into(),
-            msg: msg.into(),
-            location: Location::new(loc.file(), loc.line(), loc.column()),
-        }
-    }
-}
+oceaniam_common::located_with_code!(Error::CustomMessage);
 
 impl Clone for Error {
     fn clone(&self) -> Self {
