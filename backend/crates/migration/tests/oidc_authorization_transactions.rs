@@ -354,3 +354,441 @@ async fn authorization_transaction_migration_uses_only_current_schema_enum_types
         .await
         .expect("close other-schema migration database");
 }
+
+const A1_MIGRATION_VERSION: &str = "m20260913_094443_alter_oidc_auth_tx_authenticated";
+const AUDIT_TYPE: &str = "audit_type";
+const SUBJECT_FK: &str = "fk_oidc_auth_tx_subject";
+
+/// Nullable-column and subject-FK state owned by the A1 migration, probed in the connection's
+/// current schema.
+async fn a1_object_state(database: &DatabaseConnection) -> (bool, bool, bool) {
+    let columns = database
+        .query_all_raw(Statement::from_string(
+            DatabaseBackend::Postgres,
+            "SELECT column_name, is_nullable \
+             FROM information_schema.columns \
+             WHERE table_schema = current_schema() \
+             AND table_name = 'oidc_authorization_transactions' \
+             AND column_name IN ('subject_id', 'authenticated_at')"
+                .to_owned(),
+        ))
+        .await
+        .expect("query A1 column state");
+    let nullable_column = |name: &str| {
+        columns.iter().any(|row| {
+            row.try_get::<String>("", "column_name")
+                .expect("read column name")
+                == name
+                && row
+                    .try_get::<String>("", "is_nullable")
+                    .expect("read nullability")
+                    == "YES"
+        })
+    };
+
+    let has_subject_fk = database
+        .query_one_raw(Statement::from_string(
+            DatabaseBackend::Postgres,
+            format!(
+                "SELECT EXISTS ( \
+                     SELECT 1 FROM pg_constraint \
+                     WHERE conname = '{SUBJECT_FK}' \
+                     AND conrelid = 'oidc_authorization_transactions'::regclass \
+                 ) AS has_fk"
+            ),
+        ))
+        .await
+        .expect("query subject FK state")
+        .expect("subject FK query should return one row")
+        .try_get::<bool>("", "has_fk")
+        .expect("read subject FK state");
+
+    (
+        nullable_column("subject_id"),
+        nullable_column("authenticated_at"),
+        has_subject_fk,
+    )
+}
+
+async fn seed_registration_owner(
+    database: &DatabaseConnection,
+    client_id: &str,
+) -> (Uuid, Uuid, Uuid) {
+    let tenant_id = Uuid::now_v7();
+    let application_id = Uuid::now_v7();
+    let oidc_client_id = Uuid::now_v7();
+    database
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO tenants (id, comment, created_at) VALUES ($1, NULL, now())",
+            [tenant_id.into()],
+        ))
+        .await
+        .expect("insert tenant owner");
+    database
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO applications (id, comment, tenant_id, created_at) \
+             VALUES ($1, NULL, $2, now())",
+            vec![application_id.into(), tenant_id.into()],
+        ))
+        .await
+        .expect("insert application owner");
+    database
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO oidc_clients \
+             (id, application_id, client_id, name, client_type, application_type, created_at) \
+             VALUES ($1, $2, $3, 'A1 lifecycle client', 'public', 'web', now())",
+            vec![
+                oidc_client_id.into(),
+                application_id.into(),
+                client_id.into(),
+            ],
+        ))
+        .await
+        .expect("insert OIDC client owner");
+    (tenant_id, application_id, oidc_client_id)
+}
+
+async fn insert_authorization_transaction(
+    database: &DatabaseConnection,
+    owner: (Uuid, Uuid, Uuid),
+    status: &str,
+    subject_id: Option<Uuid>,
+) -> Uuid {
+    let (tenant_id, application_id, oidc_client_id) = owner;
+    let transaction_id = Uuid::now_v7();
+    database
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO oidc_authorization_transactions \
+             (id, tenant_id, application_id, oidc_client_id, issuer, redirect_uri, \
+              state, nonce, code_challenge, browser_binding_digest, csrf_digest, \
+              status, subject_id, authenticated_at) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, \
+                     $12::oidc_authorization_transaction_status, $13, \
+                     CASE WHEN $13::uuid IS NOT NULL THEN now() END)",
+            vec![
+                transaction_id.into(),
+                tenant_id.into(),
+                application_id.into(),
+                oidc_client_id.into(),
+                "https://issuer.example/oidc/a1".into(),
+                "https://client.example/a1/callback".into(),
+                "opaque-state".into(),
+                "opaque-nonce".into(),
+                RFC_7636_CHALLENGE.into(),
+                vec![1_u8; 32].into(),
+                vec![2_u8; 32].into(),
+                status.into(),
+                subject_id.into(),
+            ],
+        ))
+        .await
+        .expect("insert authorization transaction");
+    transaction_id
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn m20260913_094443_alter_oidc_auth_tx_authenticated_is_incremental_and_reversible() {
+    initialize_test_environment();
+
+    let (_schema, database) = isolated_database().await;
+    let migrations = Migrator::migrations();
+    let target_index = migrations
+        .iter()
+        .position(|migration| migration.name() == A1_MIGRATION_VERSION)
+        .expect("A1 authentication migration must be registered");
+    Migrator::up(&database, Some(target_index as u32))
+        .await
+        .expect("apply migrations preceding the A1 authentication migration");
+    assert_eq!(a1_object_state(&database).await, (false, false, false));
+    assert_eq!(
+        current_enum_labels(&database, STATUS_TYPE).await,
+        ["pending", "cancelled"]
+    );
+    assert!(
+        !current_enum_labels(&database, AUDIT_TYPE)
+            .await
+            .iter()
+            .any(|label| label == "oidc_authenticate"),
+        "the audit enum must not carry oidc_authenticate before the A1 migration"
+    );
+
+    let owner = seed_registration_owner(&database, "a1-incremental-client").await;
+    let pending_id = {
+        let (tenant_id, application_id, oidc_client_id) = owner;
+        let transaction_id = Uuid::now_v7();
+        database
+            .execute_raw(Statement::from_sql_and_values(
+                DatabaseBackend::Postgres,
+                "INSERT INTO oidc_authorization_transactions \
+                 (id, tenant_id, application_id, oidc_client_id, issuer, redirect_uri, \
+                  state, nonce, code_challenge, browser_binding_digest, csrf_digest) \
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
+                vec![
+                    transaction_id.into(),
+                    tenant_id.into(),
+                    application_id.into(),
+                    oidc_client_id.into(),
+                    "https://issuer.example/oidc/a1".into(),
+                    "https://client.example/a1/callback".into(),
+                    "opaque-state".into(),
+                    "opaque-nonce".into(),
+                    RFC_7636_CHALLENGE.into(),
+                    vec![1_u8; 32].into(),
+                    vec![2_u8; 32].into(),
+                ],
+            ))
+            .await
+            .expect("insert pre-A1 pending transaction");
+        transaction_id
+    };
+
+    Migrator::up(&database, Some(1))
+        .await
+        .expect("apply the A1 authentication migration incrementally");
+    assert_eq!(a1_object_state(&database).await, (true, true, true));
+    assert_eq!(
+        current_enum_labels(&database, STATUS_TYPE).await,
+        ["pending", "cancelled", "authenticated"]
+    );
+    assert!(
+        current_enum_labels(&database, AUDIT_TYPE)
+            .await
+            .iter()
+            .any(|label| label == "oidc_authenticate"),
+        "the audit enum must gain oidc_authenticate"
+    );
+
+    let subject_id = Uuid::now_v7();
+    database
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO credentials (id, phc) VALUES ($1, 'test-phc')",
+            [subject_id.into()],
+        ))
+        .await
+        .expect("insert authenticated subject's credential");
+    database
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO subjects (id, type, application_id, created_at) \
+             VALUES ($1, 'user', $2, now())",
+            vec![subject_id.into(), owner.1.into()],
+        ))
+        .await
+        .expect("insert authenticated subject");
+    let authenticated_id =
+        insert_authorization_transaction(&database, owner, "authenticated", Some(subject_id)).await;
+    let stored = database
+        .query_one_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT status::text AS status, subject_id, authenticated_at IS NOT NULL AS stamped \
+             FROM oidc_authorization_transactions WHERE id = $1",
+            [authenticated_id.into()],
+        ))
+        .await
+        .expect("query authenticated transaction")
+        .expect("authenticated transaction should exist");
+    assert_eq!(
+        stored.try_get::<String>("", "status").unwrap(),
+        "authenticated"
+    );
+    assert_eq!(
+        stored.try_get::<Option<Uuid>>("", "subject_id").unwrap(),
+        Some(subject_id)
+    );
+    assert!(stored.try_get::<bool>("", "stamped").unwrap());
+
+    let invalid_subject = database
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE oidc_authorization_transactions SET subject_id = $1 WHERE id = $2",
+            vec![Uuid::now_v7().into(), pending_id.into()],
+        ))
+        .await
+        .expect_err("the subject FK must reject a subject that does not exist");
+    assert!(
+        invalid_subject.to_string().contains(SUBJECT_FK),
+        "expected the {SUBJECT_FK} violation, got: {invalid_subject}"
+    );
+
+    Migrator::down(&database, Some(1))
+        .await
+        .expect("roll back the A1 authentication migration");
+    assert_eq!(a1_object_state(&database).await, (false, false, false));
+    assert_eq!(
+        current_enum_labels(&database, STATUS_TYPE).await,
+        ["pending", "cancelled", "authenticated"],
+        "PostgreSQL cannot drop enum values, so rollback keeps the added labels"
+    );
+    assert!(
+        current_enum_labels(&database, AUDIT_TYPE)
+            .await
+            .iter()
+            .any(|label| label == "oidc_authenticate"),
+        "rollback keeps the oidc_authenticate audit label"
+    );
+    let pending_status: String = database
+        .query_one_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT status::text AS status FROM oidc_authorization_transactions WHERE id = $1",
+            [pending_id.into()],
+        ))
+        .await
+        .expect("query pre-A1 transaction after rollback")
+        .expect("pre-A1 transaction must survive rollback")
+        .try_get("", "status")
+        .expect("read pre-A1 transaction status");
+    assert_eq!(pending_status, "pending");
+
+    Migrator::up(&database, Some(1))
+        .await
+        .expect("reapply the A1 authentication migration after rollback");
+    assert_eq!(a1_object_state(&database).await, (true, true, true));
+    assert_eq!(
+        current_enum_labels(&database, STATUS_TYPE).await,
+        ["pending", "cancelled", "authenticated"]
+    );
+    let restored = database
+        .query_one_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT subject_id IS NULL AS no_subject, authenticated_at IS NULL AS no_stamp \
+             FROM oidc_authorization_transactions WHERE id = $1",
+            [pending_id.into()],
+        ))
+        .await
+        .expect("query pre-A1 transaction after reapply")
+        .expect("pre-A1 transaction must survive the up-down-up cycle");
+    assert!(restored.try_get::<bool>("", "no_subject").unwrap());
+    assert!(restored.try_get::<bool>("", "no_stamp").unwrap());
+
+    let (_fresh_schema, fresh_database) = isolated_database().await;
+    Migrator::up(&fresh_database, None)
+        .await
+        .expect("apply every migration on a fresh schema");
+    assert_eq!(
+        a1_object_state(&fresh_database).await,
+        (true, true, true),
+        "a fresh migration run must include the A1 columns and subject FK"
+    );
+    assert_eq!(
+        current_enum_labels(&fresh_database, STATUS_TYPE).await,
+        ["pending", "cancelled", "authenticated"]
+    );
+    assert!(
+        current_enum_labels(&fresh_database, AUDIT_TYPE)
+            .await
+            .iter()
+            .any(|label| label == "oidc_authenticate")
+    );
+
+    database
+        .close()
+        .await
+        .expect("close incremental migration test database");
+    fresh_database
+        .close()
+        .await
+        .expect("close fresh migration test database");
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn m20260913_094443_alter_oidc_auth_tx_authenticated_creates_the_subject_fk_in_every_schema()
+{
+    initialize_test_environment();
+
+    let (_first_schema, first_database) = isolated_database().await;
+    Migrator::up(&first_database, None)
+        .await
+        .expect("apply every migration in the first schema");
+    let (_second_schema, second_database) = isolated_database().await;
+    Migrator::up(&second_database, None)
+        .await
+        .expect("apply every migration in the second schema");
+
+    for (label, database) in [("first", &first_database), ("second", &second_database)] {
+        assert_eq!(
+            a1_object_state(database).await,
+            (true, true, true),
+            "the {label} schema must carry the nullable columns and its own subject FK"
+        );
+    }
+
+    // Functional enforcement in the second schema: the unqualified pg_constraint probe used to
+    // silently skip this schema's FK, so prove an invalid subject is rejected here.
+    let owner = seed_registration_owner(&second_database, "a1-second-schema-client").await;
+    let pending_id =
+        insert_authorization_transaction(&second_database, owner, "pending", None).await;
+    let invalid_subject = second_database
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE oidc_authorization_transactions SET subject_id = $1 WHERE id = $2",
+            vec![Uuid::now_v7().into(), pending_id.into()],
+        ))
+        .await
+        .expect_err("the second schema's subject FK must reject a subject that does not exist");
+    assert!(
+        invalid_subject.to_string().contains(SUBJECT_FK),
+        "expected the {SUBJECT_FK} violation in the second schema, got: {invalid_subject}"
+    );
+
+    // Subject deletion must cascade the authentication snapshot through the second schema's FK.
+    let subject_id = Uuid::now_v7();
+    second_database
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO credentials (id, phc) VALUES ($1, 'test-phc')",
+            [subject_id.into()],
+        ))
+        .await
+        .expect("insert second-schema subject's credential");
+    second_database
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "INSERT INTO subjects (id, type, application_id, created_at) \
+             VALUES ($1, 'user', $2, now())",
+            vec![subject_id.into(), owner.1.into()],
+        ))
+        .await
+        .expect("insert second-schema subject");
+    insert_authorization_transaction(&second_database, owner, "authenticated", Some(subject_id))
+        .await;
+    second_database
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "DELETE FROM subjects WHERE id = $1",
+            [subject_id.into()],
+        ))
+        .await
+        .expect("delete the authenticated subject");
+    let remaining: i64 = second_database
+        .query_one_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT COUNT(*)::bigint AS count FROM oidc_authorization_transactions \
+             WHERE subject_id = $1",
+            [subject_id.into()],
+        ))
+        .await
+        .expect("count transactions referencing the deleted subject")
+        .expect("reference count should return one row")
+        .try_get("", "count")
+        .expect("read reference count");
+    assert_eq!(
+        remaining, 0,
+        "deleting a subject must cascade its authentication snapshots in every schema"
+    );
+
+    first_database
+        .close()
+        .await
+        .expect("close first-schema migration database");
+    second_database
+        .close()
+        .await
+        .expect("close second-schema migration database");
+}

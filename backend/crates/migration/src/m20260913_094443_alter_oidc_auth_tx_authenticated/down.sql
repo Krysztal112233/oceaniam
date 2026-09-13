@@ -1,0 +1,2 @@
+ALTER TABLE oidc_authorization_transactions
+DROP CONSTRAINT fk_oidc_auth_tx_subject;
