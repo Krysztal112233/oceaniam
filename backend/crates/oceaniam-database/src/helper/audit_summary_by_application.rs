@@ -1,6 +1,6 @@
 use crate::error::Error;
 
-use chrono::{Duration, Utc};
+use chrono::Duration;
 use sea_orm::{
     ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QuerySelect,
     sea_query::{Expr, Order},
@@ -8,7 +8,7 @@ use sea_orm::{
 use uuid::Uuid;
 
 use crate::{
-    helper::SafeTransactionConnectionTrait,
+    helper::{SafeTransactionConnectionTrait, db_clock_now},
     model::{
         audit_summary_by_application, prelude::AuditSummaryByApplication,
         sea_orm_active_enums::AuditType,
@@ -41,7 +41,8 @@ pub trait AuditSummaryByApplicationHelper {
     ) -> Result<Vec<audit_summary_by_application::Model>, Error> {
         use audit_summary_by_application::Column::*;
 
-        let since = (Utc::now().date_naive() - Duration::days(30))
+        // The analysis window is anchored on the database clock (Rule 3).
+        let since = (db_clock_now(database).await?.date_naive() - Duration::days(30))
             .and_hms_opt(0, 0, 0)
             .unwrap()
             .and_utc();

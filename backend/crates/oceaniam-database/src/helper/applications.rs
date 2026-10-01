@@ -9,7 +9,10 @@ use uuid::Uuid;
 
 use crate::{
     config::application::ApplicationConfiguration,
-    helper::{PagedExecutor, PagedSelect, SafeTransactionConnectionTrait, exactly_one_returned},
+    helper::{
+        PagedExecutor, PagedSelect, SafeTransactionConnectionTrait, db_clock_now,
+        exactly_one_returned,
+    },
     model::{self, prelude::Applications},
 };
 
@@ -59,7 +62,7 @@ pub trait ApplicationHelper {
             tenant_id,
             comment,
             configuration: serde_json::to_value(configuration)?,
-            created_at: chrono::Utc::now().into(),
+            created_at: db_clock_now(database).await?,
         }
         .into_active_model()
         .insert(database)

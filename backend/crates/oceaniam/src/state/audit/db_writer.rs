@@ -1,11 +1,13 @@
 use std::{sync::Arc, time::Duration};
 
-use chrono::Utc;
 use crossbeam_queue::SegQueue;
 use oceaniam_audit::types::AuditPayload;
 use oceaniam_database::{
-    helper::audits::{AuditsHelper, audit_model_to_active_model},
-    model::{self, prelude::Audits},
+    helper::{
+        audits::{AuditsHelper, audit_model_to_active_model},
+        db_clock_now,
+    },
+    model::{self, prelude::Audits, sea_orm_active_enums::AuditType},
 };
 use opentelemetry::trace::{SpanContext, TraceContextExt as _};
 use sea_orm::DatabaseConnection;
@@ -16,11 +18,10 @@ use uuid::Uuid;
 
 use super::AuditWriter;
 
-type AuditActiveModel = model::audits::ActiveModel;
-
 #[derive(Debug)]
 struct QueuedAudit {
-    model: AuditActiveModel,
+    audit_type: AuditType,
+    payload: serde_json::Value,
     source: SpanContext,
 }
 
@@ -55,37 +56,57 @@ impl AuditWriter for DatabaseAuditWriter {
         let context = Span::current().context();
         let source = context.span().span_context().clone();
         self.queue.push(QueuedAudit {
-            model: audit_model_to_active_model(model::audits::Model {
-                id: Uuid::now_v7(),
-                audit_type: payload.audit_type(),
-                payload: serde_json::to_value(payload).unwrap(),
-                created_at: Utc::now().into(),
-            }),
+            audit_type: payload.audit_type(),
+            payload: serde_json::to_value(payload).unwrap(),
             source,
         });
     }
 }
 
 fn drain(queue: &SegQueue<QueuedAudit>, database: &DatabaseConnection) {
-    let mut models = Vec::new();
+    let mut audits = Vec::new();
     let mut sources = Vec::new();
-    while let Some(QueuedAudit { model, source }) = queue.pop() {
-        models.push(model);
+    while let Some(QueuedAudit {
+        audit_type,
+        payload,
+        source,
+    }) = queue.pop()
+    {
+        audits.push((audit_type, payload));
         if source.is_valid() {
             sources.push(source);
         }
     }
 
-    if models.is_empty() {
+    if audits.is_empty() {
         return;
     }
 
-    let span = audit_flush_span(models.len(), sources);
+    let span = audit_flush_span(audits.len(), sources);
 
     let db = database.clone();
     tokio::spawn(
         async move {
-            if let Err(error) = Audits::insert_many_audits(models, &db).await {
+            // The rows are materialized at flush time with a single database-clock sample
+            // (Rule 3): `write()` is synchronous and cannot consult the time authority, so the
+            // queued payload carries no timestamp of its own.
+            let result = async {
+                let created_at = db_clock_now(&db).await?;
+                let models = audits
+                    .into_iter()
+                    .map(|(audit_type, payload)| {
+                        audit_model_to_active_model(model::audits::Model {
+                            id: Uuid::now_v7(),
+                            audit_type,
+                            payload,
+                            created_at,
+                        })
+                    })
+                    .collect();
+                Audits::insert_many_audits(models, &db).await
+            }
+            .await;
+            if let Err(error) = result {
                 let span = Span::current();
                 span.record("otel.status_code", "ERROR");
                 span.record("otel.status_description", "audit batch insert failed");

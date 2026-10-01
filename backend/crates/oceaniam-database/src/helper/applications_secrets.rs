@@ -1,6 +1,5 @@
 use crate::error::Error;
 use axum::http::StatusCode;
-use chrono::Utc;
 use oceaniam_vo::pagination::{PageParam, PagedResponse};
 use sea_orm::TransactionSession as _;
 use sea_orm::{
@@ -12,7 +11,7 @@ use uuid::Uuid;
 
 use crate::model::prelude::{ApplicationSecretBindings, ApplicationSecrets};
 use crate::{
-    helper::{PagedExecutor, PagedSelect, SafeTransactionConnectionTrait},
+    helper::{PagedExecutor, PagedSelect, SafeTransactionConnectionTrait, db_clock_now},
     model::{self},
 };
 
@@ -42,7 +41,7 @@ pub trait ApplicationSecretsHelper {
             secret_prefix: secret_prefix.into(),
             secret_verifier,
             hmac_key_version,
-            created_at: Utc::now().into(),
+            created_at: db_clock_now(database).await?,
             revoked_at: None,
         }
         .into_active_model()
@@ -71,7 +70,7 @@ pub trait ApplicationSecretsHelper {
             secret_prefix: secret_prefix.into(),
             secret_verifier,
             hmac_key_version,
-            created_at: Utc::now().into(),
+            created_at: db_clock_now(&transaction).await?,
             revoked_at: None,
         }
         .into_active_model()

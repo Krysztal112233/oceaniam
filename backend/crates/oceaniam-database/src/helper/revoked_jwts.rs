@@ -1,12 +1,11 @@
 use crate::error::Error;
-use chrono::Utc;
 use sea_orm::{
     ActiveModelTrait, DbErr, EntityTrait, IntoActiveModel, QueryOrder, QuerySelect, StreamTrait,
 };
 use uuid::Uuid;
 
 use crate::{
-    helper::SafeTransactionConnectionTrait,
+    helper::{SafeTransactionConnectionTrait, db_clock_now},
     model::{
         self,
         prelude::RevokedJwts,
@@ -28,7 +27,7 @@ pub trait RevokedJwtsHelper {
     ) -> Result<model::revoked_jwts::Model, Error> {
         Ok(model::revoked_jwts::Model {
             jti: jti.into(),
-            revoked_at: Utc::now().into(),
+            revoked_at: db_clock_now(database).await?,
         }
         .into_active_model()
         .insert(database)

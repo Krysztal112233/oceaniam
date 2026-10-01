@@ -1,9 +1,11 @@
 #![doc = include_str!("./README.md")]
 
 use crate::error::Error;
+use chrono::{DateTime, FixedOffset};
 use oceaniam_vo::pagination::{PageInfo, PageParam, PagedResponse};
 use sea_orm::{
-    ConnectionTrait, EntityTrait, FromQueryResult, QuerySelect as _, Select, TransactionTrait,
+    ConnectionTrait, DatabaseBackend, EntityTrait, FromQueryResult, QuerySelect as _, Select,
+    Statement, TransactionTrait,
 };
 
 pub mod administrator_tenants;
@@ -35,6 +37,27 @@ pub trait SafeTransactionConnectionTrait: TransactionTrait + ConnectionTrait + S
 impl<T> SafeTransactionConnectionTrait for T where
     T: TransactionTrait + ConnectionTrait + Send + Sync
 {
+}
+
+/// Samples the database wall clock (`clock_timestamp()`), the single time authority for any
+/// timestamp persisted to the database or evaluated by a database predicate (Rule 3).
+///
+/// Unlike `CURRENT_TIMESTAMP`, `clock_timestamp()` is not pinned to transaction start, so the
+/// sample reflects the moment the statement executes.
+pub async fn db_clock_now(
+    database: &impl SafeTransactionConnectionTrait,
+) -> Result<DateTime<FixedOffset>, Error> {
+    database
+        .query_one_raw(Statement::from_string(
+            DatabaseBackend::Postgres,
+            "SELECT clock_timestamp() AS now".to_owned(),
+        ))
+        .await?
+        .ok_or(Error::from(sea_orm::DbErr::RecordNotFound(
+            "clock_timestamp".to_owned(),
+        )))?
+        .try_get("", "now")
+        .map_err(Into::into)
 }
 
 /// Collapses the rows of a primary-key-filtered `exec_with_returning` write into exactly one

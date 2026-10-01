@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::{
     error::Error,
-    helper::{PagedExecutor, PagedSelect, SafeTransactionConnectionTrait},
+    helper::{PagedExecutor, PagedSelect, SafeTransactionConnectionTrait, db_clock_now},
     model::{
         self,
         prelude::{OidcClientRedirectUris, OidcClients},
@@ -37,7 +37,7 @@ pub trait OidcClientsHelper {
             name: Set(name),
             client_type: Set(OidcClientType::Public),
             application_type: Set(OidcApplicationType::Web),
-            created_at: Set(chrono::Utc::now().into()),
+            created_at: Set(db_clock_now(database).await?),
         }
         .insert(database)
         .await?)
@@ -54,7 +54,7 @@ pub trait OidcClientsHelper {
         redirect_uris: Vec<String>,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<Vec<model::oidc_client_redirect_uris::Model>, Error> {
-        let now = chrono::Utc::now().into();
+        let now = db_clock_now(database).await?;
         let models = redirect_uris
             .into_iter()
             .map(

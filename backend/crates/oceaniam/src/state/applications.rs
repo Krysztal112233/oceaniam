@@ -602,21 +602,29 @@ impl ApplicationUsers {
                 format!("ttl_seconds={ttl_seconds} exceeds the pgmq delay limit (i32::MAX)"),
             )
         })?;
-        let expires_at: DateTime<FixedOffset> =
-            (chrono::Utc::now() + chrono::Duration::seconds(i64::from(delay))).into();
 
         let user = self
             .create_user_in_tx(application_id, opts, password, transaction)
             .await?;
 
-        Subjects::set_subject_expiration(user.id, expires_at, transaction)
-            .await
-            .inspect_err(|e| {
-                error!(
-                    "failed to set expiration for dev account: user_id={}, application_id={}, error={}",
-                    user.id, application_id, e
-                );
-            })?;
+        // The expiry is computed on the database clock inside the same transaction (Rule 3),
+        // so the pgmq delay below and `expires_at` share one time authority: the message
+        // becomes visible exactly when the account expires.
+        let subject = Subjects::set_subject_expiration(
+            user.id,
+            chrono::Duration::seconds(i64::from(delay)),
+            transaction,
+        )
+        .await
+        .inspect_err(|e| {
+            error!(
+                "failed to set expiration for dev account: user_id={}, application_id={}, error={}",
+                user.id, application_id, e
+            );
+        })?;
+        let expires_at = subject
+            .expires_at
+            .expect("set_subject_expiration always stamps expires_at");
 
         let payload = serde_json::json!({
             "subject_id": user.id,

@@ -1,9 +1,9 @@
-use chrono::{Duration, Utc};
+use chrono::Duration;
 use sea_orm::{FromQueryResult, Statement};
 use uuid::Uuid;
 
 use crate::error::Error;
-use crate::helper::SafeTransactionConnectionTrait;
+use crate::helper::{SafeTransactionConnectionTrait, db_clock_now};
 
 #[derive(Debug, FromQueryResult)]
 pub struct PlatformTrendRow {
@@ -41,7 +41,8 @@ pub async fn get_platform_trends(
 ) -> Result<Vec<PlatformTrendRow>, Error> {
     validate_granularity(granularity)?;
 
-    let since = Utc::now() - Duration::days(range_days as i64);
+    // The analysis window is anchored on the database clock (Rule 3).
+    let since = db_clock_now(database).await? - Duration::days(range_days as i64);
 
     // TODO: eliminate raw SQL by using SeaORM's query builder (Func::cust("date_trunc"))
     let sql = "SELECT date_trunc($1, bucket) AS period, \
@@ -82,7 +83,8 @@ pub async fn get_application_trends(
 ) -> Result<Vec<ApplicationTrendRow>, Error> {
     validate_granularity(granularity)?;
 
-    let since = Utc::now() - Duration::days(range_days as i64);
+    // The analysis window is anchored on the database clock (Rule 3).
+    let since = db_clock_now(database).await? - Duration::days(range_days as i64);
 
     // TODO: eliminate raw SQL by using SeaORM's query builder (Func::cust("date_trunc"))
     let sql = "SELECT date_trunc($1, bucket) AS period, \

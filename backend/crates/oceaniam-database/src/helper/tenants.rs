@@ -47,7 +47,7 @@ pub trait TenantsHelper {
         Ok(model::tenants::Model {
             id,
             comment: comment.map(Into::into),
-            created_at: chrono::Utc::now().into(),
+            created_at: crate::helper::db_clock_now(database).await?,
         }
         .into_active_model()
         .insert(database)

@@ -41,7 +41,13 @@ patterns:
 
 Exceptions: multi-table row operations (ordered lock chains such as
 `oidc_authorization_entry.rs`; multi-table writes in one transaction such as
-`applications_secrets::create_binding_pair`, `users::create_user_with_subject`).
+`applications_secrets::create_binding_pair`, `users::create_user`).
+
+**Rule 3 (single time authority).** Any timestamp persisted to the database, or evaluated by a
+database predicate, MUST originate from the database clock (`clock_timestamp()`, sampled via
+`db_clock_now` or used inline in SQL). The application clock (`Utc::now()` and friends) is
+reserved for logs, tracing/metrics, in-process state (e.g. anti-replay cache TTLs), and
+presentational output.
 
 ## Convention
 

@@ -98,7 +98,7 @@ pub trait UserHelper {
             email,
             phone,
             nickname,
-            created_at: chrono::Utc::now().into(),
+            created_at: crate::helper::db_clock_now(database).await?,
             oidc_sub,
         }
         .into_active_model()

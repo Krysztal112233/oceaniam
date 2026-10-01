@@ -1,10 +1,9 @@
-use chrono::Utc;
 use sea_orm::{EntityTrait, IntoActiveModel};
 use uuid::Uuid;
 
 use crate::{
     error::Error,
-    helper::SafeTransactionConnectionTrait,
+    helper::{SafeTransactionConnectionTrait, db_clock_now},
     model::{self, prelude::Audits, sea_orm_active_enums::AuditType},
 };
 
@@ -44,7 +43,7 @@ pub trait AuditsHelper {
             id,
             audit_type,
             payload,
-            created_at: Utc::now().into(),
+            created_at: db_clock_now(database).await?,
         }
         .into_active_model();
 

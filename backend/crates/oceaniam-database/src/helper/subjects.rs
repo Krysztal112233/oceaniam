@@ -1,13 +1,15 @@
 use axum::http::StatusCode;
-use chrono::{DateTime, FixedOffset, Utc};
+use chrono::Duration;
 use sea_orm::sea_query::Expr;
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, EntityTrait, ExprTrait, IntoActiveModel, QueryFilter,
+};
 use uuid::Uuid;
 
 use crate::{
     error::Error,
     helper::subject_roles::SubjectRolesHelper,
-    helper::{SafeTransactionConnectionTrait, exactly_one_returned},
+    helper::{SafeTransactionConnectionTrait, db_clock_now, exactly_one_returned},
     model::{
         self,
         prelude::{SubjectRoles, Subjects},
@@ -45,12 +47,13 @@ pub trait SubjectsHelper {
         typ: SubjectTypeEnum,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::subjects::Model, Error> {
+        let created_at = db_clock_now(database).await?;
         let result = {
             model::subjects::Model {
                 id,
                 r#type: typ,
                 application_id,
-                created_at: Utc::now().into(),
+                created_at,
                 expires_at: None,
             }
             .into_active_model()
@@ -61,12 +64,15 @@ pub trait SubjectsHelper {
         Ok(result)
     }
 
-    /// Sets the expiration timestamp on an existing subject.
+    /// Sets the expiration timestamp on an existing subject from a time-to-live.
     ///
     /// Used by the development-account flow: the subject row is created as a normal account
     /// first (reusing the regular creation ordering), then stamped with `expires_at` inside the
-    /// same transaction. The primary-key-filtered write returns the updated row and reports a
-    /// not-found error when the subject is gone instead of silently no-oping.
+    /// same transaction. The expiry is computed on the database clock (Rule 3):
+    /// `expires_at = clock_timestamp() + ttl`, so a negative or zero ttl stamps an
+    /// immediately-expired subject — a legal state. The primary-key-filtered write returns the
+    /// updated row and reports a not-found error when the subject is gone instead of silently
+    /// no-oping.
     #[tracing::instrument(
         level = "info",
         name = "db.subjects.set_subject_expiration",
@@ -75,11 +81,20 @@ pub trait SubjectsHelper {
     )]
     async fn set_subject_expiration(
         id: Uuid,
-        expires_at: DateTime<FixedOffset>,
+        ttl: Duration,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::subjects::Model, Error> {
+        // The ttl is bound as whole microseconds (timestamptz resolution); only absurd
+        // durations beyond ~292k years saturate.
+        let microseconds = ttl.num_microseconds().unwrap_or(i64::MAX);
         let updated = Subjects::update_many()
-            .col_expr(model::subjects::Column::ExpiresAt, Expr::value(expires_at))
+            .col_expr(
+                model::subjects::Column::ExpiresAt,
+                Expr::cust_with_values(
+                    "clock_timestamp() + $1::bigint * interval '1 microsecond'",
+                    [microseconds],
+                ),
+            )
             .filter(model::subjects::Column::Id.eq(id))
             .exec_with_returning(database)
             .await?;
@@ -92,9 +107,10 @@ pub trait SubjectsHelper {
     /// Lazy expiration rejection for time-limited (development) accounts.
     ///
     /// Returns 401 when the subject does not exist or its `expires_at` is in the past. Normal
-    /// accounts (`expires_at IS NULL`) always pass. The message is deliberately the generic
-    /// login-failure one so this check does not leak account existence (see
-    /// `docs/design/ERROR_CODES.md`).
+    /// accounts (`expires_at IS NULL`) always pass. The expiry predicate is pushed into the
+    /// `WHERE` clause and evaluated on the database clock (Rule 3). The message is
+    /// deliberately the generic login-failure one so this check does not leak account
+    /// existence (see `docs/design/ERROR_CODES.md`).
     #[tracing::instrument(
         level = "info",
         name = "db.subjects.ensure_subject_active",
@@ -105,7 +121,14 @@ pub trait SubjectsHelper {
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<(), Error> {
-        let subject = Subjects::find_by_id(id)
+        use model::subjects::Column::*;
+
+        Subjects::find_by_id(id)
+            .filter(
+                Expr::col(ExpiresAt)
+                    .is_null()
+                    .or(Expr::col(ExpiresAt).gt(Expr::cust("clock_timestamp()"))),
+            )
             .one(database)
             .await?
             .ok_or_else(|| {
@@ -114,15 +137,6 @@ pub trait SubjectsHelper {
                     oceaniam_common::consts::USER_LOGIN_FAILED_MSG,
                 )
             })?;
-
-        if let Some(expires_at) = subject.expires_at
-            && expires_at <= Utc::now()
-        {
-            return Err(Error::with_code(
-                StatusCode::UNAUTHORIZED,
-                oceaniam_common::consts::USER_LOGIN_FAILED_MSG,
-            ));
-        }
 
         Ok(())
     }

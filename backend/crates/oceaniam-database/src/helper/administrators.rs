@@ -9,7 +9,10 @@ use sea_orm::{
 use uuid::Uuid;
 
 use crate::{
-    helper::{PagedExecutor, PagedSelect, SafeTransactionConnectionTrait, exactly_one_returned},
+    helper::{
+        PagedExecutor, PagedSelect, SafeTransactionConnectionTrait, db_clock_now,
+        exactly_one_returned,
+    },
     model::{self, prelude::Administrators},
 };
 
@@ -114,7 +117,7 @@ pub trait AdministratorsHelper {
             id: Set(id),
             name: Set(name.into()),
             role: Set(None),
-            created_at: Set(chrono::Utc::now().into()),
+            created_at: Set(db_clock_now(database).await?),
         }
         .insert(database)
         .await?)

@@ -1,6 +1,6 @@
 use crate::error::Error;
 use axum::http::StatusCode;
-use chrono::{DateTime, Duration, FixedOffset, Utc};
+use chrono::{DateTime, Duration, FixedOffset};
 use oceaniam_common::helpers::gen_random;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseBackend, EntityTrait, ExprTrait,
@@ -11,13 +11,15 @@ use serde_json::Value;
 use uuid::Uuid;
 
 use crate::{
-    helper::{SafeTransactionConnectionTrait, exactly_one_returned},
+    helper::{SafeTransactionConnectionTrait, db_clock_now, exactly_one_returned},
     model::{self, prelude::Challenges, sea_orm_active_enums::*},
 };
 
 #[derive(Debug)]
 pub struct CreateChallengeOpts {
-    pub expires_at: sea_orm::prelude::DateTimeWithTimeZone,
+    /// Time-to-live for the challenge; `create_challenge` anchors it on a single database
+    /// clock sample so `expires_at - created_at == expires_after` holds exactly.
+    pub expires_after: Duration,
     pub max_attempts: Option<i32>,
     pub factor_type: ChallengeFactorType,
     pub challenge_purpose_type: ChallengePurposeType,
@@ -38,7 +40,7 @@ impl CreateChallengeOpts {
 
     pub fn expires_after(self, duration: Duration) -> Self {
         Self {
-            expires_at: (Utc::now() + duration).into(),
+            expires_after: duration,
             ..self
         }
     }
@@ -47,7 +49,7 @@ impl CreateChallengeOpts {
 impl Default for CreateChallengeOpts {
     fn default() -> Self {
         Self {
-            expires_at: (Utc::now() + Duration::seconds(30)).into(),
+            expires_after: Duration::seconds(30),
             max_attempts: Some(5),
             factor_type: ChallengeFactorType::Totp,
             challenge_purpose_type: ChallengePurposeType::Signin,
@@ -90,7 +92,7 @@ pub trait ChallengesHelper {
         subject_id: Uuid,
 
         CreateChallengeOpts {
-            expires_at,
+            expires_after,
             max_attempts,
             factor_type,
             challenge_purpose_type,
@@ -99,6 +101,10 @@ pub trait ChallengesHelper {
         transaction: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::challenges::Model, Error> {
         let token = gen_random(16);
+
+        // One database-clock sample anchors both timestamps (Rule 3), so the row invariant
+        // `expires_at - created_at == expires_after` holds exactly.
+        let now = db_clock_now(transaction).await?;
 
         Ok(model::challenges::ActiveModel {
             id: Set(Uuid::now_v7()),
@@ -110,9 +116,9 @@ pub trait ChallengesHelper {
             status: Set(ChallengeStatusType::Pending),
             attempt_count: Set(0),
             max_attempts: Set(max_attempts.unwrap_or(5)),
-            expires_at: Set(expires_at),
+            expires_at: Set(now + expires_after),
             consumed_at: Set(None),
-            created_at: Set(Utc::now().into()),
+            created_at: Set(now),
             payload: Set(payload),
         }
         .insert(transaction)

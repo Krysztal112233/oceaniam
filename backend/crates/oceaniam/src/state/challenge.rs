@@ -2,13 +2,13 @@ use std::{collections::HashMap, fmt::Debug, sync::Arc, time::Duration};
 
 use crate::error::Error;
 use axum::http::StatusCode;
-use chrono::Utc;
 use moka::future::Cache;
 use oceaniam_audit::types::{AuditPayload, CreateChallengePayload, VerifyChallengePayload};
 use oceaniam_database::{
     helper::{
         SafeTransactionConnectionTrait,
         challenges::{ChallengesHelper, CreateChallengeOpts},
+        db_clock_now,
     },
     model::{
         challenges::Model as ChallengeModel,
@@ -151,9 +151,11 @@ impl ManagedChallenges {
             })
             .await?;
 
+        // The expiry gate is evaluated against the database clock (Rule 3): the challenge
+        // itself may come from the in-process cache, so the sample must be taken here.
         if challenge.status != ChallengeStatusType::Pending
             || challenge.consumed_at.is_some()
-            || challenge.expires_at <= Utc::now().fixed_offset()
+            || challenge.expires_at <= db_clock_now(&self.database).await?
         {
             return Err(Error::with_code(
                 StatusCode::NOT_FOUND,
