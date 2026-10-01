@@ -26,7 +26,6 @@ use oceaniam_database::{
 use oceaniam_vo::applications::{PatchApplicationConfigurationRequest, PatchApplicationRequest};
 use oceaniam_vo::auth::AuthVO;
 use oceaniam_vo::patch::PatchValue;
-use sea_orm::Statement;
 use sea_orm::prelude::*;
 use tap::Tap;
 use tracing::{error, info};
@@ -623,28 +622,19 @@ impl ApplicationUsers {
             "subject_id": user.id,
             "application_id": application_id,
         });
-        let stmt = Statement::from_sql_and_values(
-            transaction.get_database_backend(),
-            "SELECT pgmq.send($1, $2, $3)",
-            [
-                crate::state::dev_account_expiry::DEV_ACCOUNT_EXPIRATION_QUEUE.into(),
-                payload.into(),
-                delay.into(),
-            ],
-        );
-        transaction
-            .query_one_raw(stmt)
-            .await
-            .inspect_err(|e| {
-                error!(
-                    "failed to enqueue dev account expiration message: user_id={}, application_id={}, error={}",
-                    user.id, application_id, e
-                );
-            })?
-            .ok_or_else(|| Error::Internal {
-                msg: "pgmq.send returned no message id".to_owned(),
-                location: snafu::location!(),
-            })?;
+        oceaniam_database::helper::pgmq::send(
+            crate::state::dev_account_expiry::DEV_ACCOUNT_EXPIRATION_QUEUE,
+            payload,
+            delay,
+            transaction,
+        )
+        .await
+        .inspect_err(|e| {
+            error!(
+                "failed to enqueue dev account expiration message: user_id={}, application_id={}, error={}",
+                user.id, application_id, e
+            );
+        })?;
 
         info!(
             "dev account created with expiration: user_id={}, application_id={}, ttl_seconds={}",

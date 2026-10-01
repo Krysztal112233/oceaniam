@@ -23,7 +23,8 @@ use std::time::Duration;
 
 use axum::http::StatusCode;
 use oceaniam_audit::types::{AuditPayload, DevAccountExpiredPayload};
-use sea_orm::{ConnectionTrait, DatabaseBackend, DatabaseConnection, FromQueryResult, Statement};
+use oceaniam_database::helper::pgmq;
+use sea_orm::{DatabaseConnection, FromQueryResult};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
@@ -82,48 +83,14 @@ pub struct DevAccountExpirationRow {
 pub async fn read_expiration_batch(
     database: &DatabaseConnection,
 ) -> Result<Vec<DevAccountExpirationRow>, Error> {
-    let stmt = Statement::from_sql_and_values(
-        DatabaseBackend::Postgres,
-        "SELECT msg_id, read_ct, message FROM pgmq.read($1, $2, $3)",
-        [
-            DEV_ACCOUNT_EXPIRATION_QUEUE.into(),
-            VISIBILITY_TIMEOUT_SECONDS.into(),
-            READ_BATCH_SIZE.into(),
-        ],
-    );
-
-    let rows = database
-        .query_all_raw(stmt)
-        .await?
-        .into_iter()
-        .map(|r| DevAccountExpirationRow::from_query_result(&r, ""))
-        .collect::<Result<Vec<_>, _>>()?;
-
-    Ok(rows)
-}
-
-/// Deletes (acks) a message from the queue.
-async fn pgmq_delete(database: &DatabaseConnection, msg_id: i64) -> Result<(), Error> {
-    let stmt = Statement::from_sql_and_values(
-        DatabaseBackend::Postgres,
-        "SELECT pgmq.delete($1, $2)",
-        [DEV_ACCOUNT_EXPIRATION_QUEUE.into(), msg_id.into()],
-    );
-    database.query_one_raw(stmt).await?;
-
-    Ok(())
-}
-
-/// Moves a message to the dead-letter archive (`pgmq.a_dev_account_expiration`).
-async fn pgmq_archive(database: &DatabaseConnection, msg_id: i64) -> Result<(), Error> {
-    let stmt = Statement::from_sql_and_values(
-        DatabaseBackend::Postgres,
-        "SELECT pgmq.archive($1, $2)",
-        [DEV_ACCOUNT_EXPIRATION_QUEUE.into(), msg_id.into()],
-    );
-    database.query_one_raw(stmt).await?;
-
-    Ok(())
+    pgmq::read(
+        DEV_ACCOUNT_EXPIRATION_QUEUE,
+        VISIBILITY_TIMEOUT_SECONDS,
+        READ_BATCH_SIZE,
+        database,
+    )
+    .await
+    .map_err(Into::into)
 }
 
 fn is_not_found(error: &Error) -> bool {
@@ -160,7 +127,7 @@ pub async fn process_expiration_message(
             read_ct = row.read_ct,
             "archiving poisoned dev account expiration message"
         );
-        pgmq_archive(&state.database, row.msg_id).await?;
+        pgmq::archive(DEV_ACCOUNT_EXPIRATION_QUEUE, row.msg_id, &state.database).await?;
         return Ok(());
     }
 
@@ -196,7 +163,7 @@ pub async fn process_expiration_message(
                 }))
                 .await;
 
-            pgmq_delete(&state.database, row.msg_id).await?;
+            pgmq::delete(DEV_ACCOUNT_EXPIRATION_QUEUE, row.msg_id, &state.database).await?;
         }
         Err(error) if is_not_found(&error) => {
             // Manual deletion raced the timer (or the whole application is gone); an
@@ -206,7 +173,7 @@ pub async fn process_expiration_message(
                 %application_id,
                 "dev account already gone, acknowledging expiration message"
             );
-            pgmq_delete(&state.database, row.msg_id).await?;
+            pgmq::delete(DEV_ACCOUNT_EXPIRATION_QUEUE, row.msg_id, &state.database).await?;
         }
         Err(error) => {
             // Transient failure: do not ack; the message reappears after the visibility

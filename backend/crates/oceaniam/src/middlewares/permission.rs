@@ -4,9 +4,14 @@ use axum::{
 };
 use oceaniam_auth::jwt::SystemClaim;
 use oceaniam_common::consts;
-use oceaniam_database::model::prelude::{AdministratorTenants, Administrators};
+use oceaniam_database::{
+    helper::{
+        administrator_tenants::AdministratorTenantsHelper, administrators::AdministratorsHelper,
+    },
+    model::prelude::{AdministratorTenants, Administrators},
+};
 use oceaniam_permission::{Permission, PlatformRole};
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::DatabaseConnection;
 use tracing::error;
 use uuid::Uuid;
 
@@ -97,11 +102,17 @@ impl<P: PlatformPermission> PlatformPermissionGuard<P> {
             return Ok(());
         }
 
-        let administrator = Administrators::find_by_id(operator_id)
-            .one(database)
-            .await?
-            .ok_or_else(|| {
-                Error::with_code(StatusCode::FORBIDDEN, "administrator is not available")
+        // The administrator row lookup keeps the middleware's error shape: a missing
+        // operator is FORBIDDEN (never a 404 leak), while storage errors propagate.
+        let administrator = Administrators::get_administrator(operator_id, database)
+            .await
+            .map_err(|error| match error {
+                oceaniam_database::error::Error::CustomMessage { code, .. }
+                    if code == StatusCode::NOT_FOUND.as_u16() =>
+                {
+                    Error::with_code(StatusCode::FORBIDDEN, "administrator is not available")
+                }
+                error => Error::from(error),
             })?;
         let role = administrator
             .role
@@ -125,13 +136,8 @@ impl<P: PlatformPermission> PlatformPermissionGuard<P> {
             return Ok(());
         }
 
-        use oceaniam_database::model::administrator_tenants::Column::*;
-        let assigned = AdministratorTenants::find()
-            .filter(AdministratorId.eq(operator_id))
-            .filter(TenantId.eq(tenant_id))
-            .one(database)
-            .await?
-            .is_some();
+        let assigned =
+            AdministratorTenants::assignment_exists(operator_id, tenant_id, database).await?;
 
         if !assigned {
             return Err(Error::with_code(

@@ -14,15 +14,15 @@ use oceaniam_database::{
     config::application::ApplicationConfiguration,
     helper::{
         SafeTransactionConnectionTrait, applications::ApplicationHelper, key_boxes::KeyBoxesHelper,
+        tenants::TenantsHelper,
     },
     model::{
         prelude::{Applications, KeyBoxes, Tenants},
         sea_orm_active_enums::{KeyAlg, KeyStatus},
-        tenants,
     },
 };
 use oceaniam_keybox::{KeyBox, RawKey, RsaKey};
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::DatabaseConnection;
 use tap::Tap;
 use tracing::{debug, error, field};
 use uuid::Uuid;
@@ -91,17 +91,14 @@ impl ManagedKeyBoxes {
                 if keybox.get_keys().is_empty() {
                     // Absent tenants used to reach RSA generation here and fail only on the
                     // `key_boxes` FK afterwards, giving anonymous callers a CPU amplification
-                    // vector. Verify the tenant row exists before generating anything; the raw
-                    // query deliberately includes the system tenant so the legacy system JWKS
+                    // vector. Verify the tenant row exists before generating anything; the
+                    // probe deliberately includes the system tenant so the legacy system JWKS
                     // route keeps its auto-bootstrap behavior.
-                    let tenant_exists = Tenants::find()
-                        .filter(tenants::Column::Id.eq(tenant_id))
-                        .one(&database)
+                    let tenant_exists = Tenants::tenant_exists(tenant_id, &database)
                         .await
                         .inspect_err(
                             |e| error!(%tenant_id, error = %e, "failed to check tenant existence"),
-                        )?
-                        .is_some();
+                        )?;
                     if !tenant_exists {
                         debug!(%tenant_id, "refusing to auto-create keybox for absent tenant");
                         return Err(Error::with_code(StatusCode::NOT_FOUND, "tenant not found"));

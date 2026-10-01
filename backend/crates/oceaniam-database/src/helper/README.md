@@ -16,6 +16,32 @@ changing helper signatures.
 - `SafeTransactionConnectionTrait` — unifies `ConnectionTrait + TransactionTrait`
 - `PagedSelect` — pagination combinator on `Select<T>`
 - `PagedExecutor` — fetches items + total count into `PagedResponse`
+- `exactly_one_returned` — collapses a primary-key-filtered `exec_with_returning` result into
+  one row, keeping the `debug_assert!(len <= 1)` invariant in one place and mapping an empty
+  result to the caller's not-found error
+- `pgmq` — free-function wrappers over the `pgmq` extension (`send`/`read`/`delete`/`archive`);
+  pgmq has no SeaORM entity, so this module is the sanctioned exception to the per-entity
+  trait shape below
+
+## Database access rules
+
+**Rule 1 (business packages).** Business packages (`oceaniam`, `oceaniam-oidc` `src/`) MUST NOT
+use SeaORM query builders, entity queries, or raw `Statement` SQL directly; all database access
+goes through the State facade or `oceaniam-database` helpers. The only exception is
+`backend/crates/oceaniam/tests/`: seeding and asserting state directly with builders is the
+legitimate job of tests.
+
+**Rule 2 (helper crate idioms).** Single-row operations inside this crate MUST use the canonical
+patterns:
+
+- Single-row **read**: `find_by_id()/filter + [.lock_exclusive()/.lock_shared()] + .one() +
+  ok_or_else(404)`.
+- Single-row **write**: primary-key-filtered conditional `update_many` +
+  `exec_with_returning` + `exactly_one_returned`.
+
+Exceptions: multi-table row operations (ordered lock chains such as
+`oidc_authorization_entry.rs`; multi-table writes in one transaction such as
+`applications_secrets::create_binding_pair`, `users::create_user_with_subject`).
 
 ## Convention
 

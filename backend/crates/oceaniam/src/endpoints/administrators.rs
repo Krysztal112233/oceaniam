@@ -26,7 +26,7 @@ use oceaniam_vo::administrators::{
     AdministratorProfileVO, AdministratorVO, CreateAdministratorRequest,
     CreateAdministratorResponse, PatchAdministratorRequest,
 };
-use sea_orm::{EntityTrait, TransactionTrait};
+use sea_orm::TransactionTrait;
 use tap::Tap;
 use tracing::{Span, error, field, info};
 use utoipa_axum::{router::OpenApiRouter, routes};
@@ -119,20 +119,27 @@ pub async fn get_administrator_self(
         it.record("operator_id", field::display(&operator_id));
     });
 
-    let admin = Administrators::find_by_id(operator_id)
-        .one(&state.database)
+    // The helper lookup keeps this handler's established error shape: a missing operator is
+    // the plain 404 below, and storage failures stay wrapped as `database error: ...` 500s.
+    let admin = Administrators::get_administrator(operator_id, &state.database)
         .await
-        .map_err(|e| {
-            Error::with_code(
+        .map_err(|error| match error {
+            oceaniam_database::error::Error::CustomMessage { code, .. }
+                if code == axum::http::StatusCode::NOT_FOUND.as_u16() =>
+            {
+                Error::with_code(
+                    axum::http::StatusCode::NOT_FOUND,
+                    "administrator not found".to_string(),
+                )
+            }
+            oceaniam_database::error::Error::Db { source, .. } => Error::with_code(
                 axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-                format!("database error: {e}"),
-            )
-        })?
-        .ok_or_else(|| {
-            Error::with_code(
-                axum::http::StatusCode::NOT_FOUND,
-                "administrator not found".to_string(),
-            )
+                format!("database error: {source}"),
+            ),
+            error => Error::with_code(
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                format!("database error: {error}"),
+            ),
         })?;
 
     let permissions = state
