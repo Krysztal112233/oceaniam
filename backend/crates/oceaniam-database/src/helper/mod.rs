@@ -6,6 +6,7 @@ use sea_orm::{
     ConnectionTrait, EntityTrait, FromQueryResult, QuerySelect as _, Select, TransactionTrait,
 };
 
+pub mod administrator_tenants;
 pub mod administrators;
 pub mod application_roles;
 pub mod applications;
@@ -19,6 +20,7 @@ pub mod macros;
 pub mod oidc_authorization_entry;
 pub mod oidc_authorization_transactions;
 pub mod oidc_clients;
+pub mod pgmq;
 pub mod revoked_jwts;
 pub mod role_permissions;
 pub mod statistics;
@@ -33,6 +35,23 @@ pub trait SafeTransactionConnectionTrait: TransactionTrait + ConnectionTrait + S
 impl<T> SafeTransactionConnectionTrait for T where
     T: TransactionTrait + ConnectionTrait + Send + Sync
 {
+}
+
+/// Collapses the rows of a primary-key-filtered `exec_with_returning` write into exactly one
+/// row, mapping an empty result to the caller's not-found error.
+///
+/// A write filtered by primary key can return at most one row; the `debug_assert!` keeps that
+/// invariant loud in debug builds instead of silently discarding rows. Callers pass their
+/// entity-specific not-found constructor so each site keeps its established error shape.
+pub fn exactly_one_returned<M>(
+    mut rows: Vec<M>,
+    not_found: impl FnOnce() -> Error,
+) -> Result<M, Error> {
+    debug_assert!(
+        rows.len() <= 1,
+        "a primary-key-filtered write returned multiple rows"
+    );
+    rows.pop().ok_or_else(not_found)
 }
 
 pub trait PagedSelect {
