@@ -60,6 +60,7 @@ oceaniam-telemetry.workspace = true
 oceaniam-vo.workspace = true
 
 [dev-dependencies]
+totp-rs.workspace = true
 opentelemetry_sdk = { workspace = true, features = ["testing"] }
 reqwest.workspace = true
 migration.workspace = true

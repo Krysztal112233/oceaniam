@@ -10,8 +10,10 @@ use oceaniam_database::{
     },
     model::{
         oidc_clients,
-        prelude::{Audits, OidcAuthorizationTransactions, Users},
-        sea_orm_active_enums::{AuditType, OidcAuthorizationTransactionStatus},
+        prelude::{Audits, Challenges, OidcAuthorizationTransactions, Users},
+        sea_orm_active_enums::{
+            AuditType, ChallengeStatusType, OidcAuthorizationTransactionStatus,
+        },
     },
 };
 use reqwest::Response;
@@ -427,31 +429,6 @@ async fn credential_failures_are_indistinguishable_and_leave_no_trace() {
         .await
         .expect("expire the inactive fixture subject");
 
-    // MFA-registered subject: seeded with a TOTP-enabled credential written directly so the
-    // application credential cache never held a password-only vault.
-    let mfa_user_id = Uuid::now_v7();
-    let vault = CredentialVault::with_password(USER_PASSWORD.to_owned(), Argon2::default())
-        .await
-        .expect("build MFA fixture vault");
-    let totp = Totp::generate("oceaniam-test", "mfa-user@example.com").expect("generate TOTP");
-    let vault = vault.enable_totp(totp.to_encrypted(&TEST_MASTER_KEY).expect("encrypt TOTP"));
-    vault
-        .write_to(mfa_user_id, &database)
-        .await
-        .expect("write MFA fixture credential");
-    Users::create_user(
-        mfa_user_id,
-        fixture.application_id,
-        CreateUserOpts {
-            nickname: "mfa-user".to_owned(),
-            email: Some("mfa-user@example.com".to_owned()),
-            phone: None,
-        },
-        &database,
-    )
-    .await
-    .expect("create MFA fixture user");
-
     let mut failure_bodies = Vec::new();
     for (case, identifier, password) in [
         ("unknown user", "ghost@example.com", USER_PASSWORD),
@@ -465,7 +442,6 @@ async fn credential_failures_are_indistinguishable_and_leave_no_trace() {
             "inactive-user@example.com",
             USER_PASSWORD,
         ),
-        ("mfa registered", "mfa-user@example.com", USER_PASSWORD),
     ] {
         let entry = drive_entry(&app, &fixture, &format!("{case}-state")).await;
         let response = post_login(
@@ -1025,6 +1001,1099 @@ fn openapi_documents_the_login_method() {
         .paths
         .get("/oidc/{tenant_sqid}/authorize/{transaction_sqid}/login")
         .expect("login path should be documented");
+    assert!(path.post.is_some());
+    assert!(path.get.is_none());
+}
+
+// ---------------------------------------------------------------------------
+// Slice A2: TOTP challenge (awaiting_challenge) flow
+// ---------------------------------------------------------------------------
+
+struct MfaUser {
+    user_id: Uuid,
+    email: String,
+    code_generator: totp_rs::TOTP,
+}
+
+/// Seeds a subject with a TOTP-enabled credential written directly, so the application
+/// credential cache never held a password-only vault (A1 fixture pattern).
+async fn create_mfa_user(app: &TestApp, fixture: &LoginFixture, email: &str) -> MfaUser {
+    let database = app.database().await;
+    let user_id = Uuid::now_v7();
+    let vault = CredentialVault::with_password(USER_PASSWORD.to_owned(), Argon2::default())
+        .await
+        .expect("build MFA fixture vault");
+    let totp = Totp::generate("oceaniam-test", email).expect("generate TOTP");
+    let provisioning_uri = totp.provisioning_uri();
+    let vault = vault.enable_totp(totp.to_encrypted(&TEST_MASTER_KEY).expect("encrypt TOTP"));
+    vault
+        .write_to(user_id, &database)
+        .await
+        .expect("write MFA fixture credential");
+    Users::create_user(
+        user_id,
+        fixture.application_id,
+        CreateUserOpts {
+            nickname: format!("mfa-user-{email}"),
+            email: Some(email.to_owned()),
+            phone: None,
+        },
+        &database,
+    )
+    .await
+    .expect("create MFA fixture user");
+    let code_generator =
+        totp_rs::TOTP::from_url(&provisioning_uri).expect("parse the provisioning URI");
+    MfaUser {
+        user_id,
+        email: email.to_owned(),
+        code_generator,
+    }
+}
+
+impl MfaUser {
+    fn current_code(&self) -> String {
+        self.code_generator
+            .generate_current()
+            .expect("generate the current TOTP code")
+    }
+}
+
+fn challenge_path(fixture: &LoginFixture, transaction_sqid: &str) -> String {
+    format!(
+        "/oidc/{}/authorize/{transaction_sqid}/challenge",
+        fixture.tenant_sqid
+    )
+}
+
+fn challenge_form(code: &str, csrf: &str) -> String {
+    let mut serializer = form_urlencoded::Serializer::new(String::new());
+    serializer.append_pair("code", code);
+    serializer.append_pair("csrf", csrf);
+    serializer.finish()
+}
+
+async fn post_challenge(
+    app: &TestApp,
+    fixture: &LoginFixture,
+    entry: &EntryContext,
+    form: String,
+) -> Response {
+    app.client
+        .post(app.url(&challenge_path(fixture, &entry.transaction_sqid)))
+        .header("content-type", "application/x-www-form-urlencoded")
+        .header(
+            "cookie",
+            format!("{}={}", entry.cookie_name, entry.cookie_value),
+        )
+        .body(form)
+        .send()
+        .await
+        .expect("challenge request")
+}
+
+struct ChallengeFormPage {
+    body: String,
+    csrf: String,
+}
+
+fn challenge_form_csrf(body: &str) -> String {
+    let marker = "name=\"csrf\" value=\"";
+    let start = body
+        .find(marker)
+        .expect("challenge csrf input should exist")
+        + marker.len();
+    let end = body[start..]
+        .find('"')
+        .map(|offset| start + offset)
+        .expect("challenge csrf value should close");
+    body[start..end].to_owned()
+}
+
+async fn assert_challenge_form(
+    response: Response,
+    fixture: &LoginFixture,
+    entry: &EntryContext,
+    state: &str,
+) -> ChallengeFormPage {
+    assert_eq!(response.status(), 200);
+    assert_html_headers(&response);
+    assert!(response.headers().get("set-cookie").is_none());
+    let body = response.text().await.expect("read challenge HTML");
+    assert!(body.contains(&format!(
+        "<form method=\"post\" action=\"/oidc/{}/authorize/{}/challenge\"",
+        fixture.tenant_sqid, entry.transaction_sqid,
+    )));
+    assert!(body.contains("name=\"code\""));
+    assert!(body.contains("inputmode=\"numeric\""));
+    assert!(body.contains("autocomplete=\"one-time-code\""));
+    let csrf = challenge_form_csrf(&body);
+    assert_eq!(
+        csrf, entry.csrf,
+        "the challenge form must bind the original CSRF secret"
+    );
+    assert!(!body.contains("<script"));
+    assert!(!body.contains(state));
+    assert!(!body.contains("private-nonce-sentinel"));
+    assert!(!body.contains(&fixture.redirect_uri));
+    assert!(!body.contains(USER_PASSWORD));
+    ChallengeFormPage { body, csrf }
+}
+
+async fn challenge_snapshot(
+    app: &TestApp,
+    transaction: &oceaniam_database::model::oidc_authorization_transactions::Model,
+) -> oceaniam_database::model::challenges::Model {
+    let database = app.database().await;
+    Challenges::find_by_id(
+        transaction
+            .challenge_id
+            .expect("transaction must bind a challenge"),
+    )
+    .one(&database)
+    .await
+    .expect("read bound challenge")
+    .expect("bound challenge should remain stored")
+}
+
+async fn create_challenge_audits(app: &TestApp) -> Vec<serde_json::Value> {
+    let database = app.database().await;
+    Audits::find()
+        .filter(oceaniam_database::model::audits::Column::AuditType.eq(AuditType::CreateChallenge))
+        .all(&database)
+        .await
+        .expect("list create_challenge audits")
+        .into_iter()
+        .map(|audit| audit.payload)
+        .collect()
+}
+
+/// Drives entry + password login for an MFA subject up to the rendered challenge form.
+async fn drive_to_challenge_form(
+    app: &TestApp,
+    fixture: &LoginFixture,
+    mfa_user: &MfaUser,
+    state: &str,
+) -> (EntryContext, ChallengeFormPage) {
+    let entry = drive_entry(app, fixture, state).await;
+    let response = post_login(
+        app,
+        fixture,
+        &entry,
+        login_form(&mfa_user.email, USER_PASSWORD, &entry.csrf),
+    )
+    .await;
+    let page = assert_challenge_form(response, fixture, &entry, state).await;
+    (entry, page)
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn mfa_login_creates_challenge_and_correct_code_authenticates() {
+    let app = spawn_preview().await;
+    let fixture = seed_login_fixture(&app).await;
+    let mfa_user = create_mfa_user(&app, &fixture, "mfa-happy@example.com").await;
+    let state = "mfa-happy-state";
+    let (entry, page) = drive_to_challenge_form(&app, &fixture, &mfa_user, state).await;
+    assert!(!page.body.contains(&mfa_user.email));
+
+    let stored = transaction_snapshot(&app, &entry).await;
+    assert_eq!(
+        stored.status,
+        OidcAuthorizationTransactionStatus::AwaitingChallenge
+    );
+    assert_eq!(stored.revision, 1);
+    assert!(stored.challenge_id.is_some());
+    assert_eq!(stored.subject_id, None);
+    assert_eq!(stored.authenticated_at, None);
+    assert!(stored.terminal_at.is_none());
+
+    let challenge = challenge_snapshot(&app, &stored).await;
+    assert_eq!(challenge.application_id, fixture.application_id);
+    assert_eq!(challenge.subject_id, mfa_user.user_id);
+    assert_eq!(challenge.status, ChallengeStatusType::Pending);
+    assert_eq!(challenge.attempt_count, 0);
+    assert_eq!(challenge.max_attempts, 5);
+    let challenge_lifetime = challenge.expires_at - challenge.created_at;
+    assert!(
+        challenge_lifetime > chrono::Duration::seconds(299)
+            && challenge_lifetime <= chrono::Duration::minutes(5),
+        "the challenge lifetime must be five minutes, got {challenge_lifetime}"
+    );
+    assert!(challenge.expires_at < stored.expires_at);
+
+    let create_audits = create_challenge_audits(&app).await;
+    assert_eq!(
+        create_audits.len(),
+        1,
+        "the challenge create must audit once"
+    );
+    let audit = &create_audits[0];
+    assert_eq!(audit["kind"], "create_challenge");
+    assert_eq!(audit["data"]["challenge_id"], challenge.id.to_string());
+    assert_eq!(
+        audit["data"]["application_id"],
+        fixture.application_id.to_string()
+    );
+    assert_eq!(audit["data"]["subject_id"], mfa_user.user_id.to_string());
+    assert_eq!(audit["data"]["factor_type"], "Totp");
+    assert_eq!(audit["data"]["purpose"], "Signin");
+    let audit_text = audit.to_string();
+    assert!(!audit_text.contains(&fixture.redirect_uri));
+    assert!(!audit_text.contains(state));
+    assert!(!audit_text.contains(&mfa_user.email));
+    assert!(oidc_authenticate_audits(&app).await.is_empty());
+
+    let code = mfa_user.current_code();
+    let response = post_challenge(&app, &fixture, &entry, challenge_form(&code, &page.csrf)).await;
+    assert_success_page(response, &fixture, state).await;
+
+    let stored = transaction_snapshot(&app, &entry).await;
+    assert_eq!(
+        stored.status,
+        OidcAuthorizationTransactionStatus::Authenticated
+    );
+    assert_eq!(stored.revision, 2);
+    assert_eq!(stored.subject_id, Some(mfa_user.user_id));
+    assert!(stored.authenticated_at.is_some());
+    assert_eq!(stored.challenge_id, Some(challenge.id));
+
+    let challenge = challenge_snapshot(&app, &stored).await;
+    assert_eq!(challenge.status, ChallengeStatusType::Consumed);
+    assert!(challenge.consumed_at.is_some());
+    assert_eq!(challenge.attempt_count, 0);
+
+    let authenticate_audits = oidc_authenticate_audits(&app).await;
+    assert_eq!(
+        authenticate_audits.len(),
+        1,
+        "success must audit exactly once"
+    );
+    assert_eq!(
+        authenticate_audits[0]["data"]["subject_id"],
+        mfa_user.user_id.to_string()
+    );
+    assert_eq!(
+        authenticate_audits[0]["data"]["transaction_id"],
+        stored.id.to_string()
+    );
+    assert_eq!(
+        create_challenge_audits(&app).await.len(),
+        1,
+        "no second challenge may be minted"
+    );
+
+    // The transaction is now terminal for the challenge leg: a replay is the uniform failure
+    // page, never a state-machine reveal.
+    let replay = post_challenge(&app, &fixture, &entry, challenge_form(&code, &page.csrf)).await;
+    assert_eq!(replay.status(), 401);
+    assert_html_headers(&replay);
+    let replay_body = replay.text().await.expect("read replay page");
+    assert!(replay_body.contains(oceaniam_common::consts::USER_LOGIN_FAILED_MSG));
+    assert_eq!(oidc_authenticate_audits(&app).await.len(), 1);
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn repeated_login_on_awaiting_challenge_rerenders_without_minting_a_challenge() {
+    let app = spawn_preview().await;
+    let fixture = seed_login_fixture(&app).await;
+    let mfa_user = create_mfa_user(&app, &fixture, "mfa-rerender@example.com").await;
+    let (entry, first_page) =
+        drive_to_challenge_form(&app, &fixture, &mfa_user, "mfa-rerender-state").await;
+
+    let repeated = post_login(
+        &app,
+        &fixture,
+        &entry,
+        login_form(&mfa_user.email, USER_PASSWORD, &entry.csrf),
+    )
+    .await;
+    let second_page = assert_challenge_form(repeated, &fixture, &entry, "mfa-rerender-state").await;
+    assert_eq!(
+        first_page.body, second_page.body,
+        "a repeated login must re-render the identical challenge form"
+    );
+
+    let database = app.database().await;
+    let challenge_count = Challenges::find()
+        .all(&database)
+        .await
+        .expect("list challenges")
+        .len();
+    assert_eq!(
+        challenge_count, 1,
+        "a repeated login must not mint a new challenge"
+    );
+    let stored = transaction_snapshot(&app, &entry).await;
+    assert_eq!(
+        stored.status,
+        OidcAuthorizationTransactionStatus::AwaitingChallenge
+    );
+    assert_eq!(stored.revision, 1);
+    assert_eq!(
+        create_challenge_audits(&app).await.len(),
+        1,
+        "a repeated login must not audit another challenge create"
+    );
+    assert!(oidc_authenticate_audits(&app).await.is_empty());
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn wrong_code_increments_attempts_and_exhaustion_locks_the_challenge() {
+    let app = spawn_preview().await;
+    let fixture = seed_login_fixture(&app).await;
+    let mfa_user = create_mfa_user(&app, &fixture, "mfa-attempts@example.com").await;
+    let (entry, page) =
+        drive_to_challenge_form(&app, &fixture, &mfa_user, "mfa-attempts-state").await;
+
+    // Reference failure page: a wrong-password login on a separate transaction.
+    let reference_entry = drive_entry(&app, &fixture, "mfa-attempts-reference").await;
+    let reference = post_login(
+        &app,
+        &fixture,
+        &reference_entry,
+        login_form(&mfa_user.email, "WrongPassword9!", &reference_entry.csrf),
+    )
+    .await;
+    assert_eq!(reference.status(), 401);
+    let reference_body = reference.text().await.expect("read reference failure page");
+
+    let wrong_code = "000000";
+    assert_ne!(
+        wrong_code,
+        mfa_user.current_code(),
+        "fixture code must be wrong"
+    );
+    for attempt in 1..=5 {
+        let response = post_challenge(
+            &app,
+            &fixture,
+            &entry,
+            challenge_form(wrong_code, &page.csrf),
+        )
+        .await;
+        assert_eq!(response.status(), 401, "attempt {attempt}");
+        assert_html_headers(&response);
+        assert!(response.headers().get("set-cookie").is_none());
+        let body = response.text().await.expect("read attempt failure page");
+        assert_eq!(
+            body, reference_body,
+            "attempt {attempt} must match the login failure page"
+        );
+        assert!(!body.contains(&entry.transaction_sqid));
+
+        let challenge = challenge_snapshot(&app, &transaction_snapshot(&app, &entry).await).await;
+        assert_eq!(
+            challenge.attempt_count, attempt,
+            "attempt {attempt} must be counted"
+        );
+        assert_eq!(challenge.status, ChallengeStatusType::Pending);
+    }
+
+    // Exhausted: further attempts — even the correct code — are the same uniform failure and no
+    // longer counted.
+    for (case, code) in [
+        ("sixth wrong code", wrong_code.to_owned()),
+        ("correct code after exhaustion", mfa_user.current_code()),
+    ] {
+        let response =
+            post_challenge(&app, &fixture, &entry, challenge_form(&code, &page.csrf)).await;
+        assert_eq!(response.status(), 401, "case: {case}");
+        let body = response.text().await.expect("read exhausted failure page");
+        assert_eq!(body, reference_body, "case: {case}");
+        let challenge = challenge_snapshot(&app, &transaction_snapshot(&app, &entry).await).await;
+        assert_eq!(challenge.attempt_count, 5, "case: {case}");
+        assert_eq!(
+            challenge.status,
+            ChallengeStatusType::Pending,
+            "case: {case}"
+        );
+    }
+
+    let stored = transaction_snapshot(&app, &entry).await;
+    assert_eq!(
+        stored.status,
+        OidcAuthorizationTransactionStatus::AwaitingChallenge
+    );
+    assert_eq!(stored.subject_id, None);
+    assert!(oidc_authenticate_audits(&app).await.is_empty());
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn expired_challenge_is_rejected_and_rerender_becomes_unavailable() {
+    let app = spawn_preview().await;
+    let fixture = seed_login_fixture(&app).await;
+    let mfa_user = create_mfa_user(&app, &fixture, "mfa-expired@example.com").await;
+    let (entry, page) =
+        drive_to_challenge_form(&app, &fixture, &mfa_user, "mfa-expired-state").await;
+    let challenge = challenge_snapshot(&app, &transaction_snapshot(&app, &entry).await).await;
+
+    let database = app.database().await;
+    database
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE challenges SET expires_at = clock_timestamp() - interval '1 minute' \
+             WHERE id = $1",
+            [challenge.id.into()],
+        ))
+        .await
+        .expect("expire the challenge");
+
+    let response = post_challenge(
+        &app,
+        &fixture,
+        &entry,
+        challenge_form(&mfa_user.current_code(), &page.csrf),
+    )
+    .await;
+    assert_eq!(response.status(), 401);
+    let body = response.text().await.expect("read expired challenge page");
+    assert!(body.contains(oceaniam_common::consts::USER_LOGIN_FAILED_MSG));
+
+    let challenge = challenge_snapshot(&app, &transaction_snapshot(&app, &entry).await).await;
+    assert_eq!(challenge.status, ChallengeStatusType::Pending);
+    assert_eq!(challenge.attempt_count, 0);
+    let stored = transaction_snapshot(&app, &entry).await;
+    assert_eq!(
+        stored.status,
+        OidcAuthorizationTransactionStatus::AwaitingChallenge
+    );
+    assert!(oidc_authenticate_audits(&app).await.is_empty());
+
+    // The dead challenge no longer re-renders: a repeated login is the generic unavailable page.
+    let repeated = post_login(
+        &app,
+        &fixture,
+        &entry,
+        login_form(&mfa_user.email, USER_PASSWORD, &entry.csrf),
+    )
+    .await;
+    assert_eq!(repeated.status(), 404);
+    let repeated_body = repeated.text().await.expect("read unavailable page");
+    assert!(repeated_body.contains("no longer available"));
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn replayed_code_is_rejected_by_anti_replay() {
+    let app = spawn_preview().await;
+    let fixture = seed_login_fixture(&app).await;
+    let mfa_user = create_mfa_user(&app, &fixture, "mfa-replay@example.com").await;
+
+    let code = mfa_user.current_code();
+    let (first_entry, first_page) =
+        drive_to_challenge_form(&app, &fixture, &mfa_user, "mfa-replay-first").await;
+    let first = post_challenge(
+        &app,
+        &fixture,
+        &first_entry,
+        challenge_form(&code, &first_page.csrf),
+    )
+    .await;
+    assert_success_page(first, &fixture, "mfa-replay-first").await;
+
+    // A second transaction for the same subject reusing the same one-time code is rejected.
+    let (second_entry, second_page) =
+        drive_to_challenge_form(&app, &fixture, &mfa_user, "mfa-replay-second").await;
+    let replay = post_challenge(
+        &app,
+        &fixture,
+        &second_entry,
+        challenge_form(&code, &second_page.csrf),
+    )
+    .await;
+    assert_eq!(replay.status(), 401);
+    let replay_body = replay.text().await.expect("read replay failure page");
+    assert!(replay_body.contains(oceaniam_common::consts::USER_LOGIN_FAILED_MSG));
+
+    let second_challenge =
+        challenge_snapshot(&app, &transaction_snapshot(&app, &second_entry).await).await;
+    assert_eq!(second_challenge.status, ChallengeStatusType::Pending);
+    assert_eq!(second_challenge.attempt_count, 1);
+    let second_stored = transaction_snapshot(&app, &second_entry).await;
+    assert_eq!(
+        second_stored.status,
+        OidcAuthorizationTransactionStatus::AwaitingChallenge
+    );
+    assert_eq!(
+        oidc_authenticate_audits(&app).await.len(),
+        1,
+        "only the first flow may audit"
+    );
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn challenge_requires_intact_cookie_csrf_and_tenant_binding() {
+    let app = spawn_preview().await;
+    let fixture = seed_login_fixture(&app).await;
+    let mfa_user = create_mfa_user(&app, &fixture, "mfa-binding@example.com").await;
+    let (entry, page) =
+        drive_to_challenge_form(&app, &fixture, &mfa_user, "mfa-binding-state").await;
+    let code = mfa_user.current_code();
+    let challenge_url = app.url(&challenge_path(&fixture, &entry.transaction_sqid));
+
+    // Reference unavailable page: a login POST without its cookie.
+    let login_url = app.url(&login_path(&fixture, &entry.transaction_sqid));
+    let login_missing_cookie = app
+        .client
+        .post(&login_url)
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(login_form(&mfa_user.email, USER_PASSWORD, &entry.csrf))
+        .send()
+        .await
+        .expect("login missing-cookie request");
+    assert_eq!(login_missing_cookie.status(), 404);
+    let reference_body = login_missing_cookie
+        .text()
+        .await
+        .expect("read login unavailable page");
+
+    let missing_cookie = app
+        .client
+        .post(&challenge_url)
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(challenge_form(&code, &page.csrf))
+        .send()
+        .await
+        .expect("challenge missing-cookie request");
+    assert_eq!(missing_cookie.status(), 404);
+    assert_eq!(
+        missing_cookie.text().await.expect("read page"),
+        reference_body
+    );
+
+    let wrong_csrf = post_challenge(
+        &app,
+        &fixture,
+        &entry,
+        challenge_form(&code, "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"),
+    )
+    .await;
+    assert_eq!(wrong_csrf.status(), 404);
+    assert_eq!(wrong_csrf.text().await.expect("read page"), reference_body);
+
+    let other = drive_entry(&app, &fixture, "mfa-binding-other-state").await;
+    let wrong_transaction_cookie = app
+        .client
+        .post(&challenge_url)
+        .header("content-type", "application/x-www-form-urlencoded")
+        .header(
+            "cookie",
+            format!("{}={}", entry.cookie_name, other.cookie_value),
+        )
+        .body(challenge_form(&code, &page.csrf))
+        .send()
+        .await
+        .expect("challenge wrong-cookie request");
+    assert_eq!(wrong_transaction_cookie.status(), 404);
+    assert_eq!(
+        wrong_transaction_cookie.text().await.expect("read page"),
+        reference_body
+    );
+
+    let other_tenant = app.api_create_tenant(&fixture.token).await;
+    let other_tenant_sqid = other_tenant["id"].as_str().unwrap().to_string();
+    let cross_tenant = app
+        .client
+        .post(app.url(&format!(
+            "/oidc/{}/authorize/{}/challenge",
+            other_tenant_sqid, entry.transaction_sqid
+        )))
+        .header("content-type", "application/x-www-form-urlencoded")
+        .header(
+            "cookie",
+            format!("{}={}", entry.cookie_name, entry.cookie_value),
+        )
+        .body(challenge_form(&code, &page.csrf))
+        .send()
+        .await
+        .expect("cross-tenant challenge request");
+    assert_eq!(cross_tenant.status(), 404);
+    assert_eq!(
+        cross_tenant.text().await.expect("read page"),
+        reference_body
+    );
+
+    let challenge = challenge_snapshot(&app, &transaction_snapshot(&app, &entry).await).await;
+    assert_eq!(challenge.status, ChallengeStatusType::Pending);
+    assert_eq!(challenge.attempt_count, 0);
+    assert!(oidc_authenticate_audits(&app).await.is_empty());
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn challenge_on_pending_or_authenticated_transaction_is_indistinguishable_failure() {
+    let app = spawn_preview().await;
+    let fixture = seed_login_fixture(&app).await;
+    create_user(&app, &fixture, "plain-user@example.com", USER_PASSWORD).await;
+
+    // Pending transaction: entry only, no login yet. A wrong-password login on the same
+    // transaction supplies the reference failure page.
+    let pending_entry = drive_entry(&app, &fixture, "probe-pending-state").await;
+    let reference = post_login(
+        &app,
+        &fixture,
+        &pending_entry,
+        login_form(
+            "plain-user@example.com",
+            "WrongPassword9!",
+            &pending_entry.csrf,
+        ),
+    )
+    .await;
+    assert_eq!(reference.status(), 401);
+    let reference_body = reference.text().await.expect("read reference failure page");
+
+    let probed = post_challenge(
+        &app,
+        &fixture,
+        &pending_entry,
+        challenge_form("123456", &pending_entry.csrf),
+    )
+    .await;
+    assert_eq!(probed.status(), 401);
+    assert_html_headers(&probed);
+    let probed_body = probed.text().await.expect("read probed failure page");
+    assert_eq!(
+        probed_body, reference_body,
+        "a challenge POST on a pending transaction must be byte-identical to a credential failure"
+    );
+    let pending_stored = transaction_snapshot(&app, &pending_entry).await;
+    assert_eq!(
+        pending_stored.status,
+        OidcAuthorizationTransactionStatus::Pending
+    );
+    assert_eq!(pending_stored.challenge_id, None);
+
+    // Authenticated transaction (non-MFA direct login): same uniform failure, no state reveal.
+    let authenticated_entry = drive_entry(&app, &fixture, "probe-authenticated-state").await;
+    let success = post_login(
+        &app,
+        &fixture,
+        &authenticated_entry,
+        login_form(
+            "plain-user@example.com",
+            USER_PASSWORD,
+            &authenticated_entry.csrf,
+        ),
+    )
+    .await;
+    assert_success_page(success, &fixture, "probe-authenticated-state").await;
+    let probed = post_challenge(
+        &app,
+        &fixture,
+        &authenticated_entry,
+        challenge_form("123456", &authenticated_entry.csrf),
+    )
+    .await;
+    assert_eq!(probed.status(), 401);
+    assert_eq!(
+        probed.text().await.expect("read page"),
+        reference_body,
+        "a challenge POST on an authenticated transaction must be byte-identical too"
+    );
+
+    let database = app.database().await;
+    assert!(
+        Challenges::find()
+            .all(&database)
+            .await
+            .expect("list challenges")
+            .is_empty(),
+        "probing must never mint a challenge"
+    );
+    assert_eq!(
+        oidc_authenticate_audits(&app).await.len(),
+        1,
+        "only the direct login may audit"
+    );
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn concurrent_challenge_attempts_have_exactly_one_winner() {
+    let app = spawn_preview().await;
+    let fixture = seed_login_fixture(&app).await;
+    let mfa_user = create_mfa_user(&app, &fixture, "mfa-race@example.com").await;
+    let (entry, page) = drive_to_challenge_form(&app, &fixture, &mfa_user, "mfa-race-state").await;
+    let code = mfa_user.current_code();
+
+    let attempt = || {
+        app.client
+            .post(app.url(&challenge_path(&fixture, &entry.transaction_sqid)))
+            .header("content-type", "application/x-www-form-urlencoded")
+            .header(
+                "cookie",
+                format!("{}={}", entry.cookie_name, entry.cookie_value),
+            )
+            .body(challenge_form(&code, &page.csrf))
+            .send()
+    };
+    let (first, second) = tokio::join!(attempt(), attempt());
+    let first = first.expect("first concurrent challenge");
+    let second = second.expect("second concurrent challenge");
+    let mut statuses = [first.status().as_u16(), second.status().as_u16()];
+    statuses.sort_unstable();
+    assert_eq!(
+        statuses,
+        [200, 401],
+        "exactly one concurrent challenge attempt may authenticate the transaction"
+    );
+
+    let stored = transaction_snapshot(&app, &entry).await;
+    assert_eq!(
+        stored.status,
+        OidcAuthorizationTransactionStatus::Authenticated
+    );
+    assert_eq!(stored.revision, 2);
+    assert_eq!(stored.subject_id, Some(mfa_user.user_id));
+    let challenge = challenge_snapshot(&app, &stored).await;
+    assert_eq!(challenge.status, ChallengeStatusType::Consumed);
+    assert_eq!(
+        oidc_authenticate_audits(&app).await.len(),
+        1,
+        "only the winning challenge may audit"
+    );
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn concurrent_login_and_challenge_never_mint_a_second_challenge() {
+    let app = spawn_preview().await;
+    let fixture = seed_login_fixture(&app).await;
+    let mfa_user = create_mfa_user(&app, &fixture, "mfa-interleave@example.com").await;
+    let (entry, page) =
+        drive_to_challenge_form(&app, &fixture, &mfa_user, "mfa-interleave-state").await;
+
+    let relogin = || {
+        app.client
+            .post(app.url(&login_path(&fixture, &entry.transaction_sqid)))
+            .header("content-type", "application/x-www-form-urlencoded")
+            .header(
+                "cookie",
+                format!("{}={}", entry.cookie_name, entry.cookie_value),
+            )
+            .body(login_form(&mfa_user.email, USER_PASSWORD, &entry.csrf))
+            .send()
+    };
+    let attempt = || {
+        app.client
+            .post(app.url(&challenge_path(&fixture, &entry.transaction_sqid)))
+            .header("content-type", "application/x-www-form-urlencoded")
+            .header(
+                "cookie",
+                format!("{}={}", entry.cookie_name, entry.cookie_value),
+            )
+            .body(challenge_form(&mfa_user.current_code(), &page.csrf))
+            .send()
+    };
+    let (relogin, attempt) = tokio::join!(relogin(), attempt());
+    let relogin = relogin.expect("concurrent repeated login");
+    let attempt = attempt.expect("concurrent challenge");
+    assert_eq!(
+        attempt.status(),
+        200,
+        "the challenge must succeed exactly once"
+    );
+    assert!(
+        relogin.status() == 200 || relogin.status() == 404,
+        "a repeated login either re-renders or reports the transaction unavailable, got {}",
+        relogin.status()
+    );
+
+    let database = app.database().await;
+    assert_eq!(
+        Challenges::find()
+            .all(&database)
+            .await
+            .expect("list challenges")
+            .len(),
+        1,
+        "no interleaving may mint a second challenge"
+    );
+    let stored = transaction_snapshot(&app, &entry).await;
+    assert_eq!(
+        stored.status,
+        OidcAuthorizationTransactionStatus::Authenticated
+    );
+    assert_eq!(create_challenge_audits(&app).await.len(), 1);
+    assert_eq!(oidc_authenticate_audits(&app).await.len(), 1);
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn challenge_revalidates_registration_before_verifying() {
+    let app = spawn_preview().await;
+    let fixture = seed_login_fixture(&app).await;
+    let mfa_user = create_mfa_user(&app, &fixture, "mfa-revalidation@example.com").await;
+    let database = app.database().await;
+
+    // Redirect registration removed between login and challenge: live revalidation rejects and
+    // the challenge is not consumed.
+    let (redirect_gone, redirect_page) =
+        drive_to_challenge_form(&app, &fixture, &mfa_user, "mfa-redirect-gone-state").await;
+    oceaniam_database::model::prelude::OidcClientRedirectUris::delete_many()
+        .filter(
+            oceaniam_database::model::oidc_client_redirect_uris::Column::OidcClientId
+                .eq(fixture.oidc_client_id),
+        )
+        .exec(&database)
+        .await
+        .expect("remove redirect registration");
+    let response = post_challenge(
+        &app,
+        &fixture,
+        &redirect_gone,
+        challenge_form(&mfa_user.current_code(), &redirect_page.csrf),
+    )
+    .await;
+    assert_eq!(response.status(), 400, "unregistered redirect must reject");
+    assert!(response.headers().get("set-cookie").is_none());
+    let challenge =
+        challenge_snapshot(&app, &transaction_snapshot(&app, &redirect_gone).await).await;
+    assert_eq!(challenge.status, ChallengeStatusType::Pending);
+    assert_eq!(challenge.attempt_count, 0);
+    let stored = transaction_snapshot(&app, &redirect_gone).await;
+    assert_eq!(
+        stored.status,
+        OidcAuthorizationTransactionStatus::AwaitingChallenge
+    );
+
+    // Client deleted between login and challenge: the owner cascade removes the snapshot, so the
+    // challenge POST is indistinguishable from an unknown transaction. A second client keeps the
+    // first case's redirect deletion from interfering with this entry.
+    let second_client_id = Uuid::now_v7();
+    let second_client_public_id = format!("login-client-{}", second_client_id.simple());
+    oidc_clients::Entity::create_client(
+        second_client_id,
+        fixture.application_id,
+        second_client_public_id.clone(),
+        "Challenge test client (delete case)".to_owned(),
+        &database,
+    )
+    .await
+    .expect("create second challenge test client");
+    oidc_clients::Entity::create_redirect_uris(
+        second_client_id,
+        vec![fixture.redirect_uri.clone()],
+        &database,
+    )
+    .await
+    .expect("create second challenge test redirect");
+    let second_fixture = LoginFixture {
+        tenant_sqid: fixture.tenant_sqid.clone(),
+        application_id: fixture.application_id,
+        application_sqid: fixture.application_sqid.clone(),
+        oidc_client_id: second_client_id,
+        client_id: second_client_public_id,
+        redirect_uri: fixture.redirect_uri.clone(),
+        token: fixture.token.clone(),
+    };
+    let (client_gone, client_page) =
+        drive_to_challenge_form(&app, &second_fixture, &mfa_user, "mfa-client-gone-state").await;
+    let delete_client = app
+        .client
+        .delete(app.url(&format!(
+            "/tenants/{}/applications/{}/oidc-clients/{}",
+            fixture.tenant_sqid, fixture.application_sqid, second_fixture.client_id,
+        )))
+        .header("Authorization", format!("Bearer {}", fixture.token))
+        .send()
+        .await
+        .expect("delete OIDC client request");
+    assert!(delete_client.status().is_success());
+    let response = post_challenge(
+        &app,
+        &second_fixture,
+        &client_gone,
+        challenge_form(&mfa_user.current_code(), &client_page.csrf),
+    )
+    .await;
+    assert_eq!(response.status(), 404);
+    let body = response.text().await.expect("read unavailable page");
+    assert!(body.contains("no longer available"));
+
+    assert!(oidc_authenticate_audits(&app).await.is_empty());
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn challenge_rejects_expired_transaction_without_restoring_it() {
+    let app = spawn_preview().await;
+    let fixture = seed_login_fixture(&app).await;
+    let mfa_user = create_mfa_user(&app, &fixture, "mfa-tx-expired@example.com").await;
+    let (entry, page) =
+        drive_to_challenge_form(&app, &fixture, &mfa_user, "mfa-tx-expired-state").await;
+
+    let database = app.database().await;
+    database
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE oidc_authorization_transactions \
+             SET created_at = created_at - interval '11 minutes', \
+                 expires_at = expires_at - interval '11 minutes' \
+             WHERE id = $1",
+            [sqid_to_uuid(&entry.transaction_sqid).into()],
+        ))
+        .await
+        .expect("expire the transaction while preserving its lifetime");
+
+    let response = post_challenge(
+        &app,
+        &fixture,
+        &entry,
+        challenge_form(&mfa_user.current_code(), &page.csrf),
+    )
+    .await;
+    assert_eq!(response.status(), 404);
+    assert_html_headers(&response);
+
+    // A repeated login on the expired transaction is the same unavailable page.
+    let repeated = post_login(
+        &app,
+        &fixture,
+        &entry,
+        login_form(&mfa_user.email, USER_PASSWORD, &entry.csrf),
+    )
+    .await;
+    assert_eq!(repeated.status(), 404);
+
+    let stored = transaction_snapshot(&app, &entry).await;
+    assert_eq!(
+        stored.status,
+        OidcAuthorizationTransactionStatus::AwaitingChallenge
+    );
+    assert_eq!(stored.revision, 1);
+    let challenge = challenge_snapshot(&app, &stored).await;
+    assert_eq!(challenge.status, ChallengeStatusType::Pending);
+    assert!(oidc_authenticate_audits(&app).await.is_empty());
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn challenge_transport_boundary_and_preview_gate() {
+    let disabled = crate::support::spawn_app_with_isolated_schema().await;
+    let tenant_sqid = Sqid::from(Uuid::now_v7()).to_string();
+    let transaction_sqid = Sqid::from(Uuid::now_v7()).to_string();
+    let disabled_response = disabled
+        .client
+        .post(disabled.url(&format!(
+            "/oidc/{tenant_sqid}/authorize/{transaction_sqid}/challenge"
+        )))
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(vec![b'x'; 9 * 1024])
+        .send()
+        .await
+        .expect("disabled preview challenge request");
+    assert_eq!(
+        disabled_response.status(),
+        404,
+        "the preview gate must precede body consumption"
+    );
+
+    let app = spawn_preview().await;
+    let fixture = seed_login_fixture(&app).await;
+    let mfa_user = create_mfa_user(&app, &fixture, "mfa-transport@example.com").await;
+    let (entry, page) =
+        drive_to_challenge_form(&app, &fixture, &mfa_user, "mfa-transport-state").await;
+    let path = challenge_path(&fixture, &entry.transaction_sqid);
+
+    let get = app
+        .client
+        .get(app.url(&path))
+        .send()
+        .await
+        .expect("GET on challenge path");
+    assert_eq!(get.status(), 405);
+
+    let mixed_query = app
+        .client
+        .post(app.url(&format!("{path}?csrf=mixed")))
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(challenge_form("123456", &page.csrf))
+        .send()
+        .await
+        .expect("challenge POST with query");
+    assert_eq!(mixed_query.status(), 400);
+
+    let wrong_media = app
+        .client
+        .post(app.url(&path))
+        .header("content-type", "application/json")
+        .body("{}")
+        .send()
+        .await
+        .expect("wrong media type challenge");
+    assert_eq!(wrong_media.status(), 415);
+
+    let oversized = app
+        .client
+        .post(app.url(&path))
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(vec![b'x'; 8 * 1024 + 1])
+        .send()
+        .await
+        .expect("oversized challenge body");
+    assert_eq!(oversized.status(), 413);
+
+    let duplicate = app
+        .client
+        .post(app.url(&path))
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body("code=one&code=two")
+        .send()
+        .await
+        .expect("duplicate field challenge");
+    assert_eq!(duplicate.status(), 400);
+
+    let invalid_tenant = app
+        .client
+        .post(app.url(&format!(
+            "/oidc/@@invalid@@/authorize/{}/challenge",
+            entry.transaction_sqid
+        )))
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(challenge_form("123456", &page.csrf))
+        .send()
+        .await
+        .expect("invalid tenant sqid challenge");
+    assert_eq!(invalid_tenant.status(), 400);
+
+    let invalid_transaction = app
+        .client
+        .post(app.url(&format!(
+            "/oidc/{}/authorize/@@invalid@@/challenge",
+            fixture.tenant_sqid
+        )))
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(challenge_form("123456", &page.csrf))
+        .send()
+        .await
+        .expect("invalid transaction sqid challenge");
+    assert_eq!(invalid_transaction.status(), 400);
+
+    let stored = transaction_snapshot(&app, &entry).await;
+    assert_eq!(
+        stored.status,
+        OidcAuthorizationTransactionStatus::AwaitingChallenge
+    );
+    assert_eq!(stored.revision, 1);
+    assert!(oidc_authenticate_audits(&app).await.is_empty());
+}
+
+// NOTE: AI-generated test
+#[test]
+fn openapi_documents_the_challenge_method() {
+    let specification = oceaniam::app::build_openapi_spec();
+    let path = specification
+        .paths
+        .paths
+        .get("/oidc/{tenant_sqid}/authorize/{transaction_sqid}/challenge")
+        .expect("challenge path should be documented");
     assert!(path.post.is_some());
     assert!(path.get.is_none());
 }

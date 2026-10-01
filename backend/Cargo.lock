@@ -2989,6 +2989,7 @@ dependencies = [
  "tap",
  "time",
  "tokio",
+ "totp-rs",
  "tower-http",
  "tracing",
  "tracing-opentelemetry",
