@@ -11,3 +11,6 @@ mod oidc_authorization_transactions;
 
 #[path = "./database/oidc_clients.rs"]
 mod oidc_clients;
+
+#[path = "./database/hardening.rs"]
+mod hardening;
