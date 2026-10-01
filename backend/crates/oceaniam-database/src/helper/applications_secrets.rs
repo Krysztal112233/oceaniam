@@ -1,5 +1,6 @@
 use crate::error::Error;
 use axum::http::StatusCode;
+use itertools::Itertools;
 use oceaniam_vo::pagination::{PageParam, PagedResponse};
 use sea_orm::TransactionSession as _;
 use sea_orm::{
@@ -196,12 +197,7 @@ pub trait ApplicationSecretsHelper {
 
         let bindings = query.into_tuple::<(Uuid, Uuid)>().all(database).await?;
 
-        let mut grouped = HashMap::<Uuid, Vec<Uuid>>::new();
-        for (secret_id, application_id) in bindings {
-            grouped.entry(secret_id).or_default().push(application_id);
-        }
-
-        Ok(grouped)
+        Ok(bindings.into_iter().into_group_map())
     }
 
     #[tracing::instrument(

@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 use axum::extract::State;
 use axum_extra::extract::OptionalQuery;
+use itertools::Itertools;
 use oceaniam_api::{ApiResponse, ErrorResponse};
 use oceaniam_database::helper::statistics::AuditStatisticsHelper;
 use oceaniam_database::helper::trend;
@@ -97,16 +98,18 @@ async fn get_statistics_trends(
         .await
         .inspect_err(|e| error!(error = %e, "failed to query platform trends"))?;
 
-    let mut grouped: HashMap<String, Vec<TrendDataPoint>> = HashMap::new();
-    for row in rows {
-        grouped
-            .entry(row.entity_type)
-            .or_default()
-            .push(TrendDataPoint {
-                bucket: row.period,
-                count: row.count as u64,
-            });
-    }
+    let mut grouped: HashMap<String, Vec<TrendDataPoint>> = rows
+        .into_iter()
+        .map(|row| {
+            (
+                row.entity_type,
+                TrendDataPoint {
+                    bucket: row.period,
+                    count: row.count as u64,
+                },
+            )
+        })
+        .into_group_map();
 
     Ok(ApiResponse::new(PlatformTrendsVO {
         granularity,

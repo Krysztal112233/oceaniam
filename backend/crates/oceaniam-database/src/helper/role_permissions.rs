@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use itertools::Itertools;
 use sea_orm::{ActiveValue, ColumnTrait, EntityTrait, QueryFilter};
 use uuid::Uuid;
 
@@ -27,11 +28,10 @@ pub trait RolePermissionsHelper {
             .all(database)
             .await?;
 
-        let mut map: HashMap<Uuid, Vec<String>> =
-            rows.into_iter().fold(HashMap::new(), |mut acc, r| {
-                acc.entry(r.role_id).or_default().push(r.permission);
-                acc
-            });
+        let mut map: HashMap<Uuid, Vec<String>> = rows
+            .into_iter()
+            .map(|r| (r.role_id, r.permission))
+            .into_group_map();
 
         for &id in role_ids {
             map.entry(id).or_default();

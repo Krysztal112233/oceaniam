@@ -8,6 +8,7 @@ async-trait.workspace = true
 axum.workspace = true
 chrono.workspace = true
 futures.workspace = true
+itertools.workspace = true
 log.workspace = true
 rand.workspace = true
 sea-orm.workspace = true

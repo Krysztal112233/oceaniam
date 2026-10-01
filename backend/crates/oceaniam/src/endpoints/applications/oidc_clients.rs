@@ -7,6 +7,7 @@ use axum::{
 };
 use axum_extra::extract::OptionalQuery;
 use axum_valid::Garde;
+use itertools::Itertools;
 use oceaniam_api::{ApiResponse, ErrorResponse, PageParam, PagedResponse};
 use oceaniam_audit::types::{
     AuditPayload, CreateOidcClientPayload, DeleteOidcClientPayload, PatchOidcClientPayload,
@@ -234,13 +235,9 @@ pub async fn list_oidc_clients(
         .inspect_err(|error| {
             error!(%operator_id, %application_id, %error, "failed to list OIDC client redirect URIs");
         })?;
-    let mut redirect_uris_by_client = HashMap::new();
-    for redirect_uri in redirect_uris {
-        redirect_uris_by_client
-            .entry(redirect_uri.oidc_client_id)
-            .or_insert_with(Vec::new)
-            .push(redirect_uri);
-    }
+    let mut redirect_uris_by_client: HashMap<_, Vec<_>> = redirect_uris
+        .into_iter()
+        .into_group_map_by(|redirect_uri| redirect_uri.oidc_client_id);
 
     let items = items
         .into_iter()
