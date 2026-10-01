@@ -3,14 +3,13 @@ use axum::http::StatusCode;
 use oceaniam_common::consts;
 use oceaniam_vo::pagination::{PageParam, PagedResponse};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait,
-    QueryFilter, QueryOrder,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter,
+    QueryOrder, sea_query::Expr,
 };
-use tap::Tap;
 use uuid::Uuid;
 
 use crate::{
-    helper::{PagedExecutor, PagedSelect, SafeTransactionConnectionTrait},
+    helper::{PagedExecutor, PagedSelect, SafeTransactionConnectionTrait, exactly_one_returned},
     model::{self, prelude::Administrators},
 };
 
@@ -61,11 +60,11 @@ pub trait AdministratorsHelper {
 
     #[tracing::instrument(
         level = "info",
-        name = "db.administrators.get_by_id",
+        name = "db.administrators.get_administrator",
         skip_all,
         fields(otel.kind = "internal")
     )]
-    async fn get_by_id(
+    async fn get_administrator(
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::administrators::Model, Error> {
@@ -121,6 +120,11 @@ pub trait AdministratorsHelper {
         .await?)
     }
 
+    /// Patches the mutable fields of an administrator.
+    ///
+    /// The write is a primary-key-filtered conditional update that reports
+    /// [`administrator_not_found`] when the row is gone instead of silently succeeding. A patch
+    /// with no fields set is a no-op read of the current row.
     #[tracing::instrument(
         level = "info",
         name = "db.administrators.update_model",
@@ -134,16 +138,19 @@ pub trait AdministratorsHelper {
 
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::administrators::Model, Error> {
-        let administrator = Self::get_by_id(id, database)
-            .await?
-            .into_active_model()
-            .tap_mut(|it| {
-                if let Some(name) = name {
-                    it.name = Set(name);
-                }
-            });
+        use model::administrators::Column::*;
 
-        Ok(administrator.update(database).await?)
+        let Some(name) = name else {
+            return Self::get_administrator(id, database).await;
+        };
+
+        let updated = Administrators::update_many()
+            .col_expr(Name, Expr::value(name))
+            .filter(Id.eq(id))
+            .exec_with_returning(database)
+            .await?;
+
+        exactly_one_returned(updated, || administrator_not_found(id))
     }
 }
 

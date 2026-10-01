@@ -2,13 +2,13 @@ use crate::error::Error;
 use oceaniam_common::consts;
 use oceaniam_vo::pagination::{PageParam, PagedResponse};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait,
-    QueryFilter,
+    ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter,
+    sea_query::Expr,
 };
 use uuid::Uuid;
 
 use crate::{
-    helper::{PagedExecutor, PagedSelect, SafeTransactionConnectionTrait},
+    helper::{PagedExecutor, PagedSelect, SafeTransactionConnectionTrait, exactly_one_returned},
     model::{self, prelude::Tenants},
 };
 
@@ -79,6 +79,24 @@ pub trait TenantsHelper {
         crate::system_protected_is_system_exist!(Tenants, consts::SYSTEM_TENANT_UUID, database)
     }
 
+    /// Probes whether a tenant row exists, including the reserved system tenant.
+    ///
+    /// Unlike [`Self::is_exist`] this deliberately does not exclude the system tenant; it
+    /// exists for internal callers (e.g. keybox auto-bootstrap) that must serve the legacy
+    /// system tenant too.
+    #[tracing::instrument(
+        level = "info",
+        name = "db.tenants.tenant_exists",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
+    async fn tenant_exists(
+        id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<bool, Error> {
+        Ok(Tenants::find_by_id(id).one(database).await?.is_some())
+    }
+
     #[tracing::instrument(
         level = "info",
         name = "db.tenants.delete_tenant",
@@ -98,6 +116,11 @@ pub trait TenantsHelper {
         )
     }
 
+    /// Updates a tenant's comment.
+    ///
+    /// The write is a primary-key-filtered conditional update that keeps the system tenant
+    /// excluded and reports [`tenant_not_found`] when the row is gone instead of silently
+    /// succeeding.
     #[tracing::instrument(
         level = "info",
         name = "db.tenants.update_comment",
@@ -109,10 +132,16 @@ pub trait TenantsHelper {
         comment: Option<String>,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::tenants::Model, Error> {
-        let mut tenant = Self::get_tenant(id, database).await?.into_active_model();
-        tenant.comment = Set(comment);
+        use model::tenants::Column::*;
 
-        Ok(tenant.update(database).await?)
+        let updated = Tenants::update_many()
+            .col_expr(Comment, Expr::value(comment))
+            .filter(Id.eq(id))
+            .filter(Id.ne(consts::SYSTEM_TENANT_UUID))
+            .exec_with_returning(database)
+            .await?;
+
+        exactly_one_returned(updated, || tenant_not_found(id))
     }
 
     /// NOTE: This helper intentionally excludes the system tenant from regular

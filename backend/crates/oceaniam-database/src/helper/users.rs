@@ -1,19 +1,16 @@
 use crate::error::Error;
 use axum::http::StatusCode;
 use oceaniam_vo::pagination::{PageInfo, PageParam, PagedResponse};
-use sea_orm::TransactionSession as _;
 use sea_orm::{
-    ActiveModelTrait,
-    ActiveValue::Set,
-    ColumnTrait, Condition, EntityTrait, FromQueryResult, IntoActiveModel, Iterable,
-    PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
+    ActiveModelTrait, ColumnTrait, Condition, EntityTrait, FromQueryResult, IntoActiveModel,
+    Iterable, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
     sea_query::{Expr, extension::postgres::PgExpr},
 };
 use tap::Pipe;
 use uuid::Uuid;
 
 use crate::{
-    helper::{SafeTransactionConnectionTrait, subjects::SubjectsHelper},
+    helper::{SafeTransactionConnectionTrait, exactly_one_returned, subjects::SubjectsHelper},
     model::{
         self,
         prelude::{Applications, Subjects, Users},
@@ -175,12 +172,7 @@ pub trait UserHelper {
             )
             .one(database)
             .await?
-            .ok_or_else(|| {
-                Error::with_code(
-                    StatusCode::NOT_FOUND,
-                    format!("user_id={user_id} not found under application_id={application_id}"),
-                )
-            })
+            .ok_or_else(|| user_of_application_not_found(application_id, user_id))
     }
 
     #[tracing::instrument(
@@ -383,6 +375,12 @@ pub trait UserHelper {
         }
     }
 
+    /// Applies a partial update to a user of an application.
+    ///
+    /// The write is a primary-key- and application-filtered conditional update that reports
+    /// the same not-found error as [`Self::get_user_of_application`] when the row is gone
+    /// instead of silently succeeding. A patch with no fields set is a no-op read of the
+    /// current row.
     #[tracing::instrument(
         level = "info",
         name = "db.users.patch_user",
@@ -395,36 +393,37 @@ pub trait UserHelper {
         patched: PatchUserOpts,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<UserModel, Error> {
+        use model::users::Column::*;
+
         let PatchUserOpts {
             nickname,
             email,
             phone,
         } = patched;
 
-        let tx = database.begin().await?;
+        let has_changes = nickname.is_some() || email.is_some() || phone.is_some();
+        if !has_changes {
+            return Self::get_user_of_application(application_id, user_id, database).await;
+        }
 
-        let user = {
-            let mut user = Self::get_user_of_application(application_id, user_id, &tx)
-                .await?
-                .into_active_model();
+        let mut update = Users::update_many()
+            .filter(Id.eq(user_id))
+            .filter(ApplicationId.eq(application_id));
+        if let Some(nickname) = nickname {
+            update = update.col_expr(Nickname, Expr::value(nickname));
+        }
+        if let Some(email) = email {
+            update = update.col_expr(Email, Expr::value(Some(email)));
+        }
+        if let Some(phone) = phone {
+            update = update.col_expr(Phone, Expr::value(Some(phone)));
+        }
 
-            if let Some(nickname) = nickname {
-                user.nickname = Set(nickname);
-            }
-            if let Some(email) = email {
-                user.email = Set(Some(email));
-            }
-            if let Some(phone) = phone {
-                user.phone = Set(Some(phone));
-            }
+        let updated = update.exec_with_returning(database).await?;
 
-            user
-        };
-
-        let user = user.update(&tx).await?;
-        tx.commit().await?;
-
-        Ok(user)
+        exactly_one_returned(updated, || {
+            user_of_application_not_found(application_id, user_id)
+        })
     }
 
     /// Deletes a `users` row by its ID.
@@ -432,7 +431,8 @@ pub trait UserHelper {
     /// Ordering matters: `users.id -> subjects.id` is `ON DELETE NO ACTION`, so the `users`
     /// row must be removed *before* the matching `credentials` row (whose cascade removes
     /// the `subjects` and `subject_roles` rows). The caller is responsible for deleting the
-    /// credential within the same transaction.
+    /// credential within the same transaction. A missing row is reported as not-found instead
+    /// of silently succeeding.
     #[tracing::instrument(
         level = "info",
         name = "db.users.delete_user",
@@ -443,9 +443,20 @@ pub trait UserHelper {
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<(), Error> {
-        Users::delete_by_id(id).exec(database).await?;
+        let result = Users::delete_by_id(id).exec(database).await?;
+        if result.rows_affected != 1 {
+            return Err(Error::not_found(format!("user id={id} not found")));
+        }
+
         Ok(())
     }
 }
 
 impl UserHelper for Users {}
+
+fn user_of_application_not_found(application_id: Uuid, user_id: Uuid) -> Error {
+    Error::with_code(
+        StatusCode::NOT_FOUND,
+        format!("user_id={user_id} not found under application_id={application_id}"),
+    )
+}

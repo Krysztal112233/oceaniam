@@ -2,14 +2,14 @@ use crate::error::Error;
 use oceaniam_common::consts;
 use oceaniam_vo::pagination::{PageParam, PagedResponse};
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait,
-    QueryFilter, QuerySelect,
+    ActiveModelTrait, ColumnTrait, EntityTrait, IntoActiveModel, PaginatorTrait, QueryFilter,
+    QuerySelect, sea_query::Expr,
 };
 use uuid::Uuid;
 
 use crate::{
     config::application::ApplicationConfiguration,
-    helper::{PagedExecutor, PagedSelect, SafeTransactionConnectionTrait},
+    helper::{PagedExecutor, PagedSelect, SafeTransactionConnectionTrait, exactly_one_returned},
     model::{self, prelude::Applications},
 };
 
@@ -217,6 +217,11 @@ pub trait ApplicationHelper {
         )
     }
 
+    /// Replaces an application's stored configuration document.
+    ///
+    /// The write is a primary-key-filtered conditional update that keeps the system
+    /// application excluded and reports [`application_not_found`] when the row is gone instead
+    /// of silently succeeding.
     #[tracing::instrument(
         level = "info",
         name = "db.applications.replace_configuration",
@@ -228,14 +233,24 @@ pub trait ApplicationHelper {
         configuration: ApplicationConfiguration,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::applications::Model, Error> {
-        let mut model = Self::get_application(application_id, database)
-            .await?
-            .into_active_model();
-        model.configuration = Set(serde_json::to_value(configuration)?);
+        use model::applications::Column::*;
 
-        Ok(model.update(database).await?)
+        let configuration = serde_json::to_value(configuration)?;
+        let updated = Applications::update_many()
+            .col_expr(Configuration, Expr::value(configuration))
+            .filter(Id.eq(application_id))
+            .filter(Id.ne(consts::SYSTEM_APPLICATION_UUID))
+            .exec_with_returning(database)
+            .await?;
+
+        exactly_one_returned(updated, || application_not_found(application_id))
     }
 
+    /// Updates an application's comment.
+    ///
+    /// The write is a primary-key-filtered conditional update that keeps the system
+    /// application excluded and reports [`application_not_found`] when the row is gone instead
+    /// of silently succeeding.
     #[tracing::instrument(
         level = "info",
         name = "db.applications.update_comment",
@@ -247,12 +262,16 @@ pub trait ApplicationHelper {
         comment: Option<String>,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::applications::Model, Error> {
-        let mut model = Self::get_application(application_id, database)
-            .await?
-            .into_active_model();
-        model.comment = Set(comment);
+        use model::applications::Column::*;
 
-        Ok(model.update(database).await?)
+        let updated = Applications::update_many()
+            .col_expr(Comment, Expr::value(comment))
+            .filter(Id.eq(application_id))
+            .filter(Id.ne(consts::SYSTEM_APPLICATION_UUID))
+            .exec_with_returning(database)
+            .await?;
+
+        exactly_one_returned(updated, || application_not_found(application_id))
     }
 }
 

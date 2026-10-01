@@ -4,14 +4,14 @@ use chrono::{DateTime, Duration, FixedOffset, Utc};
 use oceaniam_common::helpers::gen_random;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseBackend, EntityTrait, ExprTrait,
-    IntoActiveModel, QueryFilter, QuerySelect, Statement, sea_query::Expr,
+    QueryFilter, QuerySelect, Statement, sea_query::Expr,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use uuid::Uuid;
 
 use crate::{
-    helper::SafeTransactionConnectionTrait,
+    helper::{SafeTransactionConnectionTrait, exactly_one_returned},
     model::{self, prelude::Challenges, sea_orm_active_enums::*},
 };
 
@@ -119,6 +119,11 @@ pub trait ChallengesHelper {
         .await?)
     }
 
+    /// Consumes a pending challenge exactly once.
+    ///
+    /// The conditional update re-checks the pending status and the database-clock expiry, so a
+    /// consumed, expired, or absent challenge all fail with the same not-found error and can
+    /// never be consumed twice.
     #[tracing::instrument(
         level = "info",
         name = "db.challenges.consume_challenge",
@@ -129,15 +134,18 @@ pub trait ChallengesHelper {
         id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::challenges::Model, Error> {
-        let challenge = Self::get_challenge(id, database).await?;
+        use model::challenges::Column::*;
 
-        Ok(model::challenges::ActiveModel {
-            status: Set(ChallengeStatusType::Consumed),
-            consumed_at: Set(Some(Utc::now().fixed_offset())),
-            ..challenge.into_active_model()
-        }
-        .update(database)
-        .await?)
+        let updated = Challenges::update_many()
+            .col_expr(Status, Expr::value(ChallengeStatusType::Consumed))
+            .col_expr(ConsumedAt, Expr::cust("clock_timestamp()"))
+            .filter(Id.eq(id))
+            .filter(Status.eq(ChallengeStatusType::Pending))
+            .filter(Expr::col(ExpiresAt).gt(Expr::cust("clock_timestamp()")))
+            .exec_with_returning(database)
+            .await?;
+
+        exactly_one_returned(updated, || challenge_not_found(id))
     }
 
     /// Reads a still-usable pending challenge for re-rendering its form.
@@ -232,7 +240,7 @@ pub trait ChallengesHelper {
     ) -> Result<model::challenges::Model, Error> {
         use model::challenges::Column::*;
 
-        let mut updated = Challenges::update_many()
+        let updated = Challenges::update_many()
             .col_expr(AttemptCount, Expr::col(AttemptCount).add(1))
             .filter(Id.eq(id))
             .filter(Status.eq(ChallengeStatusType::Pending))
@@ -240,11 +248,7 @@ pub trait ChallengesHelper {
             .exec_with_returning(database)
             .await?;
 
-        debug_assert!(
-            updated.len() <= 1,
-            "a primary-key-filtered update returned multiple challenges"
-        );
-        updated.pop().ok_or_else(|| challenge_not_found(id))
+        exactly_one_returned(updated, || challenge_not_found(id))
     }
 
     /// Consumes a locked challenge exactly once after a successful OTP verification.
@@ -264,7 +268,7 @@ pub trait ChallengesHelper {
     ) -> Result<model::challenges::Model, Error> {
         use model::challenges::Column::*;
 
-        let mut updated = Challenges::update_many()
+        let updated = Challenges::update_many()
             .col_expr(Status, Expr::value(ChallengeStatusType::Consumed))
             .col_expr(ConsumedAt, Expr::cust("clock_timestamp()"))
             .filter(Id.eq(id))
@@ -273,11 +277,7 @@ pub trait ChallengesHelper {
             .exec_with_returning(database)
             .await?;
 
-        debug_assert!(
-            updated.len() <= 1,
-            "a primary-key-filtered update returned multiple challenges"
-        );
-        updated.pop().ok_or_else(|| challenge_not_found(id))
+        exactly_one_returned(updated, || challenge_not_found(id))
     }
 }
 

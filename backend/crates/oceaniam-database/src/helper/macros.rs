@@ -47,13 +47,17 @@ macro_rules! system_protected_get_system {
 }
 
 /// Generates the body of `delete_*(id, db)` for a system-protected entity.
+/// The delete reports the caller's not-found error when no row was removed.
 #[macro_export]
 macro_rules! system_protected_delete {
     ($Entity:ty, $SYSTEM_ID:expr, $id:expr, $database:expr, $not_found:expr) => {{
         if $id == $SYSTEM_ID {
             return Err($not_found($id));
         }
-        <$Entity>::delete_by_id($id).exec($database).await?;
+        let result = <$Entity>::delete_by_id($id).exec($database).await?;
+        if result.rows_affected != 1 {
+            return Err($not_found($id));
+        }
         Ok(())
     }};
 }

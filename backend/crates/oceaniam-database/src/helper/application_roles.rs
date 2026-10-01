@@ -1,12 +1,12 @@
 use axum::http::StatusCode;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, sea_query::Expr,
 };
 use uuid::Uuid;
 
 use crate::{
     error::Error,
-    helper::SafeTransactionConnectionTrait,
+    helper::{SafeTransactionConnectionTrait, exactly_one_returned},
     model::{self, prelude::ApplicationRoles},
 };
 
@@ -25,12 +25,7 @@ pub trait ApplicationRolesHelper {
         ApplicationRoles::find_by_id(role_id)
             .one(database)
             .await?
-            .ok_or_else(|| {
-                Error::with_code(
-                    StatusCode::NOT_FOUND,
-                    format!("application_role {role_id} not found"),
-                )
-            })
+            .ok_or_else(|| application_role_not_found(role_id))
             .map(|r| r.name)
     }
 
@@ -47,12 +42,7 @@ pub trait ApplicationRolesHelper {
         ApplicationRoles::find_by_id(role_id)
             .one(database)
             .await?
-            .ok_or_else(|| {
-                Error::with_code(
-                    StatusCode::NOT_FOUND,
-                    format!("application_role {role_id} not found"),
-                )
-            })
+            .ok_or_else(|| application_role_not_found(role_id))
     }
 
     #[tracing::instrument(
@@ -94,6 +84,10 @@ pub trait ApplicationRolesHelper {
         .await?)
     }
 
+    /// Renames an application role.
+    ///
+    /// The write is a primary-key-filtered conditional update that reports
+    /// [`application_role_not_found`] when the row is gone instead of silently succeeding.
     #[tracing::instrument(
         level = "info",
         name = "db.application_roles.update_role_name",
@@ -105,13 +99,19 @@ pub trait ApplicationRolesHelper {
         name: String,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<model::application_roles::Model, Error> {
-        let mut role = Self::get_role_by_id(role_id, database)
-            .await?
-            .into_active_model();
-        role.name = Set(name);
-        Ok(role.update(database).await?)
+        use model::application_roles::Column::*;
+
+        let updated = ApplicationRoles::update_many()
+            .col_expr(Name, Expr::value(name))
+            .filter(Id.eq(role_id))
+            .exec_with_returning(database)
+            .await?;
+
+        exactly_one_returned(updated, || application_role_not_found(role_id))
     }
 
+    /// Deletes an application role, reporting [`application_role_not_found`] when no row was
+    /// removed.
     #[tracing::instrument(
         level = "info",
         name = "db.application_roles.delete_role",
@@ -122,9 +122,13 @@ pub trait ApplicationRolesHelper {
         role_id: Uuid,
         database: &impl SafeTransactionConnectionTrait,
     ) -> Result<(), Error> {
-        ApplicationRoles::delete_by_id(role_id)
+        let result = ApplicationRoles::delete_by_id(role_id)
             .exec(database)
             .await?;
+        if result.rows_affected != 1 {
+            return Err(application_role_not_found(role_id));
+        }
+
         Ok(())
     }
 
@@ -148,3 +152,10 @@ pub trait ApplicationRolesHelper {
 }
 
 impl ApplicationRolesHelper for ApplicationRoles {}
+
+fn application_role_not_found(role_id: Uuid) -> Error {
+    Error::with_code(
+        StatusCode::NOT_FOUND,
+        format!("application_role {role_id} not found"),
+    )
+}

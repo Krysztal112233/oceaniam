@@ -6,8 +6,8 @@ use uuid::Uuid;
 
 use crate::{
     error::Error,
-    helper::SafeTransactionConnectionTrait,
     helper::subject_roles::SubjectRolesHelper,
+    helper::{SafeTransactionConnectionTrait, exactly_one_returned},
     model::{
         self,
         prelude::{SubjectRoles, Subjects},
@@ -65,7 +65,8 @@ pub trait SubjectsHelper {
     ///
     /// Used by the development-account flow: the subject row is created as a normal account
     /// first (reusing the regular creation ordering), then stamped with `expires_at` inside the
-    /// same transaction.
+    /// same transaction. The primary-key-filtered write returns the updated row and reports a
+    /// not-found error when the subject is gone instead of silently no-oping.
     #[tracing::instrument(
         level = "info",
         name = "db.subjects.set_subject_expiration",
@@ -76,14 +77,16 @@ pub trait SubjectsHelper {
         id: Uuid,
         expires_at: DateTime<FixedOffset>,
         database: &impl SafeTransactionConnectionTrait,
-    ) -> Result<(), Error> {
-        Subjects::update_many()
+    ) -> Result<model::subjects::Model, Error> {
+        let updated = Subjects::update_many()
             .col_expr(model::subjects::Column::ExpiresAt, Expr::value(expires_at))
             .filter(model::subjects::Column::Id.eq(id))
-            .exec(database)
+            .exec_with_returning(database)
             .await?;
 
-        Ok(())
+        exactly_one_returned(updated, || {
+            Error::not_found(format!("subject {id} not found"))
+        })
     }
 
     /// Lazy expiration rejection for time-limited (development) accounts.

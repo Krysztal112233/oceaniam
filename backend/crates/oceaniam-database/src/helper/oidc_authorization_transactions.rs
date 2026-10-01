@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::{
     error::Error,
-    helper::SafeTransactionConnectionTrait,
+    helper::{SafeTransactionConnectionTrait, exactly_one_returned},
     model::{
         self,
         prelude::OidcAuthorizationTransactions,
@@ -276,7 +276,7 @@ pub trait OidcAuthorizationTransactionsHelper {
             return Err(authorization_transaction_unavailable());
         }
 
-        let mut updated = OidcAuthorizationTransactions::update_many()
+        let updated = OidcAuthorizationTransactions::update_many()
             .col_expr(
                 Status,
                 Expr::value(OidcAuthorizationTransactionStatus::Authenticated),
@@ -292,13 +292,7 @@ pub trait OidcAuthorizationTransactionsHelper {
             .await
             .map_err(|_| authorization_transaction_storage_error())?;
 
-        debug_assert!(
-            updated.len() <= 1,
-            "a primary-key-filtered update returned multiple OIDC authorization transactions"
-        );
-        updated
-            .pop()
-            .ok_or_else(authorization_transaction_unavailable)
+        exactly_one_returned(updated, authorization_transaction_unavailable)
     }
 
     /// Transitions `pending -> awaiting_challenge`, binding the minted MFA challenge.
@@ -355,7 +349,7 @@ pub trait OidcAuthorizationTransactionsHelper {
             return Err(authorization_transaction_unavailable());
         }
 
-        let mut updated = OidcAuthorizationTransactions::update_many()
+        let updated = OidcAuthorizationTransactions::update_many()
             .col_expr(
                 Status,
                 Expr::value(OidcAuthorizationTransactionStatus::AwaitingChallenge),
@@ -370,13 +364,7 @@ pub trait OidcAuthorizationTransactionsHelper {
             .await
             .map_err(|_| authorization_transaction_storage_error())?;
 
-        debug_assert!(
-            updated.len() <= 1,
-            "a primary-key-filtered update returned multiple OIDC authorization transactions"
-        );
-        updated
-            .pop()
-            .ok_or_else(authorization_transaction_unavailable)
+        exactly_one_returned(updated, authorization_transaction_unavailable)
     }
 
     /// Transitions `awaiting_challenge -> authenticated`, recording the authenticated subject.
@@ -435,7 +423,7 @@ pub trait OidcAuthorizationTransactionsHelper {
             return Err(authorization_transaction_unavailable());
         }
 
-        let mut updated = OidcAuthorizationTransactions::update_many()
+        let updated = OidcAuthorizationTransactions::update_many()
             .col_expr(
                 Status,
                 Expr::value(OidcAuthorizationTransactionStatus::Authenticated),
@@ -452,13 +440,7 @@ pub trait OidcAuthorizationTransactionsHelper {
             .await
             .map_err(|_| authorization_transaction_storage_error())?;
 
-        debug_assert!(
-            updated.len() <= 1,
-            "a primary-key-filtered update returned multiple OIDC authorization transactions"
-        );
-        updated
-            .pop()
-            .ok_or_else(authorization_transaction_unavailable)
+        exactly_one_returned(updated, authorization_transaction_unavailable)
     }
 
     #[tracing::instrument(
@@ -512,7 +494,7 @@ pub trait OidcAuthorizationTransactionsHelper {
                 return Err(authorization_transaction_unavailable());
             }
 
-            let mut updated = OidcAuthorizationTransactions::update_many()
+            let updated = OidcAuthorizationTransactions::update_many()
                 .col_expr(
                     Status,
                     Expr::value(OidcAuthorizationTransactionStatus::Cancelled),
@@ -527,13 +509,7 @@ pub trait OidcAuthorizationTransactionsHelper {
                 .await
                 .map_err(|_| authorization_transaction_storage_error())?;
 
-            debug_assert!(
-                updated.len() <= 1,
-                "a primary-key-filtered update returned multiple OIDC authorization transactions"
-            );
-            updated
-                .pop()
-                .ok_or_else(authorization_transaction_unavailable)
+            exactly_one_returned(updated, authorization_transaction_unavailable)
         }
         .await;
 
