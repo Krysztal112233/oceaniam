@@ -2,7 +2,7 @@
 //! atomic credential upsert, conditional challenge consume, delete/update row-existence
 //! reporting, subject expiration reporting, administrator/tenant probes, and the pgmq wrapper.
 
-use chrono::{Duration, Utc};
+use chrono::Duration;
 use oceaniam_database::error::Error as DbError;
 use oceaniam_database::helper::administrator_tenants::AdministratorTenantsHelper;
 use oceaniam_database::helper::administrators::{AdministratorsHelper, UpdateAdministratorModel};
@@ -403,20 +403,32 @@ async fn set_subject_expiration_reports_missing_subject() {
     let database = app.database().await;
     let (_tenant_id, application_id) = app.seed_tenant_and_application().await;
 
-    let expires_at = (Utc::now() + Duration::hours(1)).fixed_offset();
-    let missing = Subjects::set_subject_expiration(Uuid::now_v7(), expires_at, &database)
+    let missing = Subjects::set_subject_expiration(Uuid::now_v7(), Duration::hours(1), &database)
         .await
         .expect_err("stamping a missing subject should fail");
     assert_not_found(&missing, "set_subject_expiration");
 
+    // The expiry is computed on the database clock; bound it with samples taken around the call.
     let subject_id = seed_user(&database, application_id).await;
-    let subject = Subjects::set_subject_expiration(subject_id, expires_at, &database)
+    let ttl = Duration::hours(1);
+    let before = oceaniam_database::helper::db_clock_now(&database)
+        .await
+        .expect("clock sample should succeed");
+    let subject = Subjects::set_subject_expiration(subject_id, ttl, &database)
         .await
         .expect("stamping an existing subject should succeed");
+    let after = oceaniam_database::helper::db_clock_now(&database)
+        .await
+        .expect("clock sample should succeed");
     // timestamptz stores microsecond precision; compare at that resolution.
-    assert_eq!(
-        subject.expires_at.map(|it| it.timestamp_micros()),
-        Some(expires_at.timestamp_micros())
+    let expires_at = subject
+        .expires_at
+        .expect("set_subject_expiration always stamps expires_at")
+        .timestamp_micros();
+    assert!(
+        (before + ttl).timestamp_micros() <= expires_at
+            && expires_at <= (after + ttl).timestamp_micros(),
+        "expires_at must be the database clock plus the ttl"
     );
 }
 

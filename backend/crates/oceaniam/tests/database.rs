@@ -14,3 +14,6 @@ mod oidc_clients;
 
 #[path = "./database/hardening.rs"]
 mod hardening;
+
+#[path = "./database/time_authority.rs"]
+mod time_authority;
