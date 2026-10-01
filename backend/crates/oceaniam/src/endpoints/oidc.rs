@@ -1,10 +1,11 @@
 //! OIDC protocol endpoints.
 //!
 //! The tenant JWKS remains public. Authorization is limited to a default-disabled request-entry
-//! preview plus its transaction-bound password login; codes, Token/UserInfo, and Discovery
-//! remain deliberately out of scope.
+//! preview plus its transaction-bound password login and TOTP challenge; codes, Token/UserInfo,
+//! and Discovery remain deliberately out of scope.
 
 mod authorize;
+mod challenge;
 mod login;
 
 use crate::error::AppResult;
@@ -99,4 +100,5 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
         .routes(routes!(get_oidc_jwks))
         .routes(authorize::routes())
         .routes(login::routes())
+        .routes(challenge::routes())
 }

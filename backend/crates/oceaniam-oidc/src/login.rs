@@ -36,3 +36,26 @@ impl ParsedLoginForm {
         self.csrf.as_deref()
     }
 }
+
+/// Deserialized challenge form values awaiting binding and OTP checks.
+///
+/// This type deliberately omits `Debug`: it carries the submitted one-time code. Unknown fields
+/// are discarded during deserialization; missing or empty fields stay omitted so callers can
+/// apply their uniform rejection semantics.
+#[derive(Deserialize)]
+pub struct ParsedChallengeForm {
+    code: Option<String>,
+    csrf: Option<String>,
+}
+
+impl ParsedChallengeForm {
+    /// Returns the submitted one-time code without any trimming or normalization.
+    pub fn code(&self) -> Option<&str> {
+        self.code.as_deref()
+    }
+
+    /// Returns the submitted CSRF secret exactly as submitted.
+    pub fn csrf(&self) -> Option<&str> {
+        self.csrf.as_deref()
+    }
+}
