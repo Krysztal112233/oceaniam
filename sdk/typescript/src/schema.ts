@@ -204,6 +204,83 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/oidc/{tenant_sqid}/authorize": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Default-disabled OIDC Authorization Endpoint preview using query parameters. */
+    get: operations["get_authorization_entry"];
+    put?: never;
+    /** Default-disabled OIDC Authorization Endpoint preview using a form body. */
+    post: operations["post_authorization_entry"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/oidc/{tenant_sqid}/authorize/{transaction_sqid}/challenge": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Default-disabled OIDC authorization challenge: verifies a TOTP code for an
+     *     `awaiting_challenge` transaction.
+     */
+    post: operations["post_authorization_challenge"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/oidc/{tenant_sqid}/authorize/{transaction_sqid}/login": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Default-disabled OIDC authorization login: password-authenticates a pending transaction. */
+    post: operations["post_authorization_login"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/oidc/{tenant_sqid}/jwks.json": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Tenant JWK Set under the OIDC namespace.
+     * @description The tenant is resolved through the system-protected lookup, so the system tenant never
+     *     appears in the OIDC namespace, and the response body is the official
+     *     [`CoreJsonWebKeySet`] type from `openidconnect`.
+     */
+    get: operations["get_oidc_jwks"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/secrets": {
     parameters: {
       query?: never;
@@ -498,6 +575,43 @@ export interface paths {
     patch: operations["patch_application_configuration"];
     trace?: never;
   };
+  "/tenants/{tenant_id}/applications/{application_id}/oidc-clients": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List OIDC clients registered to an application. */
+    get: operations["list_oidc_clients"];
+    put?: never;
+    /** Register a public Web OIDC client to an application. */
+    post: operations["create_oidc_client"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/tenants/{tenant_id}/applications/{application_id}/oidc-clients/{client_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get one OIDC client registered to an application. */
+    get: operations["get_oidc_client"];
+    put?: never;
+    post?: never;
+    /** Delete an OIDC client and all of its registered redirect URIs. */
+    delete: operations["delete_oidc_client"];
+    options?: never;
+    head?: never;
+    /** Update the mutable registration fields of an OIDC client. */
+    patch: operations["patch_oidc_client"];
+    trace?: never;
+  };
   "/tenants/{tenant_id}/applications/{application_id}/roles": {
     parameters: {
       query?: never;
@@ -687,7 +801,8 @@ export interface paths {
     /**
      * Create an application user
      * @description Omitting `development` creates a permanent user. Supplying `development` creates a
-     *     time-limited development account; an empty object uses the default 3600-second TTL.
+     *     time-limited development account; an empty object uses the application's configured
+     *     default TTL.
      */
     post: operations["create_application_user"];
     delete?: never;
@@ -948,8 +1063,11 @@ export interface components {
     };
     ApiResponse_ApplicationUserVO: {
       email?: string | null;
+      /** @description Management resource ID encoded as a Sqid. Use this value in OceanIAM API paths. */
       id: string;
       nickname: string;
+      /** @description Stable external subject. Treat this canonical UUID text as an opaque string. */
+      oidc_sub: string;
       phone?: string | null;
     };
     ApiResponse_CreateAdministratorResponse: {
@@ -978,6 +1096,16 @@ export interface components {
     };
     ApiResponse_GetApplicationConfigurationResponse: {
       configuration: components["schemas"]["ApplicationConfigurationVO"];
+    };
+    ApiResponse_OidcClientVO: {
+      application_id: string;
+      application_type: components["schemas"]["OidcApplicationTypeVO"];
+      client_id: string;
+      client_type: components["schemas"]["OidcClientTypeVO"];
+      /** Format: date-time */
+      created_at: string;
+      name: string;
+      redirect_uris: string[];
     };
     ApiResponse_OverviewVO: {
       /** Format: int64 */
@@ -1031,8 +1159,11 @@ export interface components {
     ApiResponse_PagedResponse_ApplicationUserVO: {
       items: {
         email?: string | null;
+        /** @description Management resource ID encoded as a Sqid. Use this value in OceanIAM API paths. */
         id: string;
         nickname: string;
+        /** @description Stable external subject. Treat this canonical UUID text as an opaque string. */
+        oidc_sub: string;
         phone?: string | null;
       }[];
       page_info: components["schemas"]["PageInfo"];
@@ -1052,6 +1183,19 @@ export interface components {
         created_at: string;
         id: string;
         payload: unknown;
+      }[];
+      page_info: components["schemas"]["PageInfo"];
+    };
+    ApiResponse_PagedResponse_OidcClientVO: {
+      items: {
+        application_id: string;
+        application_type: components["schemas"]["OidcApplicationTypeVO"];
+        client_id: string;
+        client_type: components["schemas"]["OidcClientTypeVO"];
+        /** Format: date-time */
+        created_at: string;
+        name: string;
+        redirect_uris: string[];
       }[];
       page_info: components["schemas"]["PageInfo"];
     };
@@ -1126,6 +1270,8 @@ export interface components {
     };
     ApplicationConfigurationVO: {
       auth: components["schemas"]["AuthConfigurationVO"];
+      development_accounts?: components["schemas"]["DevelopmentAccountsConfigurationVO"];
+      oidc?: components["schemas"]["OidcConfigurationVO"];
       registration: components["schemas"]["RegistrationConfigurationVO"];
     };
     ApplicationDetailVO: {
@@ -1172,8 +1318,11 @@ export interface components {
     };
     ApplicationUserVO: {
       email?: string | null;
+      /** @description Management resource ID encoded as a Sqid. Use this value in OceanIAM API paths. */
       id: string;
       nickname: string;
+      /** @description Stable external subject. Treat this canonical UUID text as an opaque string. */
+      oidc_sub: string;
       phone?: string | null;
     };
     /** @enum {string} */
@@ -1258,6 +1407,10 @@ export interface components {
       /** Format: uuid */
       subject_id: string;
     };
+    CreateOidcClientRequest: {
+      name: string;
+      redirect_uris: string[];
+    };
     CreateTenantRequest: {
       comment?: string | null;
     };
@@ -1273,10 +1426,19 @@ export interface components {
     DevAccountOptions: {
       /**
        * Format: int64
-       * @description Time-to-live in seconds; defaults to 3600 (1 hour) when omitted. Upper bound matches
-       *     the pgmq delay parameter (PostgreSQL `integer`).
+       * @description Time-to-live in seconds; defaults to the application's `development_accounts.default_ttl_seconds`
+       *     and is capped by its `development_accounts.max_ttl_seconds`. Bounds are validated in the
+       *     endpoint after the enabled check, so disabled applications always fail with 403 regardless
+       *     of the requested TTL.
        */
       ttl_seconds?: number | null;
+    };
+    DevelopmentAccountsConfigurationVO: {
+      /** Format: int64 */
+      default_ttl_seconds: number;
+      enabled: boolean;
+      /** Format: int64 */
+      max_ttl_seconds: number;
     };
     Empty: Record<string, never>;
     EnrollTotpResponse: {
@@ -1303,6 +1465,23 @@ export interface components {
     JwkSetSchema: {
       keys: components["schemas"]["Jwk"][];
     };
+    /** @enum {string} */
+    OidcApplicationTypeVO: "web";
+    /** @enum {string} */
+    OidcClientTypeVO: "public";
+    OidcClientVO: {
+      application_id: string;
+      application_type: components["schemas"]["OidcApplicationTypeVO"];
+      client_id: string;
+      client_type: components["schemas"]["OidcClientTypeVO"];
+      /** Format: date-time */
+      created_at: string;
+      name: string;
+      redirect_uris: string[];
+    };
+    OidcConfigurationVO: {
+      allow_insecure_loopback_redirect_uris: boolean;
+    };
     OverviewVO: {
       /** Format: int64 */
       total_active_secrets: number;
@@ -1328,6 +1507,9 @@ export interface components {
     };
     PatchApplicationConfigurationRequest: {
       auth?: null | components["schemas"]["PatchAuthConfigurationVO"];
+      development_accounts?:
+        null | components["schemas"]["PatchDevelopmentAccountsConfigurationVO"];
+      oidc?: null | components["schemas"]["PatchOidcConfigurationVO"];
       registration?:
         null | components["schemas"]["PatchRegistrationConfigurationVO"];
     };
@@ -1346,6 +1528,20 @@ export interface components {
     };
     PatchAuthConfigurationVO: {
       token?: null | components["schemas"]["PatchTokenConfigurationVO"];
+    };
+    PatchDevelopmentAccountsConfigurationVO: {
+      /** Format: int64 */
+      default_ttl_seconds?: number | null;
+      enabled?: boolean | null;
+      /** Format: int64 */
+      max_ttl_seconds?: number | null;
+    };
+    PatchOidcClientRequest: {
+      name?: string;
+      redirect_uris?: string[];
+    };
+    PatchOidcConfigurationVO: {
+      allow_insecure_loopback_redirect_uris?: boolean | null;
     };
     PatchRegistrationConfigurationVO: {
       enabled?: boolean | null;
@@ -1877,6 +2073,435 @@ export interface operations {
       };
       /** @description System account creation is not implemented */
       501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+    };
+  };
+  get_authorization_entry: {
+    parameters: {
+      query?: {
+        /** @description Only `code` is supported */
+        response_type?: string;
+        /** @description Opaque registered client identifier */
+        client_id?: string;
+        /** @description Exact registered redirect URI */
+        redirect_uri?: string;
+        /** @description Only `openid` is supported */
+        scope?: string;
+        /** @description Required opaque client state */
+        state?: string;
+        /** @description Optional OIDC nonce */
+        nonce?: string;
+        /** @description Required canonical PKCE S256 challenge */
+        code_challenge?: string;
+        /** @description Must be `S256` */
+        code_challenge_method?: string;
+        /** @description Only omitted or `query` is supported */
+        response_mode?: string;
+      };
+      header?: never;
+      path: {
+        /** @description Tenant Sqid */
+        tenant_sqid: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Static sign-in-unavailable preview; creates a ten-minute request snapshot */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+      /** @description Protocol error redirected only to a live trusted callback */
+      303: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Malformed or untrusted authorization request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Preview disabled or tenant unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Request target exceeds 8 KiB */
+      414: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+    };
+  };
+  post_authorization_entry: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Tenant Sqid */
+        tenant_sqid: string;
+      };
+      cookie?: never;
+    };
+    /** @description Authorization parameters; same profile as GET, body-only, maximum 8 KiB */
+    requestBody: {
+      content: {
+        "application/x-www-form-urlencoded": string;
+      };
+    };
+    responses: {
+      /** @description Static sign-in-unavailable preview; creates a ten-minute request snapshot */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+      /** @description Protocol error redirected only to a live trusted callback */
+      303: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Malformed, mixed-query, or untrusted authorization request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Preview disabled or tenant unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Form body exceeds 8 KiB */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Request target exceeds 8 KiB */
+      414: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Content type is not application/x-www-form-urlencoded */
+      415: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+    };
+  };
+  post_authorization_challenge: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Tenant Sqid */
+        tenant_sqid: string;
+        /** @description Authorization transaction Sqid */
+        transaction_sqid: string;
+      };
+      cookie?: never;
+    };
+    /** @description Challenge parameters: the TOTP `code` and the transaction `csrf` secret; body-only, maximum 8 KiB */
+    requestBody: {
+      content: {
+        "application/x-www-form-urlencoded": string;
+      };
+    };
+    responses: {
+      /** @description Authentication recorded; authorization continuation is not yet available */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+      /** @description Malformed challenge request or invalidated registration */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Indistinguishable challenge failure page */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+      /** @description Preview disabled, or the transaction binding is unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Only POST is supported */
+      405: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Form body exceeds 8 KiB */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Request target exceeds 8 KiB */
+      414: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Content type is not application/x-www-form-urlencoded */
+      415: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+    };
+  };
+  post_authorization_login: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Tenant Sqid */
+        tenant_sqid: string;
+        /** @description Authorization transaction Sqid */
+        transaction_sqid: string;
+      };
+      cookie?: never;
+    };
+    /** @description Login parameters: `identifier` (email or phone), `password`, and the transaction `csrf` secret; body-only, maximum 8 KiB */
+    requestBody: {
+      content: {
+        "application/x-www-form-urlencoded": string;
+      };
+    };
+    responses: {
+      /** @description Authentication recorded, or a TOTP challenge form when the subject has a registered TOTP credential; authorization continuation is not yet available */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+      /** @description Malformed login request or invalidated registration */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Indistinguishable credential failure page */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/html": string;
+        };
+      };
+      /** @description Preview disabled, or the transaction binding is unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Only POST is supported */
+      405: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Form body exceeds 8 KiB */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Request target exceeds 8 KiB */
+      414: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Content type is not application/x-www-form-urlencoded */
+      415: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+    };
+  };
+  get_oidc_jwks: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Tenant Sqid */
+        tenant_sqid: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          /** @description Bounded public cache lifetime for the JWK Set */
+          "Cache-Control"?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["JwkSetSchema"];
+        };
+      };
+      /** @description Invalid tenant id */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Tenant not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Internal server error */
+      500: {
         headers: {
           [name: string]: unknown;
         };
@@ -3333,6 +3958,374 @@ export interface operations {
       };
     };
   };
+  list_oidc_clients: {
+    parameters: {
+      query?: {
+        /** @description Page number */
+        page?: number;
+        /** @description Items per page */
+        per_page?: number;
+      };
+      header: {
+        /** @description Bearer token for backend administrator */
+        Authorization: string;
+      };
+      path: {
+        /** @description Tenant ID */
+        tenant_id: string;
+        /** @description Application ID */
+        application_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_PagedResponse_OidcClientVO"];
+        };
+      };
+      /** @description Missing Authorization header */
+      203: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Invalid token or bad request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Insufficient permission or tenant scope */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Application not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+    };
+  };
+  create_oidc_client: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Bearer token for backend administrator */
+        Authorization: string;
+      };
+      path: {
+        /** @description Tenant ID */
+        tenant_id: string;
+        /** @description Application ID */
+        application_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CreateOidcClientRequest"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_OidcClientVO"];
+        };
+      };
+      /** @description Missing Authorization header */
+      203: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Invalid token, client name, or redirect URI */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Insufficient permission or tenant scope */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Application not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+    };
+  };
+  get_oidc_client: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Bearer token for backend administrator */
+        Authorization: string;
+      };
+      path: {
+        /** @description Tenant ID */
+        tenant_id: string;
+        /** @description Application ID */
+        application_id: string;
+        /** @description OIDC client ID */
+        client_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_OidcClientVO"];
+        };
+      };
+      /** @description Missing Authorization header */
+      203: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Invalid token or path */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Insufficient permission or tenant scope */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Application or OIDC client not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+    };
+  };
+  delete_oidc_client: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Bearer token for backend administrator */
+        Authorization: string;
+      };
+      path: {
+        /** @description Tenant ID */
+        tenant_id: string;
+        /** @description Application ID */
+        application_id: string;
+        /** @description OIDC client ID */
+        client_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Missing Authorization header */
+      203: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description OIDC client deleted */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Invalid token or path */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Insufficient permission or tenant scope */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Application or OIDC client not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+    };
+  };
+  patch_oidc_client: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Bearer token for backend administrator */
+        Authorization: string;
+      };
+      path: {
+        /** @description Tenant ID */
+        tenant_id: string;
+        /** @description Application ID */
+        application_id: string;
+        /** @description OIDC client ID */
+        client_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PatchOidcClientRequest"];
+      };
+    };
+    responses: {
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_OidcClientVO"];
+        };
+      };
+      /** @description Missing Authorization header */
+      203: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Invalid token, patch, client name, or redirect URI */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Insufficient permission or tenant scope */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Application or OIDC client not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+    };
+  };
   list_roles: {
     parameters: {
       query?: never;
@@ -4621,7 +5614,7 @@ export interface operations {
         tenant_id: string;
         /** @description Application ID */
         application_id: string;
-        /** @description User ID */
+        /** @description User resource ID (Sqid; not oidc_sub) */
         user_id: string;
       };
       cookie?: never;
@@ -4696,7 +5689,7 @@ export interface operations {
         tenant_id: string;
         /** @description Application ID */
         application_id: string;
-        /** @description User ID */
+        /** @description User resource ID (Sqid; not oidc_sub) */
         user_id: string;
       };
       cookie?: never;
@@ -4775,7 +5768,7 @@ export interface operations {
         tenant_id: string;
         /** @description Application ID */
         application_id: string;
-        /** @description User ID */
+        /** @description User resource ID (Sqid; not oidc_sub) */
         user_id: string;
       };
       cookie?: never;
@@ -4858,7 +5851,7 @@ export interface operations {
         tenant_id: string;
         /** @description Application ID */
         application_id: string;
-        /** @description User ID */
+        /** @description User resource ID (Sqid; not oidc_sub) */
         user_id: string;
       };
       cookie?: never;
@@ -4941,7 +5934,7 @@ export interface operations {
         tenant_id: string;
         /** @description Application ID */
         application_id: string;
-        /** @description User ID */
+        /** @description User resource ID (Sqid; not oidc_sub) */
         user_id: string;
       };
       cookie?: never;
@@ -5020,7 +6013,7 @@ export interface operations {
         tenant_id: string;
         /** @description Application ID */
         application_id: string;
-        /** @description User ID */
+        /** @description User resource ID (Sqid; not oidc_sub) */
         user_id: string;
       };
       cookie?: never;
@@ -5099,7 +6092,7 @@ export interface operations {
         tenant_id: string;
         /** @description Application ID */
         application_id: string;
-        /** @description User ID */
+        /** @description User resource ID (Sqid; not oidc_sub) */
         user_id: string;
       };
       cookie?: never;
@@ -5214,6 +6207,15 @@ export interface operations {
         };
         content?: never;
       };
+      /** @description Tenant not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
       /** @description Internal server error */
       500: {
         headers: {
@@ -5250,6 +6252,15 @@ export interface operations {
       };
       /** @description Invalid ids */
       400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Tenant not found */
+      404: {
         headers: {
           [name: string]: unknown;
         };
@@ -5302,7 +6313,7 @@ export interface operations {
           "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
         };
       };
-      /** @description Key not found */
+      /** @description Key or tenant not found */
       404: {
         headers: {
           [name: string]: unknown;

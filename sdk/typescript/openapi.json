@@ -575,6 +575,591 @@
         }
       }
     },
+    "/oidc/{tenant_sqid}/authorize": {
+      "get": {
+        "tags": ["Oidc"],
+        "summary": "Default-disabled OIDC Authorization Endpoint preview using query parameters.",
+        "operationId": "get_authorization_entry",
+        "parameters": [
+          {
+            "name": "tenant_sqid",
+            "in": "path",
+            "description": "Tenant Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "response_type",
+            "in": "query",
+            "description": "Only `code` is supported",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "client_id",
+            "in": "query",
+            "description": "Opaque registered client identifier",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "redirect_uri",
+            "in": "query",
+            "description": "Exact registered redirect URI",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "description": "Only `openid` is supported",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "description": "Required opaque client state",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "nonce",
+            "in": "query",
+            "description": "Optional OIDC nonce",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "code_challenge",
+            "in": "query",
+            "description": "Required canonical PKCE S256 challenge",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "code_challenge_method",
+            "in": "query",
+            "description": "Must be `S256`",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "response_mode",
+            "in": "query",
+            "description": "Only omitted or `query` is supported",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Static sign-in-unavailable preview; creates a ten-minute request snapshot",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "303": {
+            "description": "Protocol error redirected only to a live trusted callback"
+          },
+          "400": {
+            "description": "Malformed or untrusted authorization request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Preview disabled or tenant unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "414": {
+            "description": "Request target exceeds 8 KiB",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Oidc"],
+        "summary": "Default-disabled OIDC Authorization Endpoint preview using a form body.",
+        "operationId": "post_authorization_entry",
+        "parameters": [
+          {
+            "name": "tenant_sqid",
+            "in": "path",
+            "description": "Tenant Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Authorization parameters; same profile as GET, body-only, maximum 8 KiB",
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Static sign-in-unavailable preview; creates a ten-minute request snapshot",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "303": {
+            "description": "Protocol error redirected only to a live trusted callback"
+          },
+          "400": {
+            "description": "Malformed, mixed-query, or untrusted authorization request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Preview disabled or tenant unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Form body exceeds 8 KiB",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "414": {
+            "description": "Request target exceeds 8 KiB",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content type is not application/x-www-form-urlencoded",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oidc/{tenant_sqid}/authorize/{transaction_sqid}/challenge": {
+      "post": {
+        "tags": ["Oidc"],
+        "summary": "Default-disabled OIDC authorization challenge: verifies a TOTP code for an\n`awaiting_challenge` transaction.",
+        "operationId": "post_authorization_challenge",
+        "parameters": [
+          {
+            "name": "tenant_sqid",
+            "in": "path",
+            "description": "Tenant Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "transaction_sqid",
+            "in": "path",
+            "description": "Authorization transaction Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Challenge parameters: the TOTP `code` and the transaction `csrf` secret; body-only, maximum 8 KiB",
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication recorded; authorization continuation is not yet available",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed challenge request or invalidated registration",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Indistinguishable challenge failure page",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Preview disabled, or the transaction binding is unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Only POST is supported",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Form body exceeds 8 KiB",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "414": {
+            "description": "Request target exceeds 8 KiB",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content type is not application/x-www-form-urlencoded",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oidc/{tenant_sqid}/authorize/{transaction_sqid}/login": {
+      "post": {
+        "tags": ["Oidc"],
+        "summary": "Default-disabled OIDC authorization login: password-authenticates a pending transaction.",
+        "operationId": "post_authorization_login",
+        "parameters": [
+          {
+            "name": "tenant_sqid",
+            "in": "path",
+            "description": "Tenant Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "transaction_sqid",
+            "in": "path",
+            "description": "Authorization transaction Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Login parameters: `identifier` (email or phone), `password`, and the transaction `csrf` secret; body-only, maximum 8 KiB",
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication recorded, or a TOTP challenge form when the subject has a registered TOTP credential; authorization continuation is not yet available",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed login request or invalidated registration",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Indistinguishable credential failure page",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Preview disabled, or the transaction binding is unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Only POST is supported",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Form body exceeds 8 KiB",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "414": {
+            "description": "Request target exceeds 8 KiB",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content type is not application/x-www-form-urlencoded",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oidc/{tenant_sqid}/jwks.json": {
+      "get": {
+        "tags": ["Oidc"],
+        "summary": "Tenant JWK Set under the OIDC namespace.",
+        "description": "The tenant is resolved through the system-protected lookup, so the system tenant never\nappears in the OIDC namespace, and the response body is the official\n[`CoreJsonWebKeySet`] type from `openidconnect`.",
+        "operationId": "get_oidc_jwks",
+        "parameters": [
+          {
+            "name": "tenant_sqid",
+            "in": "path",
+            "description": "Tenant Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Bounded public cache lifetime for the JWK Set"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JwkSetSchema"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid tenant id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tenant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/secrets": {
       "get": {
         "tags": ["Secrets"],
@@ -2446,6 +3031,517 @@
         }
       }
     },
+    "/tenants/{tenant_id}/applications/{application_id}/oidc-clients": {
+      "get": {
+        "tags": ["OidcClients"],
+        "summary": "List OIDC clients registered to an application.",
+        "operationId": "list_oidc_clients",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Items per page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_PagedResponse_OidcClientVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid token or bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permission or tenant scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Application not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["OidcClients"],
+        "summary": "Register a public Web OIDC client to an application.",
+        "operationId": "create_oidc_client",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOidcClientRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_OidcClientVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid token, client name, or redirect URI",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permission or tenant scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Application not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenants/{tenant_id}/applications/{application_id}/oidc-clients/{client_id}": {
+      "get": {
+        "tags": ["OidcClients"],
+        "summary": "Get one OIDC client registered to an application.",
+        "operationId": "get_oidc_client",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "client_id",
+            "in": "path",
+            "description": "OIDC client ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_OidcClientVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid token or path",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permission or tenant scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Application or OIDC client not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["OidcClients"],
+        "summary": "Delete an OIDC client and all of its registered redirect URIs.",
+        "operationId": "delete_oidc_client",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "client_id",
+            "in": "path",
+            "description": "OIDC client ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "204": {
+            "description": "OIDC client deleted"
+          },
+          "400": {
+            "description": "Invalid token or path",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permission or tenant scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Application or OIDC client not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["OidcClients"],
+        "summary": "Update the mutable registration fields of an OIDC client.",
+        "operationId": "patch_oidc_client",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "Bearer token for backend administrator",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tenant_id",
+            "in": "path",
+            "description": "Tenant ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "application_id",
+            "in": "path",
+            "description": "Application ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "client_id",
+            "in": "path",
+            "description": "OIDC client ID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchOidcClientRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_OidcClientVO"
+                }
+              }
+            }
+          },
+          "203": {
+            "description": "Missing Authorization header"
+          },
+          "400": {
+            "description": "Invalid token, patch, client name, or redirect URI",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permission or tenant scope",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Application or OIDC client not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/tenants/{tenant_id}/applications/{application_id}/roles": {
       "get": {
         "tags": ["ApplicationRoles"],
@@ -3799,7 +4895,7 @@
       "post": {
         "tags": ["ApplicationUsers"],
         "summary": "Create an application user",
-        "description": "Omitting `development` creates a permanent user. Supplying `development` creates a\ntime-limited development account; an empty object uses the default 3600-second TTL.",
+        "description": "Omitting `development` creates a permanent user. Supplying `development` creates a\ntime-limited development account; an empty object uses the application's configured\ndefault TTL.",
         "operationId": "create_application_user",
         "parameters": [
           {
@@ -4101,7 +5197,7 @@
           {
             "name": "user_id",
             "in": "path",
-            "description": "User ID",
+            "description": "User resource ID (Sqid; not oidc_sub)",
             "required": true,
             "schema": {
               "type": "string"
@@ -4190,7 +5286,7 @@
           {
             "name": "user_id",
             "in": "path",
-            "description": "User ID",
+            "description": "User resource ID (Sqid; not oidc_sub)",
             "required": true,
             "schema": {
               "type": "string"
@@ -4294,7 +5390,7 @@
           {
             "name": "user_id",
             "in": "path",
-            "description": "User ID",
+            "description": "User resource ID (Sqid; not oidc_sub)",
             "required": true,
             "schema": {
               "type": "string"
@@ -4409,7 +5505,7 @@
           {
             "name": "user_id",
             "in": "path",
-            "description": "User ID",
+            "description": "User resource ID (Sqid; not oidc_sub)",
             "required": true,
             "schema": {
               "type": "string"
@@ -4525,7 +5621,7 @@
           {
             "name": "user_id",
             "in": "path",
-            "description": "User ID",
+            "description": "User resource ID (Sqid; not oidc_sub)",
             "required": true,
             "schema": {
               "type": "string"
@@ -4631,7 +5727,7 @@
           {
             "name": "user_id",
             "in": "path",
-            "description": "User ID",
+            "description": "User resource ID (Sqid; not oidc_sub)",
             "required": true,
             "schema": {
               "type": "string"
@@ -4737,7 +5833,7 @@
           {
             "name": "user_id",
             "in": "path",
-            "description": "User ID",
+            "description": "User resource ID (Sqid; not oidc_sub)",
             "required": true,
             "schema": {
               "type": "string"
@@ -4859,6 +5955,16 @@
           "401": {
             "description": "Unauthorized"
           },
+          "404": {
+            "description": "Tenant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -4908,6 +6014,16 @@
           },
           "400": {
             "description": "Invalid ids",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tenant not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -4985,7 +6101,7 @@
             }
           },
           "404": {
-            "description": "Key not found",
+            "description": "Key or tenant not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -5315,16 +6431,21 @@
         "allOf": [
           {
             "type": "object",
-            "required": ["id", "nickname"],
+            "required": ["id", "oidc_sub", "nickname"],
             "properties": {
               "email": {
                 "type": ["string", "null"]
               },
               "id": {
-                "type": "string"
+                "type": "string",
+                "description": "Management resource ID encoded as a Sqid. Use this value in OceanIAM API paths."
               },
               "nickname": {
                 "type": "string"
+              },
+              "oidc_sub": {
+                "type": "string",
+                "description": "Stable external subject. Treat this canonical UUID text as an opaque string."
               },
               "phone": {
                 "type": ["string", "null"]
@@ -5434,6 +6555,49 @@
             "properties": {
               "configuration": {
                 "$ref": "#/components/schemas/ApplicationConfigurationVO"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_OidcClientVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": [
+              "client_id",
+              "application_id",
+              "name",
+              "client_type",
+              "application_type",
+              "redirect_uris",
+              "created_at"
+            ],
+            "properties": {
+              "application_id": {
+                "type": "string"
+              },
+              "application_type": {
+                "$ref": "#/components/schemas/OidcApplicationTypeVO"
+              },
+              "client_id": {
+                "type": "string"
+              },
+              "client_type": {
+                "$ref": "#/components/schemas/OidcClientTypeVO"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "name": {
+                "type": "string"
+              },
+              "redirect_uris": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               }
             }
           }
@@ -5625,16 +6789,21 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": ["id", "nickname"],
+                  "required": ["id", "oidc_sub", "nickname"],
                   "properties": {
                     "email": {
                       "type": ["string", "null"]
                     },
                     "id": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "Management resource ID encoded as a Sqid. Use this value in OceanIAM API paths."
                     },
                     "nickname": {
                       "type": "string"
+                    },
+                    "oidc_sub": {
+                      "type": "string",
+                      "description": "Stable external subject. Treat this canonical UUID text as an opaque string."
                     },
                     "phone": {
                       "type": ["string", "null"]
@@ -5703,6 +6872,61 @@
                       "type": "string"
                     },
                     "payload": {}
+                  }
+                }
+              },
+              "page_info": {
+                "$ref": "#/components/schemas/PageInfo"
+              }
+            }
+          }
+        ]
+      },
+      "ApiResponse_PagedResponse_OidcClientVO": {
+        "allOf": [
+          {
+            "type": "object",
+            "required": ["items", "page_info"],
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "client_id",
+                    "application_id",
+                    "name",
+                    "client_type",
+                    "application_type",
+                    "redirect_uris",
+                    "created_at"
+                  ],
+                  "properties": {
+                    "application_id": {
+                      "type": "string"
+                    },
+                    "application_type": {
+                      "$ref": "#/components/schemas/OidcApplicationTypeVO"
+                    },
+                    "client_id": {
+                      "type": "string"
+                    },
+                    "client_type": {
+                      "$ref": "#/components/schemas/OidcClientTypeVO"
+                    },
+                    "created_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "redirect_uris": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
                   }
                 }
               },
@@ -6000,6 +7224,12 @@
           "auth": {
             "$ref": "#/components/schemas/AuthConfigurationVO"
           },
+          "development_accounts": {
+            "$ref": "#/components/schemas/DevelopmentAccountsConfigurationVO"
+          },
+          "oidc": {
+            "$ref": "#/components/schemas/OidcConfigurationVO"
+          },
           "registration": {
             "$ref": "#/components/schemas/RegistrationConfigurationVO"
           }
@@ -6136,16 +7366,21 @@
       },
       "ApplicationUserVO": {
         "type": "object",
-        "required": ["id", "nickname"],
+        "required": ["id", "oidc_sub", "nickname"],
         "properties": {
           "email": {
             "type": ["string", "null"]
           },
           "id": {
-            "type": "string"
+            "type": "string",
+            "description": "Management resource ID encoded as a Sqid. Use this value in OceanIAM API paths."
           },
           "nickname": {
             "type": "string"
+          },
+          "oidc_sub": {
+            "type": "string",
+            "description": "Stable external subject. Treat this canonical UUID text as an opaque string."
           },
           "phone": {
             "type": ["string", "null"]
@@ -6341,7 +7576,7 @@
               },
               {
                 "$ref": "#/components/schemas/DevAccountOptions",
-                "description": "Optional development-account settings. When absent, creates a permanent user. An empty\nobject creates a development account with the default 3600-second TTL."
+                "description": "Optional development-account settings. When absent, creates a permanent user. An empty\nobject creates a development account with the application's configured default TTL."
               }
             ]
           },
@@ -6373,6 +7608,21 @@
           "subject_id": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "CreateOidcClientRequest": {
+        "type": "object",
+        "required": ["name", "redirect_uris"],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "redirect_uris": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -6409,7 +7659,26 @@
           "ttl_seconds": {
             "type": ["integer", "null"],
             "format": "int64",
-            "description": "Time-to-live in seconds; defaults to 3600 (1 hour) when omitted. Upper bound matches\nthe pgmq delay parameter (PostgreSQL `integer`).",
+            "description": "Time-to-live in seconds; defaults to the application's `development_accounts.default_ttl_seconds`\nand is capped by its `development_accounts.max_ttl_seconds`. Bounds are validated in the\nendpoint after the enabled check, so disabled applications always fail with 403 regardless\nof the requested TTL.",
+            "minimum": 0
+          }
+        }
+      },
+      "DevelopmentAccountsConfigurationVO": {
+        "type": "object",
+        "required": ["enabled", "default_ttl_seconds", "max_ttl_seconds"],
+        "properties": {
+          "default_ttl_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "max_ttl_seconds": {
+            "type": "integer",
+            "format": "int64",
             "minimum": 0
           }
         }
@@ -6485,6 +7754,62 @@
             "items": {
               "$ref": "#/components/schemas/Jwk"
             }
+          }
+        }
+      },
+      "OidcApplicationTypeVO": {
+        "type": "string",
+        "enum": ["web"]
+      },
+      "OidcClientTypeVO": {
+        "type": "string",
+        "enum": ["public"]
+      },
+      "OidcClientVO": {
+        "type": "object",
+        "required": [
+          "client_id",
+          "application_id",
+          "name",
+          "client_type",
+          "application_type",
+          "redirect_uris",
+          "created_at"
+        ],
+        "properties": {
+          "application_id": {
+            "type": "string"
+          },
+          "application_type": {
+            "$ref": "#/components/schemas/OidcApplicationTypeVO"
+          },
+          "client_id": {
+            "type": "string"
+          },
+          "client_type": {
+            "$ref": "#/components/schemas/OidcClientTypeVO"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "name": {
+            "type": "string"
+          },
+          "redirect_uris": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "OidcConfigurationVO": {
+        "type": "object",
+        "required": ["allow_insecure_loopback_redirect_uris"],
+        "properties": {
+          "allow_insecure_loopback_redirect_uris": {
+            "type": "boolean"
           }
         }
       },
@@ -6571,6 +7896,26 @@
               }
             ]
           },
+          "development_accounts": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PatchDevelopmentAccountsConfigurationVO"
+              }
+            ]
+          },
+          "oidc": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PatchOidcConfigurationVO"
+              }
+            ]
+          },
           "registration": {
             "oneOf": [
               {
@@ -6628,6 +7973,46 @@
                 "$ref": "#/components/schemas/PatchTokenConfigurationVO"
               }
             ]
+          }
+        }
+      },
+      "PatchDevelopmentAccountsConfigurationVO": {
+        "type": "object",
+        "properties": {
+          "default_ttl_seconds": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "minimum": 0
+          },
+          "enabled": {
+            "type": ["boolean", "null"]
+          },
+          "max_ttl_seconds": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "PatchOidcClientRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "redirect_uris": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PatchOidcConfigurationVO": {
+        "type": "object",
+        "properties": {
+          "allow_insecure_loopback_redirect_uris": {
+            "type": ["boolean", "null"]
           }
         }
       },
