@@ -236,6 +236,8 @@ pub enum OidcAuthorizationTransactionStatus {
     Cancelled,
     #[sea_orm(string_value = "authenticated")]
     Authenticated,
+    #[sea_orm(string_value = "awaiting_challenge")]
+    AwaitingChallenge,
 }
 #[derive(
     Debug,

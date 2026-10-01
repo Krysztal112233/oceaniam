@@ -34,6 +34,7 @@ pub struct Model {
     pub expires_at: DateTimeWithTimeZone,
     pub subject_id: Option<Uuid>,
     pub authenticated_at: Option<DateTimeWithTimeZone>,
+    pub challenge_id: Option<Uuid>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
