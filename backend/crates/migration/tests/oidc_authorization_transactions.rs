@@ -677,7 +677,12 @@ async fn m20260913_094443_alter_oidc_auth_tx_authenticated_is_incremental_and_re
     );
     assert_eq!(
         current_enum_labels(&fresh_database, STATUS_TYPE).await,
-        ["pending", "cancelled", "authenticated"]
+        [
+            "pending",
+            "cancelled",
+            "authenticated",
+            "awaiting_challenge"
+        ]
     );
     assert!(
         current_enum_labels(&fresh_database, AUDIT_TYPE)
@@ -791,4 +796,166 @@ async fn m20260913_094443_alter_oidc_auth_tx_authenticated_creates_the_subject_f
         .close()
         .await
         .expect("close second-schema migration database");
+}
+
+const A2_MIGRATION_VERSION: &str = "m20260913_151333_alter_oidc_auth_tx_awaiting_challenge";
+
+/// Nullable `challenge_id` column state owned by the A2 migration, probed in the connection's
+/// current schema.
+async fn a2_object_state(database: &DatabaseConnection) -> bool {
+    database
+        .query_one_raw(Statement::from_string(
+            DatabaseBackend::Postgres,
+            "SELECT EXISTS ( \
+                 SELECT 1 FROM information_schema.columns \
+                 WHERE table_schema = current_schema() \
+                 AND table_name = 'oidc_authorization_transactions' \
+                 AND column_name = 'challenge_id' \
+                 AND is_nullable = 'YES' \
+             ) AS has_column"
+                .to_owned(),
+        ))
+        .await
+        .expect("query A2 column state")
+        .expect("A2 column query should return one row")
+        .try_get::<bool>("", "has_column")
+        .expect("read A2 column state")
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn m20260913_151333_alter_oidc_auth_tx_awaiting_challenge_is_incremental_and_reversible() {
+    initialize_test_environment();
+
+    let (_schema, database) = isolated_database().await;
+    let migrations = Migrator::migrations();
+    let target_index = migrations
+        .iter()
+        .position(|migration| migration.name() == A2_MIGRATION_VERSION)
+        .expect("A2 challenge migration must be registered");
+    Migrator::up(&database, Some(target_index as u32))
+        .await
+        .expect("apply migrations preceding the A2 challenge migration");
+    assert!(!a2_object_state(&database).await);
+    assert_eq!(
+        current_enum_labels(&database, STATUS_TYPE).await,
+        ["pending", "cancelled", "authenticated"]
+    );
+
+    let owner = seed_registration_owner(&database, "a2-incremental-client").await;
+    let pending_id = insert_authorization_transaction(&database, owner, "pending", None).await;
+
+    Migrator::up(&database, Some(1))
+        .await
+        .expect("apply the A2 challenge migration incrementally");
+    assert!(a2_object_state(&database).await);
+    assert_eq!(
+        current_enum_labels(&database, STATUS_TYPE).await,
+        [
+            "pending",
+            "cancelled",
+            "authenticated",
+            "awaiting_challenge"
+        ]
+    );
+
+    // Functional check: the new enum value and the nullable, FK-free challenge binding are
+    // usable together, and the pre-A2 transaction survives untouched.
+    let challenge_id = Uuid::now_v7();
+    database
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "UPDATE oidc_authorization_transactions \
+             SET status = 'awaiting_challenge', challenge_id = $1 \
+             WHERE id = $2",
+            vec![challenge_id.into(), pending_id.into()],
+        ))
+        .await
+        .expect("bind a challenge to the transaction");
+    let stored = database
+        .query_one_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT status::text AS status, challenge_id \
+             FROM oidc_authorization_transactions WHERE id = $1",
+            [pending_id.into()],
+        ))
+        .await
+        .expect("query challenged transaction")
+        .expect("challenged transaction should exist");
+    assert_eq!(
+        stored.try_get::<String>("", "status").unwrap(),
+        "awaiting_challenge"
+    );
+    assert_eq!(
+        stored.try_get::<Option<Uuid>>("", "challenge_id").unwrap(),
+        Some(challenge_id)
+    );
+
+    Migrator::down(&database, Some(1))
+        .await
+        .expect("roll back the A2 challenge migration");
+    assert!(!a2_object_state(&database).await);
+    assert_eq!(
+        current_enum_labels(&database, STATUS_TYPE).await,
+        [
+            "pending",
+            "cancelled",
+            "authenticated",
+            "awaiting_challenge"
+        ],
+        "PostgreSQL cannot drop enum values, so rollback keeps the added label"
+    );
+    let pending_status: String = database
+        .query_one_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT status::text AS status FROM oidc_authorization_transactions WHERE id = $1",
+            [pending_id.into()],
+        ))
+        .await
+        .expect("query pre-A2 transaction after rollback")
+        .expect("pre-A2 transaction must survive rollback")
+        .try_get("", "status")
+        .expect("read pre-A2 transaction status");
+    assert_eq!(pending_status, "awaiting_challenge");
+
+    Migrator::up(&database, Some(1))
+        .await
+        .expect("reapply the A2 challenge migration after rollback");
+    assert!(a2_object_state(&database).await);
+    assert_eq!(
+        current_enum_labels(&database, STATUS_TYPE).await,
+        [
+            "pending",
+            "cancelled",
+            "authenticated",
+            "awaiting_challenge"
+        ]
+    );
+
+    let (_fresh_schema, fresh_database) = isolated_database().await;
+    Migrator::up(&fresh_database, None)
+        .await
+        .expect("apply every migration on a fresh schema");
+    assert!(
+        a2_object_state(&fresh_database).await,
+        "a fresh migration run must include the A2 challenge column"
+    );
+    assert_eq!(
+        current_enum_labels(&fresh_database, STATUS_TYPE).await,
+        [
+            "pending",
+            "cancelled",
+            "authenticated",
+            "awaiting_challenge"
+        ]
+    );
+
+    database
+        .close()
+        .await
+        .expect("close incremental migration test database");
+    fresh_database
+        .close()
+        .await
+        .expect("close fresh migration test database");
 }
