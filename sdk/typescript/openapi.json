@@ -868,13 +868,14 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "Authentication recorded; authorization continuation is not yet available",
-            "content": {
-              "text/html": {
+          "303": {
+            "description": "Authentication succeeded: redirect to the registered redirect URI with `code`, `state`, and `iss` query parameters; the transaction binding cookie is cleared",
+            "headers": {
+              "Location": {
                 "schema": {
                   "type": "string"
-                }
+                },
+                "description": "Redirect URI with code, state, and iss"
               }
             }
           },
@@ -999,12 +1000,23 @@
         },
         "responses": {
           "200": {
-            "description": "Authentication recorded, or a TOTP challenge form when the subject has a registered TOTP credential; authorization continuation is not yet available",
+            "description": "TOTP challenge form when the subject has a registered TOTP credential",
             "content": {
               "text/html": {
                 "schema": {
                   "type": "string"
                 }
+              }
+            }
+          },
+          "303": {
+            "description": "Authentication succeeded: redirect to the registered redirect URI with `code`, `state`, and `iss` query parameters; the transaction binding cookie is cleared",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Redirect URI with code, state, and iss"
               }
             }
           },

@@ -2275,14 +2275,14 @@ export interface operations {
       };
     };
     responses: {
-      /** @description Authentication recorded; authorization continuation is not yet available */
-      200: {
+      /** @description Authentication succeeded: redirect to the registered redirect URI with `code`, `state`, and `iss` query parameters; the transaction binding cookie is cleared */
+      303: {
         headers: {
+          /** @description Redirect URI with code, state, and iss */
+          Location?: string;
           [name: string]: unknown;
         };
-        content: {
-          "text/html": string;
-        };
+        content?: never;
       };
       /** @description Malformed challenge request or invalidated registration */
       400: {
@@ -2377,7 +2377,7 @@ export interface operations {
       };
     };
     responses: {
-      /** @description Authentication recorded, or a TOTP challenge form when the subject has a registered TOTP credential; authorization continuation is not yet available */
+      /** @description TOTP challenge form when the subject has a registered TOTP credential */
       200: {
         headers: {
           [name: string]: unknown;
@@ -2385,6 +2385,15 @@ export interface operations {
         content: {
           "text/html": string;
         };
+      };
+      /** @description Authentication succeeded: redirect to the registered redirect URI with `code`, `state`, and `iss` query parameters; the transaction binding cookie is cleared */
+      303: {
+        headers: {
+          /** @description Redirect URI with code, state, and iss */
+          Location?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description Malformed login request or invalidated registration */
       400: {
