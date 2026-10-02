@@ -13,7 +13,7 @@ use oceaniam_database::{
     model::prelude::{Applications, Tenants},
 };
 use rand::Rng;
-use reqwest::Client;
+use reqwest::{Client, redirect::Policy};
 use sea_orm::{
     ConnectOptions, ConnectionTrait, Database, DatabaseConnection, Statement, TransactionTrait,
 };
@@ -418,7 +418,12 @@ pub async fn spawn_app_with_isolated_schema_configured(
 
     TestApp {
         address: format_address(address),
-        client: Client::new(),
+        // Never follow redirects: OIDC authorization responses are 303s to client-registered
+        // external URIs that must be asserted, not chased.
+        client: Client::builder()
+            .redirect(Policy::none())
+            .build()
+            .expect("failed to build integration test client"),
         server,
         schema_name,
         base_dsn,

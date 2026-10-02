@@ -9,13 +9,16 @@ use oceaniam_database::{
         users::{CreateUserOpts, UserHelper},
     },
     model::{
-        oidc_clients,
-        prelude::{Audits, Challenges, OidcAuthorizationTransactions, Users},
+        oidc_authorization_codes, oidc_clients,
+        prelude::{
+            Audits, Challenges, OidcAuthorizationCodes, OidcAuthorizationTransactions, Users,
+        },
         sea_orm_active_enums::{
             AuditType, ChallengeStatusType, OidcAuthorizationTransactionStatus,
         },
     },
 };
+use oceaniam_oidc::authorization_code_digest;
 use reqwest::Response;
 use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseBackend, EntityTrait, QueryFilter, Statement};
 use url::form_urlencoded;
@@ -250,18 +253,106 @@ fn assert_html_headers(response: &Response) {
     );
 }
 
-async fn assert_success_page(response: Response, fixture: &LoginFixture, state: &str) -> String {
-    assert_eq!(response.status(), 200);
-    assert_html_headers(&response);
-    assert!(response.headers().get("set-cookie").is_none());
-    let body = response.text().await.expect("read success HTML");
-    assert!(body.contains("authentication recorded"));
-    assert!(body.contains("authorization continuation is not yet available"));
-    assert!(!body.contains("<form"));
-    assert!(!body.contains(state));
-    assert!(!body.contains("private-nonce-sentinel"));
-    assert!(!body.contains(&fixture.redirect_uri));
-    body
+struct CodeRedirect {
+    code: String,
+    iss: String,
+}
+
+/// The RFC 6749 §4.1.2 authorization response: a 303 to the registered redirect URI carrying
+/// `code`, `state`, and `iss`, with the transaction binding cookie cleared and no HTML body.
+async fn assert_code_redirect(
+    response: Response,
+    fixture: &LoginFixture,
+    entry: &EntryContext,
+    state: &str,
+) -> CodeRedirect {
+    assert_eq!(response.status(), 303);
+    assert_eq!(
+        response
+            .headers()
+            .get("cache-control")
+            .and_then(|value| value.to_str().ok()),
+        Some("no-store")
+    );
+    assert_eq!(
+        response
+            .headers()
+            .get("pragma")
+            .and_then(|value| value.to_str().ok()),
+        Some("no-cache")
+    );
+    assert_eq!(
+        response
+            .headers()
+            .get("referrer-policy")
+            .and_then(|value| value.to_str().ok()),
+        Some("no-referrer")
+    );
+    assert_eq!(
+        response
+            .headers()
+            .get("x-content-type-options")
+            .and_then(|value| value.to_str().ok()),
+        Some("nosniff")
+    );
+
+    let location = response
+        .headers()
+        .get("location")
+        .expect("303 should carry a Location header")
+        .to_str()
+        .expect("Location should be ASCII")
+        .to_owned();
+    let set_cookie = response
+        .headers()
+        .get("set-cookie")
+        .expect("303 should clear the binding cookie")
+        .to_str()
+        .expect("clearing cookie should be ASCII")
+        .to_owned();
+    let body = response.text().await.expect("read 303 body");
+    assert!(body.is_empty(), "303 should not carry an HTML body");
+
+    let query = location
+        .strip_prefix(&fixture.redirect_uri)
+        .and_then(|tail| tail.strip_prefix('?'))
+        .expect("Location must be the registered redirect URI plus a query");
+    let pairs: std::collections::HashMap<String, String> = form_urlencoded::parse(query.as_bytes())
+        .into_owned()
+        .collect();
+    let code = pairs.get("code").expect("code parameter").to_owned();
+    assert_eq!(code.len(), 22, "code is 16 random bytes base64url-encoded");
+    assert!(
+        code.chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_'),
+        "code must be base64url URL_SAFE_NO_PAD"
+    );
+    assert_eq!(
+        pairs.get("state").map(String::as_str),
+        Some(state),
+        "state must round-trip"
+    );
+    let iss = pairs.get("iss").expect("iss parameter").to_owned();
+    assert!(
+        iss.ends_with(&format!("/oidc/{}", fixture.tenant_sqid)),
+        "iss must be the tenant issuer, got {iss}"
+    );
+    assert_eq!(pairs.len(), 3, "only code, state, and iss may be returned");
+    assert!(!location.contains(&entry.csrf));
+    assert!(!location.contains(&entry.transaction_sqid));
+    assert!(!location.contains(USER_PASSWORD));
+    assert!(!location.contains("private-nonce-sentinel"));
+
+    let cookie = Cookie::parse(set_cookie)
+        .expect("clearing cookie should parse")
+        .into_owned();
+    assert_eq!(cookie.name(), entry.cookie_name);
+    assert_eq!(cookie.value(), "");
+    assert_eq!(cookie.max_age(), Some(time::Duration::ZERO));
+    let cookie_path = format!("/oidc/{}", fixture.tenant_sqid);
+    assert_eq!(cookie.path(), Some(cookie_path.as_str()));
+
+    CodeRedirect { code, iss }
 }
 
 async fn transaction_snapshot(
@@ -288,6 +379,33 @@ async fn oidc_authenticate_audits(app: &TestApp) -> Vec<serde_json::Value> {
         .collect()
 }
 
+async fn issue_authorization_code_audits(app: &TestApp) -> Vec<serde_json::Value> {
+    let database = app.database().await;
+    Audits::find()
+        .filter(
+            oceaniam_database::model::audits::Column::AuditType
+                .eq(AuditType::OidcIssueAuthorizationCode),
+        )
+        .all(&database)
+        .await
+        .expect("list oidc_issue_authorization_code audits")
+        .into_iter()
+        .map(|audit| audit.payload)
+        .collect()
+}
+
+async fn authorization_code_rows(
+    app: &TestApp,
+    transaction_id: Uuid,
+) -> Vec<oceaniam_database::model::oidc_authorization_codes::Model> {
+    let database = app.database().await;
+    OidcAuthorizationCodes::find()
+        .filter(oidc_authorization_codes::Column::TransactionId.eq(transaction_id))
+        .all(&database)
+        .await
+        .expect("list authorization codes")
+}
+
 async fn create_user(app: &TestApp, fixture: &LoginFixture, email: &str, password: &str) -> Uuid {
     let user = app
         .api_create_user_with_credentials(
@@ -303,7 +421,7 @@ async fn create_user(app: &TestApp, fixture: &LoginFixture, email: &str, passwor
 
 // NOTE: AI-generated test
 #[tokio::test]
-async fn entry_then_login_records_authentication_and_audit() {
+async fn entry_then_login_issues_code_and_redirects() {
     let app = spawn_preview().await;
     let fixture = seed_login_fixture(&app).await;
     let user_id = create_user(&app, &fixture, "login-user@example.com", USER_PASSWORD).await;
@@ -317,11 +435,7 @@ async fn entry_then_login_records_authentication_and_audit() {
         login_form("login-user@example.com", USER_PASSWORD, &entry.csrf),
     )
     .await;
-    let body = assert_success_page(response, &fixture, state).await;
-    assert!(!body.contains("login-user@example.com"));
-    assert!(!body.contains(USER_PASSWORD));
-    assert!(!body.contains(&entry.csrf));
-    assert!(!body.contains(&entry.transaction_sqid));
+    let redirect = assert_code_redirect(response, &fixture, &entry, state).await;
 
     let stored = transaction_snapshot(&app, &entry).await;
     assert_eq!(
@@ -334,7 +448,44 @@ async fn entry_then_login_records_authentication_and_audit() {
     assert!(stored.authenticated_at.unwrap() >= stored.created_at);
     assert!(stored.authenticated_at.unwrap() < stored.expires_at);
     assert_eq!(stored.revision, 1);
-    assert!(stored.terminal_at.is_none());
+    let terminal_at = stored
+        .terminal_at
+        .expect("completion must terminate the transaction");
+    assert!(terminal_at >= stored.authenticated_at.unwrap());
+
+    // RFC 9207: the iss parameter is the persisted snapshot issuer.
+    assert_eq!(redirect.iss, stored.issuer);
+
+    // The issued code row: exactly one, digest matching the Location code, one-minute lifetime
+    // anchored on a single clock sample, never redeemed.
+    let codes = authorization_code_rows(&app, stored.id).await;
+    assert_eq!(codes.len(), 1, "exactly one code may be issued");
+    let code_row = &codes[0];
+    assert_eq!(
+        code_row.code_digest,
+        authorization_code_digest(&redirect.code).to_vec(),
+        "the persisted digest must match the Location code"
+    );
+    assert_eq!(code_row.subject_id, user_id);
+    assert_eq!(code_row.redirect_uri, fixture.redirect_uri);
+    assert!(code_row.redeemed_at.is_none());
+    assert_eq!(
+        code_row.expires_at - code_row.created_at,
+        chrono::Duration::seconds(60),
+        "the code lifetime must be exactly one minute"
+    );
+
+    // The plaintext code never reaches the database: no row stores it, and no audit carries it.
+    let database = app.database().await;
+    let plaintext_rows = OidcAuthorizationCodes::find()
+        .filter(oidc_authorization_codes::Column::CodeDigest.eq(redirect.code.clone().into_bytes()))
+        .all(&database)
+        .await
+        .expect("query codes by plaintext");
+    assert!(
+        plaintext_rows.is_empty(),
+        "the plaintext code must never be persisted"
+    );
 
     let audits = oidc_authenticate_audits(&app).await;
     assert_eq!(audits.len(), 1, "success must audit exactly once");
@@ -351,9 +502,29 @@ async fn entry_then_login_records_authentication_and_audit() {
     assert!(!audit_text.contains(state));
     assert!(!audit_text.contains("login-user@example.com"));
     assert!(!audit_text.contains(USER_PASSWORD));
+    assert!(!audit_text.contains(&redirect.code));
+
+    let issue_audits = issue_authorization_code_audits(&app).await;
+    assert_eq!(
+        issue_audits.len(),
+        1,
+        "code issuance must audit exactly once"
+    );
+    let issue_audit = &issue_audits[0];
+    assert_eq!(issue_audit["kind"], "issue_authorization_code");
+    assert_eq!(
+        issue_audit["data"]["application_id"],
+        fixture.application_id.to_string()
+    );
+    assert_eq!(issue_audit["data"]["transaction_id"], stored.id.to_string());
+    assert_eq!(issue_audit["data"]["subject_id"], user_id.to_string());
+    let issue_audit_text = issue_audit.to_string();
+    assert!(!issue_audit_text.contains(&fixture.redirect_uri));
+    assert!(!issue_audit_text.contains(state));
+    assert!(!issue_audit_text.contains(&redirect.code));
 
     // The transaction is terminal for login purposes: a replay is indistinguishable from
-    // an unknown transaction.
+    // an unknown transaction and never issues a second code.
     let replay = post_login(
         &app,
         &fixture,
@@ -365,6 +536,12 @@ async fn entry_then_login_records_authentication_and_audit() {
     assert_html_headers(&replay);
     let audits = oidc_authenticate_audits(&app).await;
     assert_eq!(audits.len(), 1, "a replay must not audit again");
+    assert_eq!(issue_authorization_code_audits(&app).await.len(), 1);
+    assert_eq!(
+        authorization_code_rows(&app, stored.id).await.len(),
+        1,
+        "a replay must not issue a second code"
+    );
 }
 
 // NOTE: AI-generated test
@@ -398,7 +575,7 @@ async fn phone_identifier_login_records_authentication() {
         login_form("+8613912345678", USER_PASSWORD, &entry.csrf),
     )
     .await;
-    assert_success_page(response, &fixture, "phone-login-state").await;
+    assert_code_redirect(response, &fixture, &entry, "phone-login-state").await;
 
     let stored = transaction_snapshot(&app, &entry).await;
     assert_eq!(
@@ -676,7 +853,7 @@ async fn concurrent_logins_have_exactly_one_winner() {
     statuses.sort_unstable();
     assert_eq!(
         statuses,
-        [200, 404],
+        [303, 404],
         "exactly one concurrent login may authenticate the transaction"
     );
 
@@ -1246,7 +1423,7 @@ async fn mfa_login_creates_challenge_and_correct_code_authenticates() {
 
     let code = mfa_user.current_code();
     let response = post_challenge(&app, &fixture, &entry, challenge_form(&code, &page.csrf)).await;
-    assert_success_page(response, &fixture, state).await;
+    let redirect = assert_code_redirect(response, &fixture, &entry, state).await;
 
     let stored = transaction_snapshot(&app, &entry).await;
     assert_eq!(
@@ -1257,6 +1434,27 @@ async fn mfa_login_creates_challenge_and_correct_code_authenticates() {
     assert_eq!(stored.subject_id, Some(mfa_user.user_id));
     assert!(stored.authenticated_at.is_some());
     assert_eq!(stored.challenge_id, Some(challenge.id));
+    assert!(
+        stored.terminal_at.is_some(),
+        "completion must terminate the transaction"
+    );
+    assert_eq!(redirect.iss, stored.issuer);
+
+    let codes = authorization_code_rows(&app, stored.id).await;
+    assert_eq!(codes.len(), 1, "exactly one code may be issued");
+    assert_eq!(
+        codes[0].code_digest,
+        authorization_code_digest(&redirect.code).to_vec(),
+        "the persisted digest must match the Location code"
+    );
+    assert_eq!(codes[0].subject_id, mfa_user.user_id);
+    assert_eq!(codes[0].redirect_uri, fixture.redirect_uri);
+    assert!(codes[0].redeemed_at.is_none());
+    assert_eq!(
+        codes[0].expires_at - codes[0].created_at,
+        chrono::Duration::seconds(60),
+        "the code lifetime must be exactly one minute"
+    );
 
     let challenge = challenge_snapshot(&app, &stored).await;
     assert_eq!(challenge.status, ChallengeStatusType::Consumed);
@@ -1277,20 +1475,39 @@ async fn mfa_login_creates_challenge_and_correct_code_authenticates() {
         authenticate_audits[0]["data"]["transaction_id"],
         stored.id.to_string()
     );
+    assert!(!authenticate_audits[0].to_string().contains(&redirect.code));
+    let issue_audits = issue_authorization_code_audits(&app).await;
+    assert_eq!(
+        issue_audits.len(),
+        1,
+        "code issuance must audit exactly once"
+    );
+    assert_eq!(issue_audits[0]["kind"], "issue_authorization_code");
+    assert_eq!(
+        issue_audits[0]["data"]["subject_id"],
+        mfa_user.user_id.to_string()
+    );
+    assert_eq!(
+        issue_audits[0]["data"]["transaction_id"],
+        stored.id.to_string()
+    );
+    assert!(!issue_audits[0].to_string().contains(&redirect.code));
     assert_eq!(
         create_challenge_audits(&app).await.len(),
         1,
         "no second challenge may be minted"
     );
 
-    // The transaction is now terminal for the challenge leg: a replay is the uniform failure
-    // page, never a state-machine reveal.
+    // The transaction is now fully terminal: a replay is indistinguishable from an unknown
+    // transaction, never a state-machine reveal, and never issues a second code.
     let replay = post_challenge(&app, &fixture, &entry, challenge_form(&code, &page.csrf)).await;
-    assert_eq!(replay.status(), 401);
+    assert_eq!(replay.status(), 404);
     assert_html_headers(&replay);
     let replay_body = replay.text().await.expect("read replay page");
-    assert!(replay_body.contains(oceaniam_common::consts::USER_LOGIN_FAILED_MSG));
+    assert!(replay_body.contains("no longer available"));
     assert_eq!(oidc_authenticate_audits(&app).await.len(), 1);
+    assert_eq!(issue_authorization_code_audits(&app).await.len(), 1);
+    assert_eq!(authorization_code_rows(&app, stored.id).await.len(), 1);
 }
 
 // NOTE: AI-generated test
@@ -1493,7 +1710,7 @@ async fn replayed_code_is_rejected_by_anti_replay() {
         challenge_form(&code, &first_page.csrf),
     )
     .await;
-    assert_success_page(first, &fixture, "mfa-replay-first").await;
+    assert_code_redirect(first, &fixture, &first_entry, "mfa-replay-first").await;
 
     // A second transaction for the same subject reusing the same one-time code is rejected.
     let (second_entry, second_page) =
@@ -1669,7 +1886,8 @@ async fn challenge_on_pending_or_authenticated_transaction_is_indistinguishable_
     );
     assert_eq!(pending_stored.challenge_id, None);
 
-    // Authenticated transaction (non-MFA direct login): same uniform failure, no state reveal.
+    // Authenticated transaction (non-MFA direct login): completion terminates the transaction,
+    // so the probe is now indistinguishable from an unknown transaction.
     let authenticated_entry = drive_entry(&app, &fixture, "probe-authenticated-state").await;
     let success = post_login(
         &app,
@@ -1682,7 +1900,13 @@ async fn challenge_on_pending_or_authenticated_transaction_is_indistinguishable_
         ),
     )
     .await;
-    assert_success_page(success, &fixture, "probe-authenticated-state").await;
+    assert_code_redirect(
+        success,
+        &fixture,
+        &authenticated_entry,
+        "probe-authenticated-state",
+    )
+    .await;
     let probed = post_challenge(
         &app,
         &fixture,
@@ -1690,11 +1914,14 @@ async fn challenge_on_pending_or_authenticated_transaction_is_indistinguishable_
         challenge_form("123456", &authenticated_entry.csrf),
     )
     .await;
-    assert_eq!(probed.status(), 401);
-    assert_eq!(
-        probed.text().await.expect("read page"),
-        reference_body,
-        "a challenge POST on an authenticated transaction must be byte-identical too"
+    assert_eq!(probed.status(), 404);
+    assert!(
+        probed
+            .text()
+            .await
+            .expect("read page")
+            .contains("no longer available"),
+        "a challenge POST on a completed transaction must be indistinguishable from an unknown transaction"
     );
 
     let database = app.database().await;
@@ -1740,7 +1967,7 @@ async fn concurrent_challenge_attempts_have_exactly_one_winner() {
     statuses.sort_unstable();
     assert_eq!(
         statuses,
-        [200, 401],
+        [303, 401],
         "exactly one concurrent challenge attempt may authenticate the transaction"
     );
 
@@ -1796,7 +2023,7 @@ async fn concurrent_login_and_challenge_never_mint_a_second_challenge() {
     let attempt = attempt.expect("concurrent challenge");
     assert_eq!(
         attempt.status(),
-        200,
+        303,
         "the challenge must succeed exactly once"
     );
     assert!(
