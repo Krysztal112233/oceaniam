@@ -1074,3 +1074,105 @@ fn openapi_documents_both_authorization_entry_methods() {
     assert!(path.get.is_some());
     assert!(path.post.is_some());
 }
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn prompt_none_redirects_login_required_and_none_combinations_are_invalid() {
+    let app = spawn_preview("http://localhost:8000").await;
+    let fixture = seed_authorization_client(&app, "https://client.example/callback", false).await;
+    let client = no_redirect_client();
+
+    // OIDC Core 1.0 §3.1.2.1/§15.1: `prompt=none` forbids any UI; with no OP session the
+    // request cannot complete, so a trusted callback receives `login_required` by redirect.
+    let none_form =
+        authorization_form(&fixture, "prompt-none-state", "code", &[("prompt", "none")]);
+    let none_response = client
+        .get(app.url(&format!("{}?{none_form}", authorize_path(&fixture))))
+        .send()
+        .await
+        .expect("prompt=none request");
+    assert_eq!(none_response.status(), 303);
+    assert_common_headers(&none_response);
+    assert!(none_response.headers().get("set-cookie").is_none());
+    let none_location = Url::parse(
+        none_response
+            .headers()
+            .get("location")
+            .expect("prompt=none should redirect to the trusted callback")
+            .to_str()
+            .expect("location should be ASCII"),
+    )
+    .expect("prompt=none location should parse");
+    let none_query: HashMap<_, _> = none_location.query_pairs().into_owned().collect();
+    assert_eq!(
+        none_query.get("error").map(String::as_str),
+        Some("login_required")
+    );
+    assert_eq!(
+        none_query.get("state").map(String::as_str),
+        Some("prompt-none-state")
+    );
+
+    // `none` combined with any other value is an error (§3.1.2.1).
+    let combo_form = authorization_form(
+        &fixture,
+        "prompt-combo-state",
+        "code",
+        &[("prompt", "none login")],
+    );
+    let combo_response = client
+        .get(app.url(&format!("{}?{combo_form}", authorize_path(&fixture))))
+        .send()
+        .await
+        .expect("prompt=none login request");
+    assert_eq!(combo_response.status(), 303);
+    let combo_location = Url::parse(
+        combo_response
+            .headers()
+            .get("location")
+            .expect("prompt combination should redirect")
+            .to_str()
+            .expect("location should be ASCII"),
+    )
+    .expect("combo location should parse");
+    assert_eq!(
+        combo_location
+            .query_pairs()
+            .find(|(name, _)| name == "error")
+            .map(|(_, value)| value.into_owned())
+            .as_deref(),
+        Some("invalid_request")
+    );
+
+    // Interactive values proceed: `login` is satisfied by construction (every flow
+    // re-authenticates); `consent`/`select_account` are not prompted by policy; unknown
+    // values are ignored (§3.1.2.1 MAY ignore).
+    for (prompt, state) in [
+        ("login", "prompt-login-state"),
+        ("consent", "prompt-consent-state"),
+        ("select_account", "prompt-select-state"),
+        ("future-value", "prompt-unknown-state"),
+    ] {
+        let form = authorization_form(&fixture, state, "code", &[("prompt", prompt)]);
+        let response = app
+            .client
+            .post(app.url(&authorize_path(&fixture)))
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(form)
+            .send()
+            .await
+            .expect("interactive prompt request");
+        assert_success_snapshot(&app, &fixture, response, state, false).await;
+    }
+
+    let database = app.database().await;
+    assert_eq!(
+        OidcAuthorizationTransactions::find()
+            .count(&database)
+            .await
+            .expect("count prompt snapshots"),
+        4,
+        "only the interactive prompts create snapshots"
+    );
+}
+

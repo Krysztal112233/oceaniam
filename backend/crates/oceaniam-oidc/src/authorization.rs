@@ -69,10 +69,8 @@ impl From<RawAuthorizationRequest> for ParsedAuthorizationRequest {
             Some(AuthorizationProtocolError::RequestUriNotSupported)
         } else if raw.registration.is_some() {
             Some(AuthorizationProtocolError::RegistrationNotSupported)
-        } else if raw.prompt.is_some() {
-            // OIDC Core 1.0 §3.1.2.1 permits an error for a `prompt` this OP cannot honor
-            // (MAY return an error); silently ignoring it would misrepresent `prompt=none`.
-            Some(AuthorizationProtocolError::InvalidRequest)
+        } else if let Some(prompt) = raw.prompt.as_deref() {
+            deferred_prompt_error(prompt)
         } else {
             None
         };
@@ -81,6 +79,28 @@ impl From<RawAuthorizationRequest> for ParsedAuthorizationRequest {
             raw,
             deferred_error,
         }
+    }
+}
+
+/// Minimal `prompt` handling (OIDC Core 1.0 §3.1.2.1; §15.1 lists `prompt` as MTI for OPs).
+///
+/// - `none` combined with any other value is an `invalid_request` (spec MUST).
+/// - `none` alone cannot be honored honestly: OceanIAM keeps no OP session, so the request
+///   cannot complete without displaying a UI. The deferred `login_required` is surfaced only
+///   after callback trust, so the error is delivered by redirect without any interactive
+///   page (§3.1.2.1/§3.1.2.3).
+/// - `login` is satisfied by construction (every flow re-authenticates); `consent` and
+///   `select_account` are not prompted by deployment policy (first-party clients only).
+/// - Unrecognized values MAY be ignored per the specification, and are.
+fn deferred_prompt_error(prompt: &str) -> Option<AuthorizationProtocolError> {
+    let values = prompt.split(' ').filter(|value| !value.is_empty());
+    if !values.clone().any(|value| value == "none") {
+        return None;
+    }
+    if values.count() > 1 {
+        Some(AuthorizationProtocolError::InvalidRequest)
+    } else {
+        Some(AuthorizationProtocolError::LoginRequired)
     }
 }
 
@@ -252,6 +272,42 @@ mod tests {
             code_challenge_method: Some("S256".to_owned()),
             ..Default::default()
         }
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn prompt_none_defers_login_required_and_none_combinations_are_invalid() {
+        let mut raw = valid_raw_request();
+
+        raw.prompt = Some("none".to_owned());
+        let parsed = ParsedAuthorizationRequest::from(raw.clone());
+        assert!(matches!(
+            parsed.into_authorization_request(),
+            Err(AuthorizationProtocolError::LoginRequired)
+        ));
+
+        raw.prompt = Some("none login".to_owned());
+        let parsed = ParsedAuthorizationRequest::from(raw.clone());
+        assert!(matches!(
+            parsed.into_authorization_request(),
+            Err(AuthorizationProtocolError::InvalidRequest)
+        ));
+
+        // Interactive values proceed: `login` is satisfied by construction (every flow
+        // re-authenticates); `consent`/`select_account` are not prompted by policy.
+        for prompt in ["login", "consent", "select_account", "login consent"] {
+            raw.prompt = Some(prompt.to_owned());
+            let parsed = ParsedAuthorizationRequest::from(raw.clone());
+            assert!(
+                parsed.into_authorization_request().is_ok(),
+                "prompt={prompt} should proceed"
+            );
+        }
+
+        // Unrecognized values MAY be ignored (OIDC Core 1.0 §3.1.2.1).
+        raw.prompt = Some("future-value".to_owned());
+        let parsed = ParsedAuthorizationRequest::from(raw);
+        assert!(parsed.into_authorization_request().is_ok());
     }
 
     // NOTE: AI-generated test
@@ -443,11 +499,6 @@ mod tests {
                 |raw| raw.registration = Some("eyJmb28iOiJiYXIifQ".to_owned()),
                 AuthorizationProtocolError::RegistrationNotSupported,
             ),
-            (
-                "prompt",
-                |raw| raw.prompt = Some("login".to_owned()),
-                AuthorizationProtocolError::InvalidRequest,
-            ),
         ];
 
         for (name, mutate, expected) in cases {
@@ -503,6 +554,7 @@ mod tests {
                 "unsupported_response_type",
             ),
             (AuthorizationProtocolError::InvalidScope, "invalid_scope"),
+            (AuthorizationProtocolError::LoginRequired, "login_required"),
             (
                 AuthorizationProtocolError::RequestNotSupported,
                 "request_not_supported",
