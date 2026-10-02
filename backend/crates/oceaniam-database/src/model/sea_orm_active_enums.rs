@@ -73,6 +73,8 @@ pub enum AuditType {
     DeleteOidcClient,
     #[sea_orm(string_value = "oidc_authenticate")]
     OidcAuthenticate,
+    #[sea_orm(string_value = "oidc_issue_authorization_code")]
+    OidcIssueAuthorizationCode,
 }
 #[derive(
     Debug,

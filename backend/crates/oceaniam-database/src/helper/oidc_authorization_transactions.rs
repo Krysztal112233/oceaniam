@@ -530,6 +530,35 @@ pub trait OidcAuthorizationTransactionsHelper {
             }
         }
     }
+
+    /// Terminates an authenticated authorization transaction exactly once.
+    ///
+    /// The caller owns the surrounding transaction: code issuance, this completion, and the
+    /// issuance audit commit atomically. The conditional update is filtered by primary key
+    /// (Rule 2) and re-checks the open terminal state, so a second completion fails with the
+    /// same not-found error and `terminal_at` can never move.
+    #[tracing::instrument(
+        level = "info",
+        name = "db.oidc_authorization_transactions.complete",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
+    async fn complete_authorization_transaction(
+        id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::oidc_authorization_transactions::Model, Error> {
+        use model::oidc_authorization_transactions::Column::*;
+
+        let updated = OidcAuthorizationTransactions::update_many()
+            .col_expr(TerminalAt, Expr::cust("clock_timestamp()"))
+            .filter(Id.eq(id))
+            .filter(TerminalAt.is_null())
+            .exec_with_returning(database)
+            .await
+            .map_err(|_| authorization_transaction_storage_error())?;
+
+        exactly_one_returned(updated, authorization_transaction_unavailable)
+    }
 }
 
 fn authorization_transaction_unavailable() -> Error {
