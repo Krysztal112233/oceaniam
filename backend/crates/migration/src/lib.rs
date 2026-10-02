@@ -84,6 +84,8 @@ mod m20260907_174633_add_users_oidc_sub;
 mod m20260909_044144_create_oidc_authorization_transactions;
 mod m20260913_094443_alter_oidc_auth_tx_authenticated;
 mod m20260913_151333_alter_oidc_auth_tx_awaiting_challenge;
+mod m20261002_051636_create_oidc_authorization_codes;
+mod m20261002_051724_alter_audit_type_oidc_issue_authorization_code;
 
 pub struct Migrator;
 
@@ -177,6 +179,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260909_044144_create_oidc_authorization_transactions::Migration),
             Box::new(m20260913_094443_alter_oidc_auth_tx_authenticated::Migration),
             Box::new(m20260913_151333_alter_oidc_auth_tx_awaiting_challenge::Migration),
+            Box::new(m20261002_051636_create_oidc_authorization_codes::Migration),
+            Box::new(m20261002_051724_alter_audit_type_oidc_issue_authorization_code::Migration),
         ]
     }
 }
