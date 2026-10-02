@@ -1,7 +1,8 @@
 //! Transaction-bound password login for the OIDC authorization preview.
 //!
-//! This endpoint advances an authorization transaction `pending -> authenticated`, or
-//! `pending -> awaiting_challenge` when the subject has a registered TOTP credential. It
+//! This endpoint advances an authorization transaction `pending -> authenticated` and answers
+//! with the RFC 6749 §4.1.2 authorization response (303 carrying the code, state, and issuer),
+//! or `pending -> awaiting_challenge` when the subject has a registered TOTP credential. It
 //! reuses the entry endpoint's transport boundary (preview gate, bounded lossy form parsing,
 //! no query parameters on POST), the browser-binding cookie and CSRF digests, the ordered
 //! shared-lock registration revalidation, and the uniform anti-enumeration failure message.
@@ -22,7 +23,9 @@ use axum::{
 use axum_extra::extract::{Form, FormRejection, cookie::CookieJar};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use chrono::Duration;
-use oceaniam_audit::types::{AuditPayload, CreateChallengePayload, OidcAuthenticatePayload};
+use oceaniam_audit::types::{
+    AuditPayload, CreateChallengePayload, IssueAuthorizationCodePayload, OidcAuthenticatePayload,
+};
 use oceaniam_common::sqid::Sqid;
 use oceaniam_database::{
     config::application::ApplicationConfiguration,
@@ -30,6 +33,7 @@ use oceaniam_database::{
     helper::{
         audits::AuditsHelper,
         challenges::{ChallengesHelper, CreateChallengeOpts},
+        oidc_authorization_codes::{IssueAuthorizationCodeInput, OidcAuthorizationCodesHelper},
         oidc_authorization_entry::{AuthorizationEntryLockResult, OidcAuthorizationEntryHelper},
         oidc_authorization_transactions::{
             AuthenticateAuthorizationTransactionInput, ChallengeAuthorizationTransactionInput,
@@ -39,7 +43,10 @@ use oceaniam_database::{
     },
     model::{
         oidc_authorization_transactions,
-        prelude::{Audits, Challenges, OidcAuthorizationTransactions, OidcClients, Subjects},
+        prelude::{
+            Audits, Challenges, OidcAuthorizationCodes, OidcAuthorizationTransactions, OidcClients,
+            Subjects,
+        },
         sea_orm_active_enums::{
             AuditType, ChallengeFactorType, ChallengePurposeType,
             OidcAuthorizationTransactionStatus,
@@ -48,7 +55,8 @@ use oceaniam_database::{
 };
 use oceaniam_oidc::{
     AUTHORIZATION_FORM_MAX_BYTES, ParsedLoginForm, RedirectUriPolicy,
-    authorization_browser_binding_digest, authorization_csrf_digest, validate_redirect_uri,
+    authorization_browser_binding_digest, authorization_csrf_digest, generate_authorization_code,
+    validate_redirect_uri,
 };
 use sea_orm::{DatabaseTransaction, TransactionTrait};
 use tracing::error;
@@ -62,11 +70,14 @@ use crate::state::{AppState, applications::UserIdentifier};
 
 use super::authorize::{
     AUTHORIZATION_FORM_CONTENT_SECURITY_POLICY_VALUE, AuthorizationTarget, COOKIE_PREFIX,
-    PreviewEnabled, apply_common_headers, form_rejection, local_response,
+    PreviewEnabled, apply_common_headers, authorization_code_response, form_rejection,
+    local_response,
 };
 
+/// RFC 9700 §2.1.1: authorization codes expire well under the ten-minute maximum.
+pub(super) const AUTHORIZATION_CODE_TTL: Duration = Duration::seconds(60);
+
 pub(super) const TRANSACTION_UNAVAILABLE_HTML: &str = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Sign-in unavailable</title></head><body><main><h1>Sign-in unavailable</h1><p>The sign-in session is no longer available. Restart the authorization request.</p></main></body></html>";
-pub(super) const SUCCESS_HTML: &str = "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Sign-in recorded</title></head><body><main><h1>Sign-in recorded</h1><p>authentication recorded; authorization continuation is not yet available</p></main></body></html>";
 
 struct AuthorizationLoginPath {
     tenant_id: Uuid,
@@ -119,7 +130,8 @@ impl FromRequestParts<AppState> for AuthorizationLoginPath {
         description = "Login parameters: `identifier` (email or phone), `password`, and the transaction `csrf` secret; body-only, maximum 8 KiB"
     ),
     responses(
-        (status = 200, description = "Authentication recorded, or a TOTP challenge form when the subject has a registered TOTP credential; authorization continuation is not yet available", body = String, content_type = "text/html"),
+        (status = 200, description = "TOTP challenge form when the subject has a registered TOTP credential", body = String, content_type = "text/html"),
+        (status = 303, description = "Authentication succeeded: redirect to the registered redirect URI with `code`, `state`, and `iss` query parameters; the transaction binding cookie is cleared", headers(("Location" = String, description = "Redirect URI with code, state, and iss"))),
         (status = 400, description = "Malformed login request or invalidated registration", body = String),
         (status = 401, description = "Indistinguishable credential failure page", body = String, content_type = "text/html"),
         (status = 404, description = "Preview disabled, or the transaction binding is unavailable", body = String),
@@ -239,7 +251,7 @@ async fn post_authorization_login(
     }
 
     match outcome {
-        LoginOutcome::Authenticated => html_response(StatusCode::OK, SUCCESS_HTML),
+        LoginOutcome::Authenticated(code) => authorization_code_response(&snapshot, &code, cookies),
         LoginOutcome::Challenged => html_response(
             StatusCode::OK,
             &challenge_form_html(tenant_id, transaction_id, raw_csrf),
@@ -414,7 +426,44 @@ async fn authenticate_in_transaction(
     .await
     .map_err(|_| LoginFailure::Internal)?;
 
-    Ok(LoginOutcome::Authenticated)
+    // Authorization-code completion: issue the code (digest only), terminate the transaction,
+    // and audit the issuance atomically with the authentication above. Any failure rolls the
+    // whole transaction back and answers with the existing internal 500.
+    let (code, code_digest) = generate_authorization_code();
+    OidcAuthorizationCodes::issue_authorization_code(
+        IssueAuthorizationCodeInput {
+            transaction_id: snapshot.id,
+            code_digest,
+            redirect_uri: snapshot.redirect_uri.clone(),
+            subject_id,
+        },
+        AUTHORIZATION_CODE_TTL,
+        transaction,
+    )
+    .await
+    .map_err(|_| LoginFailure::Internal)?;
+
+    OidcAuthorizationTransactions::complete_authorization_transaction(snapshot.id, transaction)
+        .await
+        .map_err(|_| LoginFailure::Internal)?;
+
+    let payload = AuditPayload::from(IssueAuthorizationCodePayload {
+        application_id: snapshot.application_id,
+        transaction_id: snapshot.id,
+        subject_id,
+    })
+    .into_json()
+    .map_err(|_| LoginFailure::Internal)?;
+    Audits::insert_audit_event(
+        Uuid::now_v7(),
+        AuditType::OidcIssueAuthorizationCode,
+        payload,
+        transaction,
+    )
+    .await
+    .map_err(|_| LoginFailure::Internal)?;
+
+    Ok(LoginOutcome::Authenticated(code))
 }
 
 /// Ordered shared-lock revalidation of the snapshot's registration and live redirect policy,
@@ -512,7 +561,8 @@ async fn verify_login_credentials(
 }
 
 enum LoginOutcome {
-    Authenticated,
+    /// Carries the plaintext authorization code; only its digest was persisted.
+    Authenticated(String),
     Challenged,
 }
 

@@ -14,7 +14,7 @@ use axum::{
 };
 use axum_extra::extract::{
     Form, FormRejection, Query, QueryRejection,
-    cookie::{Cookie, SameSite},
+    cookie::{Cookie, CookieJar, SameSite},
 };
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use oceaniam_common::{config::PublicBaseUrl, sqid::Sqid};
@@ -464,7 +464,7 @@ struct PreparedSuccess {
 }
 
 #[derive(Clone)]
-struct TrustedCallback {
+pub(super) struct TrustedCallback {
     redirect_uri: String,
     state: Option<String>,
 }
@@ -519,15 +519,53 @@ fn trusted_error_response(
         query.append_pair("state", state);
     }
 
-    let mut location = callback.redirect_uri.clone();
-    location.push(if location.contains('?') { '&' } else { '?' });
-    location.push_str(&query.finish());
-    let location = HeaderValue::from_str(&location)?;
-
+    let location = trusted_redirect_location(&callback.redirect_uri, &query.finish())?;
     let mut response = StatusCode::SEE_OTHER.into_response();
     response.headers_mut().insert(LOCATION, location);
     apply_common_headers(&mut response);
     Ok(response)
+}
+
+/// Appends already-encoded query pairs to a trusted callback URI, continuing with `&` when the
+/// registered redirect URI already carries a query string.
+pub(super) fn trusted_redirect_location(
+    redirect_uri: &str,
+    query: &str,
+) -> Result<HeaderValue, InvalidHeaderValue> {
+    let mut location = redirect_uri.to_owned();
+    location.push(if location.contains('?') { '&' } else { '?' });
+    location.push_str(query);
+    HeaderValue::from_str(&location)
+}
+
+/// RFC 6749 §4.1.2 authorization response, shared by the login and challenge completion legs:
+/// a 303 to the transaction's registered redirect URI carrying the plaintext code, the echoed
+/// state, and the RFC 9207 issuer, with the transaction binding cookie cleared (same name,
+/// same path, empty value, zero max age). The plaintext code is dropped with this response and
+/// is never logged.
+pub(super) fn authorization_code_response(
+    snapshot: &oidc_authorization_transactions::Model,
+    code: &str,
+    jar: CookieJar,
+) -> Response {
+    let mut query = form_urlencoded::Serializer::new(String::new());
+    query.append_pair("code", code);
+    query.append_pair("state", &snapshot.state);
+    query.append_pair("iss", &snapshot.issuer);
+
+    let location = match trusted_redirect_location(&snapshot.redirect_uri, &query.finish()) {
+        Ok(location) => location,
+        Err(error) => return invalid_trusted_callback_response(error),
+    };
+
+    let cookie_name = format!("{COOKIE_PREFIX}{}", Sqid::from(snapshot.id));
+    let cookie_path = format!("/oidc/{}", Sqid::from(snapshot.tenant_id));
+    let jar = jar.remove(Cookie::build((cookie_name, "")).path(cookie_path).build());
+
+    let mut response = (jar, StatusCode::SEE_OTHER).into_response();
+    response.headers_mut().insert(LOCATION, location);
+    apply_common_headers(&mut response);
+    response
 }
 
 fn invalid_trusted_callback_response(error: InvalidHeaderValue) -> Response {

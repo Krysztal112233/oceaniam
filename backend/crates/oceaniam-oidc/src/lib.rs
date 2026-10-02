@@ -1,4 +1,5 @@
 mod authorization;
+mod authorization_code;
 mod authorization_secret;
 mod error;
 mod jwks;
@@ -10,6 +11,7 @@ pub use authorization::{
     AUTHORIZATION_FORM_MAX_BYTES, AuthorizationRequest, ParsedAuthorizationRequest,
     RawAuthorizationRequest,
 };
+pub use authorization_code::{authorization_code_digest, generate_authorization_code};
 pub use authorization_secret::{authorization_browser_binding_digest, authorization_csrf_digest};
 pub use error::{
     AuthorizationProtocolError, AuthorizationRequestError, OidcJwksError, PkceS256Error,

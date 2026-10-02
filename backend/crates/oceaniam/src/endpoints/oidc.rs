@@ -1,8 +1,9 @@
 //! OIDC protocol endpoints.
 //!
 //! The tenant JWKS remains public. Authorization is limited to a default-disabled request-entry
-//! preview plus its transaction-bound password login and TOTP challenge; codes, Token/UserInfo,
-//! and Discovery remain deliberately out of scope.
+//! preview plus its transaction-bound password login and TOTP challenge, which issue an
+//! authorization code on authentication; Token/UserInfo and Discovery remain deliberately out
+//! of scope.
 
 mod authorize;
 mod challenge;

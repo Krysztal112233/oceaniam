@@ -52,6 +52,7 @@ pub enum AuditPayload {
     RevokeKey(RevokeKeyPayload),
 
     OidcAuthenticate(OidcAuthenticatePayload),
+    IssueAuthorizationCode(IssueAuthorizationCodePayload),
 }
 
 impl AuditPayload {
@@ -83,6 +84,7 @@ impl AuditPayload {
             Self::RotateKey(_) => AuditType::RotateKey,
             Self::RevokeKey(_) => AuditType::RevokeKey,
             Self::OidcAuthenticate(_) => AuditType::OidcAuthenticate,
+            Self::IssueAuthorizationCode(_) => AuditType::OidcIssueAuthorizationCode,
             Self::BindApplicationSecret(_) => AuditType::BindApplicationSecret,
             Self::UnbindApplicationSecret(_) => AuditType::UnbindApplicationSecret,
         }
@@ -261,6 +263,12 @@ impl From<OidcAuthenticatePayload> for AuditPayload {
     }
 }
 
+impl From<IssueAuthorizationCodePayload> for AuditPayload {
+    fn from(value: IssueAuthorizationCodePayload) -> Self {
+        Self::IssueAuthorizationCode(value)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignJwtPayload {
     pub application_id: Uuid,
@@ -341,6 +349,15 @@ pub struct DeleteOidcClientPayload {
 /// credential material; jti semantics do not apply because no token is issued.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OidcAuthenticatePayload {
+    pub application_id: Uuid,
+    pub transaction_id: Uuid,
+    pub subject_id: Uuid,
+}
+
+/// Success-only OIDC authorization-code issuance audit. Carries no plaintext code, redirect,
+/// state, or nonce material; only the code's digest is ever persisted.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IssueAuthorizationCodePayload {
     pub application_id: Uuid,
     pub transaction_id: Uuid,
     pub subject_id: Uuid,
