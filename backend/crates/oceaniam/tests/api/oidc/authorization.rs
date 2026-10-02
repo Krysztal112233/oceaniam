@@ -450,13 +450,14 @@ async fn preview_gate_precedes_body_consumption_and_methods_remain_non_creating(
         .send()
         .await
         .expect("CORS preflight");
-    assert!(options.status().is_success());
-    assert_eq!(
+    // RFC 9700 §2.6: the authorization endpoint does not support CORS — a preflight is a
+    // plain 405 without any CORS blessing.
+    assert_eq!(options.status(), 405);
+    assert!(
         options
             .headers()
             .get("access-control-allow-origin")
-            .and_then(|value| value.to_str().ok()),
-        Some("http://localhost:8000")
+            .is_none()
     );
 
     let database = enabled.database().await;
@@ -1176,3 +1177,60 @@ async fn prompt_none_redirects_login_required_and_none_combinations_are_invalid(
     );
 }
 
+// NOTE: AI-generated test
+#[tokio::test]
+async fn authorization_endpoint_family_is_not_cors_enabled() {
+    let app = spawn_preview("http://localhost:8000").await;
+    let fixture = seed_authorization_client(&app, "https://client.example/callback", false).await;
+
+    // RFC 9700 §2.6: the authorization endpoint MUST NOT support CORS.
+    let preflight = app
+        .client
+        .request(reqwest::Method::OPTIONS, app.url(&authorize_path(&fixture)))
+        .header("origin", "http://localhost:8000")
+        .header("access-control-request-method", "POST")
+        .send()
+        .await
+        .expect("authorize preflight request");
+    assert!(
+        preflight
+            .headers()
+            .get("access-control-allow-origin")
+            .is_none(),
+        "authorize preflight must not be CORS-blessed"
+    );
+
+    let form = authorization_form(&fixture, "cors-state", "code", &[]);
+    let authorize_response = app
+        .client
+        .get(app.url(&format!("{}?{form}", authorize_path(&fixture))))
+        .header("origin", "http://localhost:8000")
+        .send()
+        .await
+        .expect("authorize request with Origin");
+    assert!(
+        authorize_response
+            .headers()
+            .get("access-control-allow-origin")
+            .is_none(),
+        "authorize responses must not carry CORS headers"
+    );
+
+    // The tenant JWKS stays CORS-enabled: public metadata that browser-based clients
+    // legitimately fetch cross-origin.
+    let jwks_response = app
+        .client
+        .get(app.url(&format!("/oidc/{}/jwks.json", fixture.tenant_sqid)))
+        .header("origin", "http://localhost:8000")
+        .send()
+        .await
+        .expect("jwks request with Origin");
+    assert_eq!(
+        jwks_response
+            .headers()
+            .get("access-control-allow-origin")
+            .and_then(|value| value.to_str().ok()),
+        Some("http://localhost:8000"),
+        "public JWKS keeps its CORS posture"
+    );
+}

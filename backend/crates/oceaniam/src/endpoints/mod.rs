@@ -14,7 +14,7 @@ mod administrators;
 pub mod applications;
 mod audits;
 mod authentication;
-mod oidc;
+pub(crate) mod oidc;
 mod secrets;
 mod statistics;
 mod tenants;

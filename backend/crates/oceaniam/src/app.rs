@@ -21,6 +21,8 @@ pub fn build_openapi_spec() -> utoipa::openapi::OpenApi {
     let (_, mut openapi) = OpenApiRouter::<AppState>::new()
         .pipe(endpoints::endpoint)
         .split_for_parts();
+    let (_, oidc_protocol_openapi) = oidc_protocol_parts();
+    openapi.merge(oidc_protocol_openapi);
 
     // NOTE: utoipa generates `$ref` for enum types used as query params but omits the definition
     // from `components/schemas`, causing openapi-generator-cli to abort.
@@ -45,6 +47,16 @@ pub fn build_openapi_spec() -> utoipa::openapi::OpenApi {
     );
 
     openapi
+}
+
+/// Router and spec for the authorization-endpoint family (authorize + login + challenge).
+///
+/// RFC 9700 §2.6 forbids CORS on the authorization endpoint, so these routes are built
+/// separately from the API router and mounted outside the API CORS layer.
+fn oidc_protocol_parts() -> (Router<AppState>, utoipa::openapi::OpenApi) {
+    OpenApiRouter::<AppState>::new()
+        .pipe(endpoints::oidc::protocol_endpoint)
+        .split_for_parts()
 }
 
 fn validate_authorization_entry_preview_origin(
@@ -215,9 +227,13 @@ async fn attach_matched_route(request: Request, next: Next) -> Response {
 }
 
 pub fn app(state: AppState, cors: CorsConfig) -> Router {
-    let (router, mut openapi) = OpenApiRouter::new()
+    let (api_router, mut openapi) = OpenApiRouter::new()
         .pipe(endpoints::endpoint)
         .split_for_parts();
+    // The authorize/login/challenge family is routed separately: RFC 9700 §2.6 forbids CORS
+    // on the authorization endpoint, so it is mounted outside the API CORS layer below.
+    let (oidc_protocol_router, oidc_protocol_openapi) = oidc_protocol_parts();
+    openapi.merge(oidc_protocol_openapi);
 
     {
         openapi.info.title = "OceanIAM".to_string();
@@ -230,10 +246,11 @@ pub fn app(state: AppState, cors: CorsConfig) -> Router {
         );
     }
 
-    router
+    api_router
         .merge(Scalar::with_url("/docs", openapi))
         .route_layer(middleware::from_fn(attach_matched_route))
         .layer(to_cors_layer(cors))
+        .merge(oidc_protocol_router.route_layer(middleware::from_fn(attach_matched_route)))
         .layer(trace_layer())
         .with_state(state)
 }

@@ -96,8 +96,17 @@ pub async fn get_oidc_jwks(
 }
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
+    router.routes(routes!(get_oidc_jwks))
+}
+
+/// Authorization-endpoint family (authorize + login + challenge).
+///
+/// RFC 9700 §2.6 forbids CORS on the authorization endpoint: the user agent is redirected
+/// to it, never accessed cross-origin by the client. `app()` therefore mounts these routes
+/// outside the API CORS layer. The tenant JWKS stays inside it: public metadata that
+/// browser-based clients legitimately fetch cross-origin.
+pub fn protocol_endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
-        .routes(routes!(get_oidc_jwks))
         .routes(authorize::routes())
         .routes(login::routes())
         .routes(challenge::routes())
