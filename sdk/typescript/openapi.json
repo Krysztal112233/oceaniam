@@ -1172,6 +1172,97 @@
         }
       }
     },
+    "/oidc/{tenant_sqid}/token": {
+      "post": {
+        "tags": ["Oidc"],
+        "summary": "Default-disabled OIDC Token Endpoint: exchanges an authorization code for tokens.",
+        "operationId": "post_oidc_token",
+        "parameters": [
+          {
+            "name": "tenant_sqid",
+            "in": "path",
+            "description": "Tenant Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Token parameters: `grant_type` (only `authorization_code`), `code`, `redirect_uri`, `client_id`, and the PKCE `code_verifier`; body-only, maximum 8 KiB",
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "RFC 6749 5.1 token response: JWT access token and OIDC ID token, each with a one-hour lifetime; no refresh token is issued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OidcTokenResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "RFC 6749 5.2 error: `unsupported_grant_type`, `invalid_request`, or `invalid_grant`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OidcTokenError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Preview disabled",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Form body exceeds 8 KiB",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content type is not application/x-www-form-urlencoded",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/secrets": {
       "get": {
         "tags": ["Secrets"],
@@ -7822,6 +7913,39 @@
         "properties": {
           "allow_insecure_loopback_redirect_uris": {
             "type": "boolean"
+          }
+        }
+      },
+      "OidcTokenError": {
+        "type": "object",
+        "description": "RFC 6749 §5.2 error response.",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "error_description": {
+            "type": ["string", "null"]
+          }
+        }
+      },
+      "OidcTokenResponse": {
+        "type": "object",
+        "description": "RFC 6749 §5.1 successful token response. No refresh token is issued this slice.",
+        "required": ["access_token", "token_type", "expires_in", "id_token"],
+        "properties": {
+          "access_token": {
+            "type": "string"
+          },
+          "expires_in": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "id_token": {
+            "type": "string"
+          },
+          "token_type": {
+            "type": "string"
           }
         }
       },

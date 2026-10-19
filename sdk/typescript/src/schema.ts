@@ -281,6 +281,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/oidc/{tenant_sqid}/token": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Default-disabled OIDC Token Endpoint: exchanges an authorization code for tokens. */
+    post: operations["post_oidc_token"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/secrets": {
     parameters: {
       query?: never;
@@ -1482,6 +1499,19 @@ export interface components {
     OidcConfigurationVO: {
       allow_insecure_loopback_redirect_uris: boolean;
     };
+    /** @description RFC 6749 §5.2 error response. */
+    OidcTokenError: {
+      error: string;
+      error_description?: string | null;
+    };
+    /** @description RFC 6749 §5.1 successful token response. No refresh token is issued this slice. */
+    OidcTokenResponse: {
+      access_token: string;
+      /** Format: int64 */
+      expires_in: number;
+      id_token: string;
+      token_type: string;
+    };
     OverviewVO: {
       /** Format: int64 */
       total_active_secrets: number;
@@ -2516,6 +2546,79 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+    };
+  };
+  post_oidc_token: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Tenant Sqid */
+        tenant_sqid: string;
+      };
+      cookie?: never;
+    };
+    /** @description Token parameters: `grant_type` (only `authorization_code`), `code`, `redirect_uri`, `client_id`, and the PKCE `code_verifier`; body-only, maximum 8 KiB */
+    requestBody: {
+      content: {
+        "application/x-www-form-urlencoded": string;
+      };
+    };
+    responses: {
+      /** @description RFC 6749 5.1 token response: JWT access token and OIDC ID token, each with a one-hour lifetime; no refresh token is issued */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OidcTokenResponse"];
+        };
+      };
+      /** @description RFC 6749 5.2 error: `unsupported_grant_type`, `invalid_request`, or `invalid_grant` */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OidcTokenError"];
+        };
+      };
+      /** @description Preview disabled */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Form body exceeds 8 KiB */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Content type is not application/x-www-form-urlencoded */
+      415: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
         };
       };
     };
