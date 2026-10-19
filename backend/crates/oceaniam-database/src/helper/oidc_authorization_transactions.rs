@@ -221,6 +221,33 @@ pub trait OidcAuthorizationTransactionsHelper {
             .ok_or_else(authorization_transaction_unavailable)
     }
 
+    /// Reads a transaction by primary key for the token exchange.
+    ///
+    /// The token endpoint calls this only after [`super::oidc_authorization_codes`] consumed
+    /// the bound code inside the same database transaction, so the row must exist; a miss is
+    /// reported with the shared not-found shape and treated by the caller as an internal
+    /// error. No status, binding, or expiry predicate applies: the transaction is already
+    /// terminal from code issuance, and the consumed code is the sole redemption key.
+    #[tracing::instrument(
+        level = "info",
+        name = "db.oidc_authorization_transactions.get_for_token",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
+    async fn get_token_authorization_transaction(
+        id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::oidc_authorization_transactions::Model, Error> {
+        use model::oidc_authorization_transactions::Column::*;
+
+        OidcAuthorizationTransactions::find()
+            .filter(Id.eq(id))
+            .one(database)
+            .await
+            .map_err(|_| authorization_transaction_storage_error())?
+            .ok_or_else(authorization_transaction_unavailable)
+    }
+
     /// Transitions `pending -> authenticated`, recording the authenticated subject.
     ///
     /// The caller owns the surrounding transaction (live registration revalidation, this
@@ -332,7 +359,7 @@ pub trait OidcAuthorizationTransactionsHelper {
             .map_err(|_| authorization_transaction_storage_error())?
             .ok_or_else(authorization_transaction_unavailable)?;
 
-        // PostgreSQL's CURRENT_TIMESTAMP is fixed at transaction start. Sample the wall clock
+        // NOTE: PostgreSQL's CURRENT_TIMESTAMP is fixed at transaction start. Sample the wall clock
         // only after acquiring the row lock so time spent waiting cannot revive an expired
         // transaction.
         let now: DateTime<FixedOffset> = database
@@ -406,7 +433,7 @@ pub trait OidcAuthorizationTransactionsHelper {
             .map_err(|_| authorization_transaction_storage_error())?
             .ok_or_else(authorization_transaction_unavailable)?;
 
-        // PostgreSQL's CURRENT_TIMESTAMP is fixed at transaction start. Sample the wall clock
+        // NOTE: PostgreSQL's CURRENT_TIMESTAMP is fixed at transaction start. Sample the wall clock
         // only after acquiring the row lock so time spent waiting cannot revive an expired
         // transaction.
         let now: DateTime<FixedOffset> = database

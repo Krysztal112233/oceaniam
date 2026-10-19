@@ -116,6 +116,27 @@ pub trait OidcClientsHelper {
             .ok_or_else(oidc_client_not_found)
     }
 
+    /// Reads a client by primary key.
+    ///
+    /// The OIDC token endpoint resolves the registered public `client_id` string through this
+    /// lookup: the authorization transaction stores only the client's UUID, while the token
+    /// request's `client_id` must byte-match the registered string.
+    #[tracing::instrument(
+        level = "info",
+        name = "db.oidc_clients.get_by_id",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
+    async fn get_client_by_id(
+        id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::oidc_clients::Model, Error> {
+        OidcClients::find_by_id(id)
+            .one(database)
+            .await?
+            .ok_or_else(oidc_client_not_found)
+    }
+
     #[tracing::instrument(
         level = "info",
         name = "db.oidc_clients.get_for_update",

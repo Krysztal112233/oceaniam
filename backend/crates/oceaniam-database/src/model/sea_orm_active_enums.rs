@@ -75,6 +75,8 @@ pub enum AuditType {
     OidcAuthenticate,
     #[sea_orm(string_value = "oidc_issue_authorization_code")]
     OidcIssueAuthorizationCode,
+    #[sea_orm(string_value = "oidc_issue_token")]
+    OidcIssueToken,
 }
 #[derive(
     Debug,
