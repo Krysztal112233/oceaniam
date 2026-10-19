@@ -1,5 +1,7 @@
 use std::{net::SocketAddr, sync::OnceLock};
 
+pub mod oidc_drive;
+
 use migration::{Migrator, MigratorTrait};
 use oceaniam::app::{app, build_state};
 use oceaniam::state::AppState;

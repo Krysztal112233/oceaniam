@@ -7,6 +7,7 @@ use crate::support::spawn_app_with_isolated_schema;
 
 mod authorization;
 mod login;
+mod token;
 
 fn public_jwk_object_is_clean(key: &serde_json::Value) {
     let object = key.as_object().expect("each JWK should be an object");
