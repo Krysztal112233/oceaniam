@@ -2,12 +2,13 @@
 //!
 //! The tenant JWKS remains public. Authorization is limited to a default-disabled request-entry
 //! preview plus its transaction-bound password login and TOTP challenge, which issue an
-//! authorization code on authentication; Token/UserInfo and Discovery remain deliberately out
-//! of scope.
+//! authorization code on authentication, and the token endpoint, which exchanges the code for
+//! tokens; UserInfo and Discovery remain deliberately out of scope.
 
 mod authorize;
 mod challenge;
 mod login;
+mod token;
 
 use crate::error::AppResult;
 use axum::{
@@ -100,7 +101,7 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
     router.routes(routes!(get_oidc_jwks))
 }
 
-/// Authorization-endpoint family (authorize + login + challenge).
+/// Authorization-endpoint family (authorize + login + challenge) and the token endpoint.
 ///
 /// RFC 9700 §2.6 forbids CORS on the authorization endpoint: the user agent is redirected
 /// to it, never accessed cross-origin by the client. `app()` therefore mounts these routes
@@ -111,4 +112,5 @@ pub fn protocol_endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenAp
         .routes(authorize::routes())
         .routes(login::routes())
         .routes(challenge::routes())
+        .routes(token::routes())
 }

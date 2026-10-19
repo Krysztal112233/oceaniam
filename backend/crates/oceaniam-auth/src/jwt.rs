@@ -88,6 +88,50 @@ pub struct SystemClaim {
     pub jti: Uuid,
 }
 
+/// IdTokenClaim - OIDC ID Token claims issued by the token endpoint
+///
+/// This claim structure is used when the OIDC token endpoint exchanges an authorization
+/// code for tokens. Unlike [`Claim`], it carries the OIDC `nonce` and `auth_time` claims and
+/// no `jti`; `iss` and `aud` are mandatory here, so they are not optional.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct IdTokenClaim {
+    /// Issuer
+    ///
+    /// The tenant issuer URL snapshot taken when the authorization transaction started.
+    pub iss: String,
+
+    /// Subject
+    ///
+    /// The user's stable external subject (`users.oidc_sub`), serialized as a UUID.
+    pub sub: Uuid,
+
+    /// Audience
+    ///
+    /// The OIDC client identifier this ID Token is intended for.
+    pub aud: Vec<String>,
+
+    /// Expiration Time
+    ///
+    /// Token expiration time (Unix timestamp, seconds)
+    pub exp: i64,
+
+    /// Issued At
+    ///
+    /// Token issuance time (Unix timestamp, seconds)
+    pub iat: i64,
+
+    /// Nonce
+    ///
+    /// The authorization request's nonce, passed through verbatim (omitted when absent).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nonce: Option<String>,
+
+    /// Authentication Time
+    ///
+    /// Time the end-user authenticated (Unix timestamp, seconds)
+    pub auth_time: i64,
+}
+
 pub trait ClaimHelper: DeserializeOwned + Serialize + Clone {
     fn new(sub: Uuid, ttl_seconds: i64, iss: Option<String>, aud: Option<Vec<String>>) -> Self;
 

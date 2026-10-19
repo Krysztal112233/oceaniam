@@ -23,6 +23,7 @@ use oceaniam_database::{
 };
 use oceaniam_keybox::{KeyBox, RawKey, RsaKey};
 use sea_orm::DatabaseConnection;
+use serde::{Serialize, de::DeserializeOwned};
 use tap::Tap;
 use tracing::{debug, error, field};
 use uuid::Uuid;
@@ -271,6 +272,50 @@ impl ManagedKeyBoxes {
         sign_jwt_with_raw_key(key, self.master_key, claim).await
     }
 
+    /// Signs an already-assembled claim set with the tenant keybox's active key.
+    ///
+    /// OIDC token issuance needs claim shapes (`nonce`/`auth_time`, no `jti`) and a fixed
+    /// one-hour TTL that the hardcoded five-day `ClaimHelper::new` construction in
+    /// [`Self::sign_jwt`] cannot express, so the caller assembles the claims. Key selection
+    /// and failure semantics are identical to `sign_jwt`, which is untouched.
+    #[tracing::instrument(
+        level = "info",
+        name = "keybox.sign_assembled_jwt",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
+    pub async fn sign_assembled_jwt<T>(
+        self,
+        tenant_id: Uuid,
+        claim: T,
+    ) -> Result<EncodedJwt<T>, Error>
+    where
+        T: Serialize + DeserializeOwned + Clone + Send + 'static,
+    {
+        let Ok(keybox) = self
+            .get_keybox(tenant_id)
+            .await
+            .inspect_err(|e| error!("cannot find keybox of {tenant_id}: {e}"))
+        else {
+            return Err(Error::with_code(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "!!!CANNOT FIND TENANT KEYBOX, THIS MUST BE ERROR!!!",
+            ));
+        };
+
+        let Some(key) = keybox.get_latest_raw_key(KeyStatus::Active) else {
+            error!("cannot find active key in keybox of {tenant_id}",);
+            return Err(Error::with_code(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "!!!CANNOT FIND ACTIVE KEY IN TENANT KEYBOX, THIS MUST BE ERROR!!!",
+            ));
+        };
+
+        debug!("found active key with algorithm: {:?}", key.key_alg);
+
+        sign_claim_with_raw_key(key, self.master_key, claim).await
+    }
+
     #[tracing::instrument(
         level = "info",
         name = "keybox.sign_system_jwt",
@@ -303,6 +348,21 @@ async fn sign_jwt_with_raw_key<T>(
 where
     T: ClaimHelper + Send + 'static,
 {
+    sign_claim_with_raw_key(key, master_key, claim).await
+}
+
+/// Shared RSA signing body. `ClaimHelper::encode` is exactly `JwtCodec::encode`, so routing
+/// `ClaimHelper` claims through this general path is behavior-identical, and claim shapes
+/// outside the `ClaimHelper` contract (OIDC ID tokens carry `nonce`/`auth_time` and no `jti`)
+/// can be signed as well.
+async fn sign_claim_with_raw_key<T>(
+    key: RawKey,
+    master_key: Arc<MasterKey>,
+    claim: T,
+) -> Result<EncodedJwt<T>, Error>
+where
+    T: Serialize + DeserializeOwned + Clone + Send + 'static,
+{
     let key_alg = key.key_alg.clone();
     let kid = key.key_id;
     let queue_span = tracing::info_span!(
@@ -334,11 +394,10 @@ where
                 | KeyAlg::Rs512 => h(RsaKey::from_raw_key(key, &master_key)
                     .inspect_err(|e| error!(error = %e, "failed to unseal RSA signing key"))?),
             };
-            let jwt = claim
-                .clone()
+            let jwt = rsa_key
                 .encode(
                     Header::new(key_alg.into()).tap_mut(|it| it.kid = Some(kid.to_string())),
-                    rsa_key,
+                    claim.clone(),
                 )
                 .inspect_err(|e| error!(error = %e, "failed to sign JWT"))?;
 
@@ -361,7 +420,7 @@ where
 
 fn h<T>(i: impl JwtCodec<T> + 'static) -> Box<dyn JwtCodec<T>>
 where
-    T: ClaimHelper,
+    T: DeserializeOwned + Serialize,
 {
     Box::new(i)
 }

@@ -53,6 +53,7 @@ pub enum AuditPayload {
 
     OidcAuthenticate(OidcAuthenticatePayload),
     IssueAuthorizationCode(IssueAuthorizationCodePayload),
+    IssueToken(IssueTokenPayload),
 }
 
 impl AuditPayload {
@@ -85,6 +86,7 @@ impl AuditPayload {
             Self::RevokeKey(_) => AuditType::RevokeKey,
             Self::OidcAuthenticate(_) => AuditType::OidcAuthenticate,
             Self::IssueAuthorizationCode(_) => AuditType::OidcIssueAuthorizationCode,
+            Self::IssueToken(_) => AuditType::OidcIssueToken,
             Self::BindApplicationSecret(_) => AuditType::BindApplicationSecret,
             Self::UnbindApplicationSecret(_) => AuditType::UnbindApplicationSecret,
         }
@@ -269,6 +271,12 @@ impl From<IssueAuthorizationCodePayload> for AuditPayload {
     }
 }
 
+impl From<IssueTokenPayload> for AuditPayload {
+    fn from(value: IssueTokenPayload) -> Self {
+        Self::IssueToken(value)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignJwtPayload {
     pub application_id: Uuid,
@@ -358,6 +366,15 @@ pub struct OidcAuthenticatePayload {
 /// state, or nonce material; only the code's digest is ever persisted.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IssueAuthorizationCodePayload {
+    pub application_id: Uuid,
+    pub transaction_id: Uuid,
+    pub subject_id: Uuid,
+}
+
+/// Success-only OIDC token issuance audit. Carries no plaintext code, token, redirect, state,
+/// or nonce material; only identifiers are recorded.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IssueTokenPayload {
     pub application_id: Uuid,
     pub transaction_id: Uuid,
     pub subject_id: Uuid,
