@@ -1,6 +1,7 @@
 //! Shared OIDC authorization-flow drive fixtures, moved verbatim from
 //! `tests/api/oidc/login.rs` so the token-endpoint tests can drive the same
-//! entry → login → code chain. No behavior change: `login.rs` re-imports these.
+//! entry → login → code chain. `login.rs` re-imports these; `drive_user_token` extends the
+//! chain through the token exchange for the UserInfo endpoint tests.
 #![allow(dead_code)]
 
 use argon2::Argon2;
@@ -384,6 +385,53 @@ pub async fn assert_code_redirect(
     assert_eq!(cookie.path(), Some(cookie_path.as_str()));
 
     CodeRedirect { code, iss }
+}
+
+/// Drives the full chain — create_user → entry → login → code → token exchange — and
+/// returns the internal user id and the issued access token, so the UserInfo endpoint tests
+/// can present a genuinely issued bearer token.
+pub async fn drive_user_token(
+    app: &TestApp,
+    fixture: &LoginFixture,
+    email: &str,
+    state: &str,
+) -> (Uuid, String) {
+    let user_id = create_user(app, fixture, email, USER_PASSWORD).await;
+    let entry = drive_entry(app, fixture, state).await;
+    let response = post_login(
+        app,
+        fixture,
+        &entry,
+        login_form(email, USER_PASSWORD, &entry.csrf),
+    )
+    .await;
+    let redirect = assert_code_redirect(response, fixture, &entry, state).await;
+
+    let mut serializer = form_urlencoded::Serializer::new(String::new());
+    for (name, value) in [
+        ("grant_type", "authorization_code"),
+        ("code", redirect.code.as_str()),
+        ("redirect_uri", fixture.redirect_uri.as_str()),
+        ("client_id", fixture.client_id.as_str()),
+        ("code_verifier", CODE_VERIFIER),
+    ] {
+        serializer.append_pair(name, value);
+    }
+    let response = app
+        .client
+        .post(app.url(&format!("/oidc/{}/token", fixture.tenant_sqid)))
+        .header("content-type", "application/x-www-form-urlencoded")
+        .body(serializer.finish())
+        .send()
+        .await
+        .expect("token exchange request");
+    assert_eq!(response.status(), 200, "token exchange should succeed");
+    let body: serde_json::Value = response.json().await.expect("token response body");
+    let access_token = body["access_token"]
+        .as_str()
+        .expect("access token")
+        .to_owned();
+    (user_id, access_token)
 }
 
 pub async fn create_user(
