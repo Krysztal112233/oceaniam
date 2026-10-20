@@ -60,11 +60,12 @@ struct OidcUserInfoResponse {
     ),
     responses(
         (status = 200, description = "OIDC Core 5.3.2 UserInfo response; only `sub` is exposed this slice", body = OidcUserInfoResponse),
-        (status = 400, description = "Malformed tenant identifier; the RFC 6750 3.1 challenge carries `invalid_request` without a realm", body = String),
+        (status = 400, description = "Malformed tenant identifier; the RFC 6750 3.1 challenge carries `invalid_request` without a realm", body = String,
+            headers(("WWW-Authenticate" = String, description = "RFC 6750 3.1 challenge: `Bearer error=\"invalid_request\"`, no realm"))),
         (status = 401, description = "RFC 6750 3.1 bearer challenge: no token presented (no error code) or a presented token failed verification (`invalid_token`)", body = String,
             headers(("WWW-Authenticate" = String, description = "RFC 6750 3.1 challenge with the tenant issuer realm"))),
         (status = 404, description = "Preview disabled or tenant unavailable", body = String),
-        (status = 405, description = "Only GET and POST are supported (empty body)"),
+        (status = 405, description = "Only GET and POST are supported (empty body; HEAD follows GET)"),
         (status = 500, description = "Internal server error", body = String),
     ),
 )]
@@ -89,11 +90,12 @@ async fn get_oidc_userinfo(
     ),
     responses(
         (status = 200, description = "OIDC Core 5.3.2 UserInfo response; only `sub` is exposed this slice", body = OidcUserInfoResponse),
-        (status = 400, description = "Malformed tenant identifier; the RFC 6750 3.1 challenge carries `invalid_request` without a realm", body = String),
+        (status = 400, description = "Malformed tenant identifier; the RFC 6750 3.1 challenge carries `invalid_request` without a realm", body = String,
+            headers(("WWW-Authenticate" = String, description = "RFC 6750 3.1 challenge: `Bearer error=\"invalid_request\"`, no realm"))),
         (status = 401, description = "RFC 6750 3.1 bearer challenge: no token presented (no error code) or a presented token failed verification (`invalid_token`)", body = String,
             headers(("WWW-Authenticate" = String, description = "RFC 6750 3.1 challenge with the tenant issuer realm"))),
         (status = 404, description = "Preview disabled or tenant unavailable", body = String),
-        (status = 405, description = "Only GET and POST are supported (empty body)"),
+        (status = 405, description = "Only GET and POST are supported (empty body; HEAD follows GET)"),
         (status = 500, description = "Internal server error", body = String),
     ),
 )]
