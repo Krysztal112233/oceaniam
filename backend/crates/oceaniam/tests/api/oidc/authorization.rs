@@ -21,10 +21,10 @@ use url::{Url, form_urlencoded};
 use uuid::Uuid;
 
 use crate::support::{
-    TestApp, spawn_app_with_isolated_schema, spawn_app_with_isolated_schema_configured,
+    TestApp, oidc_drive::CODE_CHALLENGE, spawn_app_with_isolated_schema,
+    spawn_app_with_isolated_schema_configured,
 };
 
-const CODE_CHALLENGE: &str = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
 const AUTHORIZATION_HTTP_LIMIT_BYTES: usize = 8 * 1024;
 
 struct AuthorizationFixture {

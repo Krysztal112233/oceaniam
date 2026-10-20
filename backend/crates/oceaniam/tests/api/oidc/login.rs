@@ -3,7 +3,7 @@ use oceaniam_database::{
     helper::{applications::ApplicationHelper, oidc_clients::OidcClientsHelper},
     model::{
         oidc_authorization_codes, oidc_clients,
-        prelude::{Audits, Challenges, OidcAuthorizationCodes, OidcAuthorizationTransactions},
+        prelude::{Challenges, OidcAuthorizationCodes, OidcAuthorizationTransactions},
         sea_orm_active_enums::{
             AuditType, ChallengeStatusType, OidcAuthorizationTransactionStatus,
         },
@@ -17,9 +17,9 @@ use crate::support::{
     TestApp,
     oidc_drive::{
         EntryContext, LoginFixture, USER_PASSWORD, assert_challenge_form, assert_code_redirect,
-        assert_html_headers, challenge_form, challenge_path, create_mfa_user, create_user,
-        drive_entry, drive_to_challenge_form, login_form, login_path, post_challenge, post_login,
-        seed_login_fixture, spawn_preview,
+        assert_html_headers, audits_of_type, challenge_form, challenge_path, create_mfa_user,
+        create_user, drive_entry, drive_to_challenge_form, login_form, login_path, post_challenge,
+        post_login, seed_login_fixture, spawn_preview,
     },
     sqid_to_uuid,
 };
@@ -37,30 +37,11 @@ async fn transaction_snapshot(
 }
 
 async fn oidc_authenticate_audits(app: &TestApp) -> Vec<serde_json::Value> {
-    let database = app.database().await;
-    Audits::find()
-        .filter(oceaniam_database::model::audits::Column::AuditType.eq(AuditType::OidcAuthenticate))
-        .all(&database)
-        .await
-        .expect("list oidc_authenticate audits")
-        .into_iter()
-        .map(|audit| audit.payload)
-        .collect()
+    audits_of_type(app, AuditType::OidcAuthenticate).await
 }
 
 async fn issue_authorization_code_audits(app: &TestApp) -> Vec<serde_json::Value> {
-    let database = app.database().await;
-    Audits::find()
-        .filter(
-            oceaniam_database::model::audits::Column::AuditType
-                .eq(AuditType::OidcIssueAuthorizationCode),
-        )
-        .all(&database)
-        .await
-        .expect("list oidc_issue_authorization_code audits")
-        .into_iter()
-        .map(|audit| audit.payload)
-        .collect()
+    audits_of_type(app, AuditType::OidcIssueAuthorizationCode).await
 }
 
 async fn authorization_code_rows(
@@ -859,15 +840,7 @@ async fn challenge_snapshot(
 }
 
 async fn create_challenge_audits(app: &TestApp) -> Vec<serde_json::Value> {
-    let database = app.database().await;
-    Audits::find()
-        .filter(oceaniam_database::model::audits::Column::AuditType.eq(AuditType::CreateChallenge))
-        .all(&database)
-        .await
-        .expect("list create_challenge audits")
-        .into_iter()
-        .map(|audit| audit.payload)
-        .collect()
+    audits_of_type(app, AuditType::CreateChallenge).await
 }
 
 // NOTE: AI-generated test

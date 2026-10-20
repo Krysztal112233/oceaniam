@@ -12,9 +12,10 @@ use oceaniam_database::{
         oidc_clients::OidcClientsHelper,
         users::{CreateUserOpts, UserHelper},
     },
-    model::{oidc_clients, prelude::Users},
+    model::{oidc_clients, prelude::Audits, prelude::Users, sea_orm_active_enums::AuditType},
 };
 use reqwest::Response;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use url::form_urlencoded;
 use uuid::Uuid;
 
@@ -52,6 +53,19 @@ pub async fn spawn_preview() -> TestApp {
         config.oidc.authorization_entry_preview_enabled = true;
     })
     .await
+}
+
+/// Lists the payloads of every audit row of the given type.
+pub async fn audits_of_type(app: &TestApp, audit_type: AuditType) -> Vec<serde_json::Value> {
+    let database = app.database().await;
+    Audits::find()
+        .filter(oceaniam_database::model::audits::Column::AuditType.eq(audit_type))
+        .all(&database)
+        .await
+        .expect("list audits by type")
+        .into_iter()
+        .map(|audit| audit.payload)
+        .collect()
 }
 
 pub async fn seed_login_fixture(app: &TestApp) -> LoginFixture {
@@ -94,7 +108,7 @@ pub async fn seed_login_fixture(app: &TestApp) -> LoginFixture {
     }
 }
 
-fn authorize_query(fixture: &LoginFixture, state: &str) -> String {
+fn authorize_query_with_nonce(fixture: &LoginFixture, state: &str, nonce: Option<&str>) -> String {
     let mut serializer = form_urlencoded::Serializer::new(String::new());
     for (name, value) in [
         ("response_type", "code"),
@@ -102,11 +116,13 @@ fn authorize_query(fixture: &LoginFixture, state: &str) -> String {
         ("redirect_uri", fixture.redirect_uri.as_str()),
         ("scope", "openid"),
         ("state", state),
-        ("nonce", "private-nonce-sentinel"),
         ("code_challenge", CODE_CHALLENGE),
         ("code_challenge_method", "S256"),
     ] {
         serializer.append_pair(name, value);
+    }
+    if let Some(nonce) = nonce {
+        serializer.append_pair("nonce", nonce);
     }
     serializer.finish()
 }
@@ -122,12 +138,31 @@ fn html_attribute(body: &str, name: &str) -> String {
 }
 
 pub async fn drive_entry(app: &TestApp, fixture: &LoginFixture, state: &str) -> EntryContext {
+    drive_entry_with_nonce(app, fixture, state, Some("private-nonce-sentinel")).await
+}
+
+/// Drives the authorization entry without the optional `nonce` parameter (OIDC Core 1.0
+/// §3.1.2.1: `nonce` is OPTIONAL for the authorization code flow).
+pub async fn drive_entry_without_nonce(
+    app: &TestApp,
+    fixture: &LoginFixture,
+    state: &str,
+) -> EntryContext {
+    drive_entry_with_nonce(app, fixture, state, None).await
+}
+
+async fn drive_entry_with_nonce(
+    app: &TestApp,
+    fixture: &LoginFixture,
+    state: &str,
+    nonce: Option<&str>,
+) -> EntryContext {
     let response = app
         .client
         .get(app.url(&format!(
             "/oidc/{}/authorize?{}",
             fixture.tenant_sqid,
-            authorize_query(fixture, state)
+            authorize_query_with_nonce(fixture, state, nonce)
         )))
         .send()
         .await
