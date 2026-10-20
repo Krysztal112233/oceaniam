@@ -2,13 +2,16 @@
 //!
 //! The tenant JWKS remains public. Authorization is limited to a default-disabled request-entry
 //! preview plus its transaction-bound password login and TOTP challenge, which issue an
-//! authorization code on authentication, and the token endpoint, which exchanges the code for
-//! tokens; UserInfo and Discovery remain deliberately out of scope.
+//! authorization code on authentication, the token endpoint, which exchanges the code for
+//! tokens, and the UserInfo endpoint, which serves the bearer access token's `sub` claim over
+//! the header-only RFC 6750 transport (OIDC Core §5.3, sub-only claims this slice); Discovery
+//! remains deliberately out of scope.
 
 mod authorize;
 mod challenge;
 mod login;
 mod token;
+mod userinfo;
 
 use crate::error::AppResult;
 use axum::{
@@ -101,16 +104,20 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
     router.routes(routes!(get_oidc_jwks))
 }
 
-/// Authorization-endpoint family (authorize + login + challenge) and the token endpoint.
+/// Authorization-endpoint family (authorize + login + challenge), the token endpoint, and the
+/// UserInfo endpoint.
 ///
 /// RFC 9700 §2.6 forbids CORS on the authorization endpoint: the user agent is redirected
 /// to it, never accessed cross-origin by the client. `app()` therefore mounts these routes
 /// outside the API CORS layer. The tenant JWKS stays inside it: public metadata that
-/// browser-based clients legitimately fetch cross-origin.
+/// browser-based clients legitimately fetch cross-origin. The UserInfo endpoint stays outside
+/// the CORS layer with the rest of the family for now; enabling UserInfo cross-origin access
+/// is a deferred later-slice decision.
 pub fn protocol_endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(authorize::routes())
         .routes(login::routes())
         .routes(challenge::routes())
         .routes(token::routes())
+        .routes(userinfo::routes())
 }

@@ -503,7 +503,7 @@ fn internal_response(callback: Option<TrustedCallback>) -> Response {
         })
 }
 
-fn tenant_issuer(public_base_url: &PublicBaseUrl, tenant_sqid: &Sqid) -> String {
+pub(super) fn tenant_issuer(public_base_url: &PublicBaseUrl, tenant_sqid: &Sqid) -> String {
     let mut issuer = public_base_url.as_url().clone();
     issuer.set_path(&format!("/oidc/{tenant_sqid}"));
     issuer.to_string()
