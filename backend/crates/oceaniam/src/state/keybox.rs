@@ -293,7 +293,8 @@ impl ManagedKeyBoxes {
     /// OIDC token issuance needs claim shapes (`nonce`/`auth_time`, no `jti`) and a fixed
     /// one-hour TTL that the hardcoded five-day `ClaimHelper::new` construction in
     /// [`Self::sign_jwt`] cannot express, so the caller assembles the claims. Key selection
-    /// and failure semantics are identical to `sign_jwt`, which is untouched.
+    /// and failure semantics are identical to `sign_jwt`; both share
+    /// [`Self::active_signing_key`].
     ///
     /// Note: callers invoke this while holding a database transaction with row locks (OIDC
     /// token issuance), so the lock is held across the RSA signing and, on a keybox cache
