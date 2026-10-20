@@ -1263,6 +1263,166 @@
         }
       }
     },
+    "/oidc/{tenant_sqid}/userinfo": {
+      "get": {
+        "tags": ["Oidc"],
+        "summary": "Default-disabled OIDC UserInfo endpoint over GET.",
+        "operationId": "get_oidc_userinfo",
+        "parameters": [
+          {
+            "name": "tenant_sqid",
+            "in": "path",
+            "description": "Tenant Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OIDC Core 5.3.2 UserInfo response; only `sub` is exposed this slice",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OidcUserInfoResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed tenant identifier; the RFC 6750 3.1 challenge carries `invalid_request` without a realm",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "RFC 6750 3.1 bearer challenge: no token presented (no error code) or a presented token failed verification (`invalid_token`)",
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "RFC 6750 3.1 challenge with the tenant issuer realm"
+              }
+            },
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Preview disabled or tenant unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Only GET and POST are supported (empty body)"
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Oidc"],
+        "summary": "Default-disabled OIDC UserInfo endpoint over POST. The request body is ignored entirely:\nthe token transport is the RFC 6750 §2.1 header only.",
+        "operationId": "post_oidc_userinfo",
+        "parameters": [
+          {
+            "name": "tenant_sqid",
+            "in": "path",
+            "description": "Tenant Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OIDC Core 5.3.2 UserInfo response; only `sub` is exposed this slice",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OidcUserInfoResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed tenant identifier; the RFC 6750 3.1 challenge carries `invalid_request` without a realm",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "RFC 6750 3.1 bearer challenge: no token presented (no error code) or a presented token failed verification (`invalid_token`)",
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "RFC 6750 3.1 challenge with the tenant issuer realm"
+              }
+            },
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Preview disabled or tenant unavailable",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Only GET and POST are supported (empty body)"
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/secrets": {
       "get": {
         "tags": ["Secrets"],
@@ -7946,6 +8106,17 @@
           },
           "token_type": {
             "type": "string"
+          }
+        }
+      },
+      "OidcUserInfoResponse": {
+        "type": "object",
+        "description": "OIDC Core §5.3.2 successful UserInfo response. `sub` (the stable external\n`users.oidc_sub`) is the only claim this slice exposes: scope support is `openid` only.",
+        "required": ["sub"],
+        "properties": {
+          "sub": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },

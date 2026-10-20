@@ -298,6 +298,27 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/oidc/{tenant_sqid}/userinfo": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Default-disabled OIDC UserInfo endpoint over GET. */
+    get: operations["get_oidc_userinfo"];
+    put?: never;
+    /**
+     * Default-disabled OIDC UserInfo endpoint over POST. The request body is ignored entirely:
+     *     the token transport is the RFC 6750 §2.1 header only.
+     */
+    post: operations["post_oidc_userinfo"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/secrets": {
     parameters: {
       query?: never;
@@ -1512,6 +1533,14 @@ export interface components {
       id_token: string;
       token_type: string;
     };
+    /**
+     * @description OIDC Core §5.3.2 successful UserInfo response. `sub` (the stable external
+     *     `users.oidc_sub`) is the only claim this slice exposes: scope support is `openid` only.
+     */
+    OidcUserInfoResponse: {
+      /** Format: uuid */
+      sub: string;
+    };
     OverviewVO: {
       /** Format: int64 */
       total_active_secrets: number;
@@ -2611,6 +2640,142 @@ export interface operations {
         content: {
           "text/plain": string;
         };
+      };
+      /** @description Internal server error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+    };
+  };
+  get_oidc_userinfo: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Tenant Sqid */
+        tenant_sqid: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OIDC Core 5.3.2 UserInfo response; only `sub` is exposed this slice */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OidcUserInfoResponse"];
+        };
+      };
+      /** @description Malformed tenant identifier; the RFC 6750 3.1 challenge carries `invalid_request` without a realm */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description RFC 6750 3.1 bearer challenge: no token presented (no error code) or a presented token failed verification (`invalid_token`) */
+      401: {
+        headers: {
+          /** @description RFC 6750 3.1 challenge with the tenant issuer realm */
+          "WWW-Authenticate"?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Preview disabled or tenant unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Only GET and POST are supported (empty body) */
+      405: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Internal server error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+    };
+  };
+  post_oidc_userinfo: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Tenant Sqid */
+        tenant_sqid: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description OIDC Core 5.3.2 UserInfo response; only `sub` is exposed this slice */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OidcUserInfoResponse"];
+        };
+      };
+      /** @description Malformed tenant identifier; the RFC 6750 3.1 challenge carries `invalid_request` without a realm */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description RFC 6750 3.1 bearer challenge: no token presented (no error code) or a presented token failed verification (`invalid_token`) */
+      401: {
+        headers: {
+          /** @description RFC 6750 3.1 challenge with the tenant issuer realm */
+          "WWW-Authenticate"?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Preview disabled or tenant unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/plain": string;
+        };
+      };
+      /** @description Only GET and POST are supported (empty body) */
+      405: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description Internal server error */
       500: {
