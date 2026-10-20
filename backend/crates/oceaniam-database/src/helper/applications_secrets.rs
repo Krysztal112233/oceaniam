@@ -267,6 +267,9 @@ pub trait ApplicationSecretsHelper {
         use model::application_secrets::Column::*;
 
         let result = ApplicationSecrets::update_many()
+            .filter(Id.eq(secret_id))
+            .filter(HmacKeyVersion.eq(old_hmac_key_version))
+            .filter(SecretVerifier.eq(old_secret_verifier.to_vec()))
             .col_expr(
                 HmacKeyVersion,
                 sea_orm::sea_query::Expr::value(new_hmac_key_version),
@@ -275,9 +278,6 @@ pub trait ApplicationSecretsHelper {
                 SecretVerifier,
                 sea_orm::sea_query::Expr::value(new_secret_verifier),
             )
-            .filter(Id.eq(secret_id))
-            .filter(HmacKeyVersion.eq(old_hmac_key_version))
-            .filter(SecretVerifier.eq(old_secret_verifier.to_vec()))
             .exec(database)
             .await?;
 

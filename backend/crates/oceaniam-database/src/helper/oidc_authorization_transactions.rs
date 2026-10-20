@@ -296,6 +296,10 @@ pub trait OidcAuthorizationTransactionsHelper {
         }
 
         let updated = OidcAuthorizationTransactions::update_many()
+            .filter(Id.eq(candidate.id))
+            .filter(Status.eq(OidcAuthorizationTransactionStatus::Pending))
+            .filter(TerminalAt.is_null())
+            .filter(Revision.eq(expected_revision))
             .col_expr(
                 Status,
                 Expr::value(OidcAuthorizationTransactionStatus::Authenticated),
@@ -303,10 +307,6 @@ pub trait OidcAuthorizationTransactionsHelper {
             .col_expr(SubjectId, Expr::value(subject_id))
             .col_expr(AuthenticatedAt, Expr::value(now))
             .col_expr(Revision, Expr::col(Revision).add(1))
-            .filter(Id.eq(candidate.id))
-            .filter(Status.eq(OidcAuthorizationTransactionStatus::Pending))
-            .filter(TerminalAt.is_null())
-            .filter(Revision.eq(expected_revision))
             .exec_with_returning(database)
             .await
             .map_err(|_| authorization_transaction_storage_error())?;
@@ -362,16 +362,16 @@ pub trait OidcAuthorizationTransactionsHelper {
         }
 
         let updated = OidcAuthorizationTransactions::update_many()
+            .filter(Id.eq(candidate.id))
+            .filter(Status.eq(OidcAuthorizationTransactionStatus::Pending))
+            .filter(TerminalAt.is_null())
+            .filter(Revision.eq(expected_revision))
             .col_expr(
                 Status,
                 Expr::value(OidcAuthorizationTransactionStatus::AwaitingChallenge),
             )
             .col_expr(ChallengeId, Expr::value(challenge_id))
             .col_expr(Revision, Expr::col(Revision).add(1))
-            .filter(Id.eq(candidate.id))
-            .filter(Status.eq(OidcAuthorizationTransactionStatus::Pending))
-            .filter(TerminalAt.is_null())
-            .filter(Revision.eq(expected_revision))
             .exec_with_returning(database)
             .await
             .map_err(|_| authorization_transaction_storage_error())?;
@@ -429,6 +429,11 @@ pub trait OidcAuthorizationTransactionsHelper {
         }
 
         let updated = OidcAuthorizationTransactions::update_many()
+            .filter(Id.eq(candidate.id))
+            .filter(Status.eq(OidcAuthorizationTransactionStatus::AwaitingChallenge))
+            .filter(TerminalAt.is_null())
+            .filter(Revision.eq(expected_revision))
+            .filter(ChallengeId.eq(challenge_id))
             .col_expr(
                 Status,
                 Expr::value(OidcAuthorizationTransactionStatus::Authenticated),
@@ -436,11 +441,6 @@ pub trait OidcAuthorizationTransactionsHelper {
             .col_expr(SubjectId, Expr::value(subject_id))
             .col_expr(AuthenticatedAt, Expr::value(now))
             .col_expr(Revision, Expr::col(Revision).add(1))
-            .filter(Id.eq(candidate.id))
-            .filter(Status.eq(OidcAuthorizationTransactionStatus::AwaitingChallenge))
-            .filter(TerminalAt.is_null())
-            .filter(Revision.eq(expected_revision))
-            .filter(ChallengeId.eq(challenge_id))
             .exec_with_returning(database)
             .await
             .map_err(|_| authorization_transaction_storage_error())?;
@@ -493,16 +493,16 @@ pub trait OidcAuthorizationTransactionsHelper {
             }
 
             let updated = OidcAuthorizationTransactions::update_many()
+                .filter(Id.eq(candidate.id))
+                .filter(Status.eq(OidcAuthorizationTransactionStatus::Pending))
+                .filter(TerminalAt.is_null())
+                .filter(Revision.eq(expected_revision))
                 .col_expr(
                     Status,
                     Expr::value(OidcAuthorizationTransactionStatus::Cancelled),
                 )
                 .col_expr(TerminalAt, Expr::value(now))
                 .col_expr(Revision, Expr::col(Revision).add(1))
-                .filter(Id.eq(candidate.id))
-                .filter(Status.eq(OidcAuthorizationTransactionStatus::Pending))
-                .filter(TerminalAt.is_null())
-                .filter(Revision.eq(expected_revision))
                 .exec_with_returning(&transaction)
                 .await
                 .map_err(|_| authorization_transaction_storage_error())?;
@@ -548,9 +548,9 @@ pub trait OidcAuthorizationTransactionsHelper {
         use model::oidc_authorization_transactions::Column::*;
 
         let updated = OidcAuthorizationTransactions::update_many()
-            .col_expr(TerminalAt, Expr::cust("clock_timestamp()"))
             .filter(Id.eq(id))
             .filter(TerminalAt.is_null())
+            .col_expr(TerminalAt, Expr::cust("clock_timestamp()"))
             .exec_with_returning(database)
             .await
             .map_err(|_| authorization_transaction_storage_error())?;

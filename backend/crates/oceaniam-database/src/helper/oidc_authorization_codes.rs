@@ -83,10 +83,10 @@ pub trait OidcAuthorizationCodesHelper {
         use model::oidc_authorization_codes::Column::*;
 
         let updated = OidcAuthorizationCodes::update_many()
-            .col_expr(RedeemedAt, Expr::cust("clock_timestamp()"))
             .filter(CodeDigest.eq(code_digest.to_vec()))
             .filter(RedeemedAt.is_null())
             .filter(Expr::col(ExpiresAt).gt(Expr::cust("clock_timestamp()")))
+            .col_expr(RedeemedAt, Expr::cust("clock_timestamp()"))
             .exec_with_returning(database)
             .await
             .map_err(|_| authorization_code_storage_error())?;

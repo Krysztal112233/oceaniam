@@ -135,9 +135,9 @@ pub trait TenantsHelper {
         use model::tenants::Column::*;
 
         let updated = Tenants::update_many()
-            .col_expr(Comment, Expr::value(comment))
             .filter(Id.eq(id))
             .filter(Id.ne(consts::SYSTEM_TENANT_UUID))
+            .col_expr(Comment, Expr::value(comment))
             .exec_with_returning(database)
             .await?;
 

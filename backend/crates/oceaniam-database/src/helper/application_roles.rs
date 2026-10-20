@@ -102,8 +102,8 @@ pub trait ApplicationRolesHelper {
         use model::application_roles::Column::*;
 
         let updated = ApplicationRoles::update_many()
-            .col_expr(Name, Expr::value(name))
             .filter(Id.eq(role_id))
+            .col_expr(Name, Expr::value(name))
             .exec_with_returning(database)
             .await?;
 

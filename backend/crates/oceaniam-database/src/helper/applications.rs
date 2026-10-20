@@ -240,9 +240,9 @@ pub trait ApplicationHelper {
 
         let configuration = serde_json::to_value(configuration)?;
         let updated = Applications::update_many()
-            .col_expr(Configuration, Expr::value(configuration))
             .filter(Id.eq(application_id))
             .filter(Id.ne(consts::SYSTEM_APPLICATION_UUID))
+            .col_expr(Configuration, Expr::value(configuration))
             .exec_with_returning(database)
             .await?;
 
@@ -268,9 +268,9 @@ pub trait ApplicationHelper {
         use model::applications::Column::*;
 
         let updated = Applications::update_many()
-            .col_expr(Comment, Expr::value(comment))
             .filter(Id.eq(application_id))
             .filter(Id.ne(consts::SYSTEM_APPLICATION_UUID))
+            .col_expr(Comment, Expr::value(comment))
             .exec_with_returning(database)
             .await?;
 

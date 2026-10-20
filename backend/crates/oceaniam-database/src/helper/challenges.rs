@@ -143,11 +143,11 @@ pub trait ChallengesHelper {
         use model::challenges::Column::*;
 
         let updated = Challenges::update_many()
-            .col_expr(Status, Expr::value(ChallengeStatusType::Consumed))
-            .col_expr(ConsumedAt, Expr::cust("clock_timestamp()"))
             .filter(Id.eq(id))
             .filter(Status.eq(ChallengeStatusType::Pending))
             .filter(Expr::col(ExpiresAt).gt(Expr::cust("clock_timestamp()")))
+            .col_expr(Status, Expr::value(ChallengeStatusType::Consumed))
+            .col_expr(ConsumedAt, Expr::cust("clock_timestamp()"))
             .exec_with_returning(database)
             .await?;
 
@@ -238,10 +238,10 @@ pub trait ChallengesHelper {
         use model::challenges::Column::*;
 
         let updated = Challenges::update_many()
-            .col_expr(AttemptCount, Expr::col(AttemptCount).add(1))
             .filter(Id.eq(id))
             .filter(Status.eq(ChallengeStatusType::Pending))
             .filter(Expr::col(AttemptCount).lt(Expr::col(MaxAttempts)))
+            .col_expr(AttemptCount, Expr::col(AttemptCount).add(1))
             .exec_with_returning(database)
             .await?;
 
@@ -266,11 +266,11 @@ pub trait ChallengesHelper {
         use model::challenges::Column::*;
 
         let updated = Challenges::update_many()
-            .col_expr(Status, Expr::value(ChallengeStatusType::Consumed))
-            .col_expr(ConsumedAt, Expr::cust("clock_timestamp()"))
             .filter(Id.eq(id))
             .filter(Status.eq(ChallengeStatusType::Pending))
             .filter(Expr::col(ExpiresAt).gt(Expr::cust("clock_timestamp()")))
+            .col_expr(Status, Expr::value(ChallengeStatusType::Consumed))
+            .col_expr(ConsumedAt, Expr::cust("clock_timestamp()"))
             .exec_with_returning(database)
             .await?;
 

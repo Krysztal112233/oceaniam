@@ -88,6 +88,7 @@ pub trait SubjectsHelper {
         // durations beyond ~292k years saturate.
         let microseconds = ttl.num_microseconds().unwrap_or(i64::MAX);
         let updated = Subjects::update_many()
+            .filter(model::subjects::Column::Id.eq(id))
             .col_expr(
                 model::subjects::Column::ExpiresAt,
                 Expr::cust_with_values(
@@ -95,7 +96,6 @@ pub trait SubjectsHelper {
                     [microseconds],
                 ),
             )
-            .filter(model::subjects::Column::Id.eq(id))
             .exec_with_returning(database)
             .await?;
 

@@ -148,8 +148,8 @@ pub trait AdministratorsHelper {
         };
 
         let updated = Administrators::update_many()
-            .col_expr(Name, Expr::value(name))
             .filter(Id.eq(id))
+            .col_expr(Name, Expr::value(name))
             .exec_with_returning(database)
             .await?;
 
