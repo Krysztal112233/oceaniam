@@ -13,8 +13,8 @@ use oceaniam_common::{consts, crypto::MasterKey, run_cpu_bound};
 use oceaniam_database::{
     config::application::ApplicationConfiguration,
     helper::{
-        SafeTransactionConnectionTrait, applications::ApplicationHelper, key_boxes::KeyBoxesHelper,
-        tenants::TenantsHelper,
+        SafeTransactionConnectionTrait, applications::ApplicationHelper, db_clock_now,
+        key_boxes::KeyBoxesHelper, tenants::TenantsHelper,
     },
     model::{
         prelude::{Applications, KeyBoxes, Tenants},
@@ -106,8 +106,11 @@ impl ManagedKeyBoxes {
                     }
 
                     debug!(%tenant_id, "keybox is empty, auto-creating default keybox");
+                    let now = db_clock_now(&database)
+                        .await
+                        .inspect_err(|e| error!("{e}"))?;
                     let mut keybox = KeyBox::new(tenant_id, master_key);
-                    keybox.rotate().await.inspect_err(|e| error!("{e}"))?;
+                    keybox.rotate(now).await.inspect_err(|e| error!("{e}"))?;
                     keybox
                         .write_to(&database)
                         .await
@@ -138,8 +141,8 @@ impl ManagedKeyBoxes {
     /// Creates a new initial keybox for a tenant with a single initial key.
     ///
     /// This is called during tenant creation to bootstrap the tenant's
-    /// signing key.  The initial key is created with default [`KeyOption`]
-    /// timestamps and immediately persisted to the database and cached.
+    /// signing key.  The initial key is created with [`KeyOption`] timestamps anchored on a
+    /// database-clock sample and immediately persisted to the database and cached.
     pub async fn create_keybox(&self, tenant_id: Uuid) -> Result<KeyBox, Error> {
         let keybox = self.create_keybox_in_tx(tenant_id, &self.database).await?;
 
@@ -161,7 +164,8 @@ impl ManagedKeyBoxes {
     ) -> Result<KeyBox, Error> {
         let mut keybox = KeyBox::new(tenant_id, self.master_key.clone());
 
-        keybox.rotate().await.inspect_err(|e| error!("{e}"))?;
+        let now = db_clock_now(transaction).await?;
+        keybox.rotate(now).await.inspect_err(|e| error!("{e}"))?;
 
         keybox
             .write_to(transaction)
@@ -193,7 +197,8 @@ impl ManagedKeyBoxes {
     )]
     pub async fn rotate_key(&self, tenant_id: Uuid) -> Result<(), Error> {
         let mut keybox = self.get_keybox(tenant_id).await?;
-        keybox.rotate().await?;
+        let now = db_clock_now(&self.database).await?;
+        keybox.rotate(now).await?;
 
         keybox.write_to(&self.database).await?;
 
@@ -212,7 +217,8 @@ impl ManagedKeyBoxes {
     pub async fn revoke_key(&self, tenant_id: Uuid, key_id: Uuid) -> Result<(), Error> {
         let mut keybox = self.get_keybox(tenant_id).await?;
 
-        keybox.revoke_key(&key_id)?;
+        let now = db_clock_now(&self.database).await?;
+        keybox.revoke_key(&key_id, now)?;
         keybox.write_to(&self.database).await?;
 
         self.boxes.insert(tenant_id, keybox).await;
@@ -241,6 +247,23 @@ impl ManagedKeyBoxes {
     {
         debug!("signing jwt for sub {}", sub);
 
+        let key = self.active_signing_key(tenant_id).await?;
+
+        let claim = T::new(
+            sub,
+            Duration::from_hours(24 * 5).as_secs() as i64,
+            Some(iss),
+            Some(aud),
+        );
+
+        sign_claim_with_raw_key(key, self.master_key, claim).await
+    }
+
+    /// Loads the tenant keybox and selects its latest [`Active`](KeyStatus::Active) signing key.
+    ///
+    /// Shared by [`Self::sign_jwt`] and [`Self::sign_assembled_jwt`] so both paths keep identical
+    /// key selection and failure semantics (500 on a missing keybox or missing active key).
+    async fn active_signing_key(&self, tenant_id: Uuid) -> Result<RawKey, Error> {
         let Ok(keybox) = self
             .get_keybox(tenant_id)
             .await
@@ -262,14 +285,7 @@ impl ManagedKeyBoxes {
 
         debug!("found active key with algorithm: {:?}", key.key_alg);
 
-        let claim = T::new(
-            sub,
-            Duration::from_hours(24 * 5).as_secs() as i64,
-            Some(iss),
-            Some(aud),
-        );
-
-        sign_jwt_with_raw_key(key, self.master_key, claim).await
+        Ok(key)
     }
 
     /// Signs an already-assembled claim set with the tenant keybox's active key.
@@ -278,6 +294,11 @@ impl ManagedKeyBoxes {
     /// one-hour TTL that the hardcoded five-day `ClaimHelper::new` construction in
     /// [`Self::sign_jwt`] cannot express, so the caller assembles the claims. Key selection
     /// and failure semantics are identical to `sign_jwt`, which is untouched.
+    ///
+    /// Note: callers invoke this while holding a database transaction with row locks (OIDC
+    /// token issuance), so the lock is held across the RSA signing and, on a keybox cache
+    /// miss, across the keybox read as well — a throughput consideration when sizing the
+    /// transaction scope.
     #[tracing::instrument(
         level = "info",
         name = "keybox.sign_assembled_jwt",
@@ -292,26 +313,7 @@ impl ManagedKeyBoxes {
     where
         T: Serialize + DeserializeOwned + Clone + Send + 'static,
     {
-        let Ok(keybox) = self
-            .get_keybox(tenant_id)
-            .await
-            .inspect_err(|e| error!("cannot find keybox of {tenant_id}: {e}"))
-        else {
-            return Err(Error::with_code(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "!!!CANNOT FIND TENANT KEYBOX, THIS MUST BE ERROR!!!",
-            ));
-        };
-
-        let Some(key) = keybox.get_latest_raw_key(KeyStatus::Active) else {
-            error!("cannot find active key in keybox of {tenant_id}",);
-            return Err(Error::with_code(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "!!!CANNOT FIND ACTIVE KEY IN TENANT KEYBOX, THIS MUST BE ERROR!!!",
-            ));
-        };
-
-        debug!("found active key with algorithm: {:?}", key.key_alg);
+        let key = self.active_signing_key(tenant_id).await?;
 
         sign_claim_with_raw_key(key, self.master_key, claim).await
     }
@@ -338,17 +340,6 @@ impl ManagedKeyBoxes {
         )
         .await
     }
-}
-
-async fn sign_jwt_with_raw_key<T>(
-    key: RawKey,
-    master_key: Arc<MasterKey>,
-    claim: T,
-) -> Result<EncodedJwt<T>, Error>
-where
-    T: ClaimHelper + Send + 'static,
-{
-    sign_claim_with_raw_key(key, master_key, claim).await
 }
 
 /// Shared RSA signing body. `ClaimHelper::encode` is exactly `JwtCodec::encode`, so routing
@@ -476,7 +467,7 @@ mod tests {
         let dispatch = tracing::Dispatch::new(subscriber);
         let _default = tracing::dispatcher::set_default(&dispatch);
 
-        let encoded = async { sign_jwt_with_raw_key(raw_key, master_key, claim).await }
+        let encoded = async { sign_claim_with_raw_key(raw_key, master_key, claim).await }
             .instrument(tracing::info_span!("test.request"))
             .await
             .expect("sign test JWT");
