@@ -116,6 +116,34 @@ pub trait OidcClientsHelper {
             .ok_or_else(oidc_client_not_found)
     }
 
+    /// Reads a registered client by its public `client_id` string, scoped to the tenant that
+    /// owns the client's application.
+    ///
+    /// The OIDC UserInfo endpoint resolves the access token's `aud` through this lookup: the
+    /// JWT audience is the public client string, and a client of another tenant must not
+    /// satisfy it.
+    #[tracing::instrument(
+        level = "info",
+        name = "db.oidc_clients.get_of_tenant",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
+    async fn get_client_of_tenant(
+        tenant_id: Uuid,
+        client_id: &str,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<model::oidc_clients::Model, Error> {
+        use model::oidc_clients::Column::*;
+
+        OidcClients::find()
+            .filter(ClientId.eq(client_id))
+            .inner_join(model::prelude::Applications)
+            .filter(model::applications::Column::TenantId.eq(tenant_id))
+            .one(database)
+            .await?
+            .ok_or_else(oidc_client_not_found)
+    }
+
     /// Reads a client by primary key.
     ///
     /// The OIDC token endpoint resolves the registered public `client_id` string through this
