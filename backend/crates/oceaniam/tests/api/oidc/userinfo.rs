@@ -9,7 +9,9 @@ use uuid::Uuid;
 
 use crate::support::{
     TestApp,
-    oidc_drive::{LoginFixture, drive_user_token, seed_login_fixture, spawn_preview},
+    oidc_drive::{
+        LoginFixture, USER_PASSWORD, drive_user_token, seed_login_fixture, spawn_preview,
+    },
     spawn_app_with_isolated_schema, sqid_to_uuid, uuid_to_sqid,
 };
 
@@ -36,10 +38,21 @@ async fn get_userinfo(app: &TestApp, tenant_sqid: &str, authorization: Option<&s
     request.send().await.expect("userinfo GET request")
 }
 
-async fn post_userinfo(app: &TestApp, tenant_sqid: &str, authorization: Option<&str>) -> Response {
+async fn post_userinfo(
+    app: &TestApp,
+    tenant_sqid: &str,
+    authorization: Option<&str>,
+    body: Option<String>,
+) -> Response {
     let request = app.client.post(app.url(&userinfo_path(tenant_sqid)));
     let request = match authorization {
         Some(value) => request.header("authorization", value),
+        None => request,
+    };
+    let request = match body {
+        Some(body) => request
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(body),
         None => request,
     };
     request.send().await.expect("userinfo POST request")
@@ -224,7 +237,13 @@ async fn happy_path_post_returns_sub_and_ignores_the_body() {
     let expected_sub = user_oidc_sub(&app, user_id).await.to_string();
 
     // Plain POST is equivalent to GET (OIDC Core 5.3.1 MUST support both).
-    let response = post_userinfo(&app, &fixture.tenant_sqid, Some(&bearer(&access_token))).await;
+    let response = post_userinfo(
+        &app,
+        &fixture.tenant_sqid,
+        Some(&bearer(&access_token)),
+        None,
+    )
+    .await;
     assert_eq!(response.status(), 200);
     assert_common_headers(&response);
     let body: serde_json::Value = response.json().await.expect("userinfo body");
@@ -274,6 +293,17 @@ async fn missing_authorization_header_is_challenged_without_error_code() {
         .send()
         .await
         .expect("userinfo GET with query token");
+    assert_missing_token_challenge(response, &fixture.tenant_sqid).await;
+
+    // Reverse assertion: a POST whose ONLY credential carrier is the form body never presents
+    // the token either, so it receives the same missing-token challenge (no error code).
+    let response = post_userinfo(
+        &app,
+        &fixture.tenant_sqid,
+        None,
+        Some(format!("access_token={access_token}")),
+    )
+    .await;
     assert_missing_token_challenge(response, &fixture.tenant_sqid).await;
 }
 
@@ -476,12 +506,15 @@ async fn deleted_subject_is_invalid_token() {
 #[tokio::test]
 async fn disabled_preview_gate_is_404() {
     let app = spawn_app_with_isolated_schema().await;
-    let tenant_sqid = oceaniam_common::sqid::Sqid::from(Uuid::now_v7()).to_string();
+    // The management API is not preview-gated, so the fixture (with its REAL tenant) can be
+    // seeded on a preview-disabled app.
+    let fixture = seed_login_fixture(&app).await;
 
-    let response = get_userinfo(&app, &tenant_sqid, None).await;
+    // The PreviewEnabled extractor answers with a plain-text "not found" body BEFORE any
+    // tenant resolution or bearer challenge: a broken gate would instead reach
+    // `handle_userinfo` and answer 401 with the missing-token challenge for this real tenant.
+    let response = get_userinfo(&app, &fixture.tenant_sqid, None).await;
     assert_eq!(response.status(), 404);
-    // The PreviewEnabled extractor answers with a plain-text "not found" body, which
-    // discriminates the gate-closed 404 from a route-absent 404.
     assert_eq!(
         response
             .headers()
@@ -645,26 +678,33 @@ async fn empty_audience_claim_is_invalid_token() {
 async fn cross_tenant_audience_is_invalid_token() {
     let app = spawn_preview().await;
     let fixture = seed_login_fixture(&app).await;
-    let (user_id, _) = drive_user_token(
-        &app,
-        &fixture,
-        "userinfo-cross-aud@example.com",
-        "cross-aud-state",
-    )
-    .await;
 
-    // Register a client under a DIFFERENT tenant.
+    // Register a client AND the subject user under a DIFFERENT tenant's application.
     let other_tenant = app.api_create_tenant(&fixture.token).await;
     let other_tenant_sqid = other_tenant["id"].as_str().unwrap().to_string();
     let other_application = app
         .api_create_application(&fixture.token, &other_tenant_sqid)
         .await;
-    let other_application_id = sqid_to_uuid(other_application["application_id"].as_str().unwrap());
+    let other_application_sqid = other_application["application_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let other_user = app
+        .api_create_user_with_credentials(
+            &fixture.token,
+            &other_tenant_sqid,
+            &other_application_sqid,
+            "userinfo-cross-aud@example.com",
+            USER_PASSWORD,
+        )
+        .await;
+    let other_oidc_sub =
+        user_oidc_sub(&app, sqid_to_uuid(other_user["id"].as_str().unwrap())).await;
     let other_client_id = format!("other-tenant-client-{}", Uuid::now_v7().simple());
     let database = app.database().await;
     OidcClients::create_client(
         Uuid::now_v7(),
-        other_application_id,
+        sqid_to_uuid(&other_application_sqid),
         other_client_id.clone(),
         "Other tenant client".to_owned(),
         &database,
@@ -672,15 +712,18 @@ async fn cross_tenant_audience_is_invalid_token() {
     .await
     .expect("create other tenant client");
 
-    // Tenant A signs the token, but the audience names tenant B's client: the tenant-scoped
-    // client resolution must miss.
+    // Tenant A signs the token, but the audience names tenant B's client and the subject is
+    // tenant B's user: the tenant-scoped client resolution must miss. Without the TenantId
+    // filter in `get_client_of_tenant` the client AND the subject would both resolve (they
+    // belong to tenant B's application) and this request would answer 200 — this test kills
+    // that mutation.
     let now = chrono::Utc::now().timestamp();
     let token = sign_claim(
         &app,
         &fixture,
         claim_for(
             &fixture,
-            user_oidc_sub(&app, user_id).await,
+            other_oidc_sub,
             now,
             now + 3600,
             vec![other_client_id],
@@ -718,6 +761,88 @@ async fn missing_issuer_claim_is_invalid_token() {
             aud: vec![fixture.client_id.clone()],
             jti: Uuid::now_v7(),
         },
+    )
+    .await;
+
+    let response = get_userinfo(&app, &fixture.tenant_sqid, Some(&bearer(&token))).await;
+    assert_invalid_token(response, &fixture.tenant_sqid, Some(&token)).await;
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn mismatched_issuer_is_invalid_token() {
+    let app = spawn_preview().await;
+    let fixture = seed_login_fixture(&app).await;
+    let (user_id, _) = drive_user_token(
+        &app,
+        &fixture,
+        "userinfo-bad-iss@example.com",
+        "bad-iss-state",
+    )
+    .await;
+
+    // Tenant A's own keybox signs the token, so the kid IS present in the tenant JWKS and the
+    // signature verifies; only the pinned issuer rejects it.
+    let now = chrono::Utc::now().timestamp();
+    let mut claim = claim_for(
+        &fixture,
+        user_oidc_sub(&app, user_id).await,
+        now,
+        now + 3600,
+        vec![fixture.client_id.clone()],
+    );
+    claim.iss = Some(format!("{}/impostor", tenant_issuer(&fixture.tenant_sqid)));
+    let token = sign_claim(&app, &fixture, claim).await;
+
+    let response = get_userinfo(&app, &fixture.tenant_sqid, Some(&bearer(&token))).await;
+    assert_invalid_token(response, &fixture.tenant_sqid, Some(&token)).await;
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
+async fn cross_application_subject_is_invalid_token() {
+    let app = spawn_preview().await;
+    let fixture = seed_login_fixture(&app).await;
+    let (user_id, _) = drive_user_token(
+        &app,
+        &fixture,
+        "userinfo-cross-app@example.com",
+        "cross-app-state",
+    )
+    .await;
+
+    // Same tenant, second application with its own client.
+    let second_application = app
+        .api_create_application(&fixture.token, &fixture.tenant_sqid)
+        .await;
+    let second_application_id =
+        sqid_to_uuid(second_application["application_id"].as_str().unwrap());
+    let second_client_id = format!("second-app-client-{}", Uuid::now_v7().simple());
+    let database = app.database().await;
+    OidcClients::create_client(
+        Uuid::now_v7(),
+        second_application_id,
+        second_client_id.clone(),
+        "Second application client".to_owned(),
+        &database,
+    )
+    .await
+    .expect("create second application client");
+
+    // The audience resolves to the SECOND application's client, but the subject is the FIRST
+    // application's user: `resolve_oidc_subject` under the second application must miss
+    // (same-tenant cross-application confused-deputy guard).
+    let now = chrono::Utc::now().timestamp();
+    let token = sign_claim(
+        &app,
+        &fixture,
+        claim_for(
+            &fixture,
+            user_oidc_sub(&app, user_id).await,
+            now,
+            now + 3600,
+            vec![second_client_id],
+        ),
     )
     .await;
 
