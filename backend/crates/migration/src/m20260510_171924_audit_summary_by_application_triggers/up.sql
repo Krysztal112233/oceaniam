@@ -8,7 +8,14 @@ CREATE TABLE audit_summary_by_application (
   PRIMARY KEY (application_id, day, audit_type)
 );
 
-CREATE FUNCTION upsert_audit_summary () RETURNS trigger AS $$
+-- Amended 2026-10-20: CREATE OR REPLACE (was plain CREATE FUNCTION), and the
+-- trigger creation below gained a DROP TRIGGER IF EXISTS guard. SeaORM
+-- fresh/refresh drops tables but not functions, so a function left behind while
+-- this migration is unrecorded deadlocked every later refresh with
+-- "function upsert_audit_summary already exists"; the trigger guard covers the
+-- symmetric orphan left by manual table surgery. See
+-- backend/crates/migration/README.md -> Amended committed migrations.
+CREATE OR REPLACE FUNCTION upsert_audit_summary () RETURNS trigger AS $$
 BEGIN
     IF NEW.payload #>> '{data,application_id}' IS NOT NULL THEN
         INSERT INTO audit_summary_by_application (application_id, day, audit_type, event_count)
@@ -24,6 +31,8 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_audits_insert_summary ON audits;
 
 CREATE TRIGGER trg_audits_insert_summary
 AFTER INSERT ON audits FOR EACH ROW

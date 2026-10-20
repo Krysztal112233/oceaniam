@@ -33,6 +33,27 @@ production rollback mechanism.
    `backend/crates/`, and after applying `up`, run `just gen-entities` from the
    workspace root to regenerate the SeaORM entity models.
 
+## Amended committed migrations
+
+Rule 1 forbids editing committed migrations; the following up-side amendments
+were approved by the project owner as targeted exceptions. Each is inert for
+databases that already applied the migration (they never re-run `up`), preserves
+the forward-only production policy, and exists only to keep development
+`fresh`/`refresh` workflows usable.
+
+- `m20260510_171924_audit_summary_by_application_triggers` — `up.sql` amended on
+  2026-10-20: plain `CREATE FUNCTION` became `CREATE OR REPLACE FUNCTION` for
+  `upsert_audit_summary()`, and `CREATE TRIGGER trg_audits_insert_summary`
+  gained a preceding `DROP TRIGGER IF EXISTS`. SeaORM `fresh`/`refresh` drops
+  tables but not functions, so a function left behind while this migration was
+  unrecorded (an interrupted `up`, or a `fresh` over a previously migrated
+  database) deadlocked every later `refresh`/`up` with
+  `function "upsert_audit_summary" already exists`, and the only statement able
+  to drop it (this migration's own `down.sql`) never runs for an unrecorded
+  migration. The trigger guard covers the symmetric orphan reachable through
+  manual table surgery (e.g. dropping the summary table by hand while `audits`
+  keeps its trigger).
+
 ## Known irreversible migrations
 
 Rolling back through any of these requires restoring from a backup.
