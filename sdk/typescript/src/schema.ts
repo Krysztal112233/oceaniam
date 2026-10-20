@@ -2676,6 +2676,8 @@ export interface operations {
       /** @description Malformed tenant identifier; the RFC 6750 3.1 challenge carries `invalid_request` without a realm */
       400: {
         headers: {
+          /** @description RFC 6750 3.1 challenge: `Bearer error="invalid_request"`, no realm */
+          "WWW-Authenticate"?: string;
           [name: string]: unknown;
         };
         content: {
@@ -2702,7 +2704,7 @@ export interface operations {
           "text/plain": string;
         };
       };
-      /** @description Only GET and POST are supported (empty body) */
+      /** @description Only GET and POST are supported (empty body; HEAD follows GET) */
       405: {
         headers: {
           [name: string]: unknown;
@@ -2744,6 +2746,8 @@ export interface operations {
       /** @description Malformed tenant identifier; the RFC 6750 3.1 challenge carries `invalid_request` without a realm */
       400: {
         headers: {
+          /** @description RFC 6750 3.1 challenge: `Bearer error="invalid_request"`, no realm */
+          "WWW-Authenticate"?: string;
           [name: string]: unknown;
         };
         content: {
@@ -2770,7 +2774,7 @@ export interface operations {
           "text/plain": string;
         };
       };
-      /** @description Only GET and POST are supported (empty body) */
+      /** @description Only GET and POST are supported (empty body; HEAD follows GET) */
       405: {
         headers: {
           [name: string]: unknown;

@@ -1292,6 +1292,14 @@
           },
           "400": {
             "description": "Malformed tenant identifier; the RFC 6750 3.1 challenge carries `invalid_request` without a realm",
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "RFC 6750 3.1 challenge: `Bearer error=\"invalid_request\"`, no realm"
+              }
+            },
             "content": {
               "text/plain": {
                 "schema": {
@@ -1329,7 +1337,7 @@
             }
           },
           "405": {
-            "description": "Only GET and POST are supported (empty body)"
+            "description": "Only GET and POST are supported (empty body; HEAD follows GET)"
           },
           "500": {
             "description": "Internal server error",
@@ -1371,6 +1379,14 @@
           },
           "400": {
             "description": "Malformed tenant identifier; the RFC 6750 3.1 challenge carries `invalid_request` without a realm",
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "RFC 6750 3.1 challenge: `Bearer error=\"invalid_request\"`, no realm"
+              }
+            },
             "content": {
               "text/plain": {
                 "schema": {
@@ -1408,7 +1424,7 @@
             }
           },
           "405": {
-            "description": "Only GET and POST are supported (empty body)"
+            "description": "Only GET and POST are supported (empty body; HEAD follows GET)"
           },
           "500": {
             "description": "Internal server error",
