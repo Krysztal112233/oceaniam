@@ -17,7 +17,7 @@ use oceaniam_common::config::{CookieConfig, PublicBaseUrl};
 use oceaniam_common::consts;
 use oceaniam_common::crypto::MasterKey;
 use oceaniam_database::{
-    helper::{SafeTransactionConnectionTrait, key_boxes::KeyBoxesHelper},
+    helper::{SafeTransactionConnectionTrait, db_clock_now, key_boxes::KeyBoxesHelper},
     model::prelude::KeyBoxes,
 };
 use oceaniam_keybox::KeyBox;
@@ -188,8 +188,9 @@ async fn initial_system_keybox(
         Err(e) => {
             error!("could not find any system keys, creating directly: {e}");
 
+            let now = db_clock_now(database).await?;
             let mut kb = KeyBox::new(consts::SYSTEM_TENANT_UUID, master_key);
-            kb.rotate().await.inspect_err(|e| error!("{e}"))?;
+            kb.rotate(now).await.inspect_err(|e| error!("{e}"))?;
 
             info!(
                 "the system keybox has been generated and is about to be written to the database."

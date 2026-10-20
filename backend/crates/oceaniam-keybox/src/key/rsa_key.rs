@@ -1,4 +1,3 @@
-use chrono::Utc;
 use oceaniam_auth::jwt::JwtCodec;
 use oceaniam_common::{
     consts,
@@ -193,14 +192,12 @@ impl TryIntoKeyModel for RsaKey {
             retired_at,
             expires_at,
         }: crate::keybox::KeyOption,
+        now: chrono::DateTime<chrono::FixedOffset>,
     ) -> Result<oceaniam_database::model::key_boxes::Model, Error> {
         let secret =
             serde_json::to_value(SecretField::from_rsa_private(self.private, master_key)?)?;
 
-        let status = {
-            let now: chrono::DateTime<chrono::FixedOffset> = Utc::now().into();
-            compute_key_status(&now, &activated_at, &retired_at, &expires_at)
-        };
+        let status = compute_key_status(&now, &activated_at, &retired_at, &expires_at);
 
         Ok(Key {
             id: self.key_id,
@@ -508,7 +505,7 @@ mod tests {
             key_alg: KeyAlg::try_from(Algorithm::PS512).expect("supported algorithm"),
             secret: secret.clone(),
         };
-        let now: chrono::DateTime<chrono::FixedOffset> = Utc::now().into();
+        let now: chrono::DateTime<chrono::FixedOffset> = chrono::Utc::now().into();
         let recovered_from_model = RsaKey::from_key(
             Key {
                 id: key_id,

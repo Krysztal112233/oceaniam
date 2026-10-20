@@ -1,3 +1,4 @@
+use chrono::{DateTime, FixedOffset};
 use oceaniam_auth::jwks::Jwk;
 use oceaniam_common::crypto::MasterKey;
 use serde_json::Value;
@@ -16,6 +17,7 @@ pub trait TryIntoKeyModel {
         tenant_id: Uuid,
         master_key: &MasterKey,
         options: KeyOption,
+        now: DateTime<FixedOffset>,
     ) -> Result<oceaniam_database::model::key_boxes::Model, Error>;
 }
 

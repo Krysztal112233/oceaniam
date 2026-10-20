@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use chrono::{Duration, Utc};
+use chrono::Duration;
 use linkme::distributed_slice;
 use oceaniam_audit::types::{AuditPayload, RotateKeyPayload};
 use oceaniam_database::{
-    helper::{audits::AuditsHelper, key_boxes::KeyBoxesHelper, tenants::TenantsHelper},
+    helper::{
+        audits::AuditsHelper, db_clock_now, key_boxes::KeyBoxesHelper, tenants::TenantsHelper,
+    },
     model::prelude::{Audits, KeyBoxes, Tenants},
     model::sea_orm_active_enums::KeyStatus,
 };
@@ -59,7 +61,11 @@ async fn process_tenant(
     let keys_map = keys.into_iter().map(|key| (key.id, key)).collect();
     let mut keybox = KeyBox::with_keys(tenant_id, keys_map, context.master_key.clone());
 
-    if keybox.update_keys_status() {
+    // Single database-clock sample (Rule 3) anchors status refreshes, the expiry predicate,
+    // and any rotated keys' lifecycle timestamps for this tenant pass.
+    let now = db_clock_now(&context.database).await?;
+
+    if keybox.update_keys_status(now) {
         debug!(%tenant_id, "key statuses refreshed");
         if let Err(error) = keybox.write_to(&context.database).await {
             error!(%tenant_id, %error, "failed to persist refreshed key statuses");
@@ -72,11 +78,11 @@ async fn process_tenant(
         .filter(|key| key.status == KeyStatus::Active)
         .max_by_key(|key| key.activated_at)
         .is_none_or(|key| {
-            key.expires_at.signed_duration_since(Utc::now()).num_days() < threshold.num_days()
+            key.expires_at.signed_duration_since(now).num_days() < threshold.num_days()
         });
 
     if should_rotate {
-        match keybox.rotate().await {
+        match keybox.rotate(now).await {
             Ok(()) => {
                 if let Err(error) = keybox.write_to(&context.database).await {
                     error!(%tenant_id, %error, "failed to persist rotated key");

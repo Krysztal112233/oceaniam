@@ -1,5 +1,5 @@
 use crate::error::Error;
-use chrono::{DateTime, FixedOffset, Utc};
+use chrono::{DateTime, FixedOffset};
 use itertools::Itertools;
 use oceaniam_common::crypto::MasterKey;
 use oceaniam_crypto::initialize_jwt_provider;
@@ -90,10 +90,12 @@ pub struct KeyOption {
     pub expires_at: DateTime<FixedOffset>,
 }
 
-impl Default for KeyOption {
-    /// Creates default key options with current time as creation timestamp
-    fn default() -> Self {
-        let now: DateTime<FixedOffset> = Utc::now().into();
+impl KeyOption {
+    /// Creates key options anchored on the supplied timestamp, which callers MUST sample
+    /// from the database clock (Rule 3: `db_clock_now`).
+    ///
+    /// The key activates immediately, retires after 30 days, and expires after 60 days.
+    pub fn starting_at(now: DateTime<FixedOffset>) -> Self {
         Self {
             created_at: now,
             activated_at: now,
@@ -134,14 +136,19 @@ impl KeyBox {
         }
     }
 
-    /// Adds a new key with default options.
+    /// Adds a new key with options anchored on `now`.
     ///
     /// Returns an error if a key with the same ID already exists in this keybox.
-    pub fn add_key<T>(&mut self, key: T) -> Result<(), Error>
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The key to add, must implement `TryIntoKeyModel`
+    /// * `now` - Database-clock timestamp anchoring the key lifecycle (Rule 3)
+    pub fn add_key<T>(&mut self, key: T, now: DateTime<FixedOffset>) -> Result<(), Error>
     where
         T: TryIntoKeyModel,
     {
-        self.add_key_with_option(key, KeyOption::default())
+        self.add_key_with_option(key, KeyOption::starting_at(now), now)
     }
 
     /// Adds a new key with custom options.
@@ -152,11 +159,17 @@ impl KeyBox {
     ///
     /// * `key` - The key to add, must implement `TryIntoKeyModel`
     /// * `options` - Configuration options for the key lifecycle
-    pub fn add_key_with_option<T>(&mut self, key: T, options: KeyOption) -> Result<(), Error>
+    /// * `now` - Database-clock timestamp used to compute the initial key status (Rule 3)
+    pub fn add_key_with_option<T>(
+        &mut self,
+        key: T,
+        options: KeyOption,
+        now: DateTime<FixedOffset>,
+    ) -> Result<(), Error>
     where
         T: TryIntoKeyModel,
     {
-        let key = key.try_into_key_model(self.tenant_id, &self.master_key, options)?;
+        let key = key.try_into_key_model(self.tenant_id, &self.master_key, options, now)?;
 
         if self.keys.contains_key(&key.id) {
             return Err(Error::KeyAlreadyExists {
@@ -218,7 +231,7 @@ impl KeyBox {
         skip_all,
         fields(otel.kind = "internal", tenant.id = %self.tenant_id, key.id = %key_id)
     )]
-    pub fn revoke_key(&mut self, key_id: &Uuid) -> Result<(), Error> {
+    pub fn revoke_key(&mut self, key_id: &Uuid, now: DateTime<FixedOffset>) -> Result<(), Error> {
         let Some(mut key) = self.keys.get(key_id).cloned() else {
             return Err(Error::KeyNotFound {
                 id: *key_id,
@@ -227,7 +240,7 @@ impl KeyBox {
         };
 
         key.status = KeyStatus::Revoked;
-        key.revoked_at = Some(Utc::now().into());
+        key.revoked_at = Some(now);
 
         self.keys.insert(*key_id, key);
         Ok(())
@@ -243,11 +256,11 @@ impl KeyBox {
         skip_all,
         fields(otel.kind = "internal", tenant.id = %self.tenant_id)
     )]
-    pub async fn rotate_key(&mut self) -> Result<Key, Error> {
+    pub async fn rotate_key(&mut self, now: DateTime<FixedOffset>) -> Result<Key, Error> {
         let rsa_key = RsaKey::generate(Uuid::now_v7(), sea_orm_active_enums::KeyAlg::Ps512).await?;
         let key_id = rsa_key.key_id();
 
-        self.add_key_with_option(rsa_key, KeyOption::default())?;
+        self.add_key_with_option(rsa_key, KeyOption::starting_at(now), now)?;
 
         // NOTE: the key was just inserted, it exists and is not expired
         self.get_raw_key_unchecked(&key_id)
@@ -322,8 +335,11 @@ impl KeyBox {
     /// changed.
     ///
     /// Returns `true` if any status was updated.
-    pub fn update_keys_status(&mut self) -> bool {
-        let now: DateTime<FixedOffset> = Utc::now().into();
+    ///
+    /// # Arguments
+    ///
+    /// * `now` - Database-clock timestamp the statuses are evaluated against (Rule 3)
+    pub fn update_keys_status(&mut self, now: DateTime<FixedOffset>) -> bool {
         let mut changed = false;
 
         let updates: Vec<(Uuid, KeyStatus)> = self
@@ -358,10 +374,9 @@ impl KeyBox {
         skip_all,
         fields(otel.kind = "internal", tenant.id = %self.tenant_id)
     )]
-    pub async fn rotate(&mut self) -> Result<(), Error> {
-        self.update_keys_status();
+    pub async fn rotate(&mut self, now: DateTime<FixedOffset>) -> Result<(), Error> {
+        self.update_keys_status(now);
 
-        let now: DateTime<FixedOffset> = Utc::now().into();
         let interval = chrono::Duration::days(30);
 
         // `KeyAlg` lookup order: Active → Pending → Retired → PS512 (fallback)
@@ -383,7 +398,7 @@ impl KeyBox {
                 expires_at: now + interval * 2,
             };
             let key = RsaKey::generate(Uuid::now_v7(), algorithm.clone()).await?;
-            self.add_key_with_option(key, options)?;
+            self.add_key_with_option(key, options, now)?;
         }
 
         if !has_pending {
@@ -394,7 +409,7 @@ impl KeyBox {
                 expires_at: now + interval * 3,
             };
             let key = RsaKey::generate(Uuid::now_v7(), algorithm).await?;
-            self.add_key_with_option(key, options)?;
+            self.add_key_with_option(key, options, now)?;
         }
 
         Ok(())
@@ -687,7 +702,7 @@ mod tests {
         let key = create_rsa_key();
 
         // Put key
-        keybox.add_key(key.clone()).unwrap();
+        keybox.add_key(key.clone(), now_fixed()).unwrap();
 
         let Some(key) = keybox.get_raw_key(&key.key_id()) else {
             panic!("EXPECT ACTIVE KEY BUT CANNOT GET IT")
@@ -717,7 +732,7 @@ mod tests {
     async fn test_rotate_creates_active_and_pending_when_empty() {
         let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
 
-        keybox.rotate().await.unwrap();
+        keybox.rotate(now_fixed()).await.unwrap();
 
         assert!(
             keybox.get_latest_raw_key(KeyStatus::Active).is_some(),
@@ -731,12 +746,43 @@ mod tests {
 
     // NOTE: AI-generated test
     #[tokio::test]
+    async fn test_rotate_derives_new_key_timestamps_from_injected_now() {
+        let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
+        let injected = now_fixed();
+
+        keybox.rotate(injected).await.unwrap();
+
+        let active = keybox
+            .get_latest_raw_key(KeyStatus::Active)
+            .expect("expected an Active key after rotate");
+        let active = keybox
+            .get_raw_key_unchecked(&active.key_id)
+            .expect("active key must be retrievable");
+        assert_eq!(active.created_at, injected);
+        assert_eq!(active.activated_at, injected);
+        assert_eq!(active.retired_at, injected + Duration::days(30));
+        assert_eq!(active.expires_at, injected + Duration::days(60));
+
+        let pending = keybox
+            .get_latest_raw_key(KeyStatus::Pending)
+            .expect("expected a Pending key after rotate");
+        let pending = keybox
+            .get_raw_key_unchecked(&pending.key_id)
+            .expect("pending key must be retrievable");
+        assert_eq!(pending.created_at, injected);
+        assert_eq!(pending.activated_at, injected + Duration::days(30));
+        assert_eq!(pending.retired_at, injected + Duration::days(60));
+        assert_eq!(pending.expires_at, injected + Duration::days(90));
+    }
+
+    // NOTE: AI-generated test
+    #[tokio::test]
     async fn test_rotate_adds_only_pending_when_active_exists() {
         let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
-        keybox.add_key(create_rsa_key()).unwrap();
+        keybox.add_key(create_rsa_key(), now_fixed()).unwrap();
         let key_count_before = keybox.get_keys().len();
 
-        keybox.rotate().await.unwrap();
+        keybox.rotate(now_fixed()).await.unwrap();
 
         let key_count_after = keybox.get_keys().len();
         assert!(
@@ -771,7 +817,7 @@ mod tests {
         );
         let key_count_before = keybox.get_keys().len();
 
-        keybox.rotate().await.unwrap();
+        keybox.rotate(now_fixed()).await.unwrap();
 
         let key_count_after = keybox.get_keys().len();
         assert!(
@@ -792,7 +838,7 @@ mod tests {
     #[tokio::test]
     async fn test_rotate_is_noop_when_active_and_pending_exist() {
         let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
-        keybox.add_key(create_rsa_key()).unwrap();
+        keybox.add_key(create_rsa_key(), now_fixed()).unwrap();
         // Add an extra key that will remain Pending (activated_at in the future)
         let now: DateTime<FixedOffset> = Utc::now().into();
         let extra_key = create_rsa_standalone_key();
@@ -808,7 +854,7 @@ mod tests {
         );
         let key_count_before = keybox.get_keys().len();
 
-        keybox.rotate().await.unwrap();
+        keybox.rotate(now_fixed()).await.unwrap();
 
         assert_eq!(
             keybox.get_keys().len(),
@@ -833,11 +879,11 @@ mod tests {
         };
         let healthy = RsaKey::with_bit_size(healthy_key_id, InnerKeyAlg::Rs256, 2048)
             .expect("generate healthy test RSA key")
-            .try_into_key_model(tenant_id, &master_key, options())
+            .try_into_key_model(tenant_id, &master_key, options(), now)
             .expect("seal healthy test key");
         let mut unreadable = RsaKey::with_bit_size(unreadable_key_id, InnerKeyAlg::Rs256, 2048)
             .expect("generate unreadable test RSA key")
-            .try_into_key_model(tenant_id, &master_key, options())
+            .try_into_key_model(tenant_id, &master_key, options(), now)
             .expect("seal unreadable test key");
         unreadable.secret["ciphertext"] = Value::String("not-base64".to_owned());
         let keybox = KeyBox::with_keys(
@@ -859,9 +905,9 @@ mod tests {
         let mut keybox = KeyBox::new(Uuid::nil(), test_master_key());
 
         // Put key
-        keybox.add_key(create_rsa_key()).unwrap();
-        keybox.add_key(create_rsa_key()).unwrap();
-        keybox.add_key(create_rsa_key()).unwrap();
+        keybox.add_key(create_rsa_key(), now_fixed()).unwrap();
+        keybox.add_key(create_rsa_key(), now_fixed()).unwrap();
+        keybox.add_key(create_rsa_key(), now_fixed()).unwrap();
 
         let _ = JwkSet::try_from(keybox).unwrap();
     }
