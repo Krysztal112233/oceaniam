@@ -3,8 +3,8 @@ use axum::http::StatusCode;
 use chrono::{DateTime, Duration, FixedOffset};
 use oceaniam_common::helpers::gen_random;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseBackend, EntityTrait, ExprTrait,
-    QueryFilter, QuerySelect, Statement, sea_query::Expr,
+    ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, ExprTrait, QueryFilter,
+    QuerySelect, sea_query::Expr,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
@@ -212,16 +212,7 @@ pub trait ChallengesHelper {
         // PostgreSQL's CURRENT_TIMESTAMP is fixed at transaction start. Sample the wall clock
         // only after acquiring the row lock so time spent waiting cannot revive an expired
         // challenge.
-        let now: DateTime<FixedOffset> = database
-            .query_one_raw(Statement::from_string(
-                DatabaseBackend::Postgres,
-                "SELECT clock_timestamp() AS now".to_owned(),
-            ))
-            .await?
-            .ok_or(Error::from(sea_orm::DbErr::RecordNotFound(
-                "clock_timestamp".to_owned(),
-            )))?
-            .try_get("", "now")?;
+        let now: DateTime<FixedOffset> = db_clock_now(database).await?;
         if challenge.expires_at <= now {
             return Err(challenge_not_found(id));
         }

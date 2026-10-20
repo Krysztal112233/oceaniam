@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::{
     error::Error,
-    helper::{SafeTransactionConnectionTrait, exactly_one_returned},
+    helper::{SafeTransactionConnectionTrait, db_clock_now, exactly_one_returned},
     model::{
         self,
         prelude::OidcAuthorizationTransactions,
@@ -362,15 +362,8 @@ pub trait OidcAuthorizationTransactionsHelper {
         // NOTE: PostgreSQL's CURRENT_TIMESTAMP is fixed at transaction start. Sample the wall clock
         // only after acquiring the row lock so time spent waiting cannot revive an expired
         // transaction.
-        let now: DateTime<FixedOffset> = database
-            .query_one_raw(Statement::from_string(
-                DatabaseBackend::Postgres,
-                "SELECT clock_timestamp() AS now".to_owned(),
-            ))
+        let now: DateTime<FixedOffset> = db_clock_now(database)
             .await
-            .map_err(|_| authorization_transaction_storage_error())?
-            .ok_or_else(authorization_transaction_storage_error)?
-            .try_get("", "now")
             .map_err(|_| authorization_transaction_storage_error())?;
         if candidate.expires_at <= now {
             return Err(authorization_transaction_unavailable());
