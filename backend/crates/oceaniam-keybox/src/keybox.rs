@@ -911,4 +911,45 @@ mod tests {
 
         let _ = JwkSet::try_from(keybox).unwrap();
     }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn test_revoke_key_stamps_the_injected_revoked_at() {
+        let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
+        let key = create_rsa_key();
+        let key_id = key.key_id();
+        keybox.add_key(key, now_fixed()).unwrap();
+
+        let revoked_at = now_fixed() - Duration::minutes(5);
+        keybox.revoke_key(&key_id, revoked_at).unwrap();
+
+        let stored = keybox.get_raw_key_unchecked(&key_id).unwrap();
+        assert_eq!(stored.status, KeyStatus::Revoked);
+        assert_eq!(
+            stored.revoked_at,
+            Some(revoked_at),
+            "revoke_key must stamp the injected timestamp verbatim"
+        );
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn test_add_key_with_option_computes_initial_status_against_the_injected_now() {
+        let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
+        let key = create_rsa_key();
+        let key_id = key.key_id();
+        let now = now_fixed();
+        // A lifecycle anchored 40 days in the past: retired_at = anchor + 30d is already ten
+        // days behind the injected clock, so the initial status computes to the Retired family.
+        let anchor = now - Duration::days(40);
+        keybox
+            .add_key_with_option(key, KeyOption::starting_at(anchor), now)
+            .unwrap();
+
+        let stored = keybox.get_raw_key_unchecked(&key_id).unwrap();
+        assert_eq!(stored.status, KeyStatus::Retired);
+        assert_eq!(stored.revoked_at, None);
+        assert_eq!(stored.activated_at, anchor);
+        assert_eq!(stored.retired_at, anchor + Duration::days(30));
+    }
 }
