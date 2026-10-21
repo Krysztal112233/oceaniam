@@ -32,6 +32,75 @@
         }
       }
     },
+    "/.well-known/openid-configuration/oidc/{tenant_sqid}": {
+      "get": {
+        "tags": ["Oidc"],
+        "summary": "OpenID Provider Configuration on the insert-style well-known path (RFC 8414 §3.1).",
+        "description": "Same document and semantics as the append-style path; both shapes exist because the OIDC\nDiscovery and RFC 8414 path composition rules conflict for issuer URLs with a path\ncomponent.",
+        "operationId": "get_well_known_oidc_configuration",
+        "parameters": [
+          {
+            "name": "tenant_sqid",
+            "in": "path",
+            "description": "Tenant Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Bounded public cache lifetime for the provider configuration"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenIdProviderConfiguration"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid tenant id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Preview disabled or tenant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/administrators": {
       "get": {
         "tags": ["Administrators"],
@@ -564,6 +633,75 @@
           },
           "501": {
             "description": "System account creation is not implemented",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/oidc/{tenant_sqid}/.well-known/openid-configuration": {
+      "get": {
+        "tags": ["Oidc"],
+        "summary": "OpenID Provider Configuration on the append-style well-known path (OIDC Discovery 1.0\n§4.1). Gated by the authorization-entry preview flag, like the protocol family it\ndescribes.",
+        "description": "The tenant is resolved through the system-protected lookup, so the system tenant never\nappears in the OIDC namespace, and the response body is the exact mirror of the\nimplemented provider capability.",
+        "operationId": "get_oidc_configuration",
+        "parameters": [
+          {
+            "name": "tenant_sqid",
+            "in": "path",
+            "description": "Tenant Sqid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Bounded public cache lifetime for the provider configuration"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenIdProviderConfiguration"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid tenant id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Preview disabled or tenant not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
@@ -8133,6 +8271,108 @@
           "sub": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "OpenIdProviderConfiguration": {
+        "type": "object",
+        "description": "OpenID Provider Configuration served from the tenant well-known paths.\n\nConstructed from the canonical tenant issuer URL (`{public_base_url}/oidc/{tenant_sqid}`);\nevery endpoint URL is derived by appending the fixed endpoint suffix to the issuer, which\nmust not carry a trailing slash.",
+        "required": [
+          "issuer",
+          "authorization_endpoint",
+          "token_endpoint",
+          "userinfo_endpoint",
+          "jwks_uri",
+          "response_types_supported",
+          "grant_types_supported",
+          "subject_types_supported",
+          "id_token_signing_alg_values_supported",
+          "scopes_supported",
+          "token_endpoint_auth_methods_supported",
+          "code_challenge_methods_supported",
+          "request_uri_parameter_supported",
+          "claims_supported"
+        ],
+        "properties": {
+          "authorization_endpoint": {
+            "type": "string",
+            "description": "`{issuer}/authorize`"
+          },
+          "claims_supported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The exact claim set an ID token can carry."
+          },
+          "code_challenge_methods_supported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "PKCE S256 is mandatory for every authorization request."
+          },
+          "grant_types_supported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "No refresh token exists; `authorization_code` is the only grant."
+          },
+          "id_token_signing_alg_values_supported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Tenant keyboxes sign ID tokens with PS512."
+          },
+          "issuer": {
+            "type": "string",
+            "description": "Canonical tenant issuer URL."
+          },
+          "jwks_uri": {
+            "type": "string",
+            "description": "`{issuer}/jwks.json`"
+          },
+          "request_uri_parameter_supported": {
+            "type": "boolean",
+            "description": "OIDC Discovery 1.0 §3 defaults this to `true` when omitted, but the authorization entry\nrejects every `request_uri` parameter with `RequestUriNotSupported`, so the document\nmust advertise `false` explicitly."
+          },
+          "response_types_supported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Only the authorization code flow is implemented."
+          },
+          "scopes_supported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Only the `openid` scope is accepted."
+          },
+          "subject_types_supported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "`users.oidc_sub` is a stable per-user value, not per-client."
+          },
+          "token_endpoint": {
+            "type": "string",
+            "description": "`{issuer}/token`"
+          },
+          "token_endpoint_auth_methods_supported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Clients are public: the token request takes `client_id` only, no secret."
+          },
+          "userinfo_endpoint": {
+            "type": "string",
+            "description": "`{issuer}/userinfo`"
           }
         }
       },

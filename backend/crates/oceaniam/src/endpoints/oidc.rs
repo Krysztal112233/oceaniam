@@ -1,14 +1,18 @@
 //! OIDC protocol endpoints.
 //!
-//! The tenant JWKS remains public. Authorization is limited to a default-disabled request-entry
-//! preview plus its transaction-bound password login and TOTP challenge, which issue an
-//! authorization code on authentication, the token endpoint, which exchanges the code for
-//! tokens, and the UserInfo endpoint, which serves the bearer access token's `sub` claim over
-//! the header-only RFC 6750 transport (OIDC Core §5.3, sub-only claims this slice); Discovery
-//! remains deliberately out of scope.
+//! The tenant JWKS remains public. Authorization is limited to a default-disabled
+//! request-entry preview plus its transaction-bound password login and TOTP challenge, which
+//! issue an authorization code on authentication, the token endpoint, which exchanges the code
+//! for tokens, and the UserInfo endpoint, which serves the bearer access token's `sub` claim
+//! over the header-only RFC 6750 transport (OIDC Core §5.3, sub-only claims this slice).
+//! Discovery (OIDC Discovery 1.0 §4) is served on both the append-style and insert-style
+//! well-known paths with an identical body; it is gated by the same authorization-entry preview
+//! flag as the protocol family it describes, so a default configuration answers 404 rather than
+//! advertise endpoints that would 404.
 
 mod authorize;
 mod challenge;
+mod configuration;
 mod login;
 mod token;
 mod userinfo;
@@ -23,16 +27,17 @@ use oceaniam_auth::jwks::JwkSetSchema;
 use oceaniam_common::sqid::Sqid;
 use oceaniam_database::helper::tenants::TenantsHelper;
 use oceaniam_oidc::{CoreJsonWebKeySet, core_jwk_set};
-use tap::{Tap, TapFallible};
+use tap::{Pipe, Tap, TapFallible};
 use tracing::{Span, error, field};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
 use crate::state::AppState;
 
-/// Public HTTP cache lifetime for tenant JWK Sets. A conservative bound that keeps key rotation
-/// visible to clients without relying on cache invalidation.
-const JWKS_CACHE_CONTROL: &str = "public, max-age=60";
+/// Public HTTP cache lifetime for tenant OIDC metadata (JWK Set and OpenID Provider
+/// Configuration). A conservative bound that keeps key rotation and capability changes visible
+/// to clients without relying on cache invalidation.
+const PUBLIC_METADATA_CACHE_CONTROL: &str = "public, max-age=60";
 
 /// Tenant JWK Set under the OIDC namespace.
 ///
@@ -94,14 +99,16 @@ pub async fn get_oidc_jwks(
     let mut headers = HeaderMap::new();
     headers.insert(
         header::CACHE_CONTROL,
-        HeaderValue::from_static(JWKS_CACHE_CONTROL),
+        HeaderValue::from_static(PUBLIC_METADATA_CACHE_CONTROL),
     );
 
     Ok(ApiResponse::with_header(core_jwks, headers))
 }
 
 pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
-    router.routes(routes!(get_oidc_jwks))
+    router
+        .routes(routes!(get_oidc_jwks))
+        .pipe(configuration::endpoint)
 }
 
 /// Authorization-endpoint family (authorize + login + challenge), the token endpoint, and the
@@ -109,10 +116,10 @@ pub fn endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<A
 ///
 /// RFC 9700 §2.6 forbids CORS on the authorization endpoint: the user agent is redirected
 /// to it, never accessed cross-origin by the client. `app()` therefore mounts these routes
-/// outside the API CORS layer. The tenant JWKS stays inside it: public metadata that
-/// browser-based clients legitimately fetch cross-origin. The UserInfo endpoint stays outside
-/// the CORS layer with the rest of the family for now; enabling UserInfo cross-origin access
-/// is a deferred later-slice decision.
+/// outside the API CORS layer. The tenant JWKS and the OpenID Provider Configuration stay
+/// inside it: public metadata that browser-based clients legitimately fetch cross-origin.
+/// The UserInfo endpoint stays outside the CORS layer with the rest of the family for now;
+/// enabling UserInfo cross-origin access is a deferred later-slice decision.
 pub fn protocol_endpoint<'a: 'static>(router: OpenApiRouter<AppState>) -> OpenApiRouter<AppState> {
     router
         .routes(authorize::routes())

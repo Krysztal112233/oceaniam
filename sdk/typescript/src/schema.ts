@@ -20,6 +20,28 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/.well-known/openid-configuration/oidc/{tenant_sqid}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * OpenID Provider Configuration on the insert-style well-known path (RFC 8414 §3.1).
+     * @description Same document and semantics as the append-style path; both shapes exist because the OIDC
+     *     Discovery and RFC 8414 path composition rules conflict for issuer URLs with a path
+     *     component.
+     */
+    get: operations["get_well_known_oidc_configuration"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/administrators": {
     parameters: {
       query?: never;
@@ -198,6 +220,30 @@ export interface paths {
      *     Returns 501 because system account creation is not implemented
      */
     post: operations["create_auth_user"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/oidc/{tenant_sqid}/.well-known/openid-configuration": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * OpenID Provider Configuration on the append-style well-known path (OIDC Discovery 1.0
+     *     §4.1). Gated by the authorization-entry preview flag, like the protocol family it
+     *     describes.
+     * @description The tenant is resolved through the system-protected lookup, so the system tenant never
+     *     appears in the OIDC namespace, and the response body is the exact mirror of the
+     *     implemented provider capability.
+     */
+    get: operations["get_oidc_configuration"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1541,6 +1587,47 @@ export interface components {
       /** Format: uuid */
       sub: string;
     };
+    /**
+     * @description OpenID Provider Configuration served from the tenant well-known paths.
+     *
+     *     Constructed from the canonical tenant issuer URL (`{public_base_url}/oidc/{tenant_sqid}`);
+     *     every endpoint URL is derived by appending the fixed endpoint suffix to the issuer, which
+     *     must not carry a trailing slash.
+     */
+    OpenIdProviderConfiguration: {
+      /** @description `{issuer}/authorize` */
+      authorization_endpoint: string;
+      /** @description The exact claim set an ID token can carry. */
+      claims_supported: string[];
+      /** @description PKCE S256 is mandatory for every authorization request. */
+      code_challenge_methods_supported: string[];
+      /** @description No refresh token exists; `authorization_code` is the only grant. */
+      grant_types_supported: string[];
+      /** @description Tenant keyboxes sign ID tokens with PS512. */
+      id_token_signing_alg_values_supported: string[];
+      /** @description Canonical tenant issuer URL. */
+      issuer: string;
+      /** @description `{issuer}/jwks.json` */
+      jwks_uri: string;
+      /**
+       * @description OIDC Discovery 1.0 §3 defaults this to `true` when omitted, but the authorization entry
+       *     rejects every `request_uri` parameter with `RequestUriNotSupported`, so the document
+       *     must advertise `false` explicitly.
+       */
+      request_uri_parameter_supported: boolean;
+      /** @description Only the authorization code flow is implemented. */
+      response_types_supported: string[];
+      /** @description Only the `openid` scope is accepted. */
+      scopes_supported: string[];
+      /** @description `users.oidc_sub` is a stable per-user value, not per-client. */
+      subject_types_supported: string[];
+      /** @description `{issuer}/token` */
+      token_endpoint: string;
+      /** @description Clients are public: the token request takes `client_id` only, no secret. */
+      token_endpoint_auth_methods_supported: string[];
+      /** @description `{issuer}/userinfo` */
+      userinfo_endpoint: string;
+    };
     OverviewVO: {
       /** Format: int64 */
       total_active_secrets: number;
@@ -1702,6 +1789,57 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ApiResponse_Empty"];
+        };
+      };
+    };
+  };
+  get_well_known_oidc_configuration: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Tenant Sqid */
+        tenant_sqid: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          /** @description Bounded public cache lifetime for the provider configuration */
+          "Cache-Control"?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OpenIdProviderConfiguration"];
+        };
+      };
+      /** @description Invalid tenant id */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Preview disabled or tenant not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
         };
       };
     };
@@ -2132,6 +2270,57 @@ export interface operations {
       };
       /** @description System account creation is not implemented */
       501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+    };
+  };
+  get_oidc_configuration: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Tenant Sqid */
+        tenant_sqid: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      200: {
+        headers: {
+          /** @description Bounded public cache lifetime for the provider configuration */
+          "Cache-Control"?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OpenIdProviderConfiguration"];
+        };
+      };
+      /** @description Invalid tenant id */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Preview disabled or tenant not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApiResponse_ErrorResponse"];
+        };
+      };
+      /** @description Internal server error */
+      500: {
         headers: {
           [name: string]: unknown;
         };

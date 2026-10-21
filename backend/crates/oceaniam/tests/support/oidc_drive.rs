@@ -396,6 +396,22 @@ pub async fn drive_user_token(
     email: &str,
     state: &str,
 ) -> (Uuid, String) {
+    let (user_id, body) = drive_user_token_response(app, fixture, email, state).await;
+    let access_token = body["access_token"]
+        .as_str()
+        .expect("access token")
+        .to_owned();
+    (user_id, access_token)
+}
+
+/// Same drive chain as [`drive_user_token`], returning the raw token endpoint response body so
+/// callers can inspect the issued `id_token` alongside the access token.
+pub async fn drive_user_token_response(
+    app: &TestApp,
+    fixture: &LoginFixture,
+    email: &str,
+    state: &str,
+) -> (Uuid, serde_json::Value) {
     let user_id = create_user(app, fixture, email, USER_PASSWORD).await;
     let entry = drive_entry(app, fixture, state).await;
     let response = post_login(
@@ -427,11 +443,7 @@ pub async fn drive_user_token(
         .expect("token exchange request");
     assert_eq!(response.status(), 200, "token exchange should succeed");
     let body: serde_json::Value = response.json().await.expect("token response body");
-    let access_token = body["access_token"]
-        .as_str()
-        .expect("access token")
-        .to_owned();
-    (user_id, access_token)
+    (user_id, body)
 }
 
 pub async fn create_user(
