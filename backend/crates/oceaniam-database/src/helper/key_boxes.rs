@@ -2,7 +2,7 @@
 
 use crate::error::Error;
 use oceaniam_common::consts;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, sea_query::OnConflict};
+use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, sea_query::OnConflict};
 use tracing::{debug, error};
 use uuid::Uuid;
 
@@ -50,6 +50,43 @@ pub trait KeyBoxesHelper {
             .all(database)
             .await
             .inspect_err(|e| error!("{e}"))?)
+    }
+
+    /// Counts all persisted key box rows.
+    ///
+    /// Supports the startup KEK health probe in `oceaniam::app`, which skips verification on
+    /// fresh installs (empty `key_boxes`).
+    #[tracing::instrument(
+        level = "info",
+        name = "db.key_boxes.count",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
+    async fn count_key_boxes(database: &impl SafeTransactionConnectionTrait) -> Result<u64, Error> {
+        Ok(KeyBoxes::find()
+            .count(database)
+            .await
+            .inspect_err(|e| error!("{e}"))?)
+    }
+
+    /// Returns one arbitrary persisted key box row.
+    ///
+    /// Supports the startup KEK health probe in `oceaniam::app`, which decrypts a single stored
+    /// secret to verify the configured master key against the one used during migration.
+    #[tracing::instrument(
+        level = "info",
+        name = "db.key_boxes.get_any",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
+    async fn get_any_key_box(
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<Option<model::key_boxes::Model>, Error> {
+        KeyBoxes::find()
+            .one(database)
+            .await
+            .inspect_err(|e| error!("{e}"))
+            .map_err(Into::into)
     }
 
     /// Persists all in-memory keys to the database for a given tenant.
