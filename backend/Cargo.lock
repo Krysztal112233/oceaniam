@@ -3188,6 +3188,7 @@ dependencies = [
  "snafu",
  "subtle",
  "url",
+ "utoipa",
 ]
 
 [[package]]

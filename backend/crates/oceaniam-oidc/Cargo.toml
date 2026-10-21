@@ -13,6 +13,7 @@ sha2.workspace = true
 snafu.workspace = true
 subtle.workspace = true
 url.workspace = true
+utoipa.workspace = true
 
 oceaniam-auth.workspace = true
 

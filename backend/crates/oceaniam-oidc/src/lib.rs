@@ -1,6 +1,7 @@
 mod authorization;
 mod authorization_code;
 mod authorization_secret;
+mod configuration;
 mod error;
 mod jwks;
 mod login;
@@ -13,6 +14,7 @@ pub use authorization::{
 };
 pub use authorization_code::{authorization_code_digest, generate_authorization_code};
 pub use authorization_secret::{authorization_browser_binding_digest, authorization_csrf_digest};
+pub use configuration::OpenIdProviderConfiguration;
 pub use error::{
     AuthorizationProtocolError, AuthorizationRequestError, OidcJwksError, PkceS256Error,
     RedirectUriError,
