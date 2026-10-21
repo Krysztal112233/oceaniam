@@ -10,6 +10,9 @@ mod key_box;
 #[path = "./database/audit.rs"]
 mod audit;
 
+#[path = "./database/oidc_expired_cleanup.rs"]
+mod oidc_expired_cleanup;
+
 #[path = "./database/oidc_authorization_codes.rs"]
 mod oidc_authorization_codes;
 

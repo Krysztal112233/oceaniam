@@ -66,3 +66,4 @@ reqwest.workspace = true
 migration.workspace = true
 sea-orm.workspace = true
 sea-orm-migration.workspace = true
+oceaniam-worker.workspace = true
