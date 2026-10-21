@@ -1,0 +1,43 @@
+# Rule 1 enforcement for the `oceaniam` package (see
+# `crates/oceaniam-database/src/helper/README.md`): business `src/` code must not use SeaORM
+# query builders, entity queries, or raw statements directly — all database access goes
+# through the State facades or the per-entity helper traits in `oceaniam-database::helper`.
+#
+# Deliberately NOT disallowed: transaction orchestration (`TransactionTrait::begin/commit/
+# rollback`, `TransactionSession::transaction`) and connection types in signatures — endpoints
+# legitimately open a transaction and pass it to helpers. The `tests/` roots are exempt (they
+# seed and assert state with builders) via crate-root `#![allow]` attributes.
+
+disallowed-methods = [
+    # Entity query/write entry points
+    { path = "sea_orm::EntityTrait::find", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    { path = "sea_orm::EntityTrait::find_by_id", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    { path = "sea_orm::EntityTrait::insert", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    { path = "sea_orm::EntityTrait::insert_many", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    { path = "sea_orm::EntityTrait::update", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    { path = "sea_orm::EntityTrait::update_many", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    { path = "sea_orm::EntityTrait::delete", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    { path = "sea_orm::EntityTrait::delete_many", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    { path = "sea_orm::EntityTrait::delete_by_id", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    # ActiveModel write entry points
+    { path = "sea_orm::ActiveModelTrait::insert", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    { path = "sea_orm::ActiveModelTrait::update", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    { path = "sea_orm::ActiveModelTrait::delete", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    { path = "sea_orm::ActiveModelTrait::save", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    # Query-builder filtering / pagination entry points
+    { path = "sea_orm::QueryFilter::filter", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    { path = "sea_orm::PaginatorTrait::paginate", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    { path = "sea_orm::PaginatorTrait::count", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    # Raw statement execution
+    { path = "sea_orm::ConnectionTrait::execute", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    { path = "sea_orm::ConnectionTrait::execute_unprepared", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    { path = "sea_orm::ConnectionTrait::execute_raw", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    { path = "sea_orm::ConnectionTrait::query_one", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    { path = "sea_orm::ConnectionTrait::query_one_raw", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    { path = "sea_orm::ConnectionTrait::query_all", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+    { path = "sea_orm::ConnectionTrait::query_all_raw", reason = "Rule 1: database access goes through the State facades or oceaniam-database helpers" },
+]
+
+disallowed-types = [
+    { path = "sea_orm::Statement", reason = "Rule 1: raw statements are built only inside oceaniam-database helpers" },
+]
