@@ -151,9 +151,14 @@ async fn handle_userinfo(state: &AppState, tenant_sqid: &str, headers: &HeaderMa
     let Ok(authorization) = authorization.to_str() else {
         return invalid_token_response(&issuer);
     };
-    let Some(token) = authorization.strip_prefix("Bearer ") else {
+    // RFC 7235: the scheme is matched case-insensitively; the token is the verbatim
+    // remainder after the first ASCII space.
+    let Some((scheme, token)) = authorization.split_once(' ') else {
         return invalid_token_response(&issuer);
     };
+    if !scheme.eq_ignore_ascii_case("bearer") {
+        return invalid_token_response(&issuer);
+    }
     let Ok(header) = decode_header(token) else {
         return invalid_token_response(&issuer);
     };

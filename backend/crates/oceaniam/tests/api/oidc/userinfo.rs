@@ -268,6 +268,31 @@ async fn happy_path_post_returns_sub_and_ignores_the_body() {
 
 // NOTE: AI-generated test
 #[tokio::test]
+async fn bearer_scheme_is_case_insensitive() {
+    let app = spawn_preview().await;
+    let fixture = seed_login_fixture(&app).await;
+    let (user_id, access_token) = drive_user_token(
+        &app,
+        &fixture,
+        "userinfo-scheme-case@example.com",
+        "scheme-case-state",
+    )
+    .await;
+    let expected_sub = user_oidc_sub(&app, user_id).await.to_string();
+
+    // RFC 7235: the scheme is case-insensitive.
+    for scheme in ["bearer", "BEARER", "Bearer"] {
+        let authorization = format!("{scheme} {access_token}");
+        let response = get_userinfo(&app, &fixture.tenant_sqid, Some(&authorization)).await;
+        assert_eq!(response.status(), 200, "scheme {scheme}");
+        assert_common_headers(&response);
+        let body: serde_json::Value = response.json().await.expect("userinfo body");
+        assert_eq!(body["sub"], expected_sub, "scheme {scheme}");
+    }
+}
+
+// NOTE: AI-generated test
+#[tokio::test]
 async fn missing_authorization_header_is_challenged_without_error_code() {
     let app = spawn_preview().await;
     let fixture = seed_login_fixture(&app).await;

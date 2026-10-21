@@ -39,6 +39,9 @@ where
 
 /// Extract and decode a Bearer token from the request's `Authorization` header.
 ///
+/// RFC 7235: the scheme is matched case-insensitively and the token is the verbatim
+/// remainder after the first ASCII space.
+///
 /// Returns `(raw_token, decoded_header)` on success.  Fails with
 /// [`NON_AUTHORITATIVE_INFORMATION`] when the header is absent, or with
 /// [`BAD_REQUEST`] when the scheme is not `Bearer`, the JWT header is
@@ -49,15 +52,18 @@ pub(crate) fn extract_bearer_token(parts: &Parts) -> Result<(String, Header), St
         .get(header::AUTHORIZATION)
         .and_then(|value| value.to_str().ok());
 
-    let Some(token) = auth_header else {
+    let Some(auth_header) = auth_header else {
         return Err(StatusCode::NON_AUTHORITATIVE_INFORMATION);
     };
 
-    if !token.starts_with("Bearer ") {
+    let Some((scheme, token)) = auth_header.split_once(' ') else {
+        return Err(StatusCode::BAD_REQUEST);
+    };
+    if !scheme.eq_ignore_ascii_case("bearer") {
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    let token = token.trim().replace("Bearer ", "");
+    let token = token.to_owned();
 
     let Ok(header) = decode_header(&token) else {
         return Err(StatusCode::BAD_REQUEST);
@@ -110,5 +116,55 @@ mod tests {
             extract_bearer_token(&parts),
             Err(StatusCode::BAD_REQUEST)
         ));
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn bearer_scheme_is_matched_case_insensitively() {
+        // Header: {"typ":"JWT","alg":"RS256","kid":"abc"}
+        let token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImFiYyJ9.e30.signature";
+        for scheme in ["Bearer", "bearer", "BEARER", "BeArEr"] {
+            let (parts, _) = Request::builder()
+                .header(header::AUTHORIZATION, format!("{scheme} {token}"))
+                .body(())
+                .expect("construct bearer request")
+                .into_parts();
+
+            let (extracted, header) = extract_bearer_token(&parts)
+                .unwrap_or_else(|status| panic!("scheme {scheme} should be accepted: {status}"));
+            assert_eq!(extracted, token, "the token is the verbatim remainder");
+            assert_eq!(header.kid.as_deref(), Some("abc"));
+        }
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn malformed_authorization_headers_keep_their_error_split() {
+        let (parts, _) = Request::builder()
+            .body(())
+            .expect("construct request")
+            .into_parts();
+        assert!(matches!(
+            extract_bearer_token(&parts),
+            Err(StatusCode::NON_AUTHORITATIVE_INFORMATION)
+        ));
+
+        for (label, value) in [
+            ("non-bearer scheme", "Basic dXNlcjpwYXNz"),
+            ("scheme without a token", "Bearer"),
+            ("scheme with an empty token", "Bearer "),
+            ("malformed jwt", "Bearer not-a-jwt"),
+            ("missing scheme", "not-a-jwt"),
+        ] {
+            let (parts, _) = Request::builder()
+                .header(header::AUTHORIZATION, value)
+                .body(())
+                .expect("construct request")
+                .into_parts();
+            assert!(
+                matches!(extract_bearer_token(&parts), Err(StatusCode::BAD_REQUEST)),
+                "{label}"
+            );
+        }
     }
 }
