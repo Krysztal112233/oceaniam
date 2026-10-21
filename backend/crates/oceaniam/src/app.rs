@@ -154,18 +154,16 @@ async fn health_check_kek(
     database: &sea_orm::DatabaseConnection,
     master_key: &oceaniam_common::crypto::MasterKey,
 ) -> Result<(), Error> {
-    use oceaniam_database::model::key_boxes::Entity as KeyBoxes;
-    use sea_orm::{EntityTrait, PaginatorTrait};
+    use oceaniam_database::{helper::key_boxes::KeyBoxesHelper, model::prelude::KeyBoxes};
 
-    let count = KeyBoxes::find().count(database).await?;
+    let count = KeyBoxes::count_key_boxes(database).await?;
 
     if count == 0 {
         tracing::info!("`key_boxes` empty; skipping KEK health check");
         return Ok(());
     }
 
-    let row = KeyBoxes::find()
-        .one(database)
+    let row = KeyBoxes::get_any_key_box(database)
         .await?
         .ok_or_else(|| Error::Internal {
             msg: "`key_boxes` COUNT > 0 but no row returned".to_string(),
