@@ -3,9 +3,10 @@ use chrono::{DateTime, FixedOffset};
 use sea_orm::{
     ActiveModelTrait,
     ActiveValue::{NotSet, Set},
-    ColumnTrait, EntityTrait, ExprTrait, QueryFilter, QuerySelect, TransactionSession,
+    ColumnTrait, EntityTrait, ExprTrait, QueryFilter, QuerySelect, QueryTrait, TransactionSession,
     sea_query::Expr,
 };
+use tracing::error;
 use uuid::Uuid;
 
 use crate::{
@@ -556,6 +557,46 @@ pub trait OidcAuthorizationTransactionsHelper {
             .map_err(|_| authorization_transaction_storage_error())?;
 
         exactly_one_returned(updated, authorization_transaction_unavailable)
+    }
+
+    /// Hard-deletes every authorization transaction whose 24-hour forensics grace window has
+    /// elapsed and that has no remaining authorization code row.
+    ///
+    /// A code can outlive its transaction's grace window by up to the 60-second code TTL, so a
+    /// transaction with a code still inside its own grace window is left for the next run
+    /// rather than cascade-deleted. Both the expiry predicate and the code-presence predicate
+    /// are evaluated by the database clock inline (Rule 3); the caller (the cleanup worker)
+    /// deletes expired codes first inside the same transaction. Bulk DELETE is a legitimate
+    /// exception to the Rule 2 single-row write shape, and the `DbErr` is preserved for the
+    /// worker's diagnostics.
+    #[tracing::instrument(
+        level = "info",
+        name = "db.oidc_authorization_transactions.delete_expired",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
+    async fn delete_expired_authorization_transactions(
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<u64, Error> {
+        use model::oidc_authorization_codes::Column as CodeColumn;
+        use model::oidc_authorization_transactions::Column::*;
+
+        let remaining_codes = model::oidc_authorization_codes::Entity::find()
+            .select_only()
+            .column(CodeColumn::Id)
+            .filter(
+                Expr::col(CodeColumn::TransactionId.as_column_ref())
+                    .equals(model::oidc_authorization_transactions::Column::Id.as_column_ref()),
+            );
+
+        let result = OidcAuthorizationTransactions::delete_many()
+            .filter(Expr::col(ExpiresAt).lt(Expr::cust("clock_timestamp() - interval '24 hours'")))
+            .filter(Expr::not_exists(remaining_codes.into_query()))
+            .exec(database)
+            .await
+            .inspect_err(|e| error!("{e}"))?;
+
+        Ok(result.rows_affected)
     }
 }
 

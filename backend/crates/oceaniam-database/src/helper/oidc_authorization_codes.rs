@@ -4,6 +4,7 @@ use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, ExprTrait, QueryFilter,
     sea_query::Expr,
 };
+use tracing::error;
 use uuid::Uuid;
 
 use crate::{
@@ -92,6 +93,34 @@ pub trait OidcAuthorizationCodesHelper {
             .map_err(|_| authorization_code_storage_error())?;
 
         exactly_one_returned(updated, authorization_code_unavailable)
+    }
+
+    /// Hard-deletes every authorization code whose 24-hour forensics grace window has elapsed.
+    ///
+    /// The protocol TTL is 60 seconds; the retained rows past expiry serve audit correlation
+    /// only. The predicate samples the database clock inline (Rule 3) and returns the number
+    /// of deleted rows for the cleanup worker's bookkeeping. Bulk DELETE is a legitimate
+    /// exception to the Rule 2 single-row write shape. Unlike the client-facing paths above,
+    /// the `DbErr` is preserved: only the cleanup worker sees this error, and it needs the
+    /// diagnostics.
+    #[tracing::instrument(
+        level = "info",
+        name = "db.oidc_authorization_codes.delete_expired",
+        skip_all,
+        fields(otel.kind = "internal")
+    )]
+    async fn delete_expired_authorization_codes(
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<u64, Error> {
+        use model::oidc_authorization_codes::Column::*;
+
+        let result = OidcAuthorizationCodes::delete_many()
+            .filter(Expr::col(ExpiresAt).lt(Expr::cust("clock_timestamp() - interval '24 hours'")))
+            .exec(database)
+            .await
+            .inspect_err(|e| error!("{e}"))?;
+
+        Ok(result.rows_affected)
     }
 }
 
