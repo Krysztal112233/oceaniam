@@ -91,6 +91,8 @@ where
     }
 }
 
+// clippy 1.99 double_must_use fires on async_trait macro expansions.
+#[allow(clippy::double_must_use)]
 #[async_trait::async_trait]
 pub trait PagedExecutor<'db, C: ConnectionTrait, S: sea_orm::SelectorTrait> {
     async fn fetch_paged(

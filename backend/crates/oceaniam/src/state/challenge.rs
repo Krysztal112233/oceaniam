@@ -27,6 +27,8 @@ use crate::state::credentials::ManagedCredentialVaults;
 mod email_totp;
 mod totp;
 
+// clippy 1.99 double_must_use fires on async_trait macro expansions.
+#[allow(clippy::double_must_use)]
 #[async_trait::async_trait]
 pub trait MfaValidator: Sync + Send + Debug {
     async fn validate(&self, ctx: ValidationContext) -> Result<(), Error>;

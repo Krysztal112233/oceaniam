@@ -29,6 +29,8 @@ impl Auditing {
     }
 }
 
+// clippy 1.99 double_must_use fires on async_trait macro expansions.
+#[allow(clippy::double_must_use)]
 #[async_trait::async_trait]
 trait AuditWriter: Debug + Sync + Send {
     async fn write(&self, payload: AuditPayload);
