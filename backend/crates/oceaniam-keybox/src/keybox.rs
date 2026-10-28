@@ -5,11 +5,7 @@ use oceaniam_common::crypto::MasterKey;
 use oceaniam_crypto::initialize_jwt_provider;
 use oceaniam_database::{
     helper::{SafeTransactionConnectionTrait, key_boxes::KeyBoxesHelper},
-    model::{
-        key_boxes::Model as Key,
-        prelude::KeyBoxes,
-        sea_orm_active_enums::{self, KeyStatus},
-    },
+    model::{key_boxes::Model as Key, prelude::KeyBoxes, sea_orm_active_enums::KeyStatus},
 };
 use sea_orm::IntoActiveModel;
 use serde_json::Value;
@@ -18,7 +14,7 @@ use uuid::Uuid;
 
 use crate::{
     key::{TryIntoJwk, TryIntoKeyModel, rsa_key::RsaKey},
-    key_alg::KeyAlg,
+    key_alg::{KeyAlg, TENANT_KEY_ALG},
 };
 
 /// Compute the key status based on lifecycle timestamps.
@@ -246,7 +242,7 @@ impl KeyBox {
         Ok(())
     }
 
-    /// Generates a new key and adds it to this keybox.
+    /// Generates a new key with [`TENANT_KEY_ALG`] and adds it to this keybox.
     ///
     /// This is a pure in-memory operation — the caller is responsible for
     /// persisting via [`KeyBox::write_to`].
@@ -257,7 +253,7 @@ impl KeyBox {
         fields(otel.kind = "internal", tenant.id = %self.tenant_id)
     )]
     pub async fn rotate_key(&mut self, now: DateTime<FixedOffset>) -> Result<Key, Error> {
-        let rsa_key = RsaKey::generate(Uuid::now_v7(), sea_orm_active_enums::KeyAlg::Ps512).await?;
+        let rsa_key = RsaKey::generate(Uuid::now_v7(), TENANT_KEY_ALG.clone()).await?;
         let key_id = rsa_key.key_id();
 
         self.add_key_with_option(rsa_key, KeyOption::starting_at(now), now)?;
@@ -321,6 +317,33 @@ impl KeyBox {
         Ok(())
     }
 
+    /// Returns the distinct algorithms of the signing-capable keys — [`Active`](KeyStatus::Active)
+    /// keys first, then [`Pending`](KeyStatus::Pending) — newest `activated_at` first within each
+    /// status group, with key id as the tiebreak so the order is total and deterministic.
+    ///
+    /// Retired keys only verify; revoked keys are excluded from the JWKS entirely. Both are
+    /// excluded here, so the result is exactly the alg set a discovery document may advertise.
+    /// An empty keybox yields an empty list.
+    pub fn signing_key_algs(&self) -> Vec<KeyAlg> {
+        let mut algs: Vec<KeyAlg> = Vec::new();
+        for status in [KeyStatus::Active, KeyStatus::Pending] {
+            for key in self
+                .keys
+                .values()
+                .filter(|key| key.status == status)
+                .sorted_by(|a, b| {
+                    Ord::cmp(&b.activated_at, &a.activated_at).then_with(|| a.id.cmp(&b.id))
+                })
+            {
+                let alg = KeyAlg::from(key.key_alg.clone());
+                if !algs.contains(&alg) {
+                    algs.push(alg);
+                }
+            }
+        }
+        algs
+    }
+
     /// Returns the tenant ID this keybox belongs to
     pub fn tenant_id(&self) -> Uuid {
         self.tenant_id
@@ -368,6 +391,12 @@ impl KeyBox {
         changed
     }
 
+    /// Ensures the keybox holds at least one [`Active`](KeyStatus::Active) and one
+    /// [`Pending`](KeyStatus::Pending) key, generating the missing ones.
+    ///
+    /// Every newly generated key uses [`TENANT_KEY_ALG`] regardless of the algorithms already
+    /// in the box, so extant fleets converge to the default algorithm through natural rotation
+    /// and a future algorithm migration is a single-constant bump.
     #[tracing::instrument(
         level = "info",
         name = "keybox.rotate",
@@ -379,14 +408,6 @@ impl KeyBox {
 
         let interval = chrono::Duration::days(30);
 
-        // `KeyAlg` lookup order: Active → Pending → Retired → PS512 (fallback)
-        let algorithm = self
-            .get_latest_raw_key(KeyStatus::Active)
-            .or_else(|| self.get_latest_raw_key(KeyStatus::Pending))
-            .or_else(|| self.get_latest_raw_key(KeyStatus::Retired))
-            .map(|it| it.key_alg)
-            .unwrap_or(sea_orm_active_enums::KeyAlg::Ps512.into());
-
         let has_active = self.get_latest_raw_key(KeyStatus::Active).is_some();
         let has_pending = self.get_latest_raw_key(KeyStatus::Pending).is_some();
 
@@ -397,7 +418,7 @@ impl KeyBox {
                 retired_at: now + interval,
                 expires_at: now + interval * 2,
             };
-            let key = RsaKey::generate(Uuid::now_v7(), algorithm.clone()).await?;
+            let key = RsaKey::generate(Uuid::now_v7(), TENANT_KEY_ALG.clone()).await?;
             self.add_key_with_option(key, options, now)?;
         }
 
@@ -408,7 +429,7 @@ impl KeyBox {
                 retired_at: now + interval * 2,
                 expires_at: now + interval * 3,
             };
-            let key = RsaKey::generate(Uuid::now_v7(), algorithm).await?;
+            let key = RsaKey::generate(Uuid::now_v7(), TENANT_KEY_ALG.clone()).await?;
             self.add_key_with_option(key, options, now)?;
         }
 
@@ -476,6 +497,11 @@ mod tests {
 
     fn create_rsa_key() -> RsaKey {
         RsaKey::new(Uuid::now_v7(), InnerKeyAlg::Rs512)
+    }
+
+    // NOTE: AI-generated test helper — 2048-bit keys keep alg-matrix tests fast.
+    fn create_rsa_key_with_alg(key_alg: InnerKeyAlg) -> RsaKey {
+        RsaKey::with_bit_size(Uuid::now_v7(), key_alg, 2048).expect("generate test RSA key")
     }
 
     fn create_rsa_standalone_key() -> RawKey {
@@ -824,9 +850,13 @@ mod tests {
             key_count_after > key_count_before,
             "expected a new Active key to be added"
         );
-        assert!(
-            keybox.get_latest_raw_key(KeyStatus::Active).is_some(),
-            "expected an Active key to exist"
+        let active = keybox
+            .get_latest_raw_key(KeyStatus::Active)
+            .expect("expected an Active key to exist");
+        assert_eq!(
+            active.key_alg, TENANT_KEY_ALG,
+            "the newly generated Active key uses TENANT_KEY_ALG (the seeded Pending is RS512, \
+             so the result is unambiguous)"
         );
         assert!(
             keybox.get_latest_raw_key(KeyStatus::Pending).is_some(),
@@ -910,6 +940,130 @@ mod tests {
         keybox.add_key(create_rsa_key(), now_fixed()).unwrap();
 
         let _ = JwkSet::try_from(keybox).unwrap();
+    }
+
+    // NOTE: AI-generated test
+    #[tokio::test]
+    async fn test_rotate_converges_a_ps512_fleet_to_the_tenant_default_alg() {
+        let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
+        keybox
+            .add_key(create_rsa_key_with_alg(InnerKeyAlg::Ps512), now_fixed())
+            .unwrap();
+
+        keybox.rotate(now_fixed()).await.unwrap();
+
+        let active = keybox
+            .get_latest_raw_key(KeyStatus::Active)
+            .expect("the seeded PS512 key must remain active");
+        assert_eq!(
+            active.key_alg,
+            KeyAlg::from(InnerKeyAlg::Ps512),
+            "rotation must not rewrite extant keys"
+        );
+        let pending = keybox
+            .get_latest_raw_key(KeyStatus::Pending)
+            .expect("rotate must add a Pending key");
+        assert_eq!(
+            pending.key_alg, TENANT_KEY_ALG,
+            "every newly generated key uses TENANT_KEY_ALG, even in a PS512-only fleet"
+        );
+    }
+
+    // NOTE: AI-generated test
+    #[tokio::test]
+    async fn test_rotate_keeps_an_rs256_fleet_on_the_tenant_default_alg() {
+        let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
+        keybox
+            .add_key(create_rsa_key_with_alg(InnerKeyAlg::Rs256), now_fixed())
+            .unwrap();
+
+        keybox.rotate(now_fixed()).await.unwrap();
+
+        let pending = keybox
+            .get_latest_raw_key(KeyStatus::Pending)
+            .expect("rotate must add a Pending key");
+        assert_eq!(pending.key_alg, TENANT_KEY_ALG);
+    }
+
+    // NOTE: AI-generated test
+    #[tokio::test]
+    async fn test_rotate_key_generates_the_tenant_default_alg() {
+        let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
+
+        let key = keybox.rotate_key(now_fixed()).await.unwrap();
+
+        assert_eq!(KeyAlg::from(key.key_alg), TENANT_KEY_ALG);
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn test_signing_key_algs_orders_active_first_and_excludes_retired() {
+        let mut keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
+        let now = now_fixed();
+        let seed = |keybox: &mut KeyBox,
+                    key_alg: InnerKeyAlg,
+                    activated_at: DateTime<FixedOffset>,
+                    retired_at: DateTime<FixedOffset>,
+                    expires_at: DateTime<FixedOffset>| {
+            let raw = create_rsa_key_with_alg(key_alg)
+                .into_raw_key(&test_master_key())
+                .unwrap();
+            put_key_direct(
+                keybox,
+                raw,
+                KeyOption {
+                    created_at: activated_at,
+                    activated_at,
+                    retired_at,
+                    expires_at,
+                },
+            );
+        };
+        // Mid-rotation overlap: an Active PS512 key beside a Pending RS256 key.
+        seed(
+            &mut keybox,
+            InnerKeyAlg::Ps512,
+            now - Duration::days(1),
+            now + Duration::days(29),
+            now + Duration::days(59),
+        );
+        seed(
+            &mut keybox,
+            InnerKeyAlg::Rs256,
+            now + Duration::days(29),
+            now + Duration::days(59),
+            now + Duration::days(89),
+        );
+        // A retired RS512 key only verifies and must not be advertised.
+        seed(
+            &mut keybox,
+            InnerKeyAlg::Rs512,
+            now - Duration::days(90),
+            now - Duration::days(60),
+            now - Duration::days(30),
+        );
+
+        let algs = keybox.signing_key_algs();
+
+        assert_eq!(
+            algs.iter().map(KeyAlg::as_str).collect::<Vec<_>>(),
+            ["PS512", "RS256"],
+            "active algs come first, pending algs follow, retired algs are excluded"
+        );
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn test_signing_key_algs_of_an_empty_keybox_is_empty() {
+        let keybox = KeyBox::new(Uuid::now_v7(), test_master_key());
+
+        assert!(keybox.signing_key_algs().is_empty());
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn test_tenant_key_alg_as_str_matches_the_jwa_name() {
+        assert_eq!(TENANT_KEY_ALG.as_str(), "RS256");
     }
 
     // NOTE: AI-generated test

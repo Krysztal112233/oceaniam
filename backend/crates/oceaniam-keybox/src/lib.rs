@@ -8,5 +8,5 @@ pub(crate) mod keybox;
 pub use error::Error;
 pub use key::rsa_key::{RsaKey, SecretField};
 pub use key::{TryIntoJwk, TryIntoKeyModel};
-pub use key_alg::KeyAlg;
+pub use key_alg::{KeyAlg, TENANT_KEY_ALG};
 pub use keybox::{KeyBox, KeyOption, RawKey};

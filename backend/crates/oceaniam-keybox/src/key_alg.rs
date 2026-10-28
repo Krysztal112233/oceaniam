@@ -4,6 +4,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::Error;
 
+/// The single source of truth for the tenant signing key algorithm.
+///
+/// Every newly generated tenant key uses this algorithm, so extant fleets converge to it
+/// through natural rotation and a future algorithm migration is a single-constant bump.
+pub const TENANT_KEY_ALG: KeyAlg = KeyAlg(DatabaseKeyAlgorithm::Rs256);
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(transparent)]
 pub struct KeyAlg(DatabaseKeyAlgorithm);
@@ -25,6 +31,16 @@ macro_rules! alg_conversions {
             fn from(value: KeyAlg) -> Self {
                 match value.0 {
                     $(DatabaseKeyAlgorithm::$db => Algorithm::$jwt),+
+                }
+            }
+        }
+
+        impl KeyAlg {
+            /// The JWA algorithm name (RFC 7518 §3.1), as carried in JWT headers and
+            /// advertised in discovery metadata.
+            pub fn as_str(&self) -> &'static str {
+                match self.0 {
+                    $(DatabaseKeyAlgorithm::$db => stringify!($jwt),)+
                 }
             }
         }
@@ -57,5 +73,35 @@ impl std::ops::Deref for KeyAlg {
 
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // NOTE: AI-generated test
+    #[test]
+    fn as_str_matches_the_jwa_name_for_every_supported_variant() {
+        // The macro pairs are hand-maintained; pin all six against the JWA name and
+        // cross-check against the serde serialization of the jsonwebtoken conversion
+        // (precedent: oceaniam-crypto/tests/aws_lc_compatibility.rs).
+        let matrix: [(DatabaseKeyAlgorithm, &str); 6] = [
+            (DatabaseKeyAlgorithm::Rs256, "RS256"),
+            (DatabaseKeyAlgorithm::Rs384, "RS384"),
+            (DatabaseKeyAlgorithm::Rs512, "RS512"),
+            (DatabaseKeyAlgorithm::Ps256, "PS256"),
+            (DatabaseKeyAlgorithm::Ps384, "PS384"),
+            (DatabaseKeyAlgorithm::Ps512, "PS512"),
+        ];
+        for (variant, jwa_name) in matrix {
+            let alg = KeyAlg::from(variant.clone());
+            assert_eq!(alg.as_str(), jwa_name, "as_str for {variant:?}");
+            assert_eq!(
+                serde_json::to_value(Algorithm::from(alg)).expect("algorithm serializes"),
+                serde_json::Value::String(jwa_name.to_owned()),
+                "serde serialization of the jsonwebtoken conversion for {variant:?}"
+            );
+        }
     }
 }
