@@ -7,6 +7,9 @@ mod support;
 #[path = "./database/key_box.rs"]
 mod key_box;
 
+#[path = "./database/key_rotation.rs"]
+mod key_rotation;
+
 #[path = "./database/audit.rs"]
 mod audit;
 

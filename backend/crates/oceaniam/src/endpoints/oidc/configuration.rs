@@ -17,9 +17,10 @@ use axum::{
 use oceaniam_api::{ApiResponse, ErrorResponse};
 use oceaniam_common::sqid::Sqid;
 use oceaniam_database::{helper::tenants::TenantsHelper, model::prelude::Tenants};
+use oceaniam_keybox::TENANT_KEY_ALG;
 use oceaniam_oidc::OpenIdProviderConfiguration;
 use tap::{Tap, TapFallible};
-use tracing::{Span, error, field};
+use tracing::{Span, error, field, warn};
 use utoipa_axum::{router::OpenApiRouter, routes};
 use uuid::Uuid;
 
@@ -120,6 +121,7 @@ async fn serve_configuration(
     AppState {
         database,
         public_base_url,
+        keyboxes,
         ..
     }: AppState,
 ) -> AppResult<OpenIdProviderConfiguration> {
@@ -131,13 +133,38 @@ async fn serve_configuration(
     });
 
     // System-protected lookup: rejects the system tenant and unknown tenants with 404 before
-    // the issuer is derived, so no provider metadata is served for absent tenants.
+    // the issuer is derived, so no provider metadata is served for absent tenants. This must
+    // stay before the keybox load: `get_keybox` lazily generates keys and must never run for
+    // absent tenants.
     <Tenants as TenantsHelper>::get_tenant(tenant_id, &database)
         .await
         .inspect_err(|e| error!(%tenant_id, error = %e, "failed to resolve tenant"))?;
 
     let issuer = tenant_issuer(&public_base_url, &Sqid::from(tenant_id));
-    let configuration = OpenIdProviderConfiguration::new(issuer);
+
+    // The advertised alg list derives from the live key state: the distinct algorithms of the
+    // signing-capable keys (active + pending; retired keys only verify). For a freshly
+    // created or empty keybox the facade's lazy generation yields RS256 keys, so advertising
+    // RS256 is the truthful outcome.
+    let keybox = keyboxes
+        .get_keybox(tenant_id)
+        .await
+        .inspect_err(|e| error!(%tenant_id, error = %e, "failed to load tenant key state"))?;
+    let mut signing_algs: Vec<String> = keybox
+        .signing_key_algs()
+        .iter()
+        .map(|alg| alg.as_str().to_owned())
+        .collect();
+    if signing_algs.is_empty() {
+        // Every key is retired or revoked: token issuance 500s in this window until the
+        // key_rotation worker restocks the box (worst case ~6h, cron `0 0 */6 * * *`).
+        // OIDC Discovery 1.0 §3 forbids an empty alg list, so advertise the algorithm the
+        // next rotation converges to rather than emit a spec-invalid document.
+        warn!(%tenant_id, "no signing-capable tenant keys; token issuance will fail until the next rotation; advertising the default algorithm");
+        signing_algs.push(TENANT_KEY_ALG.as_str().to_owned());
+    }
+
+    let configuration = OpenIdProviderConfiguration::new(issuer, signing_algs);
 
     let mut headers = HeaderMap::new();
     headers.insert(

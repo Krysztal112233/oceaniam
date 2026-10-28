@@ -36,7 +36,9 @@ fn expected_configuration(tenant_sqid: &str) -> serde_json::Value {
         "response_types_supported": ["code"],
         "grant_types_supported": ["authorization_code"],
         "subject_types_supported": ["public"],
-        "id_token_signing_alg_values_supported": ["PS512"],
+        // Freshly created tenant keyboxes hold only RS256 keys, so the derived advertisement
+        // for a new tenant is exactly ["RS256"].
+        "id_token_signing_alg_values_supported": ["RS256"],
         "scopes_supported": ["openid"],
         "token_endpoint_auth_methods_supported": ["none"],
         "code_challenge_methods_supported": ["S256"],
@@ -209,7 +211,7 @@ async fn disabled_preview_gate_is_404_on_both_paths() {
 
 /// Behavior-level pin for `id_token_signing_alg_values_supported`: drive a real login and
 /// token exchange, then verify the issued ID token's `alg` header is advertised by the
-/// discovery document (and is PS512, the tenant keybox generation algorithm).
+/// discovery document (and is RS256, the tenant keybox generation algorithm).
 // NOTE: AI-generated test
 #[tokio::test]
 async fn issued_id_token_alg_is_advertised_by_the_discovery_document() {
@@ -242,8 +244,8 @@ async fn issued_id_token_alg_is_advertised_by_the_discovery_document() {
         .expect("advertised alg list");
 
     assert_eq!(
-        issued_alg, "PS512",
-        "tenant keyboxes sign ID tokens with PS512"
+        issued_alg, "RS256",
+        "tenant keyboxes sign ID tokens with RS256"
     );
     assert!(
         advertised.contains(&issued_alg),

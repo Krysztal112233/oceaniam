@@ -1603,7 +1603,10 @@ export interface components {
       code_challenge_methods_supported: string[];
       /** @description No refresh token exists; `authorization_code` is the only grant. */
       grant_types_supported: string[];
-      /** @description Tenant keyboxes sign ID tokens with PS512. */
+      /**
+       * @description Derived per request from the tenant keybox's signing-capable keys (active and
+       *     pending); newly generated tenant keys are RS256.
+       */
       id_token_signing_alg_values_supported: string[];
       /** @description Canonical tenant issuer URL. */
       issuer: string;

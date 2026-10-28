@@ -3,8 +3,9 @@
 //! Hand-rolled instead of `openidconnect::CoreProviderMetadata`: that type forces metadata
 //! fields this provider deliberately does not advertise. The document mirrors exactly the
 //! implemented capability — `authorization_code` grant only, public clients with mandatory
-//! PKCE S256, `public` subject type, PS512 ID tokens, and the sub-only UserInfo claim set —
-//! and nothing aspirational.
+//! PKCE S256, `public` subject type, and the sub-only UserInfo claim set — and nothing
+//! aspirational. The ID token signing alg list is not a constant: it is derived per request
+//! from the tenant keybox's signing-capable keys (newly generated tenant keys are RS256).
 
 use serde::Serialize;
 use utoipa::ToSchema;
@@ -32,7 +33,8 @@ pub struct OpenIdProviderConfiguration {
     pub grant_types_supported: Vec<String>,
     /// `users.oidc_sub` is a stable per-user value, not per-client.
     pub subject_types_supported: Vec<String>,
-    /// Tenant keyboxes sign ID tokens with PS512.
+    /// Derived per request from the tenant keybox's signing-capable keys (active and
+    /// pending); newly generated tenant keys are RS256.
     pub id_token_signing_alg_values_supported: Vec<String>,
     /// Only the `openid` scope is accepted.
     pub scopes_supported: Vec<String>,
@@ -52,12 +54,19 @@ impl OpenIdProviderConfiguration {
     /// Builds the configuration document for a tenant issuer.
     ///
     /// `issuer` is the canonical tenant issuer URL without a trailing slash, as produced by
-    /// the authorization entry's `tenant_issuer`.
-    pub fn new(issuer: impl Into<String>) -> Self {
+    /// the authorization entry's `tenant_issuer`. `id_token_signing_alg_values` is the
+    /// keybox-derived list of signing-capable key algorithms and must not be empty: OIDC
+    /// Discovery 1.0 §3 requires the field and an empty list would be a lie about the
+    /// provider's capability.
+    pub fn new(issuer: impl Into<String>, id_token_signing_alg_values: Vec<String>) -> Self {
         let issuer = issuer.into();
         debug_assert!(
             !issuer.ends_with('/'),
             "issuer must not carry a trailing slash"
+        );
+        assert!(
+            !id_token_signing_alg_values.is_empty(),
+            "id_token_signing_alg_values_supported must advertise at least one algorithm"
         );
         Self {
             authorization_endpoint: format!("{issuer}/authorize"),
@@ -68,7 +77,7 @@ impl OpenIdProviderConfiguration {
             response_types_supported: vec!["code".to_owned()],
             grant_types_supported: vec!["authorization_code".to_owned()],
             subject_types_supported: vec!["public".to_owned()],
-            id_token_signing_alg_values_supported: vec!["PS512".to_owned()],
+            id_token_signing_alg_values_supported: id_token_signing_alg_values,
             scopes_supported: vec!["openid".to_owned()],
             token_endpoint_auth_methods_supported: vec!["none".to_owned()],
             code_challenge_methods_supported: vec!["S256".to_owned()],
@@ -88,7 +97,10 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn derives_all_endpoint_urls_from_the_issuer() {
-        let configuration = OpenIdProviderConfiguration::new("https://iam.example.com/oidc/t1");
+        let configuration = OpenIdProviderConfiguration::new(
+            "https://iam.example.com/oidc/t1",
+            vec!["RS256".to_owned()],
+        );
 
         assert_eq!(configuration.issuer, "https://iam.example.com/oidc/t1");
         assert_eq!(
@@ -112,7 +124,10 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn serializes_exactly_the_advertised_capability_and_nothing_more() {
-        let configuration = OpenIdProviderConfiguration::new("https://iam.example.com/oidc/t1");
+        let configuration = OpenIdProviderConfiguration::new(
+            "https://iam.example.com/oidc/t1",
+            vec!["RS256".to_owned()],
+        );
         let serialized = serde_json::to_value(&configuration).expect("configuration serializes");
         let object = serialized.as_object().expect("bare object");
 
@@ -155,7 +170,7 @@ mod tests {
         );
         assert_eq!(
             serialized["id_token_signing_alg_values_supported"],
-            serde_json::json!(["PS512"])
+            serde_json::json!(["RS256"])
         );
         assert_eq!(
             serialized["scopes_supported"],
@@ -177,5 +192,28 @@ mod tests {
             serialized["claims_supported"],
             serde_json::json!(["iss", "sub", "aud", "exp", "iat", "auth_time", "nonce"])
         );
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn echoes_the_supplied_alg_list_verbatim() {
+        // Mid-rotation overlap: the caller derives active-first order; the constructor must
+        // not reorder, filter, or deduplicate it.
+        let configuration = OpenIdProviderConfiguration::new(
+            "https://iam.example.com/oidc/t1",
+            vec!["PS512".to_owned(), "RS256".to_owned()],
+        );
+
+        assert_eq!(
+            configuration.id_token_signing_alg_values_supported,
+            ["PS512", "RS256"]
+        );
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    #[should_panic(expected = "must advertise at least one algorithm")]
+    fn rejects_an_empty_alg_list() {
+        let _ = OpenIdProviderConfiguration::new("https://iam.example.com/oidc/t1", vec![]);
     }
 }

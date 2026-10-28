@@ -8324,7 +8324,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Tenant keyboxes sign ID tokens with PS512."
+            "description": "Derived per request from the tenant keybox's signing-capable keys (active and\npending); newly generated tenant keys are RS256."
           },
           "issuer": {
             "type": "string",
