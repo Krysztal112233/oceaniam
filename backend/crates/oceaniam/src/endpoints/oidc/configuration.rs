@@ -38,6 +38,7 @@ use super::{PUBLIC_METADATA_CACHE_CONTROL, authorize::PreviewEnabled, authorize:
 #[utoipa::path(
     get,
     path = "/oidc/{tenant_sqid}/.well-known/openid-configuration",
+    description = "Implemented provider capabilities, including RFC 9207 issuer identification on successful and trusted error authorization redirects",
     tag = "Oidc",
     params(
         ("tenant_sqid" = String, Path, description = "Tenant Sqid"),
@@ -77,6 +78,7 @@ async fn get_oidc_configuration(
 #[utoipa::path(
     get,
     path = "/.well-known/openid-configuration/oidc/{tenant_sqid}",
+    description = "Same provider capabilities as the append-style path, including RFC 9207 issuer identification on successful and trusted error authorization redirects",
     tag = "Oidc",
     params(
         ("tenant_sqid" = String, Path, description = "Tenant Sqid"),

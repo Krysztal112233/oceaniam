@@ -46,6 +46,9 @@ pub struct OpenIdProviderConfiguration {
     /// rejects every `request_uri` parameter with `RequestUriNotSupported`, so the document
     /// must advertise `false` explicitly.
     pub request_uri_parameter_supported: bool,
+    /// RFC 9207: successful and trusted error authorization responses include the canonical
+    /// issuer in `iss`. Omission would incorrectly advertise the default `false`.
+    pub authorization_response_iss_parameter_supported: bool,
     /// The exact claim set an ID token can carry.
     pub claims_supported: Vec<String>,
 }
@@ -82,6 +85,7 @@ impl OpenIdProviderConfiguration {
             token_endpoint_auth_methods_supported: vec!["none".to_owned()],
             code_challenge_methods_supported: vec!["S256".to_owned()],
             request_uri_parameter_supported: false,
+            authorization_response_iss_parameter_supported: true,
             claims_supported: ["iss", "sub", "aud", "exp", "iat", "auth_time", "nonce"]
                 .iter()
                 .map(|claim| (*claim).to_owned())

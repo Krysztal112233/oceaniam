@@ -1,3 +1,6 @@
+//! OIDC authorization entry and callback responses. RFC 9207 issuer identification applies
+//! to success and trusted error redirects; untrusted callbacks remain local failures.
+
 use std::convert::Infallible;
 
 use axum::{
@@ -162,7 +165,7 @@ pub(super) fn form_rejection(rejection: FormRejection) -> Response {
     ),
     responses(
         (status = 200, description = "Static sign-in-unavailable preview; creates a ten-minute request snapshot", body = String, content_type = "text/html"),
-        (status = 303, description = "Protocol error redirected only to a live trusted callback"),
+        (status = 303, description = "Protocol error redirected only to a live trusted callback, carrying error, optional state, and the canonical RFC 9207 iss"),
         (status = 400, description = "Malformed or untrusted authorization request", body = String),
         (status = 404, description = "Preview disabled or tenant unavailable", body = String),
         (status = 414, description = "Request target exceeds 8 KiB", body = String),
@@ -201,7 +204,7 @@ async fn get_authorization_entry(
     ),
     responses(
         (status = 200, description = "Static sign-in-unavailable preview; creates a ten-minute request snapshot", body = String, content_type = "text/html"),
-        (status = 303, description = "Protocol error redirected only to a live trusted callback"),
+        (status = 303, description = "Protocol error redirected only to a live trusted callback, carrying error, optional state, and the canonical RFC 9207 iss"),
         (status = 400, description = "Malformed, mixed-query, or untrusted authorization request", body = String),
         (status = 404, description = "Preview disabled or tenant unavailable", body = String),
         (status = 413, description = "Form body exceeds 8 KiB", body = String),
@@ -412,6 +415,7 @@ async fn create_snapshot_in_transaction(
     // Exact redirect registration and its governing Application policy are now protected by the
     // ordered shared locks, so protocol errors may use this callback.
     let trusted_callback = TrustedCallback {
+        issuer: issuer.clone(),
         redirect_uri: redirect_uri.clone(),
         state: state_parameter,
     };
@@ -465,6 +469,7 @@ struct PreparedSuccess {
 
 #[derive(Clone)]
 pub(super) struct TrustedCallback {
+    issuer: String,
     redirect_uri: String,
     state: Option<String>,
 }
@@ -518,6 +523,7 @@ fn trusted_error_response(
     if let Some(state) = callback.state.as_deref() {
         query.append_pair("state", state);
     }
+    query.append_pair("iss", &callback.issuer);
 
     let location = trusted_redirect_location(&callback.redirect_uri, &query.finish())?;
     let mut response = StatusCode::SEE_OTHER.into_response();
