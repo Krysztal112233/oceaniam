@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use linkme::distributed_slice;
+use oceaniam_common::consts::WORKER_ID_OIDC_EXPIRED_CLEANUP;
 use oceaniam_database::{
     helper::{
         oidc_authorization_codes::OidcAuthorizationCodesHelper,
@@ -13,7 +14,7 @@ use oceaniam_worker_runtime::Worker;
 use sea_orm::TransactionTrait;
 use tracing::info;
 
-use crate::{REGISTERED_WORKERS, WorkerContext, error::Error};
+use crate::{OceaniamWorkerRegistration, REGISTERED_WORKERS, WorkerContext, error::Error};
 
 /// Hard-deletes expired OIDC authorization codes and authorization transactions once their
 /// 24-hour forensics grace window has elapsed (protocol TTLs are 60s/10min; retention serves
@@ -27,11 +28,7 @@ impl Worker<WorkerContext> for OidcExpiredCleanupWorker {
     type Error = Error;
 
     fn name(&self) -> &'static str {
-        "oidc_expired_cleanup"
-    }
-
-    fn cron(&self) -> &'static str {
-        "0 17 * * * *"
+        WORKER_ID_OIDC_EXPIRED_CLEANUP
     }
 
     async fn run(&self, context: &WorkerContext) -> Result<(), Error> {
@@ -55,5 +52,8 @@ impl Worker<WorkerContext> for OidcExpiredCleanupWorker {
 }
 
 #[distributed_slice(REGISTERED_WORKERS)]
-static OIDC_EXPIRED_CLEANUP_WORKER: fn() -> crate::OceaniamWorkerRef =
-    || Arc::new(OidcExpiredCleanupWorker);
+static OIDC_EXPIRED_CLEANUP_WORKER: fn() -> OceaniamWorkerRegistration =
+    || OceaniamWorkerRegistration {
+        worker: Arc::new(OidcExpiredCleanupWorker),
+        cron: Some("0 17 * * * *"),
+    };

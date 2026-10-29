@@ -67,3 +67,4 @@ migration.workspace = true
 sea-orm.workspace = true
 sea-orm-migration.workspace = true
 oceaniam-worker.workspace = true
+oceaniam-worker-runtime.workspace = true

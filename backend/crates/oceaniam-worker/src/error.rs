@@ -10,9 +10,16 @@ pub enum Error {
 
     #[snafu(display("{source} at {location}"))]
     Db { source: DbErr, location: Location },
+
+    #[snafu(display("{source} at {location}"))]
+    KeyBox {
+        source: oceaniam_keybox::Error,
+        location: Location,
+    },
 }
 
 oceaniam_common::located_from!(DbErr => Error::Db);
+oceaniam_common::located_from!(oceaniam_keybox::Error => Error::KeyBox);
 
 impl From<oceaniam_common::error::Error> for Error {
     fn from(e: oceaniam_common::error::Error) -> Self {

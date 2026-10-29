@@ -2975,6 +2975,7 @@ dependencies = [
  "oceaniam-telemetry",
  "oceaniam-vo",
  "oceaniam-worker",
+ "oceaniam-worker-runtime",
  "opentelemetry",
  "opentelemetry_sdk",
  "parking_lot",
@@ -3271,6 +3272,10 @@ dependencies = [
  "async-trait",
  "chrono",
  "cron",
+ "oceaniam-database",
+ "sea-orm",
+ "serde",
+ "serde_json",
  "tokio",
  "tracing",
 ]

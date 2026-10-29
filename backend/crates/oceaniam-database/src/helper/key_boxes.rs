@@ -2,7 +2,9 @@
 
 use crate::error::Error;
 use oceaniam_common::consts;
-use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, sea_query::OnConflict};
+use sea_orm::{
+    ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Statement, sea_query::OnConflict,
+};
 use tracing::{debug, error};
 use uuid::Uuid;
 
@@ -50,6 +52,28 @@ pub trait KeyBoxesHelper {
             .all(database)
             .await
             .inspect_err(|e| error!("{e}"))?)
+    }
+
+    /// Serializes worker rotations for a tenant until the caller's transaction ends.
+    ///
+    /// The schema is part of the lock namespace so isolated databases/schemas do not contend.
+    /// Call before loading keys, then persist and commit on the same transaction.
+    #[tracing::instrument(
+        level = "info",
+        name = "db.key_boxes.lock_rotation",
+        skip_all,
+        fields(otel.kind = "internal", %tenant_id)
+    )]
+    async fn lock_rotation(
+        tenant_id: Uuid,
+        database: &impl SafeTransactionConnectionTrait,
+    ) -> Result<(), Error> {
+        database.query_one_raw(Statement::from_sql_and_values(
+            database.get_database_backend(),
+            "SELECT pg_advisory_xact_lock(hashtextextended(current_schema() || ':key_rotation:' || ($1::uuid)::text, 0))",
+            [tenant_id.into()],
+        )).await?;
+        Ok(())
     }
 
     /// Counts all persisted key box rows.

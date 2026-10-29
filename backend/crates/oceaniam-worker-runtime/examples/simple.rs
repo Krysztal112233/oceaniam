@@ -1,7 +1,12 @@
+//! Run against a migrated disposable OceanIAM database using DATABASE_URL.
+//! Do not share it with production consumers: this example registers only the hello task.
+//! Set cron to None to expose the handler only to manually published triggers.
+
 use std::{collections::HashMap, fmt, sync::Arc};
 
 use async_trait::async_trait;
-use oceaniam_worker_runtime::{Worker, WorkerRuntime, WorkerRuntimeError};
+use oceaniam_worker_runtime::{Worker, WorkerRegistration, WorkerRuntime, WorkerRuntimeError};
+use sea_orm::Database;
 
 #[derive(Clone)]
 struct Context {
@@ -33,10 +38,6 @@ impl Worker<Context> for SimpleHelloWorker {
         "hello"
     }
 
-    fn cron(&self) -> &'static str {
-        "*/1 * * * * *"
-    }
-
     async fn run(&self, context: &Context) -> Result<(), Self::Error> {
         println!("hello {} from worker `{}`", context.label, self.name());
         Ok(())
@@ -45,18 +46,23 @@ impl Worker<Context> for SimpleHelloWorker {
 
 #[tokio::main]
 async fn main() {
-    let ctx = Context {
+    let queue_database =
+        Database::connect(std::env::var("DATABASE_URL").expect("set DATABASE_URL"))
+            .await
+            .expect("connect database");
+    let context = Context {
         label: "oceaniam".into(),
     };
-
-    let mut workers: HashMap<String, Arc<dyn Worker<Context, Error = Error>>> = HashMap::new();
-    workers.insert("hello".into(), Arc::new(SimpleHelloWorker));
-
-    let runtime = WorkerRuntime::new(ctx, workers);
-    let controller = runtime.start().expect("failed to start runtime");
-
+    let workers = HashMap::from([(
+        "hello".to_owned(),
+        WorkerRegistration {
+            worker: Arc::new(SimpleHelloWorker) as Arc<dyn Worker<Context, Error = Error>>,
+            cron: Some("*/1 * * * * *"),
+        },
+    )]);
+    let controller = WorkerRuntime::new(context, workers, queue_database)
+        .start()
+        .expect("start runtime");
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-
-    controller.shutdown().await.expect("failed to shutdown");
-    println!("runtime shut down cleanly");
+    controller.shutdown().await.expect("shutdown runtime");
 }

@@ -10,6 +10,9 @@ mod key_box;
 #[path = "./database/key_rotation.rs"]
 mod key_rotation;
 
+#[path = "./database/worker_queue.rs"]
+mod worker_queue;
+
 #[path = "./database/audit.rs"]
 mod audit;
 

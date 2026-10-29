@@ -21,3 +21,9 @@ pub const USER_LOGIN_FAILED_MSG: &str = "user not found or password invalid";
 /// The current Key Encryption Key (KEK) version. Used by envelope encryption
 /// to tag encrypted blobs so future KEK rotation can identify the generation.
 pub const KEK_VERSION_CURRENT: u32 = 1;
+
+/// Stable queue identifier for the key-rotation worker.
+pub const WORKER_ID_KEY_ROTATION: &str = "key_rotation";
+
+/// Stable queue identifier for the expired OIDC authorization cleanup worker.
+pub const WORKER_ID_OIDC_EXPIRED_CLEANUP: &str = "oidc_expired_cleanup";

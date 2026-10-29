@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Duration;
-use oceaniam_common::crypto::MasterKey;
+use oceaniam_common::{consts::WORKER_ID_OIDC_EXPIRED_CLEANUP, crypto::MasterKey};
 use oceaniam_database::{
     helper::{
         oidc_authorization_codes::{IssueAuthorizationCodeInput, OidcAuthorizationCodesHelper},
@@ -124,9 +124,13 @@ async fn run_cleanup_once(app: &TestApp) {
     };
     let workers = collect_workers();
     let worker = workers
-        .get("oidc_expired_cleanup")
+        .get(WORKER_ID_OIDC_EXPIRED_CLEANUP)
         .expect("oidc_expired_cleanup worker must be registered");
-    worker.run(&context).await.expect("cleanup run succeeds");
+    worker
+        .worker
+        .run(&context)
+        .await
+        .expect("cleanup run succeeds");
 }
 
 // NOTE: AI-generated test

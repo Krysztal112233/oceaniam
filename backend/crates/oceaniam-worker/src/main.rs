@@ -58,10 +58,11 @@ async fn main() -> Result<(), Error> {
     let workers = collect_workers();
     let ctrl = WorkerRuntime::new(
         WorkerContext {
-            database,
+            database: database.clone(),
             master_key,
         },
         workers,
+        database,
     )
     .start()?;
 

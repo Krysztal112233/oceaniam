@@ -1,43 +1,43 @@
+//! Reconciles tenant key lifecycles. Repeated queue delivery must not duplicate rotations.
+
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::Duration;
 use linkme::distributed_slice;
 use oceaniam_audit::types::{AuditPayload, RotateKeyPayload};
+use oceaniam_common::consts::WORKER_ID_KEY_ROTATION;
 use oceaniam_database::{
     helper::{
-        audits::AuditsHelper, db_clock_now, key_boxes::KeyBoxesHelper, tenants::TenantsHelper,
+        SafeTransactionConnectionTrait, audits::AuditsHelper, db_clock_now,
+        key_boxes::KeyBoxesHelper, tenants::TenantsHelper,
     },
     model::prelude::{Audits, KeyBoxes, Tenants},
     model::sea_orm_active_enums::KeyStatus,
 };
 use oceaniam_keybox::KeyBox;
-use oceaniam_worker_runtime::Worker;
-use tracing::{debug, error, info};
+use oceaniam_worker_runtime::{Worker, WorkerRuntimeError};
+use sea_orm::TransactionTrait;
+use tracing::{debug, info};
 use uuid::Uuid;
 
-use crate::{REGISTERED_WORKERS, WorkerContext, error::Error};
+use crate::{OceaniamWorkerRegistration, REGISTERED_WORKERS, WorkerContext, error::Error};
 
 async fn log_key_rotation(
     tenant_id: Uuid,
     new_key_id: Uuid,
-    database: &sea_orm::DatabaseConnection,
-) {
+    database: &impl SafeTransactionConnectionTrait,
+) -> Result<(), Error> {
     let payload = AuditPayload::from(RotateKeyPayload {
         application_id: tenant_id,
         new_key_id,
     });
-
-    if let Err(e) = Audits::insert_audit_event(
-        Uuid::now_v7(),
-        payload.audit_type(),
-        payload.into_json().unwrap_or_default(),
-        database,
-    )
-    .await
-    {
-        error!(%tenant_id, %new_key_id, error = %e, "failed to write rotation audit event");
-    }
+    let audit_type = payload.audit_type();
+    let payload = payload
+        .into_json()
+        .map_err(|error| Error::internal(error.to_string()))?;
+    Audits::insert_audit_event(Uuid::now_v7(), audit_type, payload, database).await?;
+    Ok(())
 }
 
 #[tracing::instrument(
@@ -51,27 +51,19 @@ async fn process_tenant(
     threshold: Duration,
     context: &WorkerContext,
 ) -> Result<(), Error> {
-    let keys = KeyBoxes::get_tenant_keys(tenant_id, &context.database).await?;
-
+    let transaction = context.database.begin().await?;
+    KeyBoxes::lock_rotation(tenant_id, &transaction).await?;
+    let keys = KeyBoxes::get_tenant_keys(tenant_id, &transaction).await?;
     if keys.is_empty() {
         debug!(%tenant_id, "no keys found, skipping");
+        transaction.commit().await?;
         return Ok(());
     }
 
     let keys_map = keys.into_iter().map(|key| (key.id, key)).collect();
     let mut keybox = KeyBox::with_keys(tenant_id, keys_map, context.master_key.clone());
-
-    // Single database-clock sample (Rule 3) anchors status refreshes, the expiry predicate,
-    // and any rotated keys' lifecycle timestamps for this tenant pass.
-    let now = db_clock_now(&context.database).await?;
-
-    if keybox.update_keys_status(now) {
-        debug!(%tenant_id, "key statuses refreshed");
-        if let Err(error) = keybox.write_to(&context.database).await {
-            error!(%tenant_id, %error, "failed to persist refreshed key statuses");
-        }
-    }
-
+    let now = db_clock_now(&transaction).await?;
+    let refreshed = keybox.update_keys_status(now);
     let should_rotate = keybox
         .get_keys()
         .values()
@@ -82,26 +74,22 @@ async fn process_tenant(
         });
 
     if should_rotate {
-        match keybox.rotate(now).await {
-            Ok(()) => {
-                if let Err(error) = keybox.write_to(&context.database).await {
-                    error!(%tenant_id, %error, "failed to persist rotated key");
-                } else {
-                    let latest_active = keybox
-                        .get_latest_raw_key(KeyStatus::Active)
-                        .and_then(|raw| keybox.get_raw_key_unchecked(&raw.key_id));
-                    if let Some(ref new_key) = latest_active {
-                        info!(%tenant_id, new_key_id = %new_key.id, "key rotation completed");
-                        log_key_rotation(tenant_id, new_key.id, &context.database).await;
-                    }
-                }
-            }
-            Err(error) => {
-                error!(%tenant_id, %error, "failed to rotate key");
-            }
-        }
+        keybox.rotate(now).await?;
     }
-
+    if refreshed || should_rotate {
+        keybox.write_to(&transaction).await?;
+    }
+    if should_rotate
+        && let Some(key) = keybox
+            .get_keys()
+            .values()
+            .filter(|key| key.status == KeyStatus::Active)
+            .max_by_key(|key| key.activated_at)
+    {
+        log_key_rotation(tenant_id, key.id, &transaction).await?;
+        info!(%tenant_id, new_key_id = %key.id, "key rotation completed");
+    }
+    transaction.commit().await?;
     Ok(())
 }
 
@@ -112,28 +100,22 @@ impl Worker<WorkerContext> for KeyRotationWorker {
     type Error = Error;
 
     fn name(&self) -> &'static str {
-        "key_rotation"
-    }
-
-    fn cron(&self) -> &'static str {
-        "0 0 */6 * * *"
+        WORKER_ID_KEY_ROTATION
     }
 
     async fn run(&self, context: &WorkerContext) -> Result<(), Error> {
         let tenants = Tenants::list_all_tenants(&context.database).await?;
-
-        // TODO: make this configurable via ApplicationConfiguration fields. Each application should
-        // be able to control whether auto-rotation is enabled, the threshold duration, and the
-        // lifetime of rotated keys.
+        // Keep the existing policy; changing rotation cadence/lifetimes is a separate concern.
         let threshold = Duration::days(7);
-
         for tenant in &tenants {
             process_tenant(tenant.id, threshold, context).await?;
         }
-
         Ok(())
     }
 }
 
 #[distributed_slice(REGISTERED_WORKERS)]
-static KEY_ROTATION_WORKER: fn() -> crate::OceaniamWorkerRef = || Arc::new(KeyRotationWorker);
+static KEY_ROTATION_WORKER: fn() -> OceaniamWorkerRegistration = || OceaniamWorkerRegistration {
+    worker: Arc::new(KeyRotationWorker),
+    cron: Some("0 0 */6 * * *"),
+};

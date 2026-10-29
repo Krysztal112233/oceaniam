@@ -5,7 +5,7 @@
 use std::sync::Arc;
 
 use chrono::{DateTime, Duration, FixedOffset, Utc};
-use oceaniam_common::crypto::MasterKey;
+use oceaniam_common::{consts::WORKER_ID_KEY_ROTATION, crypto::MasterKey};
 use oceaniam_database::{
     helper::key_boxes::KeyBoxesHelper,
     model::{
@@ -95,9 +95,10 @@ async fn run_key_rotation_once(app: &TestApp) {
     };
     let workers = collect_workers();
     let worker = workers
-        .get("key_rotation")
+        .get(WORKER_ID_KEY_ROTATION)
         .expect("key_rotation worker must be registered");
     worker
+        .worker
         .run(&context)
         .await
         .expect("key rotation run succeeds");
