@@ -32,6 +32,7 @@ pub mod subjects;
 pub mod tenants;
 pub mod trend;
 pub mod users;
+pub mod worker_jobs;
 
 pub trait SafeTransactionConnectionTrait: TransactionTrait + ConnectionTrait + Sync + Send {}
 

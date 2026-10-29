@@ -12,8 +12,8 @@ Shared facilities:
 - `PagedSelect` / `PagedExecutor` — pagination into `PagedResponse`
 - `exactly_one_returned` — collapses a primary-key-filtered `exec_with_returning` into one row,
   holding the `debug_assert!(len <= 1)` invariant and mapping empty to the caller's not-found
-- `pgmq` — free functions over the pgmq extension; it has no SeaORM entity, making it the
-  sanctioned exception to the per-entity trait shape
+- `pgmq` and `worker_jobs` — free functions over extension-owned queues, which have no
+  SeaORM entity; these are the sanctioned exceptions to the per-entity trait shape
 
 ## Database access rules
 
