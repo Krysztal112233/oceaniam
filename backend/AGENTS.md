@@ -98,8 +98,9 @@ Before claiming work is complete, run these commands:
 ## Worker Subsystem
 
 - Worker implementations live in `crates/oceaniam-worker/src/builtin/` as named sub-modules.
-- Register each worker via `#[distributed_slice(oceaniam_worker::REGISTERED_WORKERS)]` with a factory closure returning `Arc::new(MyWorker)`.
-- Implement `oceaniam_worker_runtime::Worker<WorkerContext>` with `name()`, `cron()`, and `run()`.
+- Register each worker via `#[distributed_slice(oceaniam_worker::REGISTERED_WORKERS)]` with a factory returning `OceaniamWorkerRegistration { worker: Arc::new(MyWorker), cron: Some("...") }`; use `cron: None` for message-only tasks.
+- Implement `oceaniam_worker_runtime::Worker<WorkerContext>` with `name()` and `run()`; handlers must tolerate at-least-once delivery.
+- Cron only publishes PGMQ triggers. All production execution goes through the queue consumer; start the producer only when at least one registration has a cron expression.
 - The worker binary (`oceaniam-worker`) and API server (`oceaniam`) are separate binary targets with no mutual dependency.
 
 ## Testing Infrastructure
