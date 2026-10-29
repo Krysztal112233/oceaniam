@@ -78,6 +78,18 @@ struct RawTokenRequest {
     code_verifier: Option<String>,
 }
 
+/// Required token form values treat exactly empty strings as omission, without trimming or
+/// otherwise normalizing values that require exact-match validation.
+trait RequiredTokenParameter {
+    fn required_non_empty(self) -> Option<String>;
+}
+
+impl RequiredTokenParameter for Option<String> {
+    fn required_non_empty(self) -> Option<String> {
+        self.filter(|value| !value.is_empty())
+    }
+}
+
 /// RFC 6749 §5.1 successful token response. No refresh token is issued this slice.
 #[derive(Serialize, ToSchema)]
 struct OidcTokenResponse {
@@ -144,17 +156,17 @@ async fn post_oidc_token(
 
     // Request-shape validation happens before any redemption work: an unsupported grant type
     // or a malformed request never touches the code.
-    let Some(grant_type) = required(form.grant_type) else {
+    let Some(grant_type) = form.grant_type.required_non_empty() else {
         return token_error(INVALID_REQUEST);
     };
     if grant_type != GRANT_TYPE_AUTHORIZATION_CODE {
         return token_error(UNSUPPORTED_GRANT_TYPE);
     }
     let (Some(code), Some(client_id), Some(redirect_uri), Some(code_verifier)) = (
-        required(form.code),
-        required(form.client_id),
-        required(form.redirect_uri),
-        required(form.code_verifier),
+        form.code.required_non_empty(),
+        form.client_id.required_non_empty(),
+        form.redirect_uri.required_non_empty(),
+        form.code_verifier.required_non_empty(),
     ) else {
         return token_error(INVALID_REQUEST);
     };
@@ -374,11 +386,6 @@ async fn exchange_consumed_code(
         access_token,
         id_token,
     })
-}
-
-/// Empty values are treated as omission, so a required parameter must be present and non-empty.
-fn required(value: Option<String>) -> Option<String> {
-    value.filter(|value| !value.is_empty())
 }
 
 fn token_response(issued: IssuedTokens) -> Response {
