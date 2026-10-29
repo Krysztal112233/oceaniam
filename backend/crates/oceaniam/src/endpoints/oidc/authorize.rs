@@ -64,6 +64,21 @@ const REFERRER_POLICY_VALUE: &str = "no-referrer";
 pub(super) const AUTHORIZATION_FORM_CONTENT_SECURITY_POLICY_VALUE: &str = "default-src 'none'; base-uri 'none'; connect-src 'none'; font-src 'none'; form-action 'self'; frame-ancestors 'none'; img-src 'none'; media-src 'none'; object-src 'none'; script-src 'none'; style-src 'none'";
 pub(super) const COOKIE_PREFIX: &str = "oceaniam_oidc_binding_";
 
+/// Encodes ordered form/query pairs. Values may be `&str` or `Option<&str>`; `None` is
+/// omitted, while empty strings are retained. Each value expression is evaluated once.
+macro_rules! form_query {
+    ($($name:expr => $value:expr),+ $(,)?) => {{
+        let mut serializer = form_urlencoded::Serializer::new(String::new());
+        $(
+            let value: Option<&str> = ($value).into();
+            if let Some(value) = value {
+                serializer.append_pair($name, value);
+            }
+        )+
+        serializer.finish()
+    }};
+}
+
 pub(super) struct PreviewEnabled;
 
 impl FromRequestParts<AppState> for PreviewEnabled {
@@ -518,14 +533,14 @@ fn trusted_error_response(
     callback: &TrustedCallback,
     error: AuthorizationProtocolError,
 ) -> Result<Response, InvalidHeaderValue> {
-    let mut query = form_urlencoded::Serializer::new(String::new());
-    query.append_pair("error", error.as_str());
-    if let Some(state) = callback.state.as_deref() {
-        query.append_pair("state", state);
-    }
-    query.append_pair("iss", &callback.issuer);
+    #[rustfmt::skip]
+    let query = form_query! {
+        "error" => error.as_str(),
+        "state" => callback.state.as_deref(),
+        "iss"   => callback.issuer.as_str(),
+    };
 
-    let location = trusted_redirect_location(&callback.redirect_uri, &query.finish())?;
+    let location = trusted_redirect_location(&callback.redirect_uri, &query)?;
     let mut response = StatusCode::SEE_OTHER.into_response();
     response.headers_mut().insert(LOCATION, location);
     apply_common_headers(&mut response);
@@ -554,12 +569,14 @@ pub(super) fn authorization_code_response(
     code: &str,
     jar: CookieJar,
 ) -> Response {
-    let mut query = form_urlencoded::Serializer::new(String::new());
-    query.append_pair("code", code);
-    query.append_pair("state", &snapshot.state);
-    query.append_pair("iss", &snapshot.issuer);
+    #[rustfmt::skip]
+    let query = form_query! {
+        "code"  => code,
+        "state" => snapshot.state.as_str(),
+        "iss"   => snapshot.issuer.as_str(),
+    };
 
-    let location = match trusted_redirect_location(&snapshot.redirect_uri, &query.finish()) {
+    let location = match trusted_redirect_location(&snapshot.redirect_uri, &query) {
         Ok(location) => location,
         Err(error) => return invalid_trusted_callback_response(error),
     };
