@@ -126,6 +126,26 @@ mod tests {
     use super::*;
 
     // NOTE: AI-generated test
+    #[rustfmt::skip]
+    #[test]
+    fn raw_authority_preserves_the_original_spelling() {
+        for (value, expected) in [
+            ("http://localhost:3000/callback",      Some("localhost:3000")),
+            ("https://client.example@evil.com/cb",  Some("client.example@evil.com")),
+            ("https://@client.example/cb",          Some("@client.example")),
+            ("http://127.1/cb",                     Some("127.1")),
+            ("https://client.example",              Some("client.example")),
+            ("https://client.example?x=1",          Some("client.example")),
+            ("https://client.example#frag",         Some("client.example")),
+            ("https:///callback",                   None),
+            ("https:client.example/://x",           None),
+            ("/callback",                           None),
+        ] {
+            assert_eq!(raw_authority(value), expected, "input {value}");
+        }
+    }
+
+    // NOTE: AI-generated test
     #[test]
     fn accepts_https_web_redirect_uris_without_normalizing_them() {
         for value in [

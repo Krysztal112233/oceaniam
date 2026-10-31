@@ -149,6 +149,7 @@ mod tests {
             "token_endpoint_auth_methods_supported",
             "code_challenge_methods_supported",
             "request_uri_parameter_supported",
+            "authorization_response_iss_parameter_supported",
             "claims_supported",
         ];
         assert_eq!(
@@ -191,6 +192,10 @@ mod tests {
         assert_eq!(
             serialized["request_uri_parameter_supported"],
             serde_json::json!(false)
+        );
+        assert_eq!(
+            serialized["authorization_response_iss_parameter_supported"],
+            serde_json::json!(true)
         );
         assert_eq!(
             serialized["claims_supported"],
