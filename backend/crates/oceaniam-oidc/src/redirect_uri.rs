@@ -80,6 +80,11 @@ pub fn validate_redirect_uri(
     }
 }
 
+/// Returns the raw `[userinfo@]host[:port]` between `://` and the first `/`, `?`, or `#`,
+/// or `None` when `://` is missing or the authority is empty.
+///
+/// No `Url` parsing on purpose: the checks here need the exact spelling (such as `127.1` or an
+/// empty `userinfo@`), which parsing would normalize away.
 fn raw_authority(value: &str) -> Option<&str> {
     let scheme_end = value.find(':')?;
     let remainder = value.get(scheme_end + 1..)?.strip_prefix("//")?;
