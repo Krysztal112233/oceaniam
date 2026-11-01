@@ -158,13 +158,28 @@ async fn drive_entry_with_nonce(
     state: &str,
     nonce: Option<&str>,
 ) -> EntryContext {
+    let url = app.url(&format!(
+        "/oidc/{}/authorize?{}",
+        fixture.tenant_sqid,
+        authorize_query_with_nonce(fixture, state, nonce)
+    ));
+    drive_entry_url(
+        app,
+        fixture,
+        url::Url::parse(&url).expect("authorization URL"),
+    )
+    .await
+}
+
+/// Opens an authorization URL constructed by the caller (including an independent RP client).
+pub async fn drive_entry_url(
+    app: &TestApp,
+    fixture: &LoginFixture,
+    authorization_url: url::Url,
+) -> EntryContext {
     let response = app
         .client
-        .get(app.url(&format!(
-            "/oidc/{}/authorize?{}",
-            fixture.tenant_sqid,
-            authorize_query_with_nonce(fixture, state, nonce)
-        )))
+        .get(authorization_url)
         .send()
         .await
         .expect("entry authorization request");

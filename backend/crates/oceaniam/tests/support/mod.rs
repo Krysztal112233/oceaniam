@@ -304,7 +304,7 @@ fn test_config() -> BackendConfig {
     ensure_test_config_env();
 
     BackendConfig {
-        addr: "0.0.0.0:0".to_owned(),
+        addr: "127.0.0.1:0".to_owned(),
         cookie: CookieConfig::default(),
         oidc: OidcConfig::default(),
         master_key: TEST_MASTER_KEY_HEX.to_owned(),
@@ -330,13 +330,21 @@ pub async fn spawn_app_with_isolated_schema() -> TestApp {
 /// Creates an isolated test app after applying a per-instance configuration override.
 ///
 /// This avoids process-environment mutation when tests need endpoint-specific feature gates or
-/// trusted origins.
+/// trusted origins. The listener is already bound: `config.addr` contains its actual loopback
+/// address, so a test can advertise that origin without rewriting Discovery responses.
 pub async fn spawn_app_with_isolated_schema_configured(
     configure: impl FnOnce(&mut BackendConfig),
 ) -> TestApp {
     dotenvy::dotenv().ok();
 
     let mut test_config = test_config();
+    let listener = tokio::net::TcpListener::bind(&test_config.addr)
+        .await
+        .expect("failed to bind integration test listener");
+    let address = listener
+        .local_addr()
+        .expect("failed to read integration test listener address");
+    test_config.addr = address.to_string();
     configure(&mut test_config);
     let base_dsn = test_config.database.dsn.clone();
 
@@ -392,20 +400,12 @@ pub async fn spawn_app_with_isolated_schema_configured(
     }
 
     // Start the application
-    let (server, address, state) = {
-        let addr = test_config.addr.clone();
+    let (server, state) = {
         let cors = test_config.cors.clone();
         let state = build_state(test_config)
             .await
             .expect("failed to build integration test app state");
         let router = app(state.clone(), cors);
-
-        let listener = tokio::net::TcpListener::bind(&addr)
-            .await
-            .expect("failed to bind integration test listener");
-        let address = listener
-            .local_addr()
-            .expect("failed to read integration test listener address");
 
         (
             tokio::spawn(async move {
@@ -413,7 +413,6 @@ pub async fn spawn_app_with_isolated_schema_configured(
                     .await
                     .expect("integration test server exited unexpectedly");
             }),
-            address,
             state,
         )
     };

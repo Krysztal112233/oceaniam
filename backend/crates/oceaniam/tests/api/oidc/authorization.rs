@@ -845,6 +845,43 @@ async fn callback_trust_controls_local_and_redirected_protocol_errors() {
         Some("unsupported_response_type")
     );
     assert_eq!(query.get("state").map(String::as_str), Some(state));
+    assert_eq!(
+        query.get("iss"),
+        Some(&format!(
+            "http://localhost:8000/oidc/{}",
+            fixture.tenant_sqid
+        ))
+    );
+    assert_eq!(query.len(), 3);
+
+    // An omitted (empty-normalized) state still gets issuer identification, but no invented
+    // state or browser binding cookie. Callback trust is unchanged by the protocol failure.
+    let missing_state = client
+        .get(app.url(&format!(
+            "{}?{}",
+            authorize_path(&fixture),
+            authorization_form(&fixture, "", "code", &[])
+        )))
+        .send()
+        .await
+        .expect("trusted request without state");
+    assert_eq!(missing_state.status(), 303);
+    assert!(missing_state.headers().get("set-cookie").is_none());
+    let missing_state_location = Url::parse(
+        missing_state.headers()["location"]
+            .to_str()
+            .expect("ASCII error Location"),
+    )
+    .expect("error Location URL");
+    let missing_state_query: HashMap<_, _> =
+        missing_state_location.query_pairs().into_owned().collect();
+    assert_eq!(
+        missing_state_query.get("error").map(String::as_str),
+        Some("invalid_request")
+    );
+    assert_eq!(missing_state_query.get("iss"), query.get("iss"));
+    assert!(!missing_state_query.contains_key("state"));
+    assert_eq!(missing_state_query.len(), 2);
 
     let request_object_form =
         authorization_form(&fixture, "request-state", "code", &[("request", "jwt")]);
@@ -938,10 +975,14 @@ async fn deferred_commit_failure_returns_trusted_server_error_without_cookie_or_
         .expect("trusted commit failure should redirect")
         .to_str()
         .expect("commit failure Location should be ASCII");
-    assert_eq!(
-        location,
-        "https://client.example/callback?error=server_error&state=commit+failure+%2F+%2B+%25+state"
-    );
+    let issuer = format!("http://localhost:8000/oidc/{}", fixture.tenant_sqid);
+    let mut expected_location = Url::parse(&fixture.redirect_uri).expect("registered callback");
+    expected_location
+        .query_pairs_mut()
+        .append_pair("error", "server_error")
+        .append_pair("state", state)
+        .append_pair("iss", &issuer);
+    assert_eq!(location, expected_location.as_str());
     let query: HashMap<_, _> = Url::parse(location)
         .expect("commit failure Location should parse")
         .query_pairs()
@@ -1113,6 +1154,14 @@ async fn prompt_none_redirects_login_required_and_none_combinations_are_invalid(
         none_query.get("state").map(String::as_str),
         Some("prompt-none-state")
     );
+    assert_eq!(
+        none_query.get("iss"),
+        Some(&format!(
+            "http://localhost:8000/oidc/{}",
+            fixture.tenant_sqid
+        ))
+    );
+    assert_eq!(none_query.len(), 3);
 
     // `none` combined with any other value is an error (§3.1.2.1).
     let combo_form = authorization_form(

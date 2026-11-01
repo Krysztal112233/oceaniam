@@ -2946,6 +2946,7 @@ dependencies = [
  "oceaniam-vo",
  "oceaniam-worker",
  "oceaniam-worker-runtime",
+ "openidconnect",
  "opentelemetry",
  "opentelemetry_sdk",
  "parking_lot",

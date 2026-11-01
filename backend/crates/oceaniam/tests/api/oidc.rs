@@ -7,6 +7,7 @@ use crate::support::spawn_app_with_isolated_schema;
 
 mod authorization;
 mod discovery;
+mod interoperability;
 mod login;
 mod token;
 mod userinfo;

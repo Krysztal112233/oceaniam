@@ -43,6 +43,7 @@ fn expected_configuration(tenant_sqid: &str) -> serde_json::Value {
         "token_endpoint_auth_methods_supported": ["none"],
         "code_challenge_methods_supported": ["S256"],
         "request_uri_parameter_supported": false,
+        "authorization_response_iss_parameter_supported": true,
         "claims_supported": ["iss", "sub", "aud", "exp", "iat", "auth_time", "nonce"],
     })
 }
@@ -254,7 +255,7 @@ async fn issued_id_token_alg_is_advertised_by_the_discovery_document() {
     );
 }
 
-/// The generated OpenAPI document registers both well-known path shapes.
+/// The generated OpenAPI document registers both well-known paths and the RFC 9207 flag.
 // NOTE: AI-generated test
 #[test]
 fn openapi_spec_contains_both_discovery_paths() {
@@ -270,5 +271,18 @@ fn openapi_spec_contains_both_discovery_paths() {
             .paths
             .contains_key("/.well-known/openid-configuration/oidc/{tenant_sqid}"),
         "insert-style discovery path must be registered in the OpenAPI document"
+    );
+    let spec = serde_json::to_value(spec).expect("OpenAPI JSON");
+    let schema = &spec["components"]["schemas"]["OpenIdProviderConfiguration"];
+    assert_eq!(
+        schema["properties"]["authorization_response_iss_parameter_supported"]["type"],
+        "boolean"
+    );
+    assert!(
+        schema["required"]
+            .as_array()
+            .expect("required configuration fields")
+            .iter()
+            .any(|field| field == "authorization_response_iss_parameter_supported")
     );
 }
