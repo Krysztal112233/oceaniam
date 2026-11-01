@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { components } from "@oceaniam/sdk";
 
 function fakeJwt() {
   const payload = Buffer.from(
@@ -11,6 +12,19 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() =>
     localStorage.setItem("oceaniam.locale", "en-US"),
   );
+  const configuration: components["schemas"]["ApplicationConfigurationVO"] = {
+    auth: {
+      token: { issuer: "OceanIAM", audience: ["OceanIAM"] },
+      password: { argon2: { m_cost: 12288, t_cost: 3, p_cost: 1 } },
+    },
+    registration: { enabled: false },
+    development_accounts: {
+      enabled: true,
+      default_ttl_seconds: 3600,
+      max_ttl_seconds: 86400,
+    },
+    oidc: { allow_insecure_loopback_redirect_uris: false },
+  };
   await page.route("**/api/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname.replace(/^\/api/, "");
@@ -64,20 +78,39 @@ test.beforeEach(async ({ page }) => {
       });
     if (path === "/tenants/tenant-1/applications/application-1/statistics")
       return route.fulfill({ json: { total_users: 3, total_active_keys: 1 } });
-    if (path === "/tenants/tenant-1/applications/application-1/configuration")
-      return route.fulfill({
-        json: {
-          configuration: {
-            auth: {
-              token: { issuer: "OceanIAM", audience: ["OceanIAM"] },
-              password: {
-                argon2: { m_cost: 12288, t_cost: 3, p_cost: 1 },
-              },
-            },
-            registration: { enabled: false },
-          },
-        },
-      });
+    if (path === "/tenants/tenant-1/applications/application-1/configuration") {
+      if (method === "PATCH") {
+        const patch =
+          request.postDataJSON() as components["schemas"]["PatchApplicationConfigurationRequest"];
+        if (patch.auth?.token?.issuer != null)
+          configuration.auth.token.issuer = patch.auth.token.issuer;
+        if (patch.auth?.token?.audience != null)
+          configuration.auth.token.audience = patch.auth.token.audience;
+        if (patch.registration?.enabled != null)
+          configuration.registration.enabled = patch.registration.enabled;
+        if (patch.development_accounts) {
+          configuration.development_accounts = {
+            enabled:
+              patch.development_accounts.enabled ??
+              configuration.development_accounts?.enabled ??
+              true,
+            default_ttl_seconds:
+              patch.development_accounts.default_ttl_seconds ??
+              configuration.development_accounts?.default_ttl_seconds ??
+              3600,
+            max_ttl_seconds:
+              patch.development_accounts.max_ttl_seconds ??
+              configuration.development_accounts?.max_ttl_seconds ??
+              86400,
+          };
+        }
+        if (configuration.oidc && patch.oidc)
+          configuration.oidc.allow_insecure_loopback_redirect_uris =
+            patch.oidc.allow_insecure_loopback_redirect_uris ??
+            configuration.oidc.allow_insecure_loopback_redirect_uris;
+      }
+      return route.fulfill({ json: { configuration } });
+    }
     return route.fulfill({ json: {} });
   });
 });
@@ -105,7 +138,7 @@ test("signs in and expands an application card", async ({ page }) => {
   expect(tenantMenuBox!.x + tenantMenuBox!.width).toBeLessThanOrEqual(
     sidebarBox!.x + sidebarBox!.width,
   );
-  await page.getByRole("heading", { name: "Platform overview" }).click();
+  await tenantMenu.getByRole("button", { name: /tenant-1/ }).click();
   await expect(tenantMenu).toBeHidden();
 
   await page.getByRole("link", { name: "Applications" }).click();
@@ -114,26 +147,72 @@ test("signs in and expands an application card", async ({ page }) => {
   await expect(page.getByText("Customer portal")).toBeVisible();
 
   await page.getByRole("tab", { name: "Configuration" }).click();
-  const tokenPanel = page.locator("section").filter({
-    has: page.getByRole("heading", { name: "Token", exact: true }),
+  const configurationForm = page.getByRole("form", {
+    name: "Configuration",
   });
-  const saveButton = tokenPanel.getByRole("button", { name: "Save" });
+  const saveButton = configurationForm.getByRole("button", { name: "Save" });
   await expect(
-    tokenPanel.getByRole("checkbox", { name: "Allow registration" }),
+    configurationForm.getByRole("checkbox", { name: "Allow registration" }),
   ).toBeVisible();
-  await expect(saveButton).toBeVisible();
-  const [tokenPanelBox, saveButtonBox] = await Promise.all([
-    tokenPanel.boundingBox(),
+  await expect(
+    configurationForm.getByRole("checkbox", { name: "Development accounts" }),
+  ).toBeVisible();
+  await expect(
+    configurationForm.getByRole("checkbox", {
+      name: "Allow HTTP loopback redirect URIs",
+    }),
+  ).toBeVisible();
+  await expect(saveButton).toBeDisabled();
+
+  await configurationForm.getByLabel("Default TTL (seconds)").fill("100");
+  await configurationForm.getByLabel("Maximum TTL (seconds)").fill("10");
+  await saveButton.click();
+  await expect(
+    page.getByText("Default TTL cannot exceed maximum TTL."),
+  ).toBeVisible();
+  await configurationForm.getByLabel("Maximum TTL (seconds)").fill("86400");
+  await configurationForm
+    .getByRole("checkbox", { name: "Allow HTTP loopback redirect URIs" })
+    .check();
+  await expect(page.getByText("Unsaved changes")).toBeVisible();
+  await saveButton.click();
+  await expect(page.getByText("All changes saved")).toBeVisible();
+  await expect(saveButton).toBeDisabled();
+
+  const [configurationFormBox, saveButtonBox] = await Promise.all([
+    configurationForm.boundingBox(),
     saveButton.boundingBox(),
   ]);
-  expect(tokenPanelBox).not.toBeNull();
+  expect(configurationFormBox).not.toBeNull();
   expect(saveButtonBox).not.toBeNull();
   expect(
-    tokenPanelBox!.x +
-      tokenPanelBox!.width -
+    configurationFormBox!.x +
+      configurationFormBox!.width -
       saveButtonBox!.x -
       saveButtonBox!.width,
   ).toBeLessThanOrEqual(24);
+
+  await page.getByRole("link", { name: "Settings" }).click();
+  const darkTheme = page.getByRole("button", { name: "Dark", exact: true });
+  await darkTheme.click();
+  await expect(darkTheme).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByRole("button", { name: "System", exact: true }),
+  ).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByRole("radio", { name: "English" })).toBeChecked();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const menuButton = page.getByRole("button", {
+    name: "Open navigation menu",
+  });
+  await expect(menuButton).toHaveAttribute("aria-expanded", "false");
+  await menuButton.click();
+  await expect(
+    page.getByRole("button", { name: "Close sidebar" }),
+  ).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Escape");
+  await expect(menuButton).toHaveAttribute("aria-expanded", "false");
+  await expect(menuButton).toBeFocused();
 
   await page.getByRole("button", { name: "root" }).click();
   await page.getByRole("button", { name: "Sign out" }).click();

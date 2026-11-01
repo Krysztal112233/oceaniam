@@ -27,6 +27,12 @@ const { defineField, errors, handleSubmit } = useForm({
 });
 const [name, nameAttrs] = defineField("name");
 const [password, passwordAttrs] = defineField("password");
+const nameError = computed(() =>
+  errors.value.name ? t("auth.nameRequired") : "",
+);
+const passwordError = computed(() =>
+  errors.value.password ? t("auth.passwordRequired") : "",
+);
 
 const errorMessage = computed(() => {
   if (auth.error === "invalid") return t("auth.invalid");
@@ -105,45 +111,72 @@ const submit = handleSubmit(async (values) => {
           <h2 class="card-title text-2xl">
             {{ $t("auth.signIn") }}
           </h2>
-          <form class="mt-3 space-y-4" @submit="submit">
-            <label class="fieldset">
-              <span class="fieldset-legend">{{ $t("auth.name") }}</span>
-              <label
-                class="input w-full"
-                :class="{ 'input-error': errors.name }"
-              >
+          <form class="mt-3 space-y-4" novalidate @submit="submit">
+            <div class="fieldset">
+              <label class="fieldset-legend" for="login-name">
+                {{ $t("auth.name") }}
+              </label>
+              <div class="input w-full" :class="{ 'input-error': nameError }">
                 <Icon
                   icon="material-symbols:person-outline-rounded"
                   class="size-5 opacity-50"
                 />
                 <input
+                  id="login-name"
                   v-model="name"
                   v-bind="nameAttrs"
                   name="name"
                   autocomplete="username"
+                  required
                   autofocus
+                  :aria-invalid="Boolean(nameError)"
+                  :aria-describedby="nameError ? 'login-name-error' : undefined"
                 />
+              </div>
+              <p
+                v-if="nameError"
+                id="login-name-error"
+                class="mt-1 text-sm text-error"
+                role="alert"
+              >
+                {{ nameError }}
+              </p>
+            </div>
+            <div class="fieldset">
+              <label class="fieldset-legend" for="login-password">
+                {{ $t("auth.password") }}
               </label>
-            </label>
-            <label class="fieldset">
-              <span class="fieldset-legend">{{ $t("auth.password") }}</span>
-              <label
+              <div
                 class="input w-full"
-                :class="{ 'input-error': errors.password }"
+                :class="{ 'input-error': passwordError }"
               >
                 <Icon
                   icon="material-symbols:lock-outline-rounded"
                   class="size-5 opacity-50"
                 />
                 <input
+                  id="login-password"
                   v-model="password"
                   v-bind="passwordAttrs"
                   name="password"
                   type="password"
                   autocomplete="current-password"
+                  required
+                  :aria-invalid="Boolean(passwordError)"
+                  :aria-describedby="
+                    passwordError ? 'login-password-error' : undefined
+                  "
                 />
-              </label>
-            </label>
+              </div>
+              <p
+                v-if="passwordError"
+                id="login-password-error"
+                class="mt-1 text-sm text-error"
+                role="alert"
+              >
+                {{ passwordError }}
+              </p>
+            </div>
             <div
               v-if="errorMessage"
               role="alert"
@@ -164,7 +197,7 @@ const submit = handleSubmit(async (values) => {
                 v-if="auth.busy"
                 class="loading loading-spinner loading-sm"
               />
-              {{ $t("auth.signIn") }}
+              {{ auth.busy ? $t("auth.signingIn") : $t("auth.signIn") }}
             </button>
           </form>
         </div>

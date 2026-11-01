@@ -43,6 +43,8 @@ watch(
 );
 
 async function selectTenant(id: string) {
+  if (document.activeElement instanceof HTMLElement)
+    document.activeElement.blur();
   tenantStore.select(id);
   await queryClient.cancelQueries({
     predicate: (query) => query.queryKey[0] === "tenant",

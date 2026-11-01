@@ -11,6 +11,13 @@ const auth = useAuthStore();
 const queryClient = useQueryClient();
 const router = useRouter();
 const drawerOpen = ref(false);
+const menuButton = ref<HTMLButtonElement | null>(null);
+
+function closeDrawerAndFocus() {
+  if (!drawerOpen.value) return;
+  drawerOpen.value = false;
+  menuButton.value?.focus();
+}
 
 async function signOut() {
   await auth.signout();
@@ -53,7 +60,7 @@ const navigation = [
 </script>
 
 <template>
-  <div class="drawer lg:drawer-open">
+  <div class="drawer lg:drawer-open" @keydown.esc="closeDrawerAndFocus">
     <input
       id="admin-drawer"
       v-model="drawerOpen"
@@ -65,13 +72,19 @@ const navigation = [
         class="navbar sticky top-0 z-30 border-b border-base-300 bg-base-100/90 px-3 backdrop-blur lg:px-6"
       >
         <div class="flex-none lg:hidden">
-          <label
-            for="admin-drawer"
+          <button
+            ref="menuButton"
+            type="button"
             class="btn btn-square btn-ghost"
-            :aria-label="$t('common.appName')"
+            aria-controls="admin-sidebar"
+            :aria-expanded="drawerOpen"
+            :aria-label="
+              drawerOpen ? $t('common.closeSidebar') : $t('common.openSidebar')
+            "
+            @click="drawerOpen = !drawerOpen"
           >
             <Icon icon="material-symbols:menu-rounded" class="size-6" />
-          </label>
+          </button>
         </div>
         <div class="flex-1 lg:hidden">
           <span class="text-lg font-bold">OceanIAM</span>
@@ -113,13 +126,17 @@ const navigation = [
       <main><RouterView /></main>
     </div>
 
-    <aside class="drawer-side z-40">
+    <aside
+      class="drawer-side z-40"
+      :aria-label="$t('common.primaryNavigation')"
+    >
       <label
         for="admin-drawer"
         :aria-label="$t('common.closeSidebar')"
         class="drawer-overlay"
       />
       <div
+        id="admin-sidebar"
         class="flex min-h-full w-72 flex-col border-r border-base-300 bg-base-100 p-3"
       >
         <RouterLink

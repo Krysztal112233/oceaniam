@@ -115,6 +115,8 @@ const tabs: Array<{ value: Tab; label: string; icon: string }> = [
     <button
       class="collapse-title flex min-h-24 items-center gap-4 pr-12 text-left"
       type="button"
+      :aria-expanded="expanded"
+      :aria-controls="`application-${application.id}-panels`"
       @click="emit('toggle')"
     >
       <span
@@ -135,23 +137,35 @@ const tabs: Array<{ value: Tab; label: string; icon: string }> = [
       }}</span>
     </button>
 
-    <div v-if="expanded" class="collapse-content px-0 pb-0">
+    <div
+      v-if="expanded"
+      :id="`application-${application.id}-panels`"
+      class="collapse-content px-0 pb-0"
+    >
       <div
         class="tabs tabs-border overflow-x-auto border-y border-base-300 px-4 sm:px-6"
         role="tablist"
       >
         <button
           v-for="item in tabs"
+          :id="`application-${application.id}-tab-${item.value}`"
           :key="item.value"
           class="tab gap-2"
           :class="{ 'tab-active': tab === item.value }"
           role="tab"
+          :aria-selected="tab === item.value"
+          :aria-controls="`application-${application.id}-tabpanel`"
           @click="tab = item.value"
         >
           <Icon :icon="item.icon" class="size-4" /> {{ $t(item.label) }}
         </button>
       </div>
-      <div class="p-4 sm:p-6">
+      <div
+        :id="`application-${application.id}-tabpanel`"
+        class="p-4 sm:p-6"
+        role="tabpanel"
+        :aria-labelledby="`application-${application.id}-tab-${tab}`"
+      >
         <ApplicationOverviewPanel
           v-if="tab === 'overview'"
           :tenant-id="application.tenant_id"

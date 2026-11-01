@@ -45,11 +45,17 @@ const locales: Array<{ value: SupportedLocale; label: string }> = [
             <Icon icon="material-symbols:palette-outline-rounded" />
             {{ $t("settings.appearance") }}
           </h2>
-          <div class="mt-3 grid grid-cols-3 gap-2">
+          <div
+            class="mt-3 grid grid-cols-3 gap-2"
+            role="group"
+            :aria-label="$t('settings.theme')"
+          >
             <button
               v-for="item in themes"
               :key="item.value"
+              type="button"
               class="btn h-auto flex-col gap-2 py-4"
+              :aria-pressed="preferences.theme === item.value"
               :class="
                 preferences.theme === item.value
                   ? 'btn-primary'
@@ -69,22 +75,25 @@ const locales: Array<{ value: SupportedLocale; label: string }> = [
             <Icon icon="material-symbols:translate-rounded" />
             {{ $t("settings.language") }}
           </h2>
-          <div class="mt-3 space-y-2">
-            <label
-              v-for="item in locales"
-              :key="item.value"
-              class="label cursor-pointer rounded-box bg-base-200 px-4 py-3"
-            >
-              <span>{{ $t(item.label) }}</span>
-              <input
-                v-model="preferences.locale"
-                type="radio"
-                name="locale"
-                class="radio radio-primary"
-                :value="item.value"
-              />
-            </label>
-          </div>
+          <fieldset class="mt-3">
+            <legend class="sr-only">{{ $t("settings.language") }}</legend>
+            <div class="space-y-2">
+              <label
+                v-for="item in locales"
+                :key="item.value"
+                class="label cursor-pointer rounded-box bg-base-200 px-4 py-3"
+              >
+                <span>{{ $t(item.label) }}</span>
+                <input
+                  v-model="preferences.locale"
+                  type="radio"
+                  name="locale"
+                  class="radio radio-primary"
+                  :value="item.value"
+                />
+              </label>
+            </div>
+          </fieldset>
         </div>
       </section>
     </div>
