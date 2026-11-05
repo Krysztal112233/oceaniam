@@ -98,6 +98,7 @@ async fn rsa_material_traces_preserve_context_without_leaking_secrets() {
     let invalid_raw = RawKey {
         key_id: Uuid::now_v7(),
         key_alg: algorithm,
+        kek_version: invalid_blob.key_version,
         secret: serde_json::to_value(SecretField {
             nonce: B64.encode(invalid_blob.nonce),
             ciphertext: B64.encode(invalid_blob.ciphertext),

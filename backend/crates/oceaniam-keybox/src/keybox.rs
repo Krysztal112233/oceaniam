@@ -45,6 +45,9 @@ pub struct RawKey {
     /// The algorithm used by this key (e.g., RS256, RS512, etc.)
     pub key_alg: KeyAlg,
 
+    /// KEK version from the authoritative `key_boxes.kek_version` column.
+    pub kek_version: u32,
+
     /// The secret key material stored as JSON value
     pub secret: Value,
 }
@@ -58,6 +61,7 @@ impl From<Key> for RawKey {
         Key {
             id,
             key_alg,
+            kek_version,
             secret,
             ..
         }: Key,
@@ -65,6 +69,8 @@ impl From<Key> for RawKey {
         RawKey {
             key_id: id,
             key_alg: key_alg.into(),
+            kek_version: u32::try_from(kek_version)
+                .expect("database CHECK constraint requires a positive KEK version"),
             secret,
         }
     }
@@ -521,6 +527,7 @@ mod tests {
         let RawKey {
             key_id: id,
             key_alg,
+            kek_version,
             secret,
         } = key;
 
@@ -545,6 +552,8 @@ mod tests {
             expires_at,
             secret,
             tenant_id: keybox.tenant_id,
+            kek_version: i32::try_from(kek_version)
+                .expect("test KEK version must fit the database integer column"),
         };
 
         keybox.keys.insert(id, key);

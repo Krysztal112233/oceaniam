@@ -116,7 +116,10 @@ pub struct SecretField {
     pub nonce: String,
     /// base64-encoded ciphertext (encrypted PKCS#8 PEM + Poly1305 tag).
     pub ciphertext: String,
-    /// KEK version that produced this ciphertext.
+    /// Legacy compatibility mirror of `key_boxes.kek_version`.
+    ///
+    /// The database column is authoritative; unsealing rejects a mismatch. This field remains
+    /// during the rolling-deployment window so older binaries can still read newly written rows.
     pub key_version: u32,
 }
 
@@ -150,10 +153,24 @@ impl FromSecretField for RsaKey {
         skip_all,
         fields(otel.kind = "internal")
     )]
-    fn from_secret_field(value: Value, master_key: &MasterKey) -> Result<Self::Type, Error> {
+    fn from_secret_field(
+        value: Value,
+        master_key: &MasterKey,
+        kek_version: u32,
+    ) -> Result<Self::Type, Error> {
         use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
 
         let field: SecretField = serde_json::from_value(value)?;
+        if field.key_version != kek_version {
+            return Err(Error::Internal {
+                msg: format!(
+                    "KEK version mismatch: database column is {kek_version}, but legacy secret \
+                     mirror is {}",
+                    field.key_version
+                ),
+                location: snafu::location!(),
+            });
+        }
 
         let nonce: [u8; 24] = B64
             .decode(&field.nonce)
@@ -173,7 +190,7 @@ impl FromSecretField for RsaKey {
                 msg: format!("ciphertext base64 decode: {e}"),
                 location: snafu::location!(),
             })?,
-            key_version: field.key_version,
+            key_version: kek_version,
         };
 
         let pem_bytes = Zeroizing::new(master_key.decrypt(&blob)?);
@@ -194,8 +211,15 @@ impl TryIntoKeyModel for RsaKey {
         }: crate::keybox::KeyOption,
         now: chrono::DateTime<chrono::FixedOffset>,
     ) -> Result<oceaniam_database::model::key_boxes::Model, Error> {
-        let secret =
-            serde_json::to_value(SecretField::from_rsa_private(self.private, master_key)?)?;
+        let secret = SecretField::from_rsa_private(self.private, master_key)?;
+        let kek_version = i32::try_from(secret.key_version).map_err(|_| Error::Internal {
+            msg: format!(
+                "KEK version {} does not fit the database integer column",
+                secret.key_version
+            ),
+            location: snafu::location!(),
+        })?;
+        let secret = serde_json::to_value(secret)?;
 
         let status = compute_key_status(&now, &activated_at, &retired_at, &expires_at);
 
@@ -210,6 +234,7 @@ impl TryIntoKeyModel for RsaKey {
             expires_at,
             secret,
             tenant_id,
+            kek_version,
         })
     }
 }
@@ -227,14 +252,19 @@ impl RsaKey {
             id: key_id,
             key_alg,
             secret,
+            kek_version,
             ..
         } = key;
         let key_alg = KeyAlg::from(key_alg);
+        let kek_version = u32::try_from(kek_version).map_err(|_| Error::Internal {
+            msg: format!("invalid negative KEK version {kek_version} in key_boxes"),
+            location: snafu::location!(),
+        })?;
 
         Ok(Self {
             key_id,
             key_alg,
-            private: Self::from_secret_field(secret, master_key)?,
+            private: Self::from_secret_field(secret, master_key, kek_version)?,
         })
     }
 
@@ -252,10 +282,14 @@ impl RsaKey {
             private: secret,
         } = self;
 
+        let secret = SecretField::from_rsa_private(secret, master_key)?;
+        let kek_version = secret.key_version;
+
         Ok(RawKey {
             key_id: id,
             key_alg,
-            secret: serde_json::to_value(SecretField::from_rsa_private(secret, master_key)?)?,
+            kek_version,
+            secret: serde_json::to_value(secret)?,
         })
     }
 
@@ -270,13 +304,14 @@ impl RsaKey {
         let RawKey {
             key_id: id,
             key_alg,
+            kek_version,
             secret,
         } = raw;
 
         Ok(Self {
             key_id: id,
             key_alg,
-            private: Self::from_secret_field(secret, master_key)?,
+            private: Self::from_secret_field(secret, master_key, kek_version)?,
         })
     }
 }
@@ -430,15 +465,30 @@ mod tests {
 
     // NOTE: AI-generated test
     #[test]
-    fn secret_field_key_version_is_one() {
+    fn raw_key_kek_version_is_one_and_mirrors_legacy_secret() {
         let mk =
             MasterKey::from_hex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
                 .unwrap();
         let key = RsaKey::new(Uuid::now_v7(), KeyAlg::try_from(Algorithm::RS512).unwrap());
         let raw = key.into_raw_key(&mk).unwrap();
 
+        assert_eq!(raw.kek_version, 1);
         let secret: SecretField = serde_json::from_value(raw.secret).unwrap();
         assert_eq!(secret.key_version, 1);
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn unseal_rejects_legacy_mirror_that_disagrees_with_column_version() {
+        let mk =
+            MasterKey::from_hex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+                .unwrap();
+        let key = RsaKey::new(Uuid::now_v7(), KeyAlg::try_from(Algorithm::RS512).unwrap());
+        let mut raw = key.into_raw_key(&mk).unwrap();
+        raw.secret["key_version"] = Value::from(2);
+
+        let error = RsaKey::from_raw_key(raw, &mk).unwrap_err();
+        assert!(error.to_string().contains("KEK version mismatch"));
     }
 
     // NOTE: AI-generated test
@@ -503,6 +553,7 @@ mod tests {
         let raw = RawKey {
             key_id,
             key_alg: KeyAlg::try_from(Algorithm::PS512).expect("supported algorithm"),
+            kek_version: 1,
             secret: secret.clone(),
         };
         let now: chrono::DateTime<chrono::FixedOffset> = chrono::Utc::now().into();
@@ -518,6 +569,7 @@ mod tests {
                 expires_at: now + chrono::Duration::days(60),
                 secret: secret.clone(),
                 tenant_id: Uuid::now_v7(),
+                kek_version: 1,
             },
             &master_key,
         )

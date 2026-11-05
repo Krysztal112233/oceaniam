@@ -143,6 +143,7 @@ pub trait KeyBoxesHelper {
                         model::key_boxes::Column::ExpiresAt,
                         model::key_boxes::Column::Secret,
                         model::key_boxes::Column::TenantId,
+                        model::key_boxes::Column::KekVersion,
                     ])
                     .to_owned(),
             )

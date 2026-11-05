@@ -27,6 +27,7 @@ async fn insert_key_box(
         expires_at: Set(expires_at),
         secret: Set(json!({"k": "v"})),
         tenant_id: Set(tenant_id),
+        kek_version: Set(1),
     }
     .insert(db)
     .await

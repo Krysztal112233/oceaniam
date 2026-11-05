@@ -133,6 +133,11 @@ async fn ps512_only_fleet_converges_to_rs256_through_rotation() {
     let keys = KeyBoxes::get_tenant_keys(tenant_id, &database)
         .await
         .expect("read tenant keys");
+    assert!(
+        keys.iter()
+            .all(|key| { key.kek_version == 1 && key.secret["key_version"] == 1 }),
+        "persisted signing keys must carry matching authoritative and legacy KEK versions"
+    );
     let active = keys
         .iter()
         .filter(|key| key.status == KeyStatus::Active)

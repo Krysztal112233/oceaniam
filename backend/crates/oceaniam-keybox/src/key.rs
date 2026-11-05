@@ -8,7 +8,11 @@ use crate::{error::Error, keybox::KeyOption};
 
 pub(in crate::key) trait FromSecretField {
     type Type;
-    fn from_secret_field(value: Value, master_key: &MasterKey) -> Result<Self::Type, Error>;
+    fn from_secret_field(
+        value: Value,
+        master_key: &MasterKey,
+        kek_version: u32,
+    ) -> Result<Self::Type, Error>;
 }
 
 pub trait TryIntoKeyModel {

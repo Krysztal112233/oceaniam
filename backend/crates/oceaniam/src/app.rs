@@ -171,11 +171,28 @@ async fn health_check_kek(
         })?;
 
     use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
+    let kek_version = u32::try_from(row.kek_version).map_err(|_| Error::Internal {
+        msg: format!(
+            "invalid negative KEK version {} in key_boxes",
+            row.kek_version
+        ),
+        location: snafu::location!(),
+    })?;
     let field: oceaniam_keybox::SecretField =
         serde_json::from_value(row.secret).map_err(|e| Error::Internal {
             msg: format!("failed to deserialize `SecretField`: {e}"),
             location: snafu::location!(),
         })?;
+    if field.key_version != kek_version {
+        return Err(Error::Internal {
+            msg: format!(
+                "KEK version mismatch: database column is {kek_version}, but legacy secret mirror \
+                 is {}",
+                field.key_version
+            ),
+            location: snafu::location!(),
+        });
+    }
 
     let blob = oceaniam_common::crypto::EncryptedBlob {
         nonce: B64
@@ -193,7 +210,7 @@ async fn health_check_kek(
             msg: format!("ciphertext base64 decode: {e}"),
             location: snafu::location!(),
         })?,
-        key_version: field.key_version,
+        key_version: kek_version,
     };
 
     match master_key.decrypt(&blob) {

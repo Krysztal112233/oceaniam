@@ -20,6 +20,7 @@ pub struct Model {
     #[sea_orm(column_type = "JsonBinary")]
     pub secret: Json,
     pub tenant_id: Uuid,
+    pub kek_version: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
