@@ -63,23 +63,23 @@ pub struct VersionedVerifier {
     pub verifier: [u8; APPLICATION_SECRET_VERIFIER_LENGTH],
 }
 
+fn ensure_positive_key_version(version: i32) -> Result<i32, ApplicationSecretError> {
+    if version <= 0 {
+        return Err(ApplicationSecretError::InvalidKeyVersion { version });
+    }
+    Ok(version)
+}
+
 impl ApplicationSecretKeyring {
     pub fn new(
         current_version: i32,
         keys: impl IntoIterator<Item = (i32, ApplicationSecretHmacKey)>,
     ) -> Result<Self, ApplicationSecretError> {
-        if current_version <= 0 {
-            return Err(ApplicationSecretError::InvalidKeyVersion {
-                version: current_version,
-            });
-        }
-
+        let current_version = ensure_positive_key_version(current_version)?;
         let keyring =
             keys.into_iter()
                 .try_fold(BTreeMap::new(), |mut keyring, (version, key)| {
-                    if version <= 0 {
-                        return Err(ApplicationSecretError::InvalidKeyVersion { version });
-                    }
+                    let version = ensure_positive_key_version(version)?;
 
                     use std::collections::btree_map::Entry;
 
@@ -214,11 +214,7 @@ fn parse_hmac_key_entries(
                 version: version.to_owned(),
             }
         })?;
-        if parsed_version <= 0 {
-            return Err(ApplicationSecretError::InvalidKeyVersion {
-                version: parsed_version,
-            });
-        }
+        let parsed_version = ensure_positive_key_version(parsed_version)?;
         let key = ApplicationSecretHmacKey::from_hex_owned(hex.trim().to_owned())?;
         if keys.insert(parsed_version, key).is_some() {
             return Err(ApplicationSecretError::DuplicateKeyVersion {
@@ -320,6 +316,18 @@ mod tests {
         assert!(keyring.verify(1, TEST_SECRET, &old_verifier).unwrap());
         assert_eq!(current.hmac_key_version, 2);
         assert_ne!(current.verifier, old_verifier);
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn constructor_rejects_duplicate_key_versions() {
+        let first = ApplicationSecretHmacKey::from_hex_owned(TEST_KEY_HEX.to_owned()).unwrap();
+        let second = ApplicationSecretHmacKey::from_hex_owned("ab".repeat(32)).unwrap();
+
+        assert!(matches!(
+            ApplicationSecretKeyring::new(1, [(1, first), (1, second)]),
+            Err(ApplicationSecretError::DuplicateKeyVersion { version: 1 })
+        ));
     }
 
     // NOTE: AI-generated test
