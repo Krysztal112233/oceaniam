@@ -1,12 +1,13 @@
 use std::collections::HashSet;
 
 use oceaniam_application_secret::{
-    ApplicationSecret, ApplicationSecretHmacKey, ApplicationSecretKeyring,
+    ApplicationSecret, ApplicationSecretKeyring, parse_delimited_hmac_keys,
 };
 use sea_orm::{ConnectionTrait, DatabaseBackend, Statement, TransactionTrait};
 use sea_orm_migration::prelude::*;
+use zeroize::Zeroizing;
 
-const HMAC_KEY_ENV_VAR_V1: &str = "OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__1";
+const HMAC_KEYS_ENV_VAR: &str = "OCEANIAM_APPLICATION_SECRET_HMAC__KEYS";
 const HMAC_KEY_VERSION_V1: i32 = 1;
 const IDX_APPLICATION_SECRETS_SECRET: &str = "idx_application_secrets_secret";
 const IDX_APPLICATION_SECRETS_PREFIX: &str = "idx_application_secrets_secret_prefix";
@@ -21,13 +22,20 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        let key_hex = std::env::var(HMAC_KEY_ENV_VAR_V1).map_err(|_| {
+        // Targeted up-side exception approved on 2026-11-06: only configuration ingestion
+        // changed to the current key-list syntax. SQL and verifier derivation remain unchanged.
+        let entries = Zeroizing::new(std::env::var(HMAC_KEYS_ENV_VAR).map_err(|_| {
             DbErr::Custom(format!(
-                "environment variable {HMAC_KEY_ENV_VAR_V1} is required for this migration"
+                "environment variable {HMAC_KEYS_ENV_VAR} is required for this migration"
+            ))
+        })?);
+        let mut keys = parse_delimited_hmac_keys(&entries)
+            .map_err(|error| DbErr::Custom(format!("invalid {HMAC_KEYS_ENV_VAR}: {error}")))?;
+        let key = keys.remove(&HMAC_KEY_VERSION_V1).ok_or_else(|| {
+            DbErr::Custom(format!(
+                "invalid {HMAC_KEYS_ENV_VAR}: HMAC key version 1 is required"
             ))
         })?;
-        let key = ApplicationSecretHmacKey::from_hex_owned(key_hex)
-            .map_err(|error| DbErr::Custom(format!("invalid {HMAC_KEY_ENV_VAR_V1}: {error}")))?;
         let keyring = ApplicationSecretKeyring::new(HMAC_KEY_VERSION_V1, [(1, key)])
             .map_err(|error| DbErr::Custom(error.to_string()))?;
 

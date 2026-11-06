@@ -181,6 +181,15 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
     assert!(invalid_key.to_string().contains("invalid"));
     assert_legacy_schema_intact(&database, &[LEGACY_SECRET]).await;
 
+    // SAFETY: sequential within this single test. Every configured version is validated,
+    // even though the historical migration only derives verifiers with version 1.
+    unsafe {
+        std::env::set_var(HMAC_KEY_ENV, format!("2:00,+1:{TEST_HMAC_KEY_HEX}"));
+    }
+    let invalid_other_version = Migrator::up(&database, Some(1)).await.unwrap_err();
+    assert!(invalid_other_version.to_string().contains("invalid"));
+    assert_legacy_schema_intact(&database, &[LEGACY_SECRET]).await;
+
     database
         .execute_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
@@ -190,8 +199,9 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
         ))
         .await
         .unwrap();
-    // SAFETY: sequential within this single test.
-    unsafe { std::env::set_var(HMAC_KEY_ENV, format!("1:{TEST_HMAC_KEY_HEX}")) };
+    // SAFETY: sequential within this single test. `+1` exercises the same numeric-version
+    // normalization accepted by runtime keyring deserialization.
+    unsafe { std::env::set_var(HMAC_KEY_ENV, format!("+1:{TEST_HMAC_KEY_HEX}")) };
     let malformed = Migrator::up(&database, Some(1)).await.unwrap_err();
     assert!(malformed.to_string().contains("invalid plaintext format"));
     assert_legacy_schema_intact(&database, &[LEGACY_SECRET, "malformed"]).await;

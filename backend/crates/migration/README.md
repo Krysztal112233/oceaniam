@@ -38,8 +38,7 @@ production rollback mechanism.
 Rule 1 forbids editing committed migrations; the following up-side amendments
 were approved by the project owner as targeted exceptions. Each is inert for
 databases that already applied the migration (they never re-run `up`), preserves
-the forward-only production policy, and exists only to keep development
-`fresh`/`refresh` workflows usable.
+the forward-only production policy, and documents its narrow reason below.
 
 - `m20260510_171924_audit_summary_by_application_triggers` — `up.sql` amended on
   2026-10-20: plain `CREATE FUNCTION` became `CREATE OR REPLACE FUNCTION` for
@@ -53,6 +52,15 @@ the forward-only production policy, and exists only to keep development
   migration. The trigger guard covers the symmetric orphan reachable through
   manual table surgery (e.g. dropping the summary table by hand while `audits`
   keeps its trigger).
+
+- `m20260726_142405_hash_application_secrets` — configuration ingestion in `up`
+  amended on 2026-11-06: the migration now reads the current
+  `OCEANIAM_APPLICATION_SECRET_HMAC__KEYS` list through the runtime's shared parser
+  and extracts version 1. The previous adapter temporarily injected the historical
+  process-wide environment variable, which is unsound in a multithreaded Tokio
+  process. The migration name, ordering, SQL, transaction boundaries, and verifier
+  derivation are unchanged; already-migrated databases never re-run this code,
+  while fresh installs use only the new list syntax.
 
 ## Known irreversible migrations
 

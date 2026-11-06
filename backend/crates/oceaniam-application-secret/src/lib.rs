@@ -5,7 +5,7 @@ mod secret;
 pub use error::ApplicationSecretError;
 pub use keyring::{
     APPLICATION_SECRET_VERIFIER_LENGTH, ApplicationSecretHmacKey, ApplicationSecretKeyring,
-    VersionedVerifier,
+    VersionedVerifier, parse_delimited_hmac_keys,
 };
 pub use secret::{
     APPLICATION_SECRET_LENGTH, APPLICATION_SECRET_PREFIX, APPLICATION_SECRET_RANDOM_LENGTH,

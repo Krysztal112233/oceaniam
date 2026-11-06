@@ -58,6 +58,6 @@ effect across instances on the next request.
 
 The verifier-only migration requires a maintenance window: stop every old secret-writing backend,
 verify a restorable database backup, run the migration, and then deploy the verifier-aware runtime.
-Rollback means restoring that backup because plaintext cannot be reconstructed. The migration
-adapter extracts version 1 from `OCEANIAM_APPLICATION_SECRET_HMAC__KEYS` for the historical
-migration, and that value must exactly match the runtime version-1 key.
+Rollback means restoring that backup because plaintext cannot be reconstructed. The historical
+migration uses the same key-list parser as the runtime and extracts version 1 from
+`OCEANIAM_APPLICATION_SECRET_HMAC__KEYS`; that value must exactly match the runtime version-1 key.

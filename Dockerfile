@@ -19,7 +19,7 @@ FROM base AS backend
 COPY --from=backend-builder /builder/target/release/oceaniam /app/
 # Required runtime env: OCEANIAM_MASTER_KEY and the Application Secret HMAC keyring
 # (for example OCEANIAM_APPLICATION_SECRET_HMAC__CURRENT_VERSION=1 and
-# OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__1=<64-char hex>). Generate each key independently with:
+# OCEANIAM_APPLICATION_SECRET_HMAC__KEYS=1:<64-char hex>). Generate each key independently with:
 # openssl rand -hex 32
 CMD [ "./oceaniam" ]
 
@@ -31,8 +31,8 @@ CMD [ "./oceaniam-worker" ]
 
 FROM base AS migration
 COPY --from=backend-builder /builder/target/release/migration /app/
-# Required env: OCEANIAM_MASTER_KEY. The Application Secret HMAC migration specifically reads
-# OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__1=<64-char hex>; it must exactly match runtime version 1.
+# Required env: OCEANIAM_MASTER_KEY and OCEANIAM_APPLICATION_SECRET_HMAC__KEYS.
+# The comma-separated version:hex list must include version 1 with the same key used by the runtime.
 # Generate each key independently with:
 # openssl rand -hex 32
 CMD [ "./migration" ]
