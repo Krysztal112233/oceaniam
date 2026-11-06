@@ -100,6 +100,9 @@ Rolling back through any of these requires restoring from a backup.
   stop all old backend/worker writers, take a backup, migrate, and start the new
   release. The earlier rolling-deployment comment in `up.sql` is superseded; JSON
   `key_version` is only legacy migration input. Rollback requires that backup.
+- `m20261106_123803_purge_key_box_secret_kek_version` — removes the redundant JSON
+  field after the column backfill. Its `down()` uses the same backup-only policy;
+  restore a backup instead of reconstructing the legacy JSON format.
 
 ## Backup & restore (production rollback)
 

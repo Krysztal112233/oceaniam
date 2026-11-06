@@ -89,6 +89,7 @@ mod m20261002_051724_alter_audit_type_oidc_issue_authorization_code;
 mod m20261002_115739_alter_audit_type_oidc_issue_token;
 mod m20261029_113017_create_worker_queue;
 mod m20261104_111941_extract_key_box_kek_version;
+mod m20261106_123803_purge_key_box_secret_kek_version;
 
 pub struct Migrator;
 
@@ -187,6 +188,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20261002_115739_alter_audit_type_oidc_issue_token::Migration),
             Box::new(m20261029_113017_create_worker_queue::Migration),
             Box::new(m20261104_111941_extract_key_box_kek_version::Migration),
+            Box::new(m20261106_123803_purge_key_box_secret_kek_version::Migration),
         ]
     }
 }

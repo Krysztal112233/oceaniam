@@ -8,6 +8,7 @@ const TEST_MASTER_KEY_HEX: &str =
     "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const TEST_HMAC_KEY_HEX: &str = "89abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234567";
 const MIGRATION_VERSION: &str = "m20261104_111941_extract_key_box_kek_version";
+const PURGE_MIGRATION_VERSION: &str = "m20261106_123803_purge_key_box_secret_kek_version";
 
 struct TestSchema {
     base_dsn: String,
@@ -80,9 +81,23 @@ async fn stored_version(database: &DatabaseConnection, key_id: Uuid) -> i32 {
         .expect("KEK version column")
 }
 
+async fn stored_secret(database: &DatabaseConnection, key_id: Uuid) -> serde_json::Value {
+    database
+        .query_one_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "SELECT secret FROM key_boxes WHERE id = $1",
+            [key_id.into()],
+        ))
+        .await
+        .expect("read key box secret")
+        .expect("key box row")
+        .try_get("", "secret")
+        .expect("secret JSON")
+}
+
 // NOTE: AI-generated test
 #[tokio::test]
-async fn extracts_backfills_constrains_and_refuses_kek_version_rollback() {
+async fn extracts_backfills_purges_mirror_and_enforces_backup_only() {
     dotenvy::dotenv().ok();
 
     // SAFETY: this integration-test binary has one test and uses deterministic test-only keys.
@@ -130,7 +145,7 @@ async fn extracts_backfills_constrains_and_refuses_kek_version_rollback() {
                 $1, 'rs256', 'active', now(), now(), now() + interval '30 days', NULL,
                 now() + interval '60 days', $2, $3
              )",
-            vec![key_id.into(), secret.into(), tenant_id.into()],
+            vec![key_id.into(), secret.clone().into(), tenant_id.into()],
         ))
         .await
         .expect("insert legacy encrypted key fixture");
@@ -196,6 +211,45 @@ async fn extracts_backfills_constrains_and_refuses_kek_version_rollback() {
         .expect_err("KEK version extraction is irreversible");
     assert!(error.to_string().contains("irreversible:"));
     assert_eq!(stored_version(&database, key_id).await, 42);
+
+    Migrator::up(&database, Some(1))
+        .await
+        .expect("purge the legacy JSON KEK version");
+    let purged_secret = stored_secret(&database, key_id).await;
+    assert!(purged_secret.get("key_version").is_none());
+    assert_eq!(purged_secret["nonce"], secret["nonce"]);
+    assert_eq!(purged_secret["ciphertext"], secret["ciphertext"]);
+    assert_eq!(stored_version(&database, key_id).await, 42);
+
+    database
+        .execute_raw(Statement::from_sql_and_values(
+            DatabaseBackend::Postgres,
+            "DELETE FROM seaql_migrations WHERE version = $1",
+            [PURGE_MIGRATION_VERSION.into()],
+        ))
+        .await
+        .expect("simulate an unrecorded purge for idempotence check");
+    Migrator::up(&database, Some(1))
+        .await
+        .expect("repeat JSON KEK version purge idempotently");
+    assert!(
+        stored_secret(&database, key_id)
+            .await
+            .get("key_version")
+            .is_none()
+    );
+
+    let error = Migrator::down(&database, Some(1))
+        .await
+        .expect_err("JSON KEK version purge is backup-only");
+    assert!(error.to_string().contains("irreversible:"));
+    assert_eq!(stored_version(&database, key_id).await, 42);
+    assert!(
+        stored_secret(&database, key_id)
+            .await
+            .get("key_version")
+            .is_none()
+    );
 
     database.close().await.expect("close migration connection");
 }
