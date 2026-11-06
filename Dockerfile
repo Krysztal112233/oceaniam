@@ -4,6 +4,7 @@
 
 FROM docker.io/library/rust:slim-trixie AS backend-builder
 WORKDIR /builder
+COPY rust-toolchain.toml ./
 RUN apt update && apt install build-essential curl wget file libssl-dev pkg-config -y
 COPY backend/ .
 RUN cargo build --all -r
@@ -17,25 +18,14 @@ RUN apt-get update && \
 
 FROM base AS backend
 COPY --from=backend-builder /builder/target/release/oceaniam /app/
-# Required runtime env: OCEANIAM_MASTER_KEY and the Application Secret HMAC keyring
-# (for example OCEANIAM_APPLICATION_SECRET_HMAC__CURRENT_VERSION=1 and
-# OCEANIAM_APPLICATION_SECRET_HMAC__KEYS=1:<64-char hex>). Generate each key independently with:
-# openssl rand -hex 32
-CMD [ "./oceaniam" ]
-
-FROM base AS worker
 COPY --from=backend-builder /builder/target/release/oceaniam-worker /app/
-# Required runtime env: OCEANIAM_MASTER_KEY (64-char hex, 32 bytes)
-# Generate with: openssl rand -hex 32
-CMD [ "./oceaniam-worker" ]
-
-FROM base AS migration
 COPY --from=backend-builder /builder/target/release/migration /app/
+# Select ./oceaniam, ./oceaniam-worker, or ./migration in the container command.
 # Required env: OCEANIAM_MASTER_KEY and OCEANIAM_APPLICATION_SECRET_HMAC__KEYS.
 # The comma-separated version:hex list must include version 1 with the same key used by the runtime.
 # Generate each key independently with:
 # openssl rand -hex 32
-CMD [ "./migration" ]
+CMD [ "./oceaniam" ]
 
 ####################
 # FRONTEND BUILDER #

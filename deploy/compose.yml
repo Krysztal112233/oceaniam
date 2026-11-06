@@ -15,7 +15,8 @@ services:
       retries: 5
 
   backend-migration:
-    image: ghcr.io/krysztal112233/oceaniam-migration:${OCEANIAM_TAG:-latest}
+    image: ghcr.io/krysztal112233/oceaniam-backend:${OCEANIAM_TAG:-latest}
+    command: ["./migration"]
     restart: "no"
     env_file: .env
     depends_on:
@@ -33,7 +34,8 @@ services:
         condition: service_healthy
 
   worker:
-    image: ghcr.io/krysztal112233/oceaniam-worker:${OCEANIAM_TAG:-latest}
+    image: ghcr.io/krysztal112233/oceaniam-backend:${OCEANIAM_TAG:-latest}
+    command: ["./oceaniam-worker"]
     restart: unless-stopped
     env_file: .env
     depends_on:

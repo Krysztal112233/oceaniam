@@ -22,11 +22,12 @@ services:
       retries: 5
 
   backend-migration:
-    image: ghcr.io/krysztal112233/oceaniam-migration:latest
+    image: ghcr.io/krysztal112233/oceaniam-backend:latest
     build:
       context: ./
       dockerfile: Dockerfile
-      target: migration
+      target: backend
+    command: ["./migration"]
     restart: "no"
     env_file:
       - .env
@@ -50,11 +51,12 @@ services:
         condition: service_healthy
 
   worker:
-    image: ghcr.io/krysztal112233/oceaniam-worker:latest
+    image: ghcr.io/krysztal112233/oceaniam-backend:latest
     build:
       context: ./
       dockerfile: Dockerfile
-      target: worker
+      target: backend
+    command: ["./oceaniam-worker"]
     restart: unless-stopped
     env_file:
       - .env
