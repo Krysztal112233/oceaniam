@@ -183,17 +183,6 @@ async fn health_check_kek(
             msg: format!("failed to deserialize `SecretField`: {e}"),
             location: snafu::location!(),
         })?;
-    if field.key_version != kek_version {
-        return Err(Error::Internal {
-            msg: format!(
-                "KEK version mismatch: database column is {kek_version}, but legacy secret mirror \
-                 is {}",
-                field.key_version
-            ),
-            location: snafu::location!(),
-        });
-    }
-
     let blob = oceaniam_common::crypto::EncryptedBlob {
         nonce: B64
             .decode(&field.nonce)

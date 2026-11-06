@@ -66,25 +66,23 @@ async fn isolated_database() -> (TestSchema, DatabaseConnection) {
     (TestSchema { base_dsn, name }, database)
 }
 
-async fn stored_version(database: &DatabaseConnection, key_id: Uuid) -> (i32, serde_json::Value) {
-    let row = database
+async fn stored_version(database: &DatabaseConnection, key_id: Uuid) -> i32 {
+    database
         .query_one_raw(Statement::from_sql_and_values(
             DatabaseBackend::Postgres,
-            "SELECT kek_version, secret FROM key_boxes WHERE id = $1",
+            "SELECT kek_version FROM key_boxes WHERE id = $1",
             [key_id.into()],
         ))
         .await
         .expect("read extracted KEK version")
-        .expect("key box row");
-    (
-        row.try_get("", "kek_version").expect("KEK version column"),
-        row.try_get("", "secret").expect("secret JSON"),
-    )
+        .expect("key box row")
+        .try_get("", "kek_version")
+        .expect("KEK version column")
 }
 
 // NOTE: AI-generated test
 #[tokio::test]
-async fn extracts_backfills_constrains_and_reverses_kek_version() {
+async fn extracts_backfills_constrains_and_refuses_kek_version_rollback() {
     dotenvy::dotenv().ok();
 
     // SAFETY: this integration-test binary has one test and uses deterministic test-only keys.
@@ -140,9 +138,7 @@ async fn extracts_backfills_constrains_and_reverses_kek_version() {
     Migrator::up(&database, Some(1))
         .await
         .expect("extract KEK version");
-    let (version, mirrored_secret) = stored_version(&database, key_id).await;
-    assert_eq!(version, 42);
-    assert_eq!(mirrored_secret["key_version"], 42);
+    assert_eq!(stored_version(&database, key_id).await, 42);
 
     let nullability: String = database
         .query_one_raw(Statement::from_string(
@@ -192,41 +188,14 @@ async fn extracts_backfills_constrains_and_reverses_kek_version() {
     Migrator::up(&database, Some(1))
         .await
         .expect("repeat KEK version extraction idempotently");
-    assert_eq!(stored_version(&database, key_id).await.0, 42);
+    assert_eq!(stored_version(&database, key_id).await, 42);
 
-    Migrator::down(&database, Some(1))
+    // The owner selects backup-only even though SQL could reconstruct the legacy JSON field.
+    let error = Migrator::down(&database, Some(1))
         .await
-        .expect("reverse KEK version extraction");
-    let column_count: i64 = database
-        .query_one_raw(Statement::from_string(
-            DatabaseBackend::Postgres,
-            "SELECT count(*) AS count FROM information_schema.columns
-             WHERE table_schema = current_schema()
-             AND table_name = 'key_boxes' AND column_name = 'kek_version'",
-        ))
-        .await
-        .expect("check dropped KEK version column")
-        .expect("column count row")
-        .try_get("", "count")
-        .expect("decode column count");
-    assert_eq!(column_count, 0);
-    let secret_after_down: serde_json::Value = database
-        .query_one_raw(Statement::from_sql_and_values(
-            DatabaseBackend::Postgres,
-            "SELECT secret FROM key_boxes WHERE id = $1",
-            [key_id.into()],
-        ))
-        .await
-        .expect("read secret after down")
-        .expect("key box row after down")
-        .try_get("", "secret")
-        .expect("decode secret after down");
-    assert_eq!(secret_after_down["key_version"], 42);
-
-    Migrator::up(&database, Some(1))
-        .await
-        .expect("reapply KEK version extraction after down");
-    assert_eq!(stored_version(&database, key_id).await.0, 42);
+        .expect_err("KEK version extraction is irreversible");
+    assert!(error.to_string().contains("irreversible:"));
+    assert_eq!(stored_version(&database, key_id).await, 42);
 
     database.close().await.expect("close migration connection");
 }

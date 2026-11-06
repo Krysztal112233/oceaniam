@@ -135,8 +135,8 @@ async fn ps512_only_fleet_converges_to_rs256_through_rotation() {
         .expect("read tenant keys");
     assert!(
         keys.iter()
-            .all(|key| { key.kek_version == 1 && key.secret["key_version"] == 1 }),
-        "persisted signing keys must carry matching authoritative and legacy KEK versions"
+            .all(|key| key.kek_version == 1 && key.secret.get("key_version").is_none()),
+        "persisted signing keys must use the column without a JSON KEK version mirror"
     );
     let active = keys
         .iter()

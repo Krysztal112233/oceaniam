@@ -102,7 +102,6 @@ async fn rsa_material_traces_preserve_context_without_leaking_secrets() {
         secret: serde_json::to_value(SecretField {
             nonce: B64.encode(invalid_blob.nonce),
             ciphertext: B64.encode(invalid_blob.ciphertext),
-            key_version: invalid_blob.key_version,
         })
         .expect("serialize malformed encrypted secret"),
     };

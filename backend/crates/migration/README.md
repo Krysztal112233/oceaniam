@@ -91,6 +91,16 @@ Rolling back through any of these requires restoring from a backup.
 - `m20260726_142405_hash_application_secrets` — one-way HMAC hashing of stored
   application secrets cannot be reversed.
 
+### Backup-only by policy
+
+- `m20261104_111941_extract_key_box_kek_version` — the owner approved a down-side
+  policy exception on 2026-11-06. SQL could reconstruct the legacy JSON field, but
+  `down.sql` was removed to avoid maintaining that rollback format; `down()` returns
+  an `irreversible:` policy marker. Apply this migration in a maintenance window:
+  stop all old backend/worker writers, take a backup, migrate, and start the new
+  release. The earlier rolling-deployment comment in `up.sql` is superseded; JSON
+  `key_version` is only legacy migration input. Rollback requires that backup.
+
 ## Backup & restore (production rollback)
 
 Take a snapshot **before every upgrade**:

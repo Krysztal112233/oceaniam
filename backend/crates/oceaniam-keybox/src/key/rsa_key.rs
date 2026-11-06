@@ -110,17 +110,13 @@ impl TryIntoJwk for RsaKey {
     }
 }
 
+/// Encrypted RSA payload; KEK routing metadata lives in `key_boxes.kek_version`.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SecretField {
     /// base64-encoded 24-byte XChaCha20 nonce.
     pub nonce: String,
     /// base64-encoded ciphertext (encrypted PKCS#8 PEM + Poly1305 tag).
     pub ciphertext: String,
-    /// Legacy compatibility mirror of `key_boxes.kek_version`.
-    ///
-    /// The database column is authoritative; unsealing rejects a mismatch. This field remains
-    /// during the rolling-deployment window so older binaries can still read newly written rows.
-    pub key_version: u32,
 }
 
 impl SecretField {
@@ -139,7 +135,6 @@ impl SecretField {
         Ok(Self {
             nonce: B64.encode(blob.nonce),
             ciphertext: B64.encode(&blob.ciphertext),
-            key_version: blob.key_version,
         })
     }
 }
@@ -161,17 +156,6 @@ impl FromSecretField for RsaKey {
         use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
 
         let field: SecretField = serde_json::from_value(value)?;
-        if field.key_version != kek_version {
-            return Err(Error::Internal {
-                msg: format!(
-                    "KEK version mismatch: database column is {kek_version}, but legacy secret \
-                     mirror is {}",
-                    field.key_version
-                ),
-                location: snafu::location!(),
-            });
-        }
-
         let nonce: [u8; 24] = B64
             .decode(&field.nonce)
             .map_err(|e| Error::Internal {
@@ -212,13 +196,14 @@ impl TryIntoKeyModel for RsaKey {
         now: chrono::DateTime<chrono::FixedOffset>,
     ) -> Result<oceaniam_database::model::key_boxes::Model, Error> {
         let secret = SecretField::from_rsa_private(self.private, master_key)?;
-        let kek_version = i32::try_from(secret.key_version).map_err(|_| Error::Internal {
-            msg: format!(
-                "KEK version {} does not fit the database integer column",
-                secret.key_version
-            ),
-            location: snafu::location!(),
-        })?;
+        let kek_version =
+            i32::try_from(consts::KEK_VERSION_CURRENT).map_err(|_| Error::Internal {
+                msg: format!(
+                    "KEK version {} does not fit the database integer column",
+                    consts::KEK_VERSION_CURRENT
+                ),
+                location: snafu::location!(),
+            })?;
         let secret = serde_json::to_value(secret)?;
 
         let status = compute_key_status(&now, &activated_at, &retired_at, &expires_at);
@@ -283,12 +268,11 @@ impl RsaKey {
         } = self;
 
         let secret = SecretField::from_rsa_private(secret, master_key)?;
-        let kek_version = secret.key_version;
 
         Ok(RawKey {
             key_id: id,
             key_alg,
-            kek_version,
+            kek_version: consts::KEK_VERSION_CURRENT,
             secret: serde_json::to_value(secret)?,
         })
     }
@@ -465,7 +449,7 @@ mod tests {
 
     // NOTE: AI-generated test
     #[test]
-    fn raw_key_kek_version_is_one_and_mirrors_legacy_secret() {
+    fn raw_key_uses_current_kek_version_without_json_mirror() {
         let mk =
             MasterKey::from_hex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
                 .unwrap();
@@ -473,22 +457,7 @@ mod tests {
         let raw = key.into_raw_key(&mk).unwrap();
 
         assert_eq!(raw.kek_version, 1);
-        let secret: SecretField = serde_json::from_value(raw.secret).unwrap();
-        assert_eq!(secret.key_version, 1);
-    }
-
-    // NOTE: AI-generated test
-    #[test]
-    fn unseal_rejects_legacy_mirror_that_disagrees_with_column_version() {
-        let mk =
-            MasterKey::from_hex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
-                .unwrap();
-        let key = RsaKey::new(Uuid::now_v7(), KeyAlg::try_from(Algorithm::RS512).unwrap());
-        let mut raw = key.into_raw_key(&mk).unwrap();
-        raw.secret["key_version"] = Value::from(2);
-
-        let error = RsaKey::from_raw_key(raw, &mk).unwrap_err();
-        assert!(error.to_string().contains("KEK version mismatch"));
+        assert!(raw.secret.get("key_version").is_none());
     }
 
     // NOTE: AI-generated test
@@ -749,7 +718,7 @@ mod tests {
                     ciphertext: B64
                         .decode(field.ciphertext)
                         .expect("decode fixture ciphertext"),
-                    key_version: field.key_version,
+                    key_version: raw.kek_version,
                 })
                 .expect("decrypt fixture plaintext"),
         );
@@ -819,7 +788,7 @@ mod tests {
                 .decrypt(&EncryptedBlob {
                     nonce,
                     ciphertext: B64.decode(field.ciphertext).expect("decode ciphertext"),
-                    key_version: field.key_version,
+                    key_version: raw.kek_version,
                 })
                 .expect("decrypt generated key"),
         );
