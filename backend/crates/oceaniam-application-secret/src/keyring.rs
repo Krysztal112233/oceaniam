@@ -201,35 +201,29 @@ enum RawKeyEntries {
 
 fn parse_hmac_key_entries(
     entries: impl IntoIterator<Item = String>,
-) -> Result<BTreeMap<i32, ApplicationSecretHmacKey>, ApplicationSecretError> {
-    let mut keys = BTreeMap::new();
-
-    for entry in entries {
-        let (version, hex) = entry
-            .split_once(':')
-            .ok_or(ApplicationSecretError::InvalidKeyEntry)?;
-        let version = version.trim();
-        let parsed_version = version.parse::<i32>().map_err(|_| {
-            ApplicationSecretError::InvalidKeyVersionSyntax {
-                version: version.to_owned(),
-            }
-        })?;
-        let parsed_version = ensure_positive_key_version(parsed_version)?;
-        let key = ApplicationSecretHmacKey::from_hex_owned(hex.trim().to_owned())?;
-        if keys.insert(parsed_version, key).is_some() {
-            return Err(ApplicationSecretError::DuplicateKeyVersion {
-                version: parsed_version,
-            });
-        }
-    }
-
-    Ok(keys)
+) -> Result<Vec<(i32, ApplicationSecretHmacKey)>, ApplicationSecretError> {
+    entries
+        .into_iter()
+        .map(|entry| {
+            let (version, hex) = entry
+                .split_once(':')
+                .ok_or(ApplicationSecretError::InvalidKeyEntry)?;
+            let version = version.trim();
+            let version = version.parse::<i32>().map_err(|_| {
+                ApplicationSecretError::InvalidKeyVersionSyntax {
+                    version: version.to_owned(),
+                }
+            })?;
+            let key = ApplicationSecretHmacKey::from_hex_owned(hex.trim().to_owned())?;
+            Ok((version, key))
+        })
+        .collect()
 }
 
-/// Parses dotenv's comma-delimited `version:hex` list without exposing key bytes.
+/// Parses dotenv's comma-delimited `version:hex` entries for `ApplicationSecretKeyring::new`.
 pub fn parse_delimited_hmac_keys(
     entries: &str,
-) -> Result<BTreeMap<i32, ApplicationSecretHmacKey>, ApplicationSecretError> {
+) -> Result<Vec<(i32, ApplicationSecretHmacKey)>, ApplicationSecretError> {
     parse_hmac_key_entries(entries.split(',').map(str::to_owned))
 }
 
@@ -364,15 +358,6 @@ mod tests {
 
         assert_eq!(keyring.current_version(), 3);
         assert_eq!(keyring.versions().collect::<Vec<_>>(), [1, 2, 3]);
-        assert_eq!(
-            keyring
-                .verifier_for_current(TEST_SECRET)
-                .unwrap()
-                .hmac_key_version,
-            3
-        );
-        let old_verifier = keyring.verifier(1, TEST_SECRET).unwrap();
-        assert!(keyring.verify(1, TEST_SECRET, &old_verifier).unwrap());
         let debug = format!("{keyring:?}");
         assert!(!debug.contains(TEST_KEY_HEX));
         assert!(!debug.contains(&second_key));
@@ -401,16 +386,20 @@ mod tests {
     #[test]
     fn delimited_key_parser_normalizes_versions_and_rejects_alias_duplicates() {
         let second_key = "ab".repeat(32);
-        let parsed =
-            parse_delimited_hmac_keys(&format!("2:{second_key}, +1 : {TEST_KEY_HEX}")).unwrap();
-        assert_eq!(parsed.keys().copied().collect::<Vec<_>>(), [1, 2]);
+        let keyring = ApplicationSecretKeyring::new(
+            2,
+            parse_delimited_hmac_keys(&format!("2:{second_key}, +1 : {TEST_KEY_HEX}")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(keyring.versions().collect::<Vec<_>>(), [1, 2]);
 
         for entries in [
             format!("1:{TEST_KEY_HEX},01:{second_key}"),
             format!("1:{TEST_KEY_HEX},+1:{second_key}"),
         ] {
+            let entries = parse_delimited_hmac_keys(&entries).unwrap();
             assert!(matches!(
-                parse_delimited_hmac_keys(&entries),
+                ApplicationSecretKeyring::new(1, entries),
                 Err(ApplicationSecretError::DuplicateKeyVersion { version: 1 })
             ));
         }

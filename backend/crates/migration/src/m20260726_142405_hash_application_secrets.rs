@@ -29,15 +29,9 @@ impl MigrationTrait for Migration {
                 "environment variable {HMAC_KEYS_ENV_VAR} is required for this migration"
             ))
         })?);
-        let mut keys = parse_delimited_hmac_keys(&entries)
+        let keyring = parse_delimited_hmac_keys(&entries)
+            .and_then(|keys| ApplicationSecretKeyring::new(HMAC_KEY_VERSION_V1, keys))
             .map_err(|error| DbErr::Custom(format!("invalid {HMAC_KEYS_ENV_VAR}: {error}")))?;
-        let key = keys.remove(&HMAC_KEY_VERSION_V1).ok_or_else(|| {
-            DbErr::Custom(format!(
-                "invalid {HMAC_KEYS_ENV_VAR}: HMAC key version 1 is required"
-            ))
-        })?;
-        let keyring = ApplicationSecretKeyring::new(HMAC_KEY_VERSION_V1, [(1, key)])
-            .map_err(|error| DbErr::Custom(error.to_string()))?;
 
         let has_plaintext = manager.has_column("application_secrets", "secret").await?;
         let connection = manager.get_connection();
