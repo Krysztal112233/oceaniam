@@ -273,8 +273,8 @@ fn ensure_test_config_env() {
             std::env::set_var("OCEANIAM_MASTER_KEY", TEST_MASTER_KEY_HEX);
             std::env::set_var("OCEANIAM_APPLICATION_SECRET_HMAC__CURRENT_VERSION", "1");
             std::env::set_var(
-                "OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__1",
-                TEST_APPLICATION_SECRET_HMAC_KEY_HEX,
+                "OCEANIAM_APPLICATION_SECRET_HMAC__KEYS",
+                format!("1:{TEST_APPLICATION_SECRET_HMAC_KEY_HEX}"),
             );
             if std::env::var_os("OCEANIAM_DATABASE__DSN").is_none() {
                 std::env::set_var(

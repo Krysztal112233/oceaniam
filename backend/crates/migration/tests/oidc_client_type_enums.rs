@@ -127,8 +127,8 @@ async fn oidc_client_enum_migration_preserves_existing_rows_and_rolls_back() {
         std::env::set_var("MIGRATION_DEFAULT_ROOT_PASSWORD", "migration-test-password");
         std::env::set_var("OCEANIAM_APPLICATION_SECRET_HMAC__CURRENT_VERSION", "1");
         std::env::set_var(
-            "OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__1",
-            TEST_HMAC_KEY_HEX,
+            "OCEANIAM_APPLICATION_SECRET_HMAC__KEYS",
+            format!("1:{TEST_HMAC_KEY_HEX}"),
         );
     }
 

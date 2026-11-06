@@ -8,7 +8,7 @@ use uuid::Uuid;
 const TEST_MASTER_KEY_HEX: &str =
     "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 const TEST_HMAC_KEY_HEX: &str = "89abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234567";
-const HMAC_KEY_ENV: &str = "OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__1";
+const HMAC_KEY_ENV: &str = "OCEANIAM_APPLICATION_SECRET_HMAC__KEYS";
 const LEGACY_SECRET: &str = "app_01234567890123456789012345678901";
 const SECOND_LEGACY_SECRET: &str = "app_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 const MIGRATION_VERSION: &str = "m20260726_142405_hash_application_secrets";
@@ -176,7 +176,7 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
     assert_legacy_schema_intact(&database, &[LEGACY_SECRET]).await;
 
     // SAFETY: sequential within this single test.
-    unsafe { std::env::set_var(HMAC_KEY_ENV, "00") };
+    unsafe { std::env::set_var(HMAC_KEY_ENV, "1:00") };
     let invalid_key = Migrator::up(&database, Some(1)).await.unwrap_err();
     assert!(invalid_key.to_string().contains("invalid"));
     assert_legacy_schema_intact(&database, &[LEGACY_SECRET]).await;
@@ -191,7 +191,7 @@ async fn migration_validates_inputs_rolls_back_and_is_idempotent() {
         .await
         .unwrap();
     // SAFETY: sequential within this single test.
-    unsafe { std::env::set_var(HMAC_KEY_ENV, TEST_HMAC_KEY_HEX) };
+    unsafe { std::env::set_var(HMAC_KEY_ENV, format!("1:{TEST_HMAC_KEY_HEX}")) };
     let malformed = Migrator::up(&database, Some(1)).await.unwrap_err();
     assert!(malformed.to_string().contains("invalid plaintext format"));
     assert_legacy_schema_intact(&database, &[LEGACY_SECRET, "malformed"]).await;

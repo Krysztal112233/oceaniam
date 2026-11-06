@@ -327,6 +327,7 @@ mod tests {
     const KNOWN_ENV_KEYS: &[&str] = &[
         "OCEANIAM_ADDR",
         "OCEANIAM_APPLICATION_SECRET_HMAC__CURRENT_VERSION",
+        "OCEANIAM_APPLICATION_SECRET_HMAC__KEYS",
         "OCEANIAM_COOKIE__SECURE",
         "OCEANIAM_CORS__ALLOW_ORIGIN",
         "OCEANIAM_DATABASE__DSN",
@@ -343,11 +344,8 @@ mod tests {
         "OCEANIAM_TELEMETRY__TRACE_SAMPLE_RATIO",
     ];
 
-    /// Dynamic key families (versioned keyrings and header maps).
-    const DYNAMIC_KEY_PREFIXES: &[&str] = &[
-        "OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__",
-        "OCEANIAM_TELEMETRY__OTLP_HEADERS__",
-    ];
+    /// Dynamic key families (header maps).
+    const DYNAMIC_KEY_PREFIXES: &[&str] = &["OCEANIAM_TELEMETRY__OTLP_HEADERS__"];
 
     /// Keys without built-in defaults: the example must set them actively.
     const REQUIRED_ENV_KEYS: &[&str] = &[
@@ -430,6 +428,46 @@ mod tests {
         }
     }
 
+    // NOTE: AI-generated test
+    #[test]
+    fn environment_parses_hmac_keys_as_a_versioned_list() {
+        #[derive(Deserialize)]
+        struct HmacOnlyConfig {
+            application_secret_hmac: ApplicationSecretKeyring,
+        }
+
+        const PREFIX: &str = "OCEANIAM_HMAC_LIST_TEST";
+        let current_key = format!("{PREFIX}_APPLICATION_SECRET_HMAC__CURRENT_VERSION");
+        let keys_key = format!("{PREFIX}_APPLICATION_SECRET_HMAC__KEYS");
+        let first = "ab".repeat(32);
+        let second = "cd".repeat(32);
+
+        // SAFETY: these uniquely prefixed variables are not shared with any other test.
+        unsafe {
+            std::env::set_var(&current_key, "2");
+            std::env::set_var(&keys_key, format!("1:{first}, 2:{second}"));
+        }
+        let parsed = Config::builder()
+            .add_source(
+                config::Environment::with_prefix(PREFIX)
+                    .prefix_separator("_")
+                    .separator("__")
+                    .list_separator(","),
+            )
+            .build()
+            .and_then(|config| config.try_deserialize::<HmacOnlyConfig>());
+        // SAFETY: cleanup is limited to this test's unique variables.
+        unsafe {
+            std::env::remove_var(&current_key);
+            std::env::remove_var(&keys_key);
+        }
+
+        let config = parsed.expect("deserialize HMAC key list from environment");
+        let keyring = config.application_secret_hmac;
+        assert_eq!(keyring.current_version(), 2);
+        assert_eq!(keyring.versions().collect::<Vec<_>>(), [1, 2]);
+    }
+
     #[test]
     fn env_example_values_deserialize_into_backend_config() {
         let mut body = String::new();
@@ -439,15 +477,25 @@ mod tests {
                 continue;
             }
 
-            // The example ships an empty placeholder for the HMAC keyring; the
-            // keyring deserializer validates eagerly, so substitute a valid key.
-            let value = if key.starts_with("OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__")
-                && value.is_empty()
-            {
-                "ab".repeat(32)
-            } else {
-                value
-            };
+            if key == "OCEANIAM_APPLICATION_SECRET_HMAC__KEYS" {
+                let value = if value.is_empty() {
+                    format!("1:{}", "ab".repeat(32))
+                } else {
+                    value
+                };
+                let entries = value
+                    .split(',')
+                    .map(|entry| {
+                        format!(
+                            "\"{}\"",
+                            entry.trim().replace('\\', "\\\\").replace('"', "\\\"")
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",");
+                body.push_str(&format!("application_secret_hmac.keys = [{entries}]\n"));
+                continue;
+            }
 
             let rendered = if value.parse::<bool>().is_ok() || value.parse::<f64>().is_ok() {
                 value

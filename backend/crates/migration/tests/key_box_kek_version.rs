@@ -91,8 +91,8 @@ async fn extracts_backfills_constrains_and_reverses_kek_version() {
     unsafe {
         std::env::set_var("OCEANIAM_MASTER_KEY", TEST_MASTER_KEY_HEX);
         std::env::set_var(
-            "OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__1",
-            TEST_HMAC_KEY_HEX,
+            "OCEANIAM_APPLICATION_SECRET_HMAC__KEYS",
+            format!("1:{TEST_HMAC_KEY_HEX}"),
         );
         std::env::set_var("MIGRATION_DEFAULT_ROOT_PASSWORD", "migration-test-password");
     }

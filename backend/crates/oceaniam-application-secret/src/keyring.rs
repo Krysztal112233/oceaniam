@@ -171,7 +171,15 @@ impl fmt::Debug for ApplicationSecretKeyring {
 #[derive(Deserialize)]
 struct RawKeyring {
     current_version: i32,
-    keys: BTreeMap<String, String>,
+    keys: RawKeyEntries,
+}
+
+/// Accept structured arrays and dotenv's comma-delimited string.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum RawKeyEntries {
+    List(Vec<String>),
+    Delimited(String),
 }
 
 impl<'de> Deserialize<'de> for ApplicationSecretKeyring {
@@ -180,9 +188,27 @@ impl<'de> Deserialize<'de> for ApplicationSecretKeyring {
         D: Deserializer<'de>,
     {
         let raw = RawKeyring::deserialize(deserializer)?;
-        let mut keys = Vec::with_capacity(raw.keys.len());
+        let parse_list = |entries: Vec<String>| -> Result<Vec<(String, String)>, D::Error> {
+            let mut parsed = Vec::with_capacity(entries.len());
+            for entry in entries {
+                let (version, hex) = entry.split_once(':').ok_or_else(|| {
+                    D::Error::custom(
+                        "invalid HMAC key entry; expected `version:hex` in the keys list",
+                    )
+                })?;
+                parsed.push((version.trim().to_owned(), hex.trim().to_owned()));
+            }
+            Ok(parsed)
+        };
+        let entries = match raw.keys {
+            RawKeyEntries::List(entries) => parse_list(entries)?,
+            RawKeyEntries::Delimited(entries) => {
+                parse_list(entries.split(',').map(str::to_owned).collect::<Vec<_>>())?
+            }
+        };
+        let mut keys = Vec::with_capacity(entries.len());
 
-        for (version, hex) in raw.keys {
+        for (version, hex) in entries {
             let version = version
                 .parse::<i32>()
                 .map_err(|_| D::Error::custom(format!("invalid HMAC key version `{version}`")))?;
@@ -276,12 +302,57 @@ mod tests {
     // NOTE: AI-generated test
     #[test]
     fn deserializes_versioned_keyring_without_debug_leakage() {
-        let json = format!(r#"{{"current_version":1,"keys":{{"1":"{TEST_KEY_HEX}"}}}}"#);
+        let json = format!(r#"{{"current_version":1,"keys":["1:{TEST_KEY_HEX}"]}}"#);
         let keyring: ApplicationSecretKeyring = serde_json::from_str(&json).unwrap();
         let debug = format!("{keyring:?}");
 
         assert_eq!(keyring.current_version(), 1);
         assert!(!debug.contains(TEST_KEY_HEX));
         assert!(debug.contains("versions"));
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn deserializes_versioned_key_list_with_explicit_sparse_versions() {
+        let second_key = "ab".repeat(32);
+        let third_key = "cd".repeat(32);
+        let json = format!(
+            r#"{{"current_version":3,"keys":["1:{TEST_KEY_HEX}", " 3 : {third_key} ","2:{second_key}"]}}"#
+        );
+        let keyring: ApplicationSecretKeyring = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(keyring.current_version(), 3);
+        assert_eq!(keyring.versions().collect::<Vec<_>>(), [1, 2, 3]);
+        assert_eq!(
+            keyring
+                .verifier_for_current(TEST_SECRET)
+                .unwrap()
+                .hmac_key_version,
+            3
+        );
+        let old_verifier = keyring.verifier(1, TEST_SECRET).unwrap();
+        assert!(keyring.verify(1, TEST_SECRET, &old_verifier).unwrap());
+        let debug = format!("{keyring:?}");
+        assert!(!debug.contains(TEST_KEY_HEX));
+        assert!(!debug.contains(&second_key));
+        assert!(!debug.contains(&third_key));
+    }
+
+    // NOTE: AI-generated test
+    #[test]
+    fn key_list_rejects_malformed_entries_and_duplicate_versions() {
+        let malformed = format!(r#"{{"current_version":1,"keys":["{TEST_KEY_HEX}"]}}"#);
+        let error = serde_json::from_str::<ApplicationSecretKeyring>(&malformed).unwrap_err();
+        assert!(error.to_string().contains("expected `version:hex`"));
+        assert!(!error.to_string().contains(TEST_KEY_HEX));
+
+        let duplicate = format!(
+            r#"{{"current_version":1,"keys":["1:{TEST_KEY_HEX}","1:{}"]}}"#,
+            "ab".repeat(32)
+        );
+        assert!(matches!(
+            serde_json::from_str::<ApplicationSecretKeyring>(&duplicate),
+            Err(error) if error.to_string().contains("duplicate")
+        ));
     }
 }

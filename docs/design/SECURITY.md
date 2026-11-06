@@ -44,8 +44,9 @@ input `oceaniam/application-secret/v1\0 || full_secret`. Authentication queries 
 records sharing the prefix and compares each verifier in constant time.
 
 Application Secret HMAC keys are independent from the system Master Key. Configuration contains a
-positive `current_version` and a version-to-key map; every key is a non-zero 32-byte value generated
-with `openssl rand -hex 32`. The service refuses to start when a non-revoked database record
+positive `current_version` and a comma-separated `version:hex` key list, which the runtime indexes
+as a version-to-key map; every key is a non-zero 32-byte value generated with `openssl rand -hex 32`.
+The service refuses to start when a non-revoked database record
 references a key version absent from configuration. Revoked rows are excluded from startup key
 validation because they cannot authenticate and do not need verifier upgrades.
 
@@ -58,5 +59,5 @@ effect across instances on the next request.
 The verifier-only migration requires a maintenance window: stop every old secret-writing backend,
 verify a restorable database backup, run the migration, and then deploy the verifier-aware runtime.
 Rollback means restoring that backup because plaintext cannot be reconstructed. The migration
-specifically reads `OCEANIAM_APPLICATION_SECRET_HMAC__KEYS__1`, even when runtime configuration
-comes from TOML, and that value must exactly match the runtime version-1 key.
+adapter extracts version 1 from `OCEANIAM_APPLICATION_SECRET_HMAC__KEYS` for the historical
+migration, and that value must exactly match the runtime version-1 key.
